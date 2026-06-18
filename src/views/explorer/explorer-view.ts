@@ -26,7 +26,7 @@ export class ExplorerView extends ItemView {
   private plugin: InkswellPlugin;
   private store: ProjectStore;
   private stats: ProjectStats;
-  private unsubinkswell: (() => void) | null = null;
+  private unsubscribe: (() => void) | null = null;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -53,12 +53,12 @@ export class ExplorerView extends ItemView {
   }
 
   async onOpen(): Promise<void> {
-    this.unsubinkswell = this.store.subinkswell(() => this.render());
+    this.unsubscribe = this.store.subscribe(() => this.render());
   }
 
   async onClose(): Promise<void> {
-    this.unsubinkswell?.();
-    this.unsubinkswell = null;
+    this.unsubscribe?.();
+    this.unsubscribe = null;
   }
 
   /** Public re-render hook (used after settings changes). */

@@ -19,6 +19,8 @@ Single Obsidian plugin (TypeScript + esbuild) that bundles a longform writer's s
 - **Project persistence:** rewrite ONLY the index note's frontmatter. NEVER mutate scene-file bodies — Longform's core invariant. Use the index writer in [src/projects/](src/projects/), not raw `vault.modify` on scenes.
 - **Longform compatibility is the premise.** Scene indentation serializes as nested YAML arrays (see `indentedScenesToArrays`/`arraysToIndentedScenes` ported from Longform). Don't invent a flatter encoding — it breaks drop-in compatibility. Inkswell-only data goes under a `inkswell:` sub-key, never inside `longform`.
 - **Word counting:** import the single counter in [src/lib/wordcount.ts](src/lib/wordcount.ts). Don't write ad-hoc counters — goals/sprints/compile must reconcile.
+- **Keep pure logic Obsidian-free.** Testable logic (compile assembly, goals math, revision-list ops) lives in modules with NO `obsidian` import (`assemble.ts`, `goals.ts`, `decisions.ts`); the `obsidian`-importing wrapper sits beside it. Tests can't import a module that pulls `obsidian` (no runtime in vitest).
+- **Views open in the main content area** (`workspace.getLeaf("tab")` in `activateView`), not the sidebar.
 - **External binaries (pandoc):** feature-detect and disable gracefully. Never assume presence; never crash on mobile.
 
 ## Key files
@@ -32,6 +34,7 @@ Single Obsidian plugin (TypeScript + esbuild) that bundles a longform writer's s
 | [src/goals/](src/goals/) | Pure streak/projection math + project-target modal |
 | [src/sprints/](src/sprints/) | Sprint timer/controller + start dialog |
 | [src/stats/](src/stats/) | Stats dashboard view (CSS bar chart, streaks, projections) |
+| [src/revisions/](src/revisions/) | Invisible-revision decision log: pure ops (decisions.ts), I/O, capture modal, panel |
 | [src/lib/wordcount.ts](src/lib/wordcount.ts) | Shared markdown-aware word counter |
 | [src/settings/](src/settings/) | Settings tab + typed settings model |
 

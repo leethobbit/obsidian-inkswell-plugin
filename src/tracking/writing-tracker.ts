@@ -4,7 +4,7 @@
  * On each markdown file modification it recomputes the file's word count and
  * attributes the *net* delta to today's entry in the writing log. Per-file
  * baselines persist across sessions (in data.json) so counting survives
- * restarts. Other features (goals, sprints, stats) read the log or subinkswell to
+ * restarts. Other features (goals, sprints, stats) read the log or subscribe to
  * deltas; this is the single place word-change is measured.
  */
 
@@ -38,13 +38,13 @@ export class WritingTracker extends Component {
     );
   }
 
-  /** Subinkswell to per-edit deltas (e.g. for live sprint counting). */
+  /** Subscribe to per-edit deltas (e.g. for live sprint counting). */
   onDelta(fn: DeltaListener): () => void {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);
   }
 
-  /** Subinkswell to "the log changed" (e.g. to refresh status bar / stats). */
+  /** Subscribe to "the log changed" (e.g. to refresh status bar / stats). */
   onChange(fn: () => void): () => void {
     this.changeListeners.add(fn);
     return () => this.changeListeners.delete(fn);

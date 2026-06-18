@@ -4,7 +4,7 @@
  * Projects are discovered by scanning Obsidian's in-memory metadata cache for
  * notes carrying a `longform` frontmatter key — never by walking the filesystem
  * directly. The store keeps itself current via vault + metadata-cache events and
- * notifies subinkswellrs (e.g. the explorer view) on any change.
+ * notifies subscribers (e.g. the explorer view) on any change.
  */
 
 import {
@@ -24,12 +24,12 @@ import {
   isMultiScene,
 } from "./types";
 
-type Subinkswellr = (projects: Project[]) => void;
+type Subscriber = (projects: Project[]) => void;
 
 export class ProjectStore extends Component {
   private app: App;
   private projects: Project[] = [];
-  private subinkswellrs = new Set<Subinkswellr>();
+  private subscribers = new Set<Subscriber>();
   private refreshQueued = false;
 
   constructor(app: App) {
@@ -59,11 +59,11 @@ export class ProjectStore extends Component {
     return this.projects.find((p) => p.vaultPath === indexPath);
   }
 
-  /** Subinkswell to project-list changes. Returns an unsubinkswell function. */
-  subinkswell(fn: Subinkswellr): () => void {
-    this.subinkswellrs.add(fn);
+  /** Subscribe to project-list changes. Returns an unsubscribe function. */
+  subscribe(fn: Subscriber): () => void {
+    this.subscribers.add(fn);
     fn(this.projects);
-    return () => this.subinkswellrs.delete(fn);
+    return () => this.subscribers.delete(fn);
   }
 
   /** Coalesce bursts of events into a single refresh on the next microtask. */
@@ -76,7 +76,7 @@ export class ProjectStore extends Component {
     });
   }
 
-  /** Rebuild the project list from the metadata cache and notify subinkswellrs. */
+  /** Rebuild the project list from the metadata cache and notify subscribers. */
   refresh(): void {
     const found: Project[] = [];
     for (const file of this.app.vault.getMarkdownFiles()) {
@@ -93,7 +93,7 @@ export class ProjectStore extends Component {
   }
 
   private notify(): void {
-    for (const fn of this.subinkswellrs) fn(this.projects);
+    for (const fn of this.subscribers) fn(this.projects);
   }
 
   private buildProject(

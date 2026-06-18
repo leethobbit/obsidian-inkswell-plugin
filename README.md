@@ -7,11 +7,11 @@ Inkswell leaves the writing to Obsidian and gives you everything *around* the wr
 - **Projects & scenes** — organise a novel into ordered, nestable scenes with a dedicated sidebar. Compatible with existing [Longform](https://github.com/kevboh/longform) projects (reads and writes the same `longform` frontmatter).
 - **Compile** — a configurable pipeline that turns your scenes into a finished manuscript (Markdown / HTML built in; `.docx`/`.pdf` via pandoc when installed).
 - **Goals & sprints** — daily and project word goals, timed writing sprints with live word counts, status-bar progress, and a stats dashboard (30-day chart, streaks, target projections).
-- **Invisible-revision log** *(planned)* — capture "from now on, assume X" decisions while fast-drafting and keep writing forward, then work the list during your revision pass. Based on the Writing Mastery Academy method.
+- **Invisible-revision log** — capture "from now on, assume X" decisions while fast-drafting and keep writing forward, then work the list during your revision pass. Based on the Writing Mastery Academy method.
 
 ## Status
 
-Active development. Phases 1 (projects + compile) and 2 (goals + sprints + stats) are implemented; Phase 3 (revision log) and Phase 4 (Save the Cat outliner) are next. See [AGENTS.md](AGENTS.md) for architecture and contribution conventions.
+Active development. Phases 1 (projects + compile), 2 (goals + sprints + stats), and 3 (revision log) are implemented. Plugin views open as tabs in the main content area. See [AGENTS.md](AGENTS.md) for architecture and contribution conventions.
 
 ## Development
 

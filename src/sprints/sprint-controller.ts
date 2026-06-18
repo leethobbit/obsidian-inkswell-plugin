@@ -2,7 +2,7 @@
  * Writing-sprint controller: a countdown over which net words written are
  * tallied live (via WritingTracker deltas), then recorded to the sprint log.
  *
- * UI (status bar) subinkswells via onUpdate to redraw the countdown and live count.
+ * UI (status bar) subscribes via onUpdate to redraw the countdown and live count.
  */
 
 import { Component, Notice } from "obsidian";
@@ -33,7 +33,7 @@ export class SprintController extends Component {
     this.persist = persist;
   }
 
-  /** Subinkswell to tick / word-count updates for live UI. */
+  /** Subscribe to tick / word-count updates for live UI. */
   onUpdate(fn: () => void): () => void {
     this.uiListeners.add(fn);
     return () => this.uiListeners.delete(fn);

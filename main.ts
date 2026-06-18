@@ -15,6 +15,11 @@ import { TargetModal } from "./src/goals/target-modal";
 import { ProjectStats } from "./src/projects/project-stats";
 import { ProjectStore } from "./src/projects/project-store";
 import { Project } from "./src/projects/types";
+import { RevisionModal } from "./src/revisions/revision-modal";
+import {
+  RevisionView,
+  VIEW_TYPE_INKSWELL_REVISIONS,
+} from "./src/revisions/revision-view";
 import {
   DEFAULT_SETTINGS,
   InkswellSettings,
@@ -60,6 +65,10 @@ export default class InkswellPlugin extends Plugin {
     this.registerView(
       VIEW_TYPE_INKSWELL_STATS,
       (leaf) => new StatsView(leaf, this, this.tracker, this.store, this.stats)
+    );
+    this.registerView(
+      VIEW_TYPE_INKSWELL_REVISIONS,
+      (leaf) => new RevisionView(leaf, this, this.store)
     );
 
     this.addRibbonIcon("pen-tool", "Inkswell projects", () =>
@@ -128,6 +137,44 @@ export default class InkswellPlugin extends Plugin {
       name: "Set word target for the active project",
       callback: () => this.withActiveProject((p) => new TargetModal(this.app, p).open()),
     });
+    this.addCommand({
+      id: "log-revision",
+      name: "Log a revision decision",
+      editorCallback: (editor, ctx) => {
+        const file = ctx.file;
+        if (!file) return;
+        const project = this.projectForPath(file.path);
+        if (!project) {
+          new Notice("The active file isn't part of an Inkswell project.");
+          return;
+        }
+        const scene = project.scenes.find((s) => s.path === file.path)?.title ?? null;
+        new RevisionModal(this.app, project, scene, editor.getSelection()).open();
+      },
+    });
+    this.addCommand({
+      id: "open-revisions",
+      name: "Open revision log",
+      callback: async () => {
+        const active = this.app.workspace.getActiveFile();
+        const project = active ? this.projectForPath(active.path) : null;
+        await this.activateView(VIEW_TYPE_INKSWELL_REVISIONS);
+        if (project) {
+          for (const leaf of this.app.workspace.getLeavesOfType(
+            VIEW_TYPE_INKSWELL_REVISIONS
+          )) {
+            if (leaf.view instanceof RevisionView) leaf.view.focusProject(project.vaultPath);
+          }
+        }
+      },
+    });
+  }
+
+  /** The project whose index or a scene matches a vault path. */
+  private projectForPath(path: string): Project | undefined {
+    return this.store
+      .getProjects()
+      .find((p) => p.vaultPath === path || p.scenes.some((s) => s.path === path));
   }
 
   async loadPersisted(): Promise<void> {
@@ -156,12 +203,14 @@ export default class InkswellPlugin extends Plugin {
     this.statusBar?.render();
   }
 
+  /** Open (or reveal) a plugin view as a tab in the main content area. */
   async activateView(type: string): Promise<void> {
     const { workspace } = this.app;
     let leaf: WorkspaceLeaf | null = workspace.getLeavesOfType(type)[0] ?? null;
     if (!leaf) {
-      leaf = workspace.getRightLeaf(false);
-      await leaf?.setViewState({ type, active: true });
+      // Main content area (a new tab), not the sidebar.
+      leaf = workspace.getLeaf("tab");
+      await leaf.setViewState({ type, active: true });
     }
     if (leaf) workspace.revealLeaf(leaf);
   }
@@ -172,11 +221,7 @@ export default class InkswellPlugin extends Plugin {
       new Notice("No active file.");
       return;
     }
-    const project = this.store
-      .getProjects()
-      .find(
-        (p) => p.vaultPath === active.path || p.scenes.some((s) => s.path === active.path)
-      );
+    const project = this.projectForPath(active.path);
     if (!project) {
       new Notice("The active file isn't part of an Inkswell project.");
       return;
