@@ -3,8 +3,11 @@
  *
  * Projects are discovered by scanning Obsidian's in-memory metadata cache for
  * notes carrying a `longform` frontmatter key — never by walking the filesystem
- * directly. The store keeps itself current via vault + metadata-cache events and
- * notifies subscribers (e.g. the explorer view) on any change.
+ * directly. The cache is used only for cheap *detection*: the nested
+ * `longform.scenes` array is then re-parsed from the file's own frontmatter with
+ * `parseYaml`, because the metadata cache does not reliably expose deeply-nested
+ * frontmatter arrays (a flat-frontmatter design limitation). The store keeps
+ * itself current via vault + metadata-cache events and notifies subscribers.
  */
 
 import {
@@ -31,6 +34,8 @@ export class ProjectStore extends Component {
   private projects: Project[] = [];
   private subscribers = new Set<Subscriber>();
   private refreshQueued = false;
+  private refreshing = false;
+  private rerun = false;
 
   constructor(app: App) {
     super();
@@ -76,20 +81,64 @@ export class ProjectStore extends Component {
     });
   }
 
-  /** Rebuild the project list from the metadata cache and notify subscribers. */
+  /** Trigger a rebuild of the project list (runs asynchronously). */
   refresh(): void {
-    const found: Project[] = [];
-    for (const file of this.app.vault.getMarkdownFiles()) {
-      const cache = this.app.metadataCache.getFileCache(file);
-      const longform = cache?.frontmatter?.["longform"];
-      if (!longform) continue;
-      const draft = parseDraft(longform, file.basename);
-      if (!draft) continue;
-      found.push(this.buildProject(file, draft, cache?.frontmatter?.["inkswell"]));
+    void this.doRefresh();
+  }
+
+  /**
+   * Rebuild the project list. Detection is cheap (metadata cache), but the
+   * `longform` block — especially the nested `scenes` array — is re-parsed from
+   * each candidate's own frontmatter. An in-flight guard coalesces overlapping
+   * refreshes so the last request always wins.
+   */
+  private async doRefresh(): Promise<void> {
+    if (this.refreshing) {
+      this.rerun = true;
+      return;
     }
-    found.sort((a, b) => a.draft.title.localeCompare(b.draft.title));
-    this.projects = found;
-    this.notify();
+    this.refreshing = true;
+    try {
+      const found: Project[] = [];
+      for (const file of this.app.vault.getMarkdownFiles()) {
+        const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
+        if (!fm || !("longform" in fm)) continue; // cheap detection only
+        const parsed = await this.readFrontmatter(file);
+        const longform = parsed?.["longform"] ?? fm["longform"];
+        if (!longform) continue;
+        const draft = parseDraft(longform, file.basename);
+        if (!draft) continue;
+        found.push(
+          this.buildProject(file, draft, parsed?.["inkswell"] ?? fm["inkswell"])
+        );
+      }
+      found.sort((a, b) => a.draft.title.localeCompare(b.draft.title));
+      this.projects = found;
+      this.notify();
+    } finally {
+      this.refreshing = false;
+      if (this.rerun) {
+        this.rerun = false;
+        void this.doRefresh();
+      }
+    }
+  }
+
+  /** Read and YAML-parse a note's frontmatter block (reliable for nested data). */
+  private async readFrontmatter(
+    file: TFile
+  ): Promise<Record<string, any> | null> {
+    try {
+      const text = await this.app.vault.cachedRead(file);
+      const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+      if (!m) return null;
+      const parsed = parseYaml(m[1]);
+      return parsed && typeof parsed === "object"
+        ? (parsed as Record<string, any>)
+        : null;
+    } catch {
+      return null;
+    }
   }
 
   private notify(): void {
