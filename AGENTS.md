@@ -67,8 +67,9 @@ Cut `1.0.0` only once the Longform-compatible frontmatter format is stable enoug
 ### Bumping a version (in order)
 1. `npm version <patch|minor|major> --no-git-tag-version` — bumps `package.json` and runs `version-bump.mjs`, which syncs `manifest.json` + `versions.json` and stages them.
 2. Confirm the three files agree on the new number.
-3. `git commit -am "vX.Y.Z: <summary>"` (include the Co-authored-by trailer).
-4. `git tag vX.Y.Z`.
+3. `npm run build` — REQUIRED after the bump so auto-deploy copies the new `manifest.json` to the vault. Skipping this leaves the installed plugin on the old version. (Reload Obsidian to pick it up.)
+4. `git add -A && git commit -m "vX.Y.Z: <summary>"` (include the Co-authored-by trailer; `-A` so new files are caught).
+5. `git tag vX.Y.Z`.
 
 ## Gotchas
 1. **Scene indent encoding** — symptom: Longform stops recognizing a project after Inkswell edits it. Cause: serializing `scenes` as flat strings with indent ints instead of nested arrays. Fix: use the ported `indentedScenesToArrays`.
