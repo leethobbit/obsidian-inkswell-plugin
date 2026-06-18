@@ -5,6 +5,15 @@
   user-select: none;
 }
 
+.inkswell-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  padding: var(--size-4-1) 0;
+  margin-bottom: var(--size-4-2);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
 .inkswell-explorer__empty {
   color: var(--text-muted);
   font-size: var(--font-ui-small);

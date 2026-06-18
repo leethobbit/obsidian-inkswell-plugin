@@ -71,9 +71,7 @@ export default class InkswellPlugin extends Plugin {
       (leaf) => new RevisionView(leaf, this, this.store)
     );
 
-    this.addRibbonIcon("pen-tool", "Inkswell projects", () =>
-      this.activateView(VIEW_TYPE_INKSWELL_EXPLORER)
-    );
+    this.addRibbonIcon("pen-tool", "Inkswell projects", () => this.openProjects());
 
     // Status bar: today's words / sprint countdown; click → stats.
     const statusEl = this.addStatusBarItem();
@@ -94,12 +92,12 @@ export default class InkswellPlugin extends Plugin {
     this.addCommand({
       id: "open-explorer",
       name: "Open Inkswell projects",
-      callback: () => this.activateView(VIEW_TYPE_INKSWELL_EXPLORER),
+      callback: () => this.openProjects(),
     });
     this.addCommand({
       id: "open-stats",
       name: "Open writing stats",
-      callback: () => this.activateView(VIEW_TYPE_INKSWELL_STATS),
+      callback: () => this.openStats(),
     });
     this.addCommand({
       id: "compile-active-project",
@@ -111,8 +109,7 @@ export default class InkswellPlugin extends Plugin {
     this.addCommand({
       id: "start-sprint",
       name: "Start a writing sprint",
-      callback: () =>
-        new SprintModal(this.app, this.sprints, this.settings.defaultSprintMinutes).open(),
+      callback: () => this.startSprint(),
     });
     this.addCommand({
       id: "end-sprint",
@@ -155,18 +152,7 @@ export default class InkswellPlugin extends Plugin {
     this.addCommand({
       id: "open-revisions",
       name: "Open revision log",
-      callback: async () => {
-        const active = this.app.workspace.getActiveFile();
-        const project = active ? this.projectForPath(active.path) : null;
-        await this.activateView(VIEW_TYPE_INKSWELL_REVISIONS);
-        if (project) {
-          for (const leaf of this.app.workspace.getLeavesOfType(
-            VIEW_TYPE_INKSWELL_REVISIONS
-          )) {
-            if (leaf.view instanceof RevisionView) leaf.view.focusProject(project.vaultPath);
-          }
-        }
-      },
+      callback: () => this.openRevisions(),
     });
   }
 
@@ -201,6 +187,34 @@ export default class InkswellPlugin extends Plugin {
 
   refreshStatus(): void {
     this.statusBar?.render();
+  }
+
+  // --- Shared entry points (used by commands, the ribbon, and the explorer toolbar) ---
+
+  openProjects(): Promise<void> {
+    return this.activateView(VIEW_TYPE_INKSWELL_EXPLORER);
+  }
+
+  openStats(): Promise<void> {
+    return this.activateView(VIEW_TYPE_INKSWELL_STATS);
+  }
+
+  /** Open the revision log, focused on the active file's project when possible. */
+  async openRevisions(): Promise<void> {
+    const active = this.app.workspace.getActiveFile();
+    const project = active ? this.projectForPath(active.path) : null;
+    await this.activateView(VIEW_TYPE_INKSWELL_REVISIONS);
+    if (project) {
+      for (const leaf of this.app.workspace.getLeavesOfType(
+        VIEW_TYPE_INKSWELL_REVISIONS
+      )) {
+        if (leaf.view instanceof RevisionView) leaf.view.focusProject(project.vaultPath);
+      }
+    }
+  }
+
+  startSprint(): void {
+    new SprintModal(this.app, this.sprints, this.settings.defaultSprintMinutes).open();
   }
 
   /** Open (or reveal) a plugin view as a tab in the main content area. */

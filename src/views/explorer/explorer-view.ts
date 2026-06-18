@@ -67,6 +67,8 @@ export class ExplorerView extends ItemView {
     root.empty();
     root.addClass("inkswell-explorer");
 
+    this.renderToolbar(root);
+
     const projects = this.store.getProjects();
     if (projects.length === 0) {
       root.createDiv({
@@ -79,6 +81,20 @@ export class ExplorerView extends ItemView {
     for (const project of projects) {
       this.renderProject(root, project);
     }
+  }
+
+  /** Top toolbar: jump to the other Inkswell tools without the command palette. */
+  private renderToolbar(parent: HTMLElement): void {
+    const bar = parent.createDiv({ cls: "inkswell-toolbar" });
+    const button = (icon: string, label: string, onClick: () => void) => {
+      const b = bar.createEl("button", { cls: "clickable-icon" });
+      setIcon(b, icon);
+      b.setAttribute("aria-label", label);
+      b.onclick = onClick;
+    };
+    button("bar-chart-3", "Writing stats", () => this.plugin.openStats());
+    button("git-compare", "Revision log", () => this.plugin.openRevisions());
+    button("timer", "Start a writing sprint", () => this.plugin.startSprint());
   }
 
   private renderProject(parent: HTMLElement, project: Project): void {
