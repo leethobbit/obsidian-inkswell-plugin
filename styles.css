@@ -1,17 +1,61 @@
 /* Inkswell plugin styles */
 
-.inkswell-explorer {
-  padding: 0 var(--size-4-2);
-  user-select: none;
+/* --- Host view (single tab; internal tab-bar swaps panels) --- */
+.inkswell-host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0;
 }
 
-.inkswell-toolbar {
+.inkswell-tabbar {
   display: flex;
   align-items: center;
   gap: var(--size-4-1);
-  padding: var(--size-4-1) 0;
-  margin-bottom: var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-3);
   border-bottom: 1px solid var(--background-modifier-border);
+  flex-shrink: 0;
+}
+
+.inkswell-tabbar__spacer {
+  flex: 1;
+}
+
+.inkswell-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  padding: var(--size-4-1) var(--size-4-2);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.inkswell-tab:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.inkswell-tab.is-active {
+  color: var(--text-normal);
+  background-color: var(--background-modifier-active-hover);
+  font-weight: var(--font-semibold);
+}
+
+.inkswell-tab__icon {
+  display: inline-flex;
+}
+
+.inkswell-host__body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.inkswell-explorer {
+  padding: 0 var(--size-4-2);
+  user-select: none;
 }
 
 .inkswell-explorer__empty {

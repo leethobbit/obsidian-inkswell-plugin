@@ -20,7 +20,7 @@ Single Obsidian plugin (TypeScript + esbuild) that bundles a longform writer's s
 - **Longform compatibility is the premise.** Scene indentation serializes as nested YAML arrays (see `indentedScenesToArrays`/`arraysToIndentedScenes` ported from Longform). Don't invent a flatter encoding — it breaks drop-in compatibility. Inkswell-only data goes under a `inkswell:` sub-key, never inside `longform`.
 - **Word counting:** import the single counter in [src/lib/wordcount.ts](src/lib/wordcount.ts). Don't write ad-hoc counters — goals/sprints/compile must reconcile.
 - **Keep pure logic Obsidian-free.** Testable logic (compile assembly, goals math, revision-list ops) lives in modules with NO `obsidian` import (`assemble.ts`, `goals.ts`, `decisions.ts`); the `obsidian`-importing wrapper sits beside it. Tests can't import a module that pulls `obsidian` (no runtime in vitest).
-- **Views open in the main content area** (`workspace.getLeaf("tab")` in `activateView`), not the sidebar.
+- **Single host view.** Inkswell is ONE main-area tab (`VIEW_TYPE_INKSWELL`, `src/views/inkswell-view.ts`); Projects/Stats/Revision Log are panel classes swapped inside it via a tab-bar. Add new surfaces as panels, NOT as new `ItemView` types/tabs. All entry points call `openInkswell(mode)` so only one tab ever exists. Editing a scene opens the note in a separate editor tab (reuse a markdown leaf, never the host).
 - **External binaries (pandoc):** feature-detect and disable gracefully. Never assume presence; never crash on mobile.
 
 ## Key files
@@ -28,7 +28,8 @@ Single Obsidian plugin (TypeScript + esbuild) that bundles a longform writer's s
 |------|---------|
 | [main.ts](main.ts) | Plugin entry: settings load, view/command/ribbon registration |
 | [src/projects/](src/projects/) | ProjectStore (observable), Draft parse/serialize, index writer |
-| [src/views/explorer/](src/views/explorer/) | Sidebar ItemView: project list + scene tree |
+| [src/views/inkswell-view.ts](src/views/inkswell-view.ts) | Single host view: tab-bar + swaps the three panels |
+| [src/views/explorer/](src/views/explorer/) | ExplorerPanel: project list + scene tree |
 | [src/compile/](src/compile/) | CompileStep interface, built-in steps, run engine |
 | [src/tracking/](src/tracking/) | WritingTracker: net word-delta → daily log; data.json telemetry |
 | [src/goals/](src/goals/) | Pure streak/projection math + project-target modal |

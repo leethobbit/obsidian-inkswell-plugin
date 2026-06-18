@@ -1,65 +1,50 @@
 /**
- * Revision-log panel (opens in the main content area). Pick a project, optionally
- * filter by scene, and work the decision list: mark pending → applied during the
- * revision pass, reopen, or delete. Reads decisions from the project index
+ * Revision-log panel: pick a project, optionally filter by scene, and work the
+ * decision list — pending → applied during the revision pass, reopen, or delete.
+ * Rendered inside the Inkswell host view. Reads decisions from the project index
  * frontmatter (via the store) and writes changes back through persistRevisions.
  */
 
-import { ItemView, Menu, WorkspaceLeaf, setIcon } from "obsidian";
+import { App, Menu, setIcon } from "obsidian";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
 import { RevisionModal } from "./revision-modal";
 import {
   decisionsOf,
   filterDecisions,
-  pendingCount,
   persistRevisions,
   removeDecision,
   setDecisionStatus,
 } from "./revisions";
+import { RevisionDecision } from "./types";
 import type InkswellPlugin from "../../main";
 
-export const VIEW_TYPE_INKSWELL_REVISIONS = "inkswell-revisions";
-
-export class RevisionView extends ItemView {
+export class RevisionPanel {
+  private app: App;
   private plugin: InkswellPlugin;
   private store: ProjectStore;
-  private unsub: (() => void) | null = null;
+  private container: HTMLElement | null = null;
 
   private selectedPath: string | null = null;
   /** undefined = all scenes, null = project-wide only, string = a scene title. */
   private sceneFilter: string | null | undefined = undefined;
   private showApplied = false;
 
-  constructor(leaf: WorkspaceLeaf, plugin: InkswellPlugin, store: ProjectStore) {
-    super(leaf);
+  constructor(app: App, plugin: InkswellPlugin, store: ProjectStore) {
+    this.app = app;
     this.plugin = plugin;
     this.store = store;
-  }
-
-  getViewType(): string {
-    return VIEW_TYPE_INKSWELL_REVISIONS;
-  }
-  getDisplayText(): string {
-    return "Revision log";
-  }
-  getIcon(): string {
-    return "git-compare";
-  }
-
-  async onOpen(): Promise<void> {
-    this.unsub = this.store.subscribe(() => this.render());
-  }
-  async onClose(): Promise<void> {
-    this.unsub?.();
-    this.unsub = null;
   }
 
   /** Focus a specific project (used when opened from a command on an active file). */
   focusProject(path: string): void {
     this.selectedPath = path;
     this.sceneFilter = undefined;
-    this.render();
+    this.rerender();
+  }
+
+  private rerender(): void {
+    if (this.container) this.render(this.container);
   }
 
   private currentProject(projects: Project[]): Project | null {
@@ -68,14 +53,14 @@ export class RevisionView extends ItemView {
     );
   }
 
-  render(): void {
-    const root = this.contentEl;
-    root.empty();
-    root.addClass("inkswell-revision");
+  render(container: HTMLElement): void {
+    this.container = container;
+    container.empty();
+    container.addClass("inkswell-revision");
 
     const projects = this.store.getProjects();
     if (projects.length === 0) {
-      root.createDiv({ cls: "inkswell-stats__muted", text: "No projects found." });
+      container.createDiv({ cls: "inkswell-stats__muted", text: "No projects found." });
       return;
     }
 
@@ -83,13 +68,13 @@ export class RevisionView extends ItemView {
     if (!project) return;
     this.selectedPath = project.vaultPath;
 
-    this.renderToolbar(root, projects, project);
+    this.renderToolbar(container, projects, project);
 
     const all = decisionsOf(project);
     const pending = filterDecisions(all, { status: "pending", scene: this.sceneFilter });
     const applied = filterDecisions(all, { status: "applied", scene: this.sceneFilter });
 
-    const list = root.createDiv({ cls: "inkswell-revision__list" });
+    const list = container.createDiv({ cls: "inkswell-revision__list" });
     if (pending.length === 0 && (!this.showApplied || applied.length === 0)) {
       list.createDiv({
         cls: "inkswell-stats__muted",
@@ -119,13 +104,12 @@ export class RevisionView extends ItemView {
       sel.onchange = () => {
         this.selectedPath = sel.value;
         this.sceneFilter = undefined;
-        this.render();
+        this.rerender();
       };
     } else {
       bar.createSpan({ cls: "inkswell-revision__project", text: project.draft.title });
     }
 
-    // Scene filter.
     const sceneSel = bar.createEl("select", { cls: "dropdown" });
     sceneSel.createEl("option", { text: "All scenes", value: "__all__" });
     sceneSel.createEl("option", { text: "Project-wide", value: "__global__" });
@@ -145,7 +129,7 @@ export class RevisionView extends ItemView {
           : sceneSel.value === "__global__"
             ? null
             : sceneSel.value;
-      this.render();
+      this.rerender();
     };
 
     const toggle = bar.createEl("label", { cls: "inkswell-revision__toggle" });
@@ -153,7 +137,7 @@ export class RevisionView extends ItemView {
     cb.checked = this.showApplied;
     cb.onchange = () => {
       this.showApplied = cb.checked;
-      this.render();
+      this.rerender();
     };
     toggle.createSpan({ text: "Show applied" });
 
@@ -166,7 +150,7 @@ export class RevisionView extends ItemView {
     };
   }
 
-  private renderRow(parent: HTMLElement, project: Project, d: ReturnType<typeof decisionsOf>[number]): void {
+  private renderRow(parent: HTMLElement, project: Project, d: RevisionDecision): void {
     const row = parent.createDiv({ cls: "inkswell-revision__row" });
     if (d.status === "applied") row.addClass("is-applied");
 
@@ -174,7 +158,10 @@ export class RevisionView extends ItemView {
     check.checked = d.status === "applied";
     check.setAttribute("aria-label", d.status === "applied" ? "Reopen" : "Mark applied");
     check.onchange = () =>
-      this.persist(project, setDecisionStatus(decisionsOf(project), d.id, check.checked ? "applied" : "pending"));
+      this.persist(
+        project,
+        setDecisionStatus(decisionsOf(project), d.id, check.checked ? "applied" : "pending")
+      );
 
     const body = row.createDiv({ cls: "inkswell-revision__body" });
     body.createDiv({ cls: "inkswell-revision__text", text: d.text });
@@ -196,7 +183,7 @@ export class RevisionView extends ItemView {
     };
   }
 
-  private persist(project: Project, list: ReturnType<typeof decisionsOf>): void {
+  private persist(project: Project, list: RevisionDecision[]): void {
     void persistRevisions(this.app, project, list);
   }
 }

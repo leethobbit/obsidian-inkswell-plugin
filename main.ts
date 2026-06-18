@@ -17,24 +17,20 @@ import { ProjectStore } from "./src/projects/project-store";
 import { Project } from "./src/projects/types";
 import { RevisionModal } from "./src/revisions/revision-modal";
 import {
-  RevisionView,
-  VIEW_TYPE_INKSWELL_REVISIONS,
-} from "./src/revisions/revision-view";
-import {
   DEFAULT_SETTINGS,
   InkswellSettings,
   InkswellSettingTab,
 } from "./src/settings/settings";
 import { SprintController } from "./src/sprints/sprint-controller";
 import { SprintModal } from "./src/sprints/sprint-modal";
-import { StatsView, VIEW_TYPE_INKSWELL_STATS } from "./src/stats/stats-view";
 import { WritingLogData, emptyLog } from "./src/tracking/types";
 import { WritingTracker } from "./src/tracking/writing-tracker";
 import { StatusBar } from "./src/views/status-bar";
 import {
-  ExplorerView,
-  VIEW_TYPE_INKSWELL_EXPLORER,
-} from "./src/views/explorer/explorer-view";
+  InkswellMode,
+  InkswellView,
+  VIEW_TYPE_INKSWELL,
+} from "./src/views/inkswell-view";
 
 export default class InkswellPlugin extends Plugin {
   settings: InkswellSettings = DEFAULT_SETTINGS;
@@ -59,16 +55,8 @@ export default class InkswellPlugin extends Plugin {
     this.addChild(this.sprints);
 
     this.registerView(
-      VIEW_TYPE_INKSWELL_EXPLORER,
-      (leaf) => new ExplorerView(leaf, this, this.store, this.stats)
-    );
-    this.registerView(
-      VIEW_TYPE_INKSWELL_STATS,
-      (leaf) => new StatsView(leaf, this, this.tracker, this.store, this.stats)
-    );
-    this.registerView(
-      VIEW_TYPE_INKSWELL_REVISIONS,
-      (leaf) => new RevisionView(leaf, this, this.store)
+      VIEW_TYPE_INKSWELL,
+      (leaf) => new InkswellView(leaf, this, this.store, this.stats, this.tracker)
     );
 
     this.addRibbonIcon("pen-tool", "Inkswell projects", () => this.openProjects());
@@ -80,7 +68,7 @@ export default class InkswellPlugin extends Plugin {
       this.tracker,
       this.sprints,
       () => this.settings.dailyWordGoal,
-      () => this.activateView(VIEW_TYPE_INKSWELL_STATS)
+      () => this.openStats()
     );
     this.register(() => this.statusBar?.destroy());
 
@@ -180,8 +168,8 @@ export default class InkswellPlugin extends Plugin {
   }
 
   refreshExplorer(): void {
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_INKSWELL_EXPLORER)) {
-      if (leaf.view instanceof ExplorerView) leaf.view.render();
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_INKSWELL)) {
+      if (leaf.view instanceof InkswellView) leaf.view.refresh();
     }
   }
 
@@ -192,41 +180,46 @@ export default class InkswellPlugin extends Plugin {
   // --- Shared entry points (used by commands, the ribbon, and the explorer toolbar) ---
 
   openProjects(): Promise<void> {
-    return this.activateView(VIEW_TYPE_INKSWELL_EXPLORER);
+    return this.openInkswell("projects");
   }
 
   openStats(): Promise<void> {
-    return this.activateView(VIEW_TYPE_INKSWELL_STATS);
+    return this.openInkswell("stats");
   }
 
   /** Open the revision log, focused on the active file's project when possible. */
-  async openRevisions(): Promise<void> {
+  openRevisions(): Promise<void> {
     const active = this.app.workspace.getActiveFile();
     const project = active ? this.projectForPath(active.path) : null;
-    await this.activateView(VIEW_TYPE_INKSWELL_REVISIONS);
-    if (project) {
-      for (const leaf of this.app.workspace.getLeavesOfType(
-        VIEW_TYPE_INKSWELL_REVISIONS
-      )) {
-        if (leaf.view instanceof RevisionView) leaf.view.focusProject(project.vaultPath);
-      }
-    }
+    return this.openInkswell("revisions", (view) => {
+      if (project) view.getRevisionPanel().focusProject(project.vaultPath);
+    });
   }
 
   startSprint(): void {
     new SprintModal(this.app, this.sprints, this.settings.defaultSprintMinutes).open();
   }
 
-  /** Open (or reveal) a plugin view as a tab in the main content area. */
-  async activateView(type: string): Promise<void> {
+  /**
+   * Open (or reveal) the single Inkswell tab and switch it to `mode`. Every entry
+   * point funnels through here so Inkswell stays one tab in the main window.
+   */
+  async openInkswell(
+    mode: InkswellMode,
+    after?: (view: InkswellView) => void
+  ): Promise<void> {
     const { workspace } = this.app;
-    let leaf: WorkspaceLeaf | null = workspace.getLeavesOfType(type)[0] ?? null;
+    let leaf: WorkspaceLeaf | null =
+      workspace.getLeavesOfType(VIEW_TYPE_INKSWELL)[0] ?? null;
     if (!leaf) {
-      // Main content area (a new tab), not the sidebar.
       leaf = workspace.getLeaf("tab");
-      await leaf.setViewState({ type, active: true });
+      await leaf.setViewState({ type: VIEW_TYPE_INKSWELL, active: true });
     }
-    if (leaf) workspace.revealLeaf(leaf);
+    if (leaf.view instanceof InkswellView) {
+      leaf.view.setMode(mode);
+      if (after) after(leaf.view);
+    }
+    workspace.revealLeaf(leaf);
   }
 
   private withActiveProject(fn: (p: Project) => void): void {

@@ -1,12 +1,13 @@
 /**
- * The Inkswell explorer: a sidebar listing every project and its scene tree.
+ * Projects panel: lists every project and its scene tree. Rendered inside the
+ * single Inkswell host view (see src/views/inkswell-view.ts), not as its own tab.
  *
  * Scenes can be opened (click), reordered (drag), and re-nested (context menu).
  * All structural edits go through the index writer, which touches only the index
  * note's frontmatter — never a scene body.
  */
 
-import { ItemView, Menu, TFile, WorkspaceLeaf, setIcon } from "obsidian";
+import { App, Menu, TFile, setIcon } from "obsidian";
 import { CompileModal } from "../../compile/compile-modal";
 import { updateScenes } from "../../projects/index-writer";
 import { ProjectStats } from "../../projects/project-stats";
@@ -20,58 +21,31 @@ import {
 import { Project, isMultiScene } from "../../projects/types";
 import type InkswellPlugin from "../../../main";
 
-export const VIEW_TYPE_INKSWELL_EXPLORER = "inkswell-explorer";
-
-export class ExplorerView extends ItemView {
+export class ExplorerPanel {
+  private app: App;
   private plugin: InkswellPlugin;
   private store: ProjectStore;
   private stats: ProjectStats;
-  private unsubscribe: (() => void) | null = null;
 
   constructor(
-    leaf: WorkspaceLeaf,
+    app: App,
     plugin: InkswellPlugin,
     store: ProjectStore,
     stats: ProjectStats
   ) {
-    super(leaf);
+    this.app = app;
     this.plugin = plugin;
     this.store = store;
     this.stats = stats;
   }
 
-  getViewType(): string {
-    return VIEW_TYPE_INKSWELL_EXPLORER;
-  }
-
-  getDisplayText(): string {
-    return "Inkswell projects";
-  }
-
-  getIcon(): string {
-    return "pen-tool";
-  }
-
-  async onOpen(): Promise<void> {
-    this.unsubscribe = this.store.subscribe(() => this.render());
-  }
-
-  async onClose(): Promise<void> {
-    this.unsubscribe?.();
-    this.unsubscribe = null;
-  }
-
-  /** Public re-render hook (used after settings changes). */
-  render(): void {
-    const root = this.contentEl;
-    root.empty();
-    root.addClass("inkswell-explorer");
-
-    this.renderToolbar(root);
+  render(container: HTMLElement): void {
+    container.empty();
+    container.addClass("inkswell-explorer");
 
     const projects = this.store.getProjects();
     if (projects.length === 0) {
-      root.createDiv({
+      container.createDiv({
         cls: "inkswell-explorer__empty",
         text: "No writing projects found. Add a `longform` key to a note's frontmatter to begin.",
       });
@@ -79,22 +53,8 @@ export class ExplorerView extends ItemView {
     }
 
     for (const project of projects) {
-      this.renderProject(root, project);
+      this.renderProject(container, project);
     }
-  }
-
-  /** Top toolbar: jump to the other Inkswell tools without the command palette. */
-  private renderToolbar(parent: HTMLElement): void {
-    const bar = parent.createDiv({ cls: "inkswell-toolbar" });
-    const button = (icon: string, label: string, onClick: () => void) => {
-      const b = bar.createEl("button", { cls: "clickable-icon" });
-      setIcon(b, icon);
-      b.setAttribute("aria-label", label);
-      b.onclick = onClick;
-    };
-    button("bar-chart-3", "Writing stats", () => this.plugin.openStats());
-    button("git-compare", "Revision log", () => this.plugin.openRevisions());
-    button("timer", "Start a writing sprint", () => this.plugin.startSprint());
   }
 
   private renderProject(parent: HTMLElement, project: Project): void {
@@ -151,21 +111,31 @@ export class ExplorerView extends ItemView {
       this.stats.sceneWords(scene.path).then((w) => wc.setText(`${w}`));
     }
 
-    // Open on click.
     row.onclick = () => {
       if (scene.path) {
         const file = this.app.vault.getAbstractFileByPath(scene.path);
-        if (file instanceof TFile) this.app.workspace.getLeaf(false).openFile(file);
+        if (file instanceof TFile) this.openScene(file);
       }
     };
 
-    // Context menu: nest / un-nest / remove.
     row.oncontextmenu = (e) => {
       e.preventDefault();
       this.sceneMenu(project, index).showAtMouseEvent(e);
     };
 
     this.wireDrag(row, project, index);
+  }
+
+  /**
+   * Open a scene in a separate editor tab, leaving the Inkswell host tab intact.
+   * Reuses an existing markdown editor leaf (never the host, which is type
+   * "inkswell") so repeated clicks don't pile up tabs.
+   * TODO: in-plugin manuscript editor — edit scenes inside the host tab instead.
+   */
+  private openScene(file: TFile): void {
+    const editors = this.app.workspace.getLeavesOfType("markdown");
+    const leaf = editors[0] ?? this.app.workspace.getLeaf("tab");
+    leaf.openFile(file);
   }
 
   private sceneMenu(project: Project, index: number): Menu {
@@ -209,7 +179,10 @@ export class ExplorerView extends ItemView {
   private wireDrag(row: HTMLElement, project: Project, index: number): void {
     row.addEventListener("dragstart", (e) => {
       row.addClass("is-dragging");
-      e.dataTransfer?.setData("inkswell/scene", JSON.stringify({ project: project.vaultPath, index }));
+      e.dataTransfer?.setData(
+        "inkswell/scene",
+        JSON.stringify({ project: project.vaultPath, index })
+      );
     });
     row.addEventListener("dragend", () => row.removeClass("is-dragging"));
     row.addEventListener("dragover", (e) => {
