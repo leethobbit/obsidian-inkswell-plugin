@@ -8,10 +8,11 @@ Inkswell leaves the writing to Obsidian and gives you everything *around* the wr
 - **Compile** — a configurable pipeline that turns your scenes into a finished manuscript (Markdown / HTML built in; `.docx`/`.pdf` via pandoc when installed).
 - **Goals & sprints** — daily and project word goals, timed writing sprints with live word counts, status-bar progress, and a stats dashboard (30-day chart, streaks, target projections).
 - **Invisible-revision log** — capture "from now on, assume X" decisions while fast-drafting and keep writing forward, then work the list during your revision pass. Based on the Writing Mastery Academy method.
+- **Beat sheet** — outline with the Save the Cat! 15-beat structure: a planning note, optional scene link, and completion tracking per beat.
 
 ## Status
 
-Active development. Phases 1 (projects + compile), 2 (goals + sprints + stats), and 3 (revision log) are implemented. Plugin views open as tabs in the main content area. See [AGENTS.md](AGENTS.md) for architecture and contribution conventions.
+Active development. Phases 1 (projects + compile), 2 (goals + sprints + stats), 3 (revision log), and 4 (Save the Cat beat sheet) are implemented. Inkswell runs as a single main-window tab with internal tabs (Projects · Beats · Stats · Revision Log). See [AGENTS.md](AGENTS.md) for architecture and contribution conventions.
 
 ## Development
 

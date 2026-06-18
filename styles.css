@@ -201,6 +201,69 @@
   opacity: 0.85;
 }
 
+/* --- Beat sheet --- */
+.inkswell-beats {
+  padding: var(--size-4-3);
+}
+
+.inkswell-beats__toolbar {
+  margin-bottom: var(--size-4-2);
+}
+
+.inkswell-beats__progress {
+  margin-bottom: var(--size-4-4);
+}
+
+.inkswell-beat {
+  padding: var(--size-4-2);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  margin-bottom: var(--size-4-2);
+}
+
+.inkswell-beat.is-done {
+  opacity: 0.7;
+}
+
+.inkswell-beat__header {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+
+.inkswell-beat__pos {
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+  font-variant-numeric: tabular-nums;
+  min-width: 3em;
+}
+
+.inkswell-beat__name {
+  font-weight: var(--font-semibold);
+}
+
+.inkswell-beat.is-done .inkswell-beat__name {
+  text-decoration: line-through;
+}
+
+.inkswell-beat__blurb {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  margin: var(--size-4-1) 0;
+}
+
+.inkswell-beat__note {
+  width: 100%;
+  resize: vertical;
+  margin-bottom: var(--size-4-1);
+}
+
+.inkswell-beat__scene {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+
 /* --- Revision log --- */
 .inkswell-revision {
   padding: var(--size-4-3);

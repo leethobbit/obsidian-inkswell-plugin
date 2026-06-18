@@ -83,6 +83,11 @@ export default class InkswellPlugin extends Plugin {
       callback: () => this.openProjects(),
     });
     this.addCommand({
+      id: "open-beats",
+      name: "Open beat sheet",
+      callback: () => this.openBeats(),
+    });
+    this.addCommand({
       id: "open-stats",
       name: "Open writing stats",
       callback: () => this.openStats(),
@@ -181,6 +186,10 @@ export default class InkswellPlugin extends Plugin {
 
   openProjects(): Promise<void> {
     return this.openInkswell("projects");
+  }
+
+  openBeats(): Promise<void> {
+    return this.openInkswell("beats");
   }
 
   openStats(): Promise<void> {

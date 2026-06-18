@@ -9,6 +9,7 @@
  */
 
 import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
+import { BeatPanel } from "../outliner/beat-panel";
 import { ProjectStats } from "../projects/project-stats";
 import { ProjectStore } from "../projects/project-store";
 import { RevisionPanel } from "../revisions/revision-view";
@@ -19,10 +20,11 @@ import type InkswellPlugin from "../../main";
 
 export const VIEW_TYPE_INKSWELL = "inkswell";
 
-export type InkswellMode = "projects" | "stats" | "revisions";
+export type InkswellMode = "projects" | "beats" | "stats" | "revisions";
 
 const TABS: { mode: InkswellMode; label: string; icon: string }[] = [
   { mode: "projects", label: "Projects", icon: "pen-tool" },
+  { mode: "beats", label: "Beats", icon: "list-ordered" },
   { mode: "stats", label: "Stats", icon: "bar-chart-3" },
   { mode: "revisions", label: "Revision log", icon: "git-compare" },
 ];
@@ -30,6 +32,7 @@ const TABS: { mode: InkswellMode; label: string; icon: string }[] = [
 export class InkswellView extends ItemView {
   private plugin: InkswellPlugin;
   private explorer: ExplorerPanel;
+  private beats: BeatPanel;
   private stats: StatsPanel;
   private revisions: RevisionPanel;
 
@@ -48,6 +51,7 @@ export class InkswellView extends ItemView {
     super(leaf);
     this.plugin = plugin;
     this.explorer = new ExplorerPanel(this.app, plugin, store, stats);
+    this.beats = new BeatPanel(this.app, store);
     this.stats = new StatsPanel(plugin, tracker, store, stats);
     this.revisions = new RevisionPanel(this.app, plugin, store);
 
@@ -125,6 +129,7 @@ export class InkswellView extends ItemView {
   private renderActive(): void {
     if (!this.body) return;
     if (this.mode === "projects") this.explorer.render(this.body);
+    else if (this.mode === "beats") this.beats.render(this.body);
     else if (this.mode === "stats") this.stats.render(this.body);
     else this.revisions.render(this.body);
   }

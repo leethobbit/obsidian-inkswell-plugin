@@ -7,6 +7,7 @@
  * NEVER nested inside `longform`.
  */
 
+import type { BeatSheet } from "../outliner/beat-templates";
 import type { RevisionDecision } from "../revisions/types";
 
 /** A scene with its nesting depth (0 = top level). */
@@ -81,6 +82,7 @@ export interface InkswellProjectData {
   compile?: unknown; // CompileConfig — typed in src/compile
   goals?: ProjectGoals;
   revisions?: RevisionDecision[];
+  beats?: BeatSheet;
 }
 
 export function isMultiScene(draft: Draft): draft is MultipleSceneDraft {
