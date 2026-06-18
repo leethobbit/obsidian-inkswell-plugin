@@ -1,0 +1,223 @@
+/**
+ * The Inkswell explorer: a sidebar listing every project and its scene tree.
+ *
+ * Scenes can be opened (click), reordered (drag), and re-nested (context menu).
+ * All structural edits go through the index writer, which touches only the index
+ * note's frontmatter — never a scene body.
+ */
+
+import { ItemView, Menu, TFile, WorkspaceLeaf, setIcon } from "obsidian";
+import { CompileModal } from "../../compile/compile-modal";
+import { updateScenes } from "../../projects/index-writer";
+import { ProjectStats } from "../../projects/project-stats";
+import { ProjectStore } from "../../projects/project-store";
+import {
+  indentScene,
+  moveScene,
+  removeScene,
+  unindentScene,
+} from "../../projects/scene-tree";
+import { Project, isMultiScene } from "../../projects/types";
+import type InkswellPlugin from "../../../main";
+
+export const VIEW_TYPE_INKSWELL_EXPLORER = "inkswell-explorer";
+
+export class ExplorerView extends ItemView {
+  private plugin: InkswellPlugin;
+  private store: ProjectStore;
+  private stats: ProjectStats;
+  private unsubinkswell: (() => void) | null = null;
+
+  constructor(
+    leaf: WorkspaceLeaf,
+    plugin: InkswellPlugin,
+    store: ProjectStore,
+    stats: ProjectStats
+  ) {
+    super(leaf);
+    this.plugin = plugin;
+    this.store = store;
+    this.stats = stats;
+  }
+
+  getViewType(): string {
+    return VIEW_TYPE_INKSWELL_EXPLORER;
+  }
+
+  getDisplayText(): string {
+    return "Inkswell projects";
+  }
+
+  getIcon(): string {
+    return "pen-tool";
+  }
+
+  async onOpen(): Promise<void> {
+    this.unsubinkswell = this.store.subinkswell(() => this.render());
+  }
+
+  async onClose(): Promise<void> {
+    this.unsubinkswell?.();
+    this.unsubinkswell = null;
+  }
+
+  /** Public re-render hook (used after settings changes). */
+  render(): void {
+    const root = this.contentEl;
+    root.empty();
+    root.addClass("inkswell-explorer");
+
+    const projects = this.store.getProjects();
+    if (projects.length === 0) {
+      root.createDiv({
+        cls: "inkswell-explorer__empty",
+        text: "No writing projects found. Add a `longform` key to a note's frontmatter to begin.",
+      });
+      return;
+    }
+
+    for (const project of projects) {
+      this.renderProject(root, project);
+    }
+  }
+
+  private renderProject(parent: HTMLElement, project: Project): void {
+    const section = parent.createDiv({ cls: "inkswell-project" });
+    const header = section.createDiv({ cls: "inkswell-project__header" });
+    header.createSpan({ text: project.draft.title });
+
+    const right = header.createDiv();
+    const count = right.createSpan({ cls: "inkswell-project__count" });
+    if (this.plugin.settings.showWordCounts) {
+      this.stats.projectWords(project).then((w) => {
+        count.setText(`${w.toLocaleString()} words`);
+      });
+    }
+
+    const compileBtn = right.createEl("button", { cls: "clickable-icon" });
+    setIcon(compileBtn, "play");
+    compileBtn.setAttribute("aria-label", "Compile");
+    compileBtn.onclick = () =>
+      new CompileModal(this.app, project, this.plugin.settings).open();
+
+    if (isMultiScene(project.draft)) {
+      const list = section.createDiv();
+      project.scenes.forEach((scene, index) =>
+        this.renderScene(list, project, scene, index)
+      );
+      if (project.scenes.length === 0) {
+        list.createDiv({
+          cls: "inkswell-explorer__empty",
+          text: "No scenes yet.",
+        });
+      }
+    }
+  }
+
+  private renderScene(
+    parent: HTMLElement,
+    project: Project,
+    scene: Project["scenes"][number],
+    index: number
+  ): void {
+    const row = parent.createDiv({ cls: "inkswell-scene" });
+    row.style.paddingLeft = `${8 + scene.indent * 16}px`;
+    row.draggable = true;
+
+    const title = row.createSpan({ cls: "inkswell-scene__title", text: scene.title });
+    if (!scene.path) {
+      title.addClass("inkswell-scene__missing");
+      title.setAttribute("aria-label", "Scene file not found");
+    }
+
+    if (this.plugin.settings.showWordCounts && scene.path) {
+      const wc = row.createSpan({ cls: "inkswell-scene__count" });
+      this.stats.sceneWords(scene.path).then((w) => wc.setText(`${w}`));
+    }
+
+    // Open on click.
+    row.onclick = () => {
+      if (scene.path) {
+        const file = this.app.vault.getAbstractFileByPath(scene.path);
+        if (file instanceof TFile) this.app.workspace.getLeaf(false).openFile(file);
+      }
+    };
+
+    // Context menu: nest / un-nest / remove.
+    row.oncontextmenu = (e) => {
+      e.preventDefault();
+      this.sceneMenu(project, index).showAtMouseEvent(e);
+    };
+
+    this.wireDrag(row, project, index);
+  }
+
+  private sceneMenu(project: Project, index: number): Menu {
+    const menu = new Menu();
+    const file = this.indexFile(project);
+    if (!file) return menu;
+
+    menu.addItem((i) =>
+      i
+        .setTitle("Indent (nest)")
+        .setIcon("indent")
+        .onClick(() =>
+          updateScenes(this.app, file, project.draft, (s) => indentScene(s, index))
+        )
+    );
+    menu.addItem((i) =>
+      i
+        .setTitle("Unindent")
+        .setIcon("outdent")
+        .onClick(() =>
+          updateScenes(this.app, file, project.draft, (s) => unindentScene(s, index))
+        )
+    );
+    menu.addSeparator();
+    menu.addItem((i) =>
+      i
+        .setTitle("Remove from project")
+        .setIcon("trash")
+        .onClick(() => {
+          const title = project.scenes[index]?.title;
+          if (title) {
+            updateScenes(this.app, file, project.draft, (s) =>
+              removeScene(s, title)
+            );
+          }
+        })
+    );
+    return menu;
+  }
+
+  private wireDrag(row: HTMLElement, project: Project, index: number): void {
+    row.addEventListener("dragstart", (e) => {
+      row.addClass("is-dragging");
+      e.dataTransfer?.setData("inkswell/scene", JSON.stringify({ project: project.vaultPath, index }));
+    });
+    row.addEventListener("dragend", () => row.removeClass("is-dragging"));
+    row.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      row.addClass("is-drop-target");
+    });
+    row.addEventListener("dragleave", () => row.removeClass("is-drop-target"));
+    row.addEventListener("drop", (e) => {
+      e.preventDefault();
+      row.removeClass("is-drop-target");
+      const raw = e.dataTransfer?.getData("inkswell/scene");
+      if (!raw) return;
+      const payload = JSON.parse(raw) as { project: string; index: number };
+      if (payload.project !== project.vaultPath) return; // only within a project
+      const file = this.indexFile(project);
+      if (!file) return;
+      updateScenes(this.app, file, project.draft, (s) =>
+        moveScene(s, payload.index, index)
+      );
+    });
+  }
+
+  private indexFile(project: Project): TFile | null {
+    const f = this.app.vault.getAbstractFileByPath(project.vaultPath);
+    return f instanceof TFile ? f : null;
+  }
+}

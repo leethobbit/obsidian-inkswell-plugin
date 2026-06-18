@@ -1,0 +1,23 @@
+# build / deps
+node_modules/
+main.js
+*.js.map
+
+# obsidian
+data.json
+
+# editor / os
+.DS_Store
+Thumbs.db
+.idea/
+*.log
+
+# temp verification harnesses (never committed)
+_harness.*
+
+# obsidian notes surfaced via junction (DKB owns these)
+docs/
+
+# test artifacts
+coverage/
+.vitest/

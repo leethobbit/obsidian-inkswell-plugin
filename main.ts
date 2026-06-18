@@ -1,0 +1,186 @@
+/**
+ * Inkswell — Obsidian writer's suite. Plugin entry point.
+ *
+ * Wires the project store, explorer, compile, writing tracker, sprints, goals,
+ * stats, and settings. Feature modules live under src/; this file only registers
+ * and connects them.
+ *
+ * Persistence: data.json holds `{ settings, writingLog }`. Per-project config
+ * (compile, goals, revisions) lives in the project index's `inkswell` frontmatter.
+ */
+
+import { Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import { CompileModal } from "./src/compile/compile-modal";
+import { TargetModal } from "./src/goals/target-modal";
+import { ProjectStats } from "./src/projects/project-stats";
+import { ProjectStore } from "./src/projects/project-store";
+import { Project } from "./src/projects/types";
+import {
+  DEFAULT_SETTINGS,
+  InkswellSettings,
+  InkswellSettingTab,
+} from "./src/settings/settings";
+import { SprintController } from "./src/sprints/sprint-controller";
+import { SprintModal } from "./src/sprints/sprint-modal";
+import { StatsView, VIEW_TYPE_INKSWELL_STATS } from "./src/stats/stats-view";
+import { WritingLogData, emptyLog } from "./src/tracking/types";
+import { WritingTracker } from "./src/tracking/writing-tracker";
+import { StatusBar } from "./src/views/status-bar";
+import {
+  ExplorerView,
+  VIEW_TYPE_INKSWELL_EXPLORER,
+} from "./src/views/explorer/explorer-view";
+
+export default class InkswellPlugin extends Plugin {
+  settings: InkswellSettings = DEFAULT_SETTINGS;
+  writingLog: WritingLogData = emptyLog();
+  store!: ProjectStore;
+  stats!: ProjectStats;
+  tracker!: WritingTracker;
+  sprints!: SprintController;
+  private statusBar: StatusBar | null = null;
+
+  async onload(): Promise<void> {
+    await this.loadPersisted();
+
+    this.store = new ProjectStore(this.app);
+    this.stats = new ProjectStats(this.app);
+    this.tracker = new WritingTracker(this.app, this.writingLog, () => this.persist());
+    this.sprints = new SprintController(this.tracker, this.writingLog, () =>
+      this.persist()
+    );
+    this.addChild(this.store);
+    this.addChild(this.tracker);
+    this.addChild(this.sprints);
+
+    this.registerView(
+      VIEW_TYPE_INKSWELL_EXPLORER,
+      (leaf) => new ExplorerView(leaf, this, this.store, this.stats)
+    );
+    this.registerView(
+      VIEW_TYPE_INKSWELL_STATS,
+      (leaf) => new StatsView(leaf, this, this.tracker, this.store, this.stats)
+    );
+
+    this.addRibbonIcon("pen-tool", "Inkswell projects", () =>
+      this.activateView(VIEW_TYPE_INKSWELL_EXPLORER)
+    );
+
+    // Status bar: today's words / sprint countdown; click → stats.
+    const statusEl = this.addStatusBarItem();
+    this.statusBar = new StatusBar(
+      statusEl,
+      this.tracker,
+      this.sprints,
+      () => this.settings.dailyWordGoal,
+      () => this.activateView(VIEW_TYPE_INKSWELL_STATS)
+    );
+    this.register(() => this.statusBar?.destroy());
+
+    this.registerCommands();
+    this.addSettingTab(new InkswellSettingTab(this.app, this));
+  }
+
+  private registerCommands(): void {
+    this.addCommand({
+      id: "open-explorer",
+      name: "Open Inkswell projects",
+      callback: () => this.activateView(VIEW_TYPE_INKSWELL_EXPLORER),
+    });
+    this.addCommand({
+      id: "open-stats",
+      name: "Open writing stats",
+      callback: () => this.activateView(VIEW_TYPE_INKSWELL_STATS),
+    });
+    this.addCommand({
+      id: "compile-active-project",
+      name: "Compile the active project",
+      callback: () => this.withActiveProject((p) =>
+        new CompileModal(this.app, p, this.settings).open()
+      ),
+    });
+    this.addCommand({
+      id: "start-sprint",
+      name: "Start a writing sprint",
+      callback: () =>
+        new SprintModal(this.app, this.sprints, this.settings.defaultSprintMinutes).open(),
+    });
+    this.addCommand({
+      id: "end-sprint",
+      name: "End the current sprint now",
+      checkCallback: (checking) => {
+        if (!this.sprints.isActive()) return false;
+        if (!checking) this.sprints.finish();
+        return true;
+      },
+    });
+    this.addCommand({
+      id: "cancel-sprint",
+      name: "Cancel the current sprint",
+      checkCallback: (checking) => {
+        if (!this.sprints.isActive()) return false;
+        if (!checking) this.sprints.cancel();
+        return true;
+      },
+    });
+    this.addCommand({
+      id: "set-word-target",
+      name: "Set word target for the active project",
+      callback: () => this.withActiveProject((p) => new TargetModal(this.app, p).open()),
+    });
+  }
+
+  async loadPersisted(): Promise<void> {
+    const stored = (await this.loadData()) ?? {};
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, stored.settings ?? {});
+    this.writingLog = Object.assign({}, emptyLog(), stored.writingLog ?? {});
+  }
+
+  /** Persist both settings and the writing log to data.json. */
+  async persist(): Promise<void> {
+    await this.saveData({ settings: this.settings, writingLog: this.writingLog });
+  }
+
+  /** Back-compat alias used by the settings tab. */
+  async saveSettings(): Promise<void> {
+    await this.persist();
+  }
+
+  refreshExplorer(): void {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_INKSWELL_EXPLORER)) {
+      if (leaf.view instanceof ExplorerView) leaf.view.render();
+    }
+  }
+
+  refreshStatus(): void {
+    this.statusBar?.render();
+  }
+
+  async activateView(type: string): Promise<void> {
+    const { workspace } = this.app;
+    let leaf: WorkspaceLeaf | null = workspace.getLeavesOfType(type)[0] ?? null;
+    if (!leaf) {
+      leaf = workspace.getRightLeaf(false);
+      await leaf?.setViewState({ type, active: true });
+    }
+    if (leaf) workspace.revealLeaf(leaf);
+  }
+
+  private withActiveProject(fn: (p: Project) => void): void {
+    const active = this.app.workspace.getActiveFile();
+    if (!active) {
+      new Notice("No active file.");
+      return;
+    }
+    const project = this.store
+      .getProjects()
+      .find(
+        (p) => p.vaultPath === active.path || p.scenes.some((s) => s.path === active.path)
+      );
+    if (!project) {
+      new Notice("The active file isn't part of an Inkswell project.");
+      return;
+    }
+    fn(project);
+  }
+}
