@@ -104,7 +104,7 @@ export class InkswellView extends ItemView {
     this.beats = new BeatPanel(this.app, store);
     this.board = new BoardPanel(this.app, store);
     this.codex = new CodexPanel(this.app, plugin);
-    this.write = new WritePanel(this.app, plugin, plugin.sprints);
+    this.write = new WritePanel(this.app, plugin, store, plugin.sprints);
     this.stats = new StatsPanel(this.app, plugin, tracker, store, stats);
     this.revisions = new RevisionPanel(this.app, plugin, store);
     this.comments = new CommentsPanel(this.app, store);
@@ -206,7 +206,9 @@ export class InkswellView extends ItemView {
     const content = main.createDiv({ cls: "inkswell-content" });
     this.renderContent(content);
 
-    if (this.mode === "home" || this.mode === "write") {
+    // Home shows the host's active-file Inspector; Write renders its own
+    // inspector for the scene it's editing.
+    if (this.mode === "home") {
       this.inspectorEl = main.createDiv({ cls: "inkswell-inspector-col" });
       this.updateInspector();
     }

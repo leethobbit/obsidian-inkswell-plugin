@@ -448,13 +448,85 @@
   overflow: hidden;
 }
 
-/* Write + Publish panels */
-.inkswell-write__wrap {
-  padding: var(--size-4-4);
+/* Write — manuscript editor */
+.inkswell-write {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
-
-.inkswell-write__wrap .mod-cta {
-  margin-top: var(--size-4-3);
+.inkswell-write__topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-3);
+  border-bottom: 1px solid var(--background-modifier-border);
+  flex-shrink: 0;
+}
+.inkswell-write__count {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.inkswell-write__main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+}
+.inkswell-write__nav {
+  width: 200px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--background-modifier-border);
+  padding: var(--size-4-2);
+}
+.inkswell-write__scene {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  padding: var(--size-4-1) var(--size-4-2);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+}
+.inkswell-write__scene:hover {
+  background-color: var(--background-modifier-hover);
+}
+.inkswell-write__scene.is-active {
+  background-color: var(--background-modifier-active-hover);
+}
+.inkswell-write__editor {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--size-4-3);
+}
+.inkswell-write__editorhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-write__editortitle {
+  font-weight: var(--font-semibold);
+}
+.inkswell-editor {
+  flex: 1;
+  width: 100%;
+  resize: none;
+  font-family: var(--font-text);
+  font-size: var(--font-text-size);
+  line-height: var(--line-height-normal);
+}
+.inkswell-write__inspector {
+  width: 260px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--background-modifier-border);
+}
+.inkswell-write__empty {
+  padding: var(--size-4-4);
 }
 
 .inkswell-publish {
