@@ -6,6 +6,7 @@
  */
 
 import { App } from "obsidian";
+import { randomPrompt } from "../ideation/prompts";
 import { SprintController } from "../sprints/sprint-controller";
 import type InkswellPlugin from "../../main";
 
@@ -15,6 +16,7 @@ export class WritePanel {
   private sprints: SprintController;
   private container: HTMLElement | null = null;
   private unsub: (() => void) | null = null;
+  private prompt: string = randomPrompt();
 
   constructor(app: App, plugin: InkswellPlugin, sprints: SprintController) {
     this.app = app;
@@ -66,6 +68,16 @@ export class WritePanel {
       text: "Start a writing sprint",
     });
     sprint.onclick = () => this.plugin.startSprint();
+
+    // Writing prompt card (a nudge when stuck).
+    const card = wrap.createDiv({ cls: "inkswell-prompt-card" });
+    card.createDiv({ cls: "inkswell-stats__muted", text: "Prompt" });
+    card.createDiv({ cls: "inkswell-prompt-card__text", text: this.prompt });
+    const nb = card.createEl("button", { text: "New prompt" });
+    nb.onclick = () => {
+      this.prompt = randomPrompt(this.prompt);
+      if (this.container) this.renderBody(this.container);
+    };
   }
 
   dispose(): void {

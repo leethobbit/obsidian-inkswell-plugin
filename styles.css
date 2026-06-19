@@ -273,6 +273,99 @@
   margin-bottom: var(--size-4-1);
 }
 
+/* --- Ideas inbox (Home) --- */
+.inkswell-ideas {
+  margin-bottom: var(--size-4-3);
+  padding-bottom: var(--size-4-2);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.inkswell-ideas__input {
+  width: 100%;
+  margin-bottom: var(--size-4-1);
+}
+.inkswell-idea {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: 2px var(--size-4-1);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-idea__pin {
+  cursor: pointer;
+  color: var(--text-faint);
+}
+.inkswell-idea.is-pinned .inkswell-idea__pin {
+  color: var(--text-accent);
+}
+.inkswell-idea__text {
+  flex: 1;
+  min-width: 0;
+}
+.inkswell-idea__del {
+  cursor: pointer;
+  color: var(--text-faint);
+}
+.inkswell-idea__del:hover {
+  color: var(--text-error);
+}
+
+/* --- Writing prompt card (Write) --- */
+.inkswell-prompt-card {
+  margin-top: var(--size-4-4);
+  padding: var(--size-4-3);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  max-width: 480px;
+}
+.inkswell-prompt-card__text {
+  font-style: italic;
+  margin: var(--size-4-1) 0 var(--size-4-2);
+}
+
+/* --- Comments (Revise) --- */
+.inkswell-comments {
+  padding: var(--size-4-3);
+}
+.inkswell-comments__toolbar {
+  margin-bottom: var(--size-4-3);
+}
+.inkswell-comments__scene {
+  font-weight: var(--font-semibold);
+  margin-top: var(--size-4-3);
+  cursor: pointer;
+}
+.inkswell-comments__row {
+  display: flex;
+  gap: var(--size-4-2);
+  padding: 2px 0;
+}
+.inkswell-comments__marker {
+  color: var(--text-faint);
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-comments__text {
+  flex: 1;
+}
+
+/* --- Publish step editor --- */
+.inkswell-publish__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--size-4-2) 0;
+  max-width: 360px;
+}
+.inkswell-publish__steps {
+  margin: var(--size-4-2) 0;
+}
+.inkswell-publish__step {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: 2px 0;
+}
+
 /* Prompt modal input */
 .inkswell-prompt__input {
   width: 100%;

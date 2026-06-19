@@ -16,6 +16,7 @@ import { BeatPanel } from "../outliner/beat-panel";
 import { BoardPanel } from "../outliner/board-panel";
 import { ProjectStats } from "../projects/project-stats";
 import { ProjectStore } from "../projects/project-store";
+import { CommentsPanel } from "../revisions/comments-panel";
 import { RevisionPanel } from "../revisions/revision-view";
 import { StatsPanel } from "../stats/stats-view";
 import { WritingTracker } from "../tracking/writing-tracker";
@@ -61,6 +62,7 @@ const DESTINATIONS: Destination[] = [
     icon: "git-compare",
     subtabs: [
       { id: "log", label: "Log" },
+      { id: "comments", label: "Comments" },
       { id: "analysis", label: "Analysis" },
     ],
   },
@@ -76,6 +78,7 @@ export class InkswellView extends ItemView {
   private write: WritePanel;
   private stats: StatsPanel;
   private revisions: RevisionPanel;
+  private comments: CommentsPanel;
   private analysis: AnalysisPanel;
   private compile: CompilePanel;
   private inspector: SceneInspector;
@@ -104,6 +107,7 @@ export class InkswellView extends ItemView {
     this.write = new WritePanel(this.app, plugin, plugin.sprints);
     this.stats = new StatsPanel(this.app, plugin, tracker, store, stats);
     this.revisions = new RevisionPanel(this.app, plugin, store);
+    this.comments = new CommentsPanel(this.app, store);
     this.analysis = new AnalysisPanel(this.app, store);
     this.compile = new CompilePanel(this.app, plugin, store);
     this.inspector = new SceneInspector(this.app, store);
@@ -235,6 +239,7 @@ export class InkswellView extends ItemView {
       case "revise": {
         const sub = this.subtab["revise"] ?? "log";
         if (sub === "analysis") this.analysis.render(content);
+        else if (sub === "comments") this.comments.render(content);
         else this.revisions.render(content);
         break;
       }

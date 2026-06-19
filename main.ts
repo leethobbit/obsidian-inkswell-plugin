@@ -12,6 +12,8 @@
 import { Notice, Plugin, WorkspaceLeaf } from "obsidian";
 import { CompileModal } from "./src/compile/compile-modal";
 import { TargetModal } from "./src/goals/target-modal";
+import { Idea, newIdeaId } from "./src/ideation/types";
+import { promptText } from "./src/scenes/scene-actions";
 import { ProjectStats } from "./src/projects/project-stats";
 import { ProjectStore } from "./src/projects/project-store";
 import { Project } from "./src/projects/types";
@@ -35,6 +37,7 @@ import {
 export default class InkswellPlugin extends Plugin {
   settings: InkswellSettings = DEFAULT_SETTINGS;
   writingLog: WritingLogData = emptyLog();
+  ideas: Idea[] = [];
   store!: ProjectStore;
   stats!: ProjectStats;
   tracker!: WritingTracker;
@@ -157,6 +160,22 @@ export default class InkswellPlugin extends Plugin {
       name: "Open revision log",
       callback: () => this.openRevisions(),
     });
+    this.addCommand({
+      id: "quick-capture",
+      name: "Quick capture an idea",
+      callback: async () => {
+        const text = await promptText(this.app, {
+          title: "Quick capture",
+          value: "",
+          multiline: true,
+          cta: "Capture",
+        });
+        if (text) {
+          this.addIdea(text);
+          new Notice("Idea captured.");
+        }
+      },
+    });
   }
 
   /** The project whose index or a scene matches a vault path. */
@@ -170,11 +189,38 @@ export default class InkswellPlugin extends Plugin {
     const stored = (await this.loadData()) ?? {};
     this.settings = Object.assign({}, DEFAULT_SETTINGS, stored.settings ?? {});
     this.writingLog = Object.assign({}, emptyLog(), stored.writingLog ?? {});
+    this.ideas = Array.isArray(stored.ideas) ? stored.ideas : [];
   }
 
-  /** Persist both settings and the writing log to data.json. */
+  /** Persist settings, the writing log, and ideas to data.json. */
   async persist(): Promise<void> {
-    await this.saveData({ settings: this.settings, writingLog: this.writingLog });
+    await this.saveData({
+      settings: this.settings,
+      writingLog: this.writingLog,
+      ideas: this.ideas,
+    });
+  }
+
+  // --- Story ideas inbox ---
+
+  addIdea(text: string): void {
+    const t = text.trim();
+    if (!t) return;
+    this.ideas.unshift({ id: newIdeaId(), text: t, created: new Date().toISOString(), pinned: false });
+    void this.persist();
+    this.refreshExplorer();
+  }
+
+  removeIdea(id: string): void {
+    this.ideas = this.ideas.filter((i) => i.id !== id);
+    void this.persist();
+    this.refreshExplorer();
+  }
+
+  togglePinIdea(id: string): void {
+    this.ideas = this.ideas.map((i) => (i.id === id ? { ...i, pinned: !i.pinned } : i));
+    void this.persist();
+    this.refreshExplorer();
   }
 
   /** Back-compat alias used by the settings tab. */

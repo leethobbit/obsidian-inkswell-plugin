@@ -7,6 +7,7 @@
  * NEVER nested inside `longform`.
  */
 
+import type { CompileConfig } from "../compile/types";
 import type { BeatSheet } from "../outliner/beat-templates";
 import type { RevisionDecision } from "../revisions/types";
 
@@ -79,7 +80,7 @@ export interface ProjectGoals {
 }
 
 export interface InkswellProjectData {
-  compile?: unknown; // CompileConfig — typed in src/compile
+  compile?: CompileConfig;
   goals?: ProjectGoals;
   revisions?: RevisionDecision[];
   beats?: BeatSheet;
