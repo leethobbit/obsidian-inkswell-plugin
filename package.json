@@ -1,6 +1,6 @@
 {
   "name": "obsidian-inkswell-plugin",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Inkswell — a full writer's suite for Obsidian: projects, compile, goals, sprints, and an invisible-revision decision log.",
   "main": "main.js",
   "type": "module",

@@ -7,12 +7,13 @@
  * bodies), via persistInkswellData.
  */
 
-import { App, TFile } from "obsidian";
+import { App, Notice, TFile } from "obsidian";
 import { persistInkswellData } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
-import { BeatSheet } from "./beat-templates";
+import { BeatSheet, DEFAULT_TEMPLATE, TEMPLATE_META } from "./beat-templates";
 import { beatProgress, mergeBeats, setAssignment } from "./beats";
+import { scaffoldFromTemplate } from "./scaffold";
 
 export class BeatPanel {
   private app: App;
@@ -65,17 +66,46 @@ export class BeatPanel {
   }
 
   private renderHeader(root: HTMLElement, projects: Project[], project: Project): void {
-    if (projects.length <= 1) return;
     const bar = root.createDiv({ cls: "inkswell-beats__toolbar" });
-    const sel = bar.createEl("select", { cls: "dropdown" });
-    for (const p of projects) {
-      const o = sel.createEl("option", { text: p.draft.title, value: p.vaultPath });
-      if (p.vaultPath === project.vaultPath) o.selected = true;
+
+    if (projects.length > 1) {
+      const sel = bar.createEl("select", { cls: "dropdown" });
+      for (const p of projects) {
+        const o = sel.createEl("option", { text: p.draft.title, value: p.vaultPath });
+        if (p.vaultPath === project.vaultPath) o.selected = true;
+      }
+      sel.onchange = () => {
+        this.selectedPath = sel.value;
+        this.rerender();
+      };
     }
-    sel.onchange = () => {
-      this.selectedPath = sel.value;
-      this.rerender();
+
+    const current = project.inkswell?.beats?.template ?? DEFAULT_TEMPLATE;
+    const tsel = bar.createEl("select", { cls: "dropdown" });
+    for (const meta of TEMPLATE_META) {
+      const o = tsel.createEl("option", { text: meta.label, value: meta.id });
+      if (meta.id === current) o.selected = true;
+    }
+    tsel.onchange = () => this.setTemplate(project, tsel.value);
+
+    const scaffold = bar.createEl("button", { text: "Scaffold scenes" });
+    scaffold.setAttribute("aria-label", "Create a placeholder scene for each beat");
+    scaffold.onclick = async () => {
+      const n = await scaffoldFromTemplate(this.app, this.store, project, current);
+      new Notice(
+        n > 0 ? `Created ${n} placeholder scene(s).` : "No new scenes to create."
+      );
     };
+  }
+
+  private setTemplate(project: Project, templateId: string): void {
+    const sheet = project.inkswell?.beats;
+    const next: BeatSheet = {
+      template: templateId,
+      assignments: sheet?.assignments ?? {},
+    };
+    const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
+    if (file instanceof TFile) void persistInkswellData(this.app, file, { beats: next });
   }
 
   private renderBeat(

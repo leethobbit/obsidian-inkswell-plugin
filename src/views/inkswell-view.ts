@@ -11,6 +11,7 @@
 
 import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
 import { BeatPanel } from "../outliner/beat-panel";
+import { BoardPanel } from "../outliner/board-panel";
 import { ProjectStats } from "../projects/project-stats";
 import { ProjectStore } from "../projects/project-store";
 import { RevisionPanel } from "../revisions/revision-view";
@@ -40,7 +41,15 @@ interface Destination {
 
 const DESTINATIONS: Destination[] = [
   { id: "home", label: "Home", icon: "home" },
-  { id: "plan", label: "Plan", icon: "compass", subtabs: [{ id: "beats", label: "Beats" }] },
+  {
+    id: "plan",
+    label: "Plan",
+    icon: "compass",
+    subtabs: [
+      { id: "beats", label: "Beats" },
+      { id: "board", label: "Board" },
+    ],
+  },
   { id: "write", label: "Write", icon: "pencil" },
   { id: "track", label: "Track", icon: "bar-chart-3" },
   { id: "revise", label: "Revise", icon: "git-compare" },
@@ -51,6 +60,7 @@ export class InkswellView extends ItemView {
   private plugin: InkswellPlugin;
   private explorer: ExplorerPanel;
   private beats: BeatPanel;
+  private board: BoardPanel;
   private write: WritePanel;
   private stats: StatsPanel;
   private revisions: RevisionPanel;
@@ -76,6 +86,7 @@ export class InkswellView extends ItemView {
     this.plugin = plugin;
     this.explorer = new ExplorerPanel(this.app, plugin, store, stats);
     this.beats = new BeatPanel(this.app, store);
+    this.board = new BoardPanel(this.app, store);
     this.write = new WritePanel(this.app, plugin, plugin.sprints);
     this.stats = new StatsPanel(plugin, tracker, store, stats);
     this.revisions = new RevisionPanel(this.app, plugin, store);
@@ -193,10 +204,12 @@ export class InkswellView extends ItemView {
       case "home":
         this.explorer.render(content);
         break;
-      case "plan":
-        // Only the Beats sub-tab exists today; Board/Codex arrive in later phases.
-        this.beats.render(content);
+      case "plan": {
+        const sub = this.subtab["plan"] ?? "beats";
+        if (sub === "board") this.board.render(content);
+        else this.beats.render(content);
         break;
+      }
       case "write":
         this.write.render(content);
         break;

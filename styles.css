@@ -210,6 +210,81 @@
   color: #fff;
 }
 
+/* --- Plan toolbars + Kanban board --- */
+.inkswell-beats__toolbar,
+.inkswell-board__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-3);
+  flex-wrap: wrap;
+}
+
+.inkswell-board {
+  padding: var(--size-4-3);
+}
+
+.inkswell-board__cols {
+  display: flex;
+  gap: var(--size-4-2);
+  overflow-x: auto;
+  align-items: flex-start;
+}
+
+.inkswell-board__col {
+  flex: 0 0 220px;
+  background: var(--background-secondary);
+  border-radius: var(--radius-m);
+  padding: var(--size-4-2);
+}
+
+.inkswell-board__col.is-drop {
+  outline: 2px dashed var(--interactive-accent);
+}
+
+.inkswell-board__colhead {
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: var(--size-4-2);
+}
+
+.inkswell-board__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-1);
+  min-height: 24px;
+}
+
+.inkswell-board__card {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  padding: var(--size-4-2);
+  cursor: pointer;
+}
+
+.inkswell-board__card.is-dragging {
+  opacity: 0.4;
+}
+
+.inkswell-board__cardtitle {
+  font-weight: var(--font-semibold);
+  font-size: var(--font-ui-small);
+}
+
+.inkswell-board__cardsyn {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* Write + Publish panels */
 .inkswell-write__wrap {
   padding: var(--size-4-4);
