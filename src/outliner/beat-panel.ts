@@ -134,19 +134,27 @@ export class BeatPanel {
     note.value = beat.assignment.note ?? "";
     note.onchange = () => this.update(project, beat.id, { note: note.value });
 
+    // Scenes: a beat can span several scenes — show chips + an add dropdown.
     const sceneRow = row.createDiv({ cls: "inkswell-beat__scene" });
-    sceneRow.createSpan({ cls: "inkswell-stats__muted", text: "Scene:" });
-    const sel = sceneRow.createEl("select", { cls: "dropdown" });
-    sel.createEl("option", { text: "— none —", value: "__none__" });
-    for (const t of sceneTitles) {
-      const o = sel.createEl("option", { text: t, value: t });
-      if (beat.assignment.scene === t) o.selected = true;
+    const attached = beat.assignment.scenes ?? [];
+    const chips = sceneRow.createDiv({ cls: "inkswell-beat__chips" });
+    for (const t of attached) {
+      const chip = chips.createSpan({ cls: "inkswell-chip", text: t });
+      const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
+      x.setAttribute("aria-label", `Remove ${t}`);
+      x.onclick = () =>
+        this.update(project, beat.id, { scenes: attached.filter((s) => s !== t) });
     }
-    sel.value = beat.assignment.scene ?? "__none__";
-    sel.onchange = () =>
-      this.update(project, beat.id, {
-        scene: sel.value === "__none__" ? null : sel.value,
-      });
+    const remaining = sceneTitles.filter((t) => !attached.includes(t));
+    if (remaining.length > 0) {
+      const add = sceneRow.createEl("select", { cls: "dropdown inkswell-beat__addscene" });
+      add.createEl("option", { text: "+ add scene", value: "" });
+      for (const t of remaining) add.createEl("option", { text: t, value: t });
+      add.value = "";
+      add.onchange = () => {
+        if (add.value) this.update(project, beat.id, { scenes: [...attached, add.value] });
+      };
+    }
   }
 
   private update(

@@ -28,7 +28,7 @@ describe("beatProgress", () => {
       assignments: {
         "opening-image": { done: true },
         catalyst: { note: "inciting event" }, // started, not done
-        midpoint: { scene: "Ch 8" }, // started, not done
+        midpoint: { scenes: ["Ch 8"] }, // started, not done
       },
     });
     const p = beatProgress(beats);
@@ -57,10 +57,19 @@ describe("setAssignment", () => {
     expect(sheet.assignments.finale).toBeUndefined();
   });
 
-  it("clears a scene link with null", () => {
-    let sheet = setAssignment(undefined, "b-story", { scene: "Ch 3" });
-    expect(sheet.assignments["b-story"].scene).toBe("Ch 3");
-    sheet = setAssignment(sheet, "b-story", { scene: null });
+  it("attaches multiple scenes and clears when emptied", () => {
+    let sheet = setAssignment(undefined, "b-story", { scenes: ["Ch 3", "Ch 4"] });
+    expect(sheet.assignments["b-story"].scenes).toEqual(["Ch 3", "Ch 4"]);
+    sheet = setAssignment(sheet, "b-story", { scenes: [] });
     expect(sheet.assignments["b-story"]).toBeUndefined();
+  });
+
+  it("migrates a legacy single `scene` to `scenes` on read", () => {
+    const beats = mergeBeats({
+      template: "save-the-cat",
+      // legacy shape from before multi-scene support
+      assignments: { catalyst: { scene: "Ch 1" } as never },
+    });
+    expect(beats.find((b) => b.id === "catalyst")!.assignment.scenes).toEqual(["Ch 1"]);
   });
 });

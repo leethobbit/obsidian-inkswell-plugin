@@ -19,7 +19,14 @@ export interface MergedBeat extends BeatDef {
 export function mergeBeats(sheet: BeatSheet | undefined): MergedBeat[] {
   const template = getTemplate(sheet?.template);
   const assignments = sheet?.assignments ?? {};
-  return template.map((def) => ({ ...def, assignment: assignments[def.id] ?? {} }));
+  return template.map((def) => {
+    // Migrate legacy single `scene` (string) → `scenes` (string[]) on read.
+    const raw = (assignments[def.id] ?? {}) as BeatAssignment & { scene?: string };
+    const assignment: BeatAssignment = { ...raw };
+    if (raw.scene && !assignment.scenes) assignment.scenes = [raw.scene];
+    delete (assignment as { scene?: string }).scene;
+    return { ...def, assignment };
+  });
 }
 
 export interface BeatProgress {
@@ -34,7 +41,11 @@ export function beatProgress(beats: MergedBeat[]): BeatProgress {
   let started = 0;
   for (const b of beats) {
     if (b.assignment.done) done += 1;
-    if (b.assignment.done || b.assignment.scene || (b.assignment.note ?? "").trim()) {
+    if (
+      b.assignment.done ||
+      (b.assignment.scenes && b.assignment.scenes.length > 0) ||
+      (b.assignment.note ?? "").trim()
+    ) {
       started += 1;
     }
   }
@@ -50,7 +61,7 @@ export function setAssignment(
   const base: BeatSheet = sheet ?? { template: DEFAULT_TEMPLATE, assignments: {} };
   const next: BeatAssignment = { ...(base.assignments[beatId] ?? {}), ...patch };
   // Drop empty fields so cleared assignments don't linger in frontmatter.
-  if (next.scene == null || next.scene === "") delete next.scene;
+  if (!next.scenes || next.scenes.length === 0) delete next.scenes;
   if (!(next.note ?? "").trim()) delete next.note;
   if (!next.done) delete next.done;
 

@@ -115,15 +115,15 @@ export class InkswellView extends ItemView {
 
     this.rail = root.createDiv({ cls: "inkswell-rail" });
     for (const dest of DESTINATIONS) {
-      const btn = this.rail.createEl("button", { cls: "inkswell-rail__item" });
-      setIcon(btn.createSpan({ cls: "inkswell-rail__icon" }), dest.icon);
-      btn.createSpan({ cls: "inkswell-rail__label", text: dest.label });
-      btn.dataset.dest = dest.id;
-      btn.setAttribute("aria-label", dest.label);
-      btn.onclick = () => this.setMode(dest.id);
+      const item = this.rail.createDiv({ cls: "inkswell-rail__item" });
+      setIcon(item.createSpan({ cls: "inkswell-rail__icon" }), dest.icon);
+      item.createSpan({ cls: "inkswell-rail__label", text: dest.label });
+      item.dataset.dest = dest.id;
+      item.setAttribute("aria-label", dest.label);
+      item.onclick = () => this.setMode(dest.id);
     }
     this.rail.createDiv({ cls: "inkswell-rail__spacer" });
-    const sprint = this.rail.createEl("button", { cls: "inkswell-rail__item" });
+    const sprint = this.rail.createDiv({ cls: "inkswell-rail__item" });
     setIcon(sprint.createSpan({ cls: "inkswell-rail__icon" }), "timer");
     sprint.createSpan({ cls: "inkswell-rail__label", text: "Sprint" });
     sprint.setAttribute("aria-label", "Start a writing sprint");

@@ -16,8 +16,8 @@ export interface BeatDef {
 
 /** Per-project, per-beat data overlaid on a template definition. */
 export interface BeatAssignment {
-  /** Scene title this beat is realized by, or null/absent. */
-  scene?: string | null;
+  /** Scene titles this beat is realized by (a beat may span several scenes). */
+  scenes?: string[];
   /** Planning note: what happens at this beat. */
   note?: string;
   /** Marked complete. */

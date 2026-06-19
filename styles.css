@@ -11,11 +11,12 @@
 .inkswell-rail {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: var(--size-4-2) var(--size-4-1);
+  gap: var(--size-4-1);
+  padding: var(--size-4-2);
   border-right: 1px solid var(--background-modifier-border);
   flex-shrink: 0;
-  min-width: 84px;
+  width: 76px;
+  box-sizing: border-box;
 }
 
 .inkswell-rail__spacer {
@@ -26,19 +27,18 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   width: 100%;
-  padding: var(--size-4-2) var(--size-4-1);
-  background: transparent;
-  border: none;
+  padding: var(--size-4-2) 2px;
   border-radius: var(--radius-s);
   color: var(--text-muted);
   cursor: pointer;
-  box-shadow: none;
+  line-height: 1.2;
 }
 
 .inkswell-rail__item:hover {
   background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
 }
 
 .inkswell-rail__item.is-active {
@@ -50,8 +50,14 @@
   display: inline-flex;
 }
 
+.inkswell-rail__icon .svg-icon {
+  width: 18px;
+  height: 18px;
+}
+
 .inkswell-rail__label {
   font-size: var(--font-ui-smaller);
+  text-align: center;
 }
 
 .inkswell-host__body {
@@ -344,7 +350,6 @@
 .inkswell-scene {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--size-4-2);
   padding: var(--size-4-1) var(--size-4-2);
   border-radius: var(--radius-s);
@@ -364,9 +369,16 @@
 }
 
 .inkswell-scene__title {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* status badge sits at the right; word count follows it */
+.inkswell-scene .inkswell-status {
+  margin-left: auto;
 }
 
 .inkswell-scene__count {
@@ -520,6 +532,33 @@
   display: flex;
   align-items: center;
   gap: var(--size-4-2);
+  flex-wrap: wrap;
+}
+
+.inkswell-beat__chips {
+  display: flex;
+  gap: var(--size-4-1);
+  flex-wrap: wrap;
+}
+
+.inkswell-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: var(--radius-s);
+  background: var(--background-modifier-border);
+  font-size: var(--font-ui-smaller);
+}
+
+.inkswell-chip__x {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-weight: var(--font-bold);
+}
+
+.inkswell-chip__x:hover {
+  color: var(--text-error);
 }
 
 /* --- Revision log --- */
