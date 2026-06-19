@@ -593,6 +593,34 @@
   text-align: center;
 }
 
+/* Series grouping (Home): header + nested book projects */
+.inkswell-series {
+  margin-bottom: var(--size-4-4);
+}
+.inkswell-series__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--size-4-2);
+  padding-bottom: var(--size-4-1);
+  margin-bottom: var(--size-4-2);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.inkswell-series__name {
+  font-weight: var(--font-bold);
+  font-size: var(--font-ui-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.inkswell-series__meta {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  font-variant-numeric: tabular-nums;
+}
+.inkswell-series .inkswell-project {
+  padding-left: var(--size-4-3);
+}
+
 .inkswell-project {
   margin-bottom: var(--size-4-3);
 }

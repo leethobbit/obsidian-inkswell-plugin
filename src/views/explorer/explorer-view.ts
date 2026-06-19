@@ -8,7 +8,7 @@
  */
 
 import { App, Menu, TFile } from "obsidian";
-import { updateScenes } from "../../projects/index-writer";
+import { updateScenes, writeSeries } from "../../projects/index-writer";
 import { ProjectStats } from "../../projects/project-stats";
 import { ProjectStore } from "../../projects/project-store";
 import {
@@ -18,7 +18,8 @@ import {
   unindentScene,
 } from "../../projects/scene-tree";
 import { Project, isMultiScene } from "../../projects/types";
-import { deleteScene, editSynopsis, renameScene } from "../../scenes/scene-actions";
+import { Series, groupIntoSeries, projectSeries } from "../../series/series";
+import { deleteScene, editSynopsis, promptText, renameScene } from "../../scenes/scene-actions";
 import { readSceneMeta, statusLabel } from "../../scenes/scene-meta";
 import type InkswellPlugin from "../../../main";
 
@@ -55,9 +56,38 @@ export class ExplorerPanel {
       return;
     }
 
-    for (const project of projects) {
-      this.renderProject(container, project);
+    const { series, standalone } = groupIntoSeries(projects);
+    for (const s of series) this.renderSeries(container, s);
+    for (const project of standalone) this.renderProject(container, project);
+  }
+
+  /** A named series: header with aggregate progress, then its books in order. */
+  private renderSeries(parent: HTMLElement, series: Series): void {
+    const sec = parent.createDiv({ cls: "inkswell-series" });
+    const header = sec.createDiv({ cls: "inkswell-series__header" });
+    header.createSpan({ cls: "inkswell-series__name", text: series.name });
+    const meta = header.createSpan({ cls: "inkswell-series__meta" });
+    const books = series.books.length;
+    meta.setText(`${books} book${books === 1 ? "" : "s"}`);
+    if (this.plugin.settings.showWordCounts) void this.renderSeriesTotals(meta, series);
+    for (const book of series.books) this.renderProject(sec, book);
+  }
+
+  /** Sum words (and targets, if any) across a series and write them to `el`. */
+  private async renderSeriesTotals(el: HTMLElement, series: Series): Promise<void> {
+    let words = 0;
+    let target = 0;
+    for (const book of series.books) {
+      words += await this.stats.projectWords(book);
+      const t = book.inkswell?.goals?.target;
+      if (typeof t === "number" && t > 0) target += t;
     }
+    const books = series.books.length;
+    let text = `${books} book${books === 1 ? "" : "s"} · ${words.toLocaleString()} words`;
+    if (target > 0) {
+      text += ` / ${target.toLocaleString()} (${Math.round((words / target) * 100)}%)`;
+    }
+    el.setText(text);
   }
 
   /** Story ideas inbox (capture without leaving Home). */
@@ -94,7 +124,13 @@ export class ExplorerPanel {
   private renderProject(parent: HTMLElement, project: Project): void {
     const section = parent.createDiv({ cls: "inkswell-project" });
     const header = section.createDiv({ cls: "inkswell-project__header" });
-    header.createSpan({ text: project.draft.title });
+    const info = projectSeries(project);
+    const title = info?.order != null ? `${info.order}. ${project.draft.title}` : project.draft.title;
+    header.createSpan({ text: title });
+    header.oncontextmenu = (e) => {
+      e.preventDefault();
+      this.projectMenu(project).showAtMouseEvent(e);
+    };
 
     const right = header.createDiv();
     const count = right.createSpan({ cls: "inkswell-project__count" });
@@ -116,6 +152,69 @@ export class ExplorerPanel {
         });
       }
     }
+  }
+
+  /** Right-click menu on a project header: series membership. */
+  private projectMenu(project: Project): Menu {
+    const menu = new Menu();
+    const file = this.indexFile(project);
+    if (!file) return menu;
+    const info = projectSeries(project);
+
+    menu.addItem((i) =>
+      i
+        .setTitle(info ? "Change series…" : "Add to series…")
+        .setIcon("library")
+        .onClick(() => void this.setSeries(project, file))
+    );
+    if (info) {
+      menu.addItem((i) =>
+        i
+          .setTitle("Set book number…")
+          .setIcon("list-ordered")
+          .onClick(() => void this.setBookNumber(project, file))
+      );
+      menu.addItem((i) =>
+        i
+          .setTitle("Remove from series")
+          .setIcon("link-2-off")
+          .onClick(() => void writeSeries(this.app, file, null))
+      );
+    }
+    return menu;
+  }
+
+  private async setSeries(project: Project, file: TFile): Promise<void> {
+    const cur = projectSeries(project);
+    const name = await promptText(this.app, {
+      title: "Series name",
+      value: cur?.name ?? "",
+      multiline: false,
+      cta: "Save",
+    });
+    if (name === null) return;
+    if (!name.trim()) {
+      await writeSeries(this.app, file, null);
+      return;
+    }
+    await writeSeries(this.app, file, { name: name.trim(), order: cur?.order });
+  }
+
+  private async setBookNumber(project: Project, file: TFile): Promise<void> {
+    const cur = projectSeries(project);
+    if (!cur) return;
+    const raw = await promptText(this.app, {
+      title: "Book number",
+      value: cur.order != null ? String(cur.order) : "",
+      multiline: false,
+      cta: "Save",
+    });
+    if (raw === null) return;
+    const n = Math.floor(Number(raw));
+    await writeSeries(this.app, file, {
+      name: cur.name,
+      order: Number.isFinite(n) && n > 0 ? n : undefined,
+    });
   }
 
   private renderScene(

@@ -79,11 +79,20 @@ export interface ProjectGoals {
   target?: number;
 }
 
+/** Series membership for a book (project). A series is the set of books sharing a `name`. */
+export interface SeriesInfo {
+  /** Series display name. Books with the same name form one series. */
+  name: string;
+  /** Position within the series (1-based). Unset books sort after numbered ones. */
+  order?: number;
+}
+
 export interface InkswellProjectData {
   compile?: CompileConfig;
   goals?: ProjectGoals;
   revisions?: RevisionDecision[];
   beats?: BeatSheet;
+  series?: SeriesInfo;
 }
 
 export function isMultiScene(draft: Draft): draft is MultipleSceneDraft {

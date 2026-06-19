@@ -142,7 +142,7 @@ Inkswell has shipped phases 1–4 (`v0.4.0`): Longform-compatible projects + com
 | Pick | Feature                                                  | Have | Fit | Src   | Notes                        |
 | ---- | -------------------------------------------------------- | ---- | --- | ----- | ---------------------------- |
 | X    | Multiple drafts of a project                             | ◑    | ✅   | SL/IW | Longform `draftTitle` exists |
-| X    | Series mode (multi-book, shared codex)                   |      | ⚠️  | SL/IW | heavy                        |
+| X    | Series mode (multi-book, shared codex)                   | ✅   | ✅   | SL/IW | v0.13.0; `inkswell.series` + Home grouping |
 | X    | Project switcher / dashboard                             | ◑    | ✅   | SL/IW | explorer lists all           |
 | X    | Navigator (search, sort, plotline filter, pinned scenes) | ◑    | ✅   | SL    | explorer partly covers       |
 |      | Filter presets across views                              |      | ⚠️  | SL    |                              |

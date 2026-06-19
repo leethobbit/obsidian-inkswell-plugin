@@ -2,7 +2,7 @@
 
 Phase-centric information architecture (one tab, left icon rail): **Home · Plan · Write · Track · Revise · Publish**. Each destination does one job; depth lives behind sub-tabs or the Scene Inspector. See `FEATURES.md` for the full pick list and the plan file for IA rationale.
 
-**Current status: v0.12.0** — phases 5–12 shipped. Remaining: series mode. Not yet live-QA'd end to end (a deep dive is pending).
+**Current status: v0.13.0** — phases 5–13 shipped. All planned features built; next is a deep end-to-end live QA pass before the 1.0 cut. Not yet live-QA'd end to end.
 
 ## Shipped
 | Version | What |
@@ -20,14 +20,12 @@ Phase-centric information architecture (one tab, left icon rail): **Home · Plan
 | v0.10.0 | Revise → Comments (`%%`/`@@` extraction); Publish compile step editor; ideas inbox + quick capture; writing prompts |
 | v0.11.0 | In-plugin manuscript editor (Write): navigator + editable body + Inspector, save-on-blur |
 | v0.12.0 | Codex profiles: master-detail editor, per-category structured frontmatter fields (incl. new `world` category), entity-link pickers, "Appears in" backlinks |
+| v0.13.0 | Series mode: group books into named series (`inkswell.series`), order them, aggregate words/target on the Home series header; codex already vault-wide (shared across books) |
 
 ## Planned
 
-### v0.13.0 — Series mode
-Multi-book series with a shared codex across books.
-
 ### 1.0.0
-Cut once the scene + codex frontmatter schema is stable enough to promise compatibility.
+Cut once the scene + codex frontmatter schema is stable enough to promise compatibility. **Gate: the deep end-to-end live QA pass must happen first** — phases 5–13 are unit-tested but have not been driven in Obsidian.
 
 ## Known gaps / deferred (not on the critical path)
 - **In-plugin editor is plain-text** (v0.11.0) — Live Preview embedding (real Obsidian editor per scene) is a future upgrade; needs in-app iteration against undocumented APIs.
