@@ -10,6 +10,7 @@
  */
 
 import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
+import { CodexPanel } from "../codex/codex-panel";
 import { BeatPanel } from "../outliner/beat-panel";
 import { BoardPanel } from "../outliner/board-panel";
 import { ProjectStats } from "../projects/project-stats";
@@ -48,6 +49,7 @@ const DESTINATIONS: Destination[] = [
     subtabs: [
       { id: "beats", label: "Beats" },
       { id: "board", label: "Board" },
+      { id: "codex", label: "Codex" },
     ],
   },
   { id: "write", label: "Write", icon: "pencil" },
@@ -61,6 +63,7 @@ export class InkswellView extends ItemView {
   private explorer: ExplorerPanel;
   private beats: BeatPanel;
   private board: BoardPanel;
+  private codex: CodexPanel;
   private write: WritePanel;
   private stats: StatsPanel;
   private revisions: RevisionPanel;
@@ -87,6 +90,7 @@ export class InkswellView extends ItemView {
     this.explorer = new ExplorerPanel(this.app, plugin, store, stats);
     this.beats = new BeatPanel(this.app, store);
     this.board = new BoardPanel(this.app, store);
+    this.codex = new CodexPanel(this.app, plugin);
     this.write = new WritePanel(this.app, plugin, plugin.sprints);
     this.stats = new StatsPanel(plugin, tracker, store, stats);
     this.revisions = new RevisionPanel(this.app, plugin, store);
@@ -207,6 +211,7 @@ export class InkswellView extends ItemView {
       case "plan": {
         const sub = this.subtab["plan"] ?? "beats";
         if (sub === "board") this.board.render(content);
+        else if (sub === "codex") this.codex.render(content);
         else this.beats.render(content);
         break;
       }

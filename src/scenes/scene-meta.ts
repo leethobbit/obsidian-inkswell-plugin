@@ -38,6 +38,10 @@ export interface SceneMeta {
   color?: string;
   /** Archived / excluded from compile + stats. */
   inactive?: boolean;
+  /** Linked codex characters, as wikilink strings (e.g. "[[Anna]]"). */
+  characters?: string[];
+  /** Linked codex location, as a wikilink string. */
+  location?: string;
 }
 
 const FIELD_KEYS: (keyof SceneMeta)[] = [
@@ -49,6 +53,8 @@ const FIELD_KEYS: (keyof SceneMeta)[] = [
   "chapter",
   "color",
   "inactive",
+  "characters",
+  "location",
 ];
 
 /** Coerce an arbitrary frontmatter value to a known status, or undefined. */
@@ -77,6 +83,12 @@ export function readSceneMeta(app: App, file: TFile): SceneMeta {
     chapter: str(fm["chapter"]),
     color: str(fm["color"]),
     inactive: fm["inactive"] === true,
+    characters: Array.isArray(fm["characters"])
+      ? fm["characters"].filter((x: unknown): x is string => typeof x === "string")
+      : typeof fm["characters"] === "string"
+        ? [fm["characters"]]
+        : undefined,
+    location: str(fm["location"]),
   };
 }
 
@@ -97,7 +109,8 @@ export async function writeSceneMeta(
         value === undefined ||
         value === null ||
         value === "" ||
-        value === false;
+        value === false ||
+        (Array.isArray(value) && value.length === 0);
       if (empty) delete fm[key];
       else fm[key] = value;
     }

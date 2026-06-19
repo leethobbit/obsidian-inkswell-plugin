@@ -81,14 +81,14 @@ class ConfirmModal extends Modal {
   }
 }
 
-function prompt(
+export function promptText(
   app: App,
   opts: { title: string; value: string; multiline: boolean; cta: string }
 ): Promise<string | null> {
   return new Promise((resolve) => new PromptModal(app, opts, resolve).open());
 }
 
-function confirm(app: App, message: string): Promise<boolean> {
+export function confirmDelete(app: App, message: string): Promise<boolean> {
   return new Promise((resolve) => new ConfirmModal(app, message, resolve).open());
 }
 
@@ -101,7 +101,7 @@ export function openScene(app: App, file: TFile): void {
 
 export async function editSynopsis(app: App, file: TFile): Promise<void> {
   const current = readSceneMeta(app, file).synopsis ?? "";
-  const value = await prompt(app, {
+  const value = await promptText(app, {
     title: `Synopsis — ${file.basename}`,
     value: current,
     multiline: true,
@@ -116,7 +116,7 @@ export async function renameScene(
   oldTitle: string,
   file: TFile
 ): Promise<void> {
-  const input = await prompt(app, {
+  const input = await promptText(app, {
     title: "Rename scene",
     value: oldTitle,
     multiline: false,
@@ -145,7 +145,7 @@ export async function deleteScene(
   title: string,
   file: TFile
 ): Promise<void> {
-  const ok = await confirm(
+  const ok = await confirmDelete(
     app,
     `Delete scene "${title}"? It will be moved to trash and removed from the project.`
   );

@@ -216,6 +216,63 @@
   color: #fff;
 }
 
+/* --- Codex --- */
+.inkswell-codex {
+  padding: var(--size-4-3);
+}
+.inkswell-codex__toolbar {
+  display: flex;
+  gap: var(--size-4-2);
+  align-items: center;
+  margin-bottom: var(--size-4-3);
+  flex-wrap: wrap;
+}
+.inkswell-codex__toolbar input[type="search"] {
+  flex: 1;
+  min-width: 120px;
+}
+.inkswell-codex__list h4 {
+  margin: var(--size-4-3) 0 var(--size-4-1);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.inkswell-codex__row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-1) var(--size-4-2);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+}
+.inkswell-codex__row:hover {
+  background-color: var(--background-modifier-hover);
+}
+.inkswell-codex__icon {
+  display: inline-flex;
+  color: var(--text-muted);
+}
+.inkswell-codex__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inkswell-codex__aliases {
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+}
+
+/* Inspector chips (characters) */
+.inkswell-inspector__chips {
+  display: flex;
+  gap: var(--size-4-1);
+  flex-wrap: wrap;
+  margin-bottom: var(--size-4-1);
+}
+
 /* Prompt modal input */
 .inkswell-prompt__input {
   width: 100%;

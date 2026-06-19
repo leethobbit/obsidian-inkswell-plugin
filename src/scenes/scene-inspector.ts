@@ -6,6 +6,8 @@
  */
 
 import { App, TFile } from "obsidian";
+import { detectMentions, linkTarget, toLink } from "../codex/codex";
+import { getCodexEntities } from "../codex/codex-store";
 import { ProjectStore } from "../projects/project-store";
 import {
   SCENE_STATUSES,
@@ -47,6 +49,7 @@ export class SceneInspector {
 
     const meta = readSceneMeta(this.app, file);
     const save = (patch: Partial<SceneMeta>) => void writeSceneMeta(this.app, file, patch);
+    const entities = getCodexEntities(this.app);
 
     // Status
     this.field(container, "Status", (host) => {
@@ -83,6 +86,67 @@ export class SceneInspector {
       t.value = meta.pov ?? "";
       t.placeholder = "Point-of-view character";
       t.onchange = () => save({ pov: t.value });
+    });
+
+    // Characters (linked codex entities)
+    this.field(container, "Characters", (host) => {
+      const current = meta.characters ?? [];
+      const chips = host.createDiv({ cls: "inkswell-inspector__chips" });
+      for (const link of current) {
+        const chip = chips.createSpan({ cls: "inkswell-chip", text: linkTarget(link) });
+        const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
+        x.onclick = () => save({ characters: current.filter((c) => c !== link) });
+      }
+      const chars = entities.filter((e) => e.category === "character");
+      const remaining = chars.filter(
+        (c) => !current.some((link) => linkTarget(link) === c.name)
+      );
+      if (remaining.length > 0) {
+        const add = host.createEl("select", { cls: "dropdown" });
+        add.createEl("option", { text: "+ add character", value: "" });
+        for (const c of remaining) add.createEl("option", { text: c.name, value: c.name });
+        add.value = "";
+        add.onchange = () => {
+          if (add.value) save({ characters: [...current, toLink(add.value)] });
+        };
+      } else if (chars.length === 0) {
+        host.createSpan({ cls: "inkswell-stats__muted", text: "No characters in codex." });
+      }
+    });
+
+    // Location (single linked codex entity)
+    this.field(container, "Location", (host) => {
+      const locs = entities.filter((e) => e.category === "location");
+      const cur = meta.location ? linkTarget(meta.location) : "";
+      const sel = host.createEl("select", { cls: "dropdown" });
+      sel.createEl("option", { text: "— none —", value: "" });
+      for (const l of locs) {
+        const o = sel.createEl("option", { text: l.name, value: l.name });
+        if (l.name === cur) o.selected = true;
+      }
+      sel.value = locs.some((l) => l.name === cur) ? cur : "";
+      sel.onchange = () => save({ location: sel.value ? toLink(sel.value) : "" });
+    });
+
+    // Auto-detect codex mentions in the scene body.
+    this.field(container, "", (host) => {
+      const btn = host.createEl("button", { text: "Detect mentions" });
+      btn.setAttribute("aria-label", "Scan the scene text for codex characters/locations");
+      btn.onclick = async () => {
+        const text = await this.app.vault.cachedRead(file);
+        const mentions = detectMentions(text, entities);
+        const fresh = readSceneMeta(this.app, file);
+        const chars = Array.from(
+          new Set([
+            ...(fresh.characters ?? []),
+            ...mentions.filter((m) => m.category === "character").map((m) => toLink(m.name)),
+          ])
+        );
+        const patch: Partial<SceneMeta> = { characters: chars };
+        const loc = mentions.find((m) => m.category === "location");
+        if (loc && !fresh.location) patch.location = toLink(loc.name);
+        await writeSceneMeta(this.app, file, patch);
+      };
     });
 
     // Act + Chapter

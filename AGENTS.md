@@ -36,7 +36,9 @@ Single Obsidian plugin (TypeScript + esbuild) that bundles a longform writer's s
 | [src/sprints/](src/sprints/) | Sprint timer/controller + start dialog |
 | [src/stats/](src/stats/) | Stats dashboard view (CSS bar chart, streaks, projections) |
 | [src/revisions/](src/revisions/) | Invisible-revision decision log: pure ops (decisions.ts), I/O, capture modal, panel |
-| [src/outliner/](src/outliner/) | Save the Cat beat sheet: template, pure ops (beats.ts), BeatPanel |
+| [src/outliner/](src/outliner/) | Beat sheets (templates, beats.ts, BeatPanel) + Kanban (board.ts, BoardPanel) + scaffold |
+| [src/scenes/](src/scenes/) | Per-scene frontmatter (scene-meta.ts), Scene Inspector, scene actions (rename/synopsis/delete) |
+| [src/codex/](src/codex/) | Codex entities (notes w/ `codex` frontmatter), scanner, panel, pure detect/link helpers |
 | [src/lib/wordcount.ts](src/lib/wordcount.ts) | Shared markdown-aware word counter |
 | [src/settings/](src/settings/) | Settings tab + typed settings model |
 

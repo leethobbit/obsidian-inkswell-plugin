@@ -23,6 +23,8 @@ export interface InkswellSettings {
   defaultSprintMinutes: number;
   /** Minimum words for a day to count toward a writing streak. */
   streakThreshold: number;
+  /** Vault folder where new codex entities are created. */
+  codexFolder: string;
 }
 
 export const DEFAULT_SETTINGS: InkswellSettings = {
@@ -32,6 +34,7 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   dailyWordGoal: 500,
   defaultSprintMinutes: 15,
   streakThreshold: 1,
+  codexFolder: "Codex",
 };
 
 export class InkswellSettingTab extends PluginSettingTab {
@@ -123,6 +126,20 @@ export class InkswellSettingTab extends PluginSettingTab {
           .setValue(`${this.plugin.settings.streakThreshold}`)
           .onChange(async (v) => {
             this.plugin.settings.streakThreshold = clampInt(v, 1, 100000, 1);
+            await this.plugin.saveSettings();
+          })
+      );
+
+    containerEl.createEl("h3", { text: "Codex" });
+
+    new Setting(containerEl)
+      .setName("Codex folder")
+      .setDesc("Vault folder where new codex entities (characters, locations…) are created.")
+      .addText((t) =>
+        t
+          .setValue(this.plugin.settings.codexFolder)
+          .onChange(async (v) => {
+            this.plugin.settings.codexFolder = v.trim() || "Codex";
             await this.plugin.saveSettings();
           })
       );

@@ -1,7 +1,7 @@
 {
   "id": "inkswell",
   "name": "Inkswell",
-  "version": "0.6.3",
+  "version": "0.7.0",
   "minAppVersion": "1.5.0",
   "description": "A full writer's suite: longform projects, a compile pipeline, word goals, writing sprints, and an invisible-revision decision log.",
   "author": "Daniel King",
