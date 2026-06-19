@@ -9,7 +9,7 @@
  * (compile, goals, revisions) lives in the project index's `inkswell` frontmatter.
  */
 
-import { Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import { Notice, Plugin, WorkspaceLeaf } from "obsidian";
 import { CompileModal } from "./src/compile/compile-modal";
 import { TargetModal } from "./src/goals/target-modal";
 import { ProjectStats } from "./src/projects/project-stats";

@@ -19,6 +19,7 @@ import { WritingTracker } from "../tracking/writing-tracker";
 import { ExplorerPanel } from "./explorer/explorer-view";
 import { CompilePanel } from "./compile-panel";
 import { WritePanel } from "./write-panel";
+import { SceneInspector } from "../scenes/scene-inspector";
 import type InkswellPlugin from "../../main";
 
 export const VIEW_TYPE_INKSWELL = "inkswell";
@@ -54,12 +55,14 @@ export class InkswellView extends ItemView {
   private stats: StatsPanel;
   private revisions: RevisionPanel;
   private compile: CompilePanel;
+  private inspector: SceneInspector;
 
   private mode: InkswellMode = "home";
   /** Remembered sub-tab per destination. */
   private subtab: Partial<Record<InkswellMode, string>> = {};
   private rail!: HTMLElement;
   private body!: HTMLElement;
+  private inspectorEl: HTMLElement | null = null;
   private unsubs: Array<() => void> = [];
 
   constructor(
@@ -77,6 +80,7 @@ export class InkswellView extends ItemView {
     this.stats = new StatsPanel(plugin, tracker, store, stats);
     this.revisions = new RevisionPanel(this.app, plugin, store);
     this.compile = new CompilePanel(this.app, plugin, store);
+    this.inspector = new SceneInspector(this.app, store);
 
     // Re-render the active destination whenever projects or the log change.
     this.unsubs.push(store.subscribe(() => this.renderActive()));
@@ -115,6 +119,10 @@ export class InkswellView extends ItemView {
     sprint.onclick = () => this.plugin.startSprint();
 
     this.body = root.createDiv({ cls: "inkswell-host__body" });
+    // The Scene Inspector (Home/Write) follows the active scene file.
+    this.registerEvent(
+      this.app.workspace.on("active-leaf-change", () => this.updateInspector())
+    );
     this.renderActive();
   }
 
@@ -149,6 +157,7 @@ export class InkswellView extends ItemView {
     });
 
     this.body.empty();
+    this.inspectorEl = null;
     const dest = DESTINATIONS.find((d) => d.id === this.mode);
 
     // Optional sub-tab bar.
@@ -162,8 +171,21 @@ export class InkswellView extends ItemView {
       }
     }
 
-    const content = this.body.createDiv({ cls: "inkswell-content" });
+    // Main row: content + optional Scene Inspector (Home & Write).
+    const main = this.body.createDiv({ cls: "inkswell-main" });
+    const content = main.createDiv({ cls: "inkswell-content" });
     this.renderContent(content);
+
+    if (this.mode === "home" || this.mode === "write") {
+      this.inspectorEl = main.createDiv({ cls: "inkswell-inspector-col" });
+      this.updateInspector();
+    }
+  }
+
+  /** Re-render the inspector for the active scene file (if the column is shown). */
+  private updateInspector(): void {
+    if (!this.inspectorEl) return;
+    this.inspector.render(this.inspectorEl, this.app.workspace.getActiveFile());
   }
 
   private renderContent(content: HTMLElement): void {

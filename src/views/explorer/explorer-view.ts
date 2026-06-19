@@ -18,6 +18,7 @@ import {
   unindentScene,
 } from "../../projects/scene-tree";
 import { Project, isMultiScene } from "../../projects/types";
+import { readSceneMeta, statusLabel } from "../../scenes/scene-meta";
 import type InkswellPlugin from "../../../main";
 
 export class ExplorerPanel {
@@ -97,6 +98,22 @@ export class ExplorerPanel {
     if (!scene.path) {
       title.addClass("inkswell-scene__missing");
       title.setAttribute("aria-label", "Scene file not found");
+    }
+
+    // Status badge + color tint from the scene's own frontmatter.
+    if (scene.path) {
+      const file = this.app.vault.getAbstractFileByPath(scene.path);
+      if (file instanceof TFile) {
+        const meta = readSceneMeta(this.app, file);
+        if (meta.color) row.style.borderLeft = `3px solid ${meta.color}`;
+        if (meta.inactive) row.addClass("is-inactive");
+        if (meta.status) {
+          row.createSpan({
+            cls: `inkswell-status inkswell-status--${meta.status}`,
+            text: statusLabel(meta.status),
+          });
+        }
+      }
     }
 
     if (this.plugin.settings.showWordCounts && scene.path) {

@@ -64,6 +64,17 @@ export class ProjectStore extends Component {
     return this.projects.find((p) => p.vaultPath === indexPath);
   }
 
+  /** Find the project + scene a vault path belongs to, if any. */
+  findSceneByPath(
+    path: string
+  ): { project: Project; scene: ResolvedScene } | null {
+    for (const p of this.projects) {
+      const scene = p.scenes.find((s) => s.path === path);
+      if (scene) return { project: p, scene };
+    }
+    return null;
+  }
+
   /** Subscribe to project-list changes. Returns an unsubscribe function. */
   subscribe(fn: Subscriber): () => void {
     this.subscribers.add(fn);

@@ -90,10 +90,124 @@
   font-weight: var(--font-semibold);
 }
 
-.inkswell-content {
+.inkswell-main {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: row;
+}
+
+.inkswell-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
   overflow-y: auto;
+}
+
+.inkswell-inspector-col {
+  width: 280px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--background-modifier-border);
+  overflow-y: auto;
+}
+
+/* Scene Inspector */
+.inkswell-inspector {
+  padding: var(--size-4-3);
+}
+.inkswell-inspector__empty {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-inspector__title {
+  font-weight: var(--font-semibold);
+}
+.inkswell-inspector__project {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  margin-bottom: var(--size-4-3);
+}
+.inkswell-inspector__field {
+  margin-bottom: var(--size-4-3);
+}
+.inkswell-inspector__label {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+.inkswell-inspector__control select,
+.inkswell-inspector__control input[type="text"],
+.inkswell-inspector__textarea {
+  width: 100%;
+}
+.inkswell-inspector__textarea {
+  resize: vertical;
+}
+.inkswell-inspector__pair {
+  display: flex;
+  gap: var(--size-4-2);
+}
+.inkswell-inspector__toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--size-4-1);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+.inkswell-inspector__swatches {
+  display: flex;
+  gap: var(--size-4-1);
+  flex-wrap: wrap;
+}
+.inkswell-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+.inkswell-swatch.is-selected {
+  border-color: var(--text-normal);
+}
+.inkswell-swatch--clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+}
+
+/* Scene status badge (explorer rows) */
+.inkswell-status {
+  font-size: var(--font-ui-smaller);
+  padding: 0 6px;
+  border-radius: var(--radius-s);
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.inkswell-scene.is-inactive {
+  opacity: 0.5;
+}
+.inkswell-status--outlined {
+  background: #6b7280;
+  color: #fff;
+}
+.inkswell-status--draft {
+  background: #b45309;
+  color: #fff;
+}
+.inkswell-status--written {
+  background: #2563eb;
+  color: #fff;
+}
+.inkswell-status--revised {
+  background: #7c3aed;
+  color: #fff;
+}
+.inkswell-status--final {
+  background: #16a34a;
+  color: #fff;
 }
 
 /* Write + Publish panels */
