@@ -497,6 +497,78 @@
   font-weight: var(--font-semibold);
 }
 
+/* progress rings */
+.inkswell-rings {
+  display: flex;
+  gap: var(--size-4-4);
+  flex-wrap: wrap;
+}
+.inkswell-ring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.inkswell-ring__dial {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--interactive-accent) calc(var(--pct) * 1%),
+    var(--background-modifier-border) 0
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.inkswell-ring__hole {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--background-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-ui-smaller);
+  font-variant-numeric: tabular-nums;
+}
+.inkswell-ring__label {
+  font-weight: var(--font-semibold);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-ring__sub {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  font-variant-numeric: tabular-nums;
+}
+
+/* calendar heatmap */
+.inkswell-heat {
+  display: flex;
+  gap: 3px;
+  overflow-x: auto;
+}
+.inkswell-heat__col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.inkswell-heat__cell {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: var(--background-modifier-border);
+}
+.inkswell-heat__cell.lvl-1 {
+  background: color-mix(in srgb, var(--interactive-accent) 35%, transparent);
+}
+.inkswell-heat__cell.lvl-2 {
+  background: color-mix(in srgb, var(--interactive-accent) 65%, transparent);
+}
+.inkswell-heat__cell.lvl-3 {
+  background: var(--interactive-accent);
+}
+
 /* progress bar */
 .inkswell-progress {
   height: 6px;

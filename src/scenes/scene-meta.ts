@@ -42,6 +42,8 @@ export interface SceneMeta {
   characters?: string[];
   /** Linked codex location, as a wikilink string. */
   location?: string;
+  /** Per-scene word-count target. */
+  targetWords?: number;
 }
 
 const FIELD_KEYS: (keyof SceneMeta)[] = [
@@ -55,6 +57,7 @@ const FIELD_KEYS: (keyof SceneMeta)[] = [
   "inactive",
   "characters",
   "location",
+  "targetWords",
 ];
 
 /** Coerce an arbitrary frontmatter value to a known status, or undefined. */
@@ -89,6 +92,7 @@ export function readSceneMeta(app: App, file: TFile): SceneMeta {
         ? [fm["characters"]]
         : undefined,
     location: str(fm["location"]),
+    targetWords: typeof fm["targetWords"] === "number" ? fm["targetWords"] : undefined,
   };
 }
 

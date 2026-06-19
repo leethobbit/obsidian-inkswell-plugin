@@ -99,6 +99,109 @@ export function recentDailyAverage(
   return count === 0 ? 0 : sum / count;
 }
 
+/** Words written from the start of the current week (Monday) through today. */
+export function weekToDateWords(
+  daily: Record<string, number>,
+  today: Date = new Date()
+): number {
+  const dow = (today.getDay() + 6) % 7; // Monday = 0
+  let sum = 0;
+  const cur = new Date(today);
+  for (let i = 0; i <= dow; i++) {
+    sum += daily[dateKey(cur)] ?? 0;
+    cur.setDate(cur.getDate() - 1);
+  }
+  return sum;
+}
+
+/** Words written from the 1st of the current month through today. */
+export function monthToDateWords(
+  daily: Record<string, number>,
+  today: Date = new Date()
+): number {
+  let sum = 0;
+  const cur = new Date(today);
+  for (let i = 0; i < today.getDate(); i++) {
+    sum += daily[dateKey(cur)] ?? 0;
+    cur.setDate(cur.getDate() - 1);
+  }
+  return sum;
+}
+
+/** Days in the current week (Mon→today) that met the habit's minimum. */
+export function habitDaysMet(
+  daily: Record<string, number>,
+  minWords: number,
+  today: Date = new Date()
+): number {
+  const dow = (today.getDay() + 6) % 7;
+  let met = 0;
+  const cur = new Date(today);
+  for (let i = 0; i <= dow; i++) {
+    if ((daily[dateKey(cur)] ?? 0) >= minWords) met += 1;
+    cur.setDate(cur.getDate() - 1);
+  }
+  return met;
+}
+
+export interface LifetimeRecords {
+  totalWords: number;
+  daysWritten: number;
+  bestDay: { date: string; words: number } | null;
+}
+
+export function lifetimeRecords(daily: Record<string, number>): LifetimeRecords {
+  let totalWords = 0;
+  let daysWritten = 0;
+  let bestDay: { date: string; words: number } | null = null;
+  for (const [date, words] of Object.entries(daily)) {
+    if (words > 0) {
+      totalWords += words;
+      daysWritten += 1;
+      if (!bestDay || words > bestDay.words) bestDay = { date, words };
+    }
+  }
+  return { totalWords, daysWritten, bestDay };
+}
+
+export const MILESTONES = [10000, 25000, 50000, 80000, 100000];
+
+/** The next unreached milestone for a cumulative total, or null past the top. */
+export function nextMilestone(total: number): number | null {
+  return MILESTONES.find((m) => m > total) ?? null;
+}
+
+export interface HeatCell {
+  key: string;
+  words: number;
+}
+
+/**
+ * Build a calendar heatmap as an array of week-columns (each 7 cells, Mon→Sun),
+ * ending with the current week.
+ */
+export function heatmapWeeks(
+  daily: Record<string, number>,
+  weeks: number,
+  today: Date = new Date()
+): HeatCell[][] {
+  const dow = (today.getDay() + 6) % 7; // Monday = 0
+  const start = new Date(today);
+  start.setDate(start.getDate() - dow - (weeks - 1) * 7);
+  const cur = new Date(start);
+  const cols: HeatCell[][] = [];
+  for (let w = 0; w < weeks; w++) {
+    const col: HeatCell[] = [];
+    for (let d = 0; d < 7; d++) {
+      const key = dateKey(cur);
+      col.push({ key, words: daily[key] ?? 0 });
+      cur.setDate(cur.getDate() + 1);
+    }
+    cols.push(col);
+  }
+  return cols;
+}
+
 function parseKey(key: string): Date {
   const [y, m, d] = key.split("-").map(Number);
   return new Date(y, m - 1, d);

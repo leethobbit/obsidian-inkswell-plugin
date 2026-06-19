@@ -162,6 +162,17 @@ export class SceneInspector {
       ch.onchange = () => save({ chapter: ch.value });
     });
 
+    // Target words
+    this.field(container, "Target words", (host) => {
+      const t = host.createEl("input", { type: "number" });
+      t.value = meta.targetWords ? String(meta.targetWords) : "";
+      t.placeholder = "0";
+      t.onchange = () => {
+        const n = Math.floor(Number(t.value));
+        save({ targetWords: Number.isFinite(n) && n > 0 ? n : undefined });
+      };
+    });
+
     // Color
     this.field(container, "Color", (host) => {
       const row = host.createDiv({ cls: "inkswell-inspector__swatches" });

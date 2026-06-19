@@ -1,21 +1,27 @@
 /**
- * Stats panel: today's progress, writing streak, a 30-day bar chart, and
- * per-project target projections. Rendered inside the Inkswell host view.
- * Charts are plain DOM/CSS — no external chart libraries (CSP-safe).
+ * Track panel: progress rings (today/week/month), the writing habit, streak +
+ * lifetime records, a calendar heatmap with the next milestone, and per-project
+ * target projections. Rendered inside the Inkswell host. Charts are plain
+ * DOM/CSS — no external chart libraries (CSP-safe).
  */
 
 import {
   computeStreaks,
+  habitDaysMet,
+  heatmapWeeks,
+  lifetimeRecords,
+  monthToDateWords,
+  nextMilestone,
   projectFinish,
   recentDailyAverage,
+  weekToDateWords,
 } from "../goals/goals";
 import { ProjectStats } from "../projects/project-stats";
 import { ProjectStore } from "../projects/project-store";
-import { dateKey } from "../tracking/types";
 import { WritingTracker } from "../tracking/writing-tracker";
 import type InkswellPlugin from "../../main";
 
-const CHART_DAYS = 30;
+const HEAT_WEEKS = 26;
 const PROJECTION_WINDOW = 14;
 
 export class StatsPanel {
@@ -41,29 +47,55 @@ export class StatsPanel {
     container.addClass("inkswell-stats");
 
     const log = this.tracker.getLog();
-    const goal = this.plugin.settings.dailyWordGoal;
-    const today = this.tracker.todayWords();
+    const daily = log.daily;
+    const s = this.plugin.settings;
 
-    const todaySec = container.createDiv({ cls: "inkswell-stats__section" });
-    todaySec.createEl("h4", { text: "Today" });
-    todaySec.createDiv({
-      cls: "inkswell-stats__big",
-      text: goal > 0 ? `${today} / ${goal}` : `${today}`,
-    });
-    if (goal > 0) this.progressBar(todaySec, today, goal);
+    // Goals — rings
+    const goalsSec = container.createDiv({ cls: "inkswell-stats__section" });
+    goalsSec.createEl("h4", { text: "Goals" });
+    const rings = goalsSec.createDiv({ cls: "inkswell-rings" });
+    this.ring(rings, this.tracker.todayWords(), s.dailyWordGoal, "Today");
+    this.ring(rings, weekToDateWords(daily), s.weeklyWordGoal, "Week");
+    this.ring(rings, monthToDateWords(daily), s.monthlyWordGoal, "Month");
 
-    const streak = computeStreaks(log.daily, this.plugin.settings.streakThreshold);
-    const streakSec = container.createDiv({ cls: "inkswell-stats__section" });
-    streakSec.createEl("h4", { text: "Streak" });
-    streakSec.createDiv({
+    // Habit
+    const habitSec = container.createDiv({ cls: "inkswell-stats__section" });
+    habitSec.createEl("h4", { text: "Habit" });
+    const met = habitDaysMet(daily, s.habitMinWords);
+    habitSec.createDiv({
       cls: "inkswell-stats__row",
-      text: `Current: ${streak.current} day(s) · Longest: ${streak.longest} day(s)`,
+      text: `${met} / ${s.habitDaysPerWeek} days this week (≥ ${s.habitMinWords} words/day)`,
     });
 
-    const chartSec = container.createDiv({ cls: "inkswell-stats__section" });
-    chartSec.createEl("h4", { text: `Last ${CHART_DAYS} days` });
-    this.barChart(chartSec, log.daily);
+    // Streak + lifetime
+    const streak = computeStreaks(daily, s.streakThreshold);
+    const life = lifetimeRecords(daily);
+    const lifeSec = container.createDiv({ cls: "inkswell-stats__section" });
+    lifeSec.createEl("h4", { text: "Streak & records" });
+    lifeSec.createDiv({
+      cls: "inkswell-stats__row",
+      text: `Current streak ${streak.current} · Longest ${streak.longest}`,
+    });
+    lifeSec.createDiv({
+      cls: "inkswell-stats__muted",
+      text:
+        `Total ${life.totalWords.toLocaleString()} words · ${life.daysWritten} days written` +
+        (life.bestDay ? ` · best day ${life.bestDay.words.toLocaleString()} (${life.bestDay.date})` : ""),
+    });
 
+    // Activity heatmap + milestone
+    const heatSec = container.createDiv({ cls: "inkswell-stats__section" });
+    heatSec.createEl("h4", { text: `Activity (${HEAT_WEEKS} weeks)` });
+    this.heatmap(heatSec, daily);
+    const next = nextMilestone(life.totalWords);
+    heatSec.createDiv({
+      cls: "inkswell-stats__muted",
+      text: next
+        ? `Next milestone: ${next.toLocaleString()} (${(next - life.totalWords).toLocaleString()} to go)`
+        : "All milestones reached 🎉",
+    });
+
+    // Project targets
     const projSec = container.createDiv({ cls: "inkswell-stats__section" });
     projSec.createEl("h4", { text: "Project targets" });
     const withTargets = this.store
@@ -75,22 +107,17 @@ export class StatsPanel {
         text: "No project word targets set. Use the 'Set word target' command.",
       });
     } else {
-      const rate = recentDailyAverage(log.daily, PROJECTION_WINDOW);
+      const rate = recentDailyAverage(daily, PROJECTION_WINDOW);
       for (const project of withTargets) {
         const target = project.inkswell!.goals!.target!;
         const row = projSec.createDiv({ cls: "inkswell-stats__project" });
-        row.createDiv({
-          cls: "inkswell-stats__project-title",
-          text: project.draft.title,
-        });
+        row.createDiv({ cls: "inkswell-stats__project-title", text: project.draft.title });
         const detail = row.createDiv({ cls: "inkswell-stats__muted" });
         this.stats.projectWords(project).then((words) => {
           const p = projectFinish(words, target, rate);
           this.progressBar(row, words, target);
           if (p.done) {
-            detail.setText(
-              `${words.toLocaleString()} / ${target.toLocaleString()} — target met 🎉`
-            );
+            detail.setText(`${words.toLocaleString()} / ${target.toLocaleString()} — target met 🎉`);
           } else {
             const eta =
               p.daysToFinish === null
@@ -105,29 +132,43 @@ export class StatsPanel {
     }
   }
 
+  private ring(parent: HTMLElement, value: number, max: number, label: string): void {
+    const pct = max > 0 ? Math.round(Math.min(100, (value / max) * 100)) : 0;
+    const wrap = parent.createDiv({ cls: "inkswell-ring" });
+    const dial = wrap.createDiv({ cls: "inkswell-ring__dial" });
+    dial.style.setProperty("--pct", `${pct}`);
+    dial.createDiv({ cls: "inkswell-ring__hole", text: `${pct}%` });
+    wrap.createDiv({ cls: "inkswell-ring__label", text: label });
+    wrap.createDiv({
+      cls: "inkswell-ring__sub",
+      text: `${value.toLocaleString()}${max > 0 ? ` / ${max.toLocaleString()}` : ""}`,
+    });
+  }
+
   private progressBar(parent: HTMLElement, value: number, max: number): void {
     const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
     const bar = parent.createDiv({ cls: "inkswell-progress" });
-    const fill = bar.createDiv({ cls: "inkswell-progress__fill" });
-    fill.style.width = `${pct}%`;
+    bar.createDiv({ cls: "inkswell-progress__fill" }).style.width = `${pct}%`;
   }
 
-  private barChart(parent: HTMLElement, daily: Record<string, number>): void {
-    const days: { key: string; words: number }[] = [];
-    const cursor = new Date();
-    cursor.setDate(cursor.getDate() - (CHART_DAYS - 1));
-    for (let i = 0; i < CHART_DAYS; i++) {
-      const key = dateKey(cursor);
-      days.push({ key, words: daily[key] ?? 0 });
-      cursor.setDate(cursor.getDate() + 1);
-    }
-    const max = Math.max(1, ...days.map((d) => d.words));
-    const chart = parent.createDiv({ cls: "inkswell-chart" });
-    for (const d of days) {
-      const col = chart.createDiv({ cls: "inkswell-chart__col" });
-      const bar = col.createDiv({ cls: "inkswell-chart__bar" });
-      bar.style.height = `${(d.words / max) * 100}%`;
-      bar.setAttribute("aria-label", `${d.key}: ${d.words} words`);
+  private heatmap(parent: HTMLElement, daily: Record<string, number>): void {
+    const weeks = heatmapWeeks(daily, HEAT_WEEKS);
+    const max = Math.max(1, ...weeks.flat().map((c) => c.words));
+    const grid = parent.createDiv({ cls: "inkswell-heat" });
+    for (const col of weeks) {
+      const colEl = grid.createDiv({ cls: "inkswell-heat__col" });
+      for (const cell of col) {
+        const lvl =
+          cell.words === 0
+            ? 0
+            : cell.words >= max * 0.66
+              ? 3
+              : cell.words >= max * 0.33
+                ? 2
+                : 1;
+        const c = colEl.createDiv({ cls: `inkswell-heat__cell lvl-${lvl}` });
+        c.setAttribute("aria-label", `${cell.key}: ${cell.words} words`);
+      }
     }
   }
 }

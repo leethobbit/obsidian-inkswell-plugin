@@ -19,6 +19,14 @@ export interface InkswellSettings {
   sceneHeadingLevel: number;
   /** Daily word goal shown in the status bar / stats. */
   dailyWordGoal: number;
+  /** Weekly word goal (Mon→today). */
+  weeklyWordGoal: number;
+  /** Monthly word goal (1st→today). */
+  monthlyWordGoal: number;
+  /** Habit: target writing days per week. */
+  habitDaysPerWeek: number;
+  /** Habit: minimum words for a day to count toward the habit. */
+  habitMinWords: number;
   /** Default sprint length in minutes. */
   defaultSprintMinutes: number;
   /** Minimum words for a day to count toward a writing streak. */
@@ -32,6 +40,10 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   showWordCounts: true,
   sceneHeadingLevel: 1,
   dailyWordGoal: 500,
+  weeklyWordGoal: 3500,
+  monthlyWordGoal: 15000,
+  habitDaysPerWeek: 5,
+  habitMinWords: 100,
   defaultSprintMinutes: 15,
   streakThreshold: 1,
   codexFolder: "Codex",
@@ -104,6 +116,46 @@ export class InkswellSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
             this.plugin.refreshStatus();
           })
+      );
+
+    new Setting(containerEl)
+      .setName("Weekly word goal")
+      .setDesc("Target words per week (Monday→today).")
+      .addText((t) =>
+        t.setValue(`${this.plugin.settings.weeklyWordGoal}`).onChange(async (v) => {
+          this.plugin.settings.weeklyWordGoal = clampInt(v, 0, 1000000, 3500);
+          await this.plugin.saveSettings();
+        })
+      );
+
+    new Setting(containerEl)
+      .setName("Monthly word goal")
+      .setDesc("Target words per month (1st→today).")
+      .addText((t) =>
+        t.setValue(`${this.plugin.settings.monthlyWordGoal}`).onChange(async (v) => {
+          this.plugin.settings.monthlyWordGoal = clampInt(v, 0, 10000000, 15000);
+          await this.plugin.saveSettings();
+        })
+      );
+
+    new Setting(containerEl)
+      .setName("Habit: days per week")
+      .setDesc("How many days a week you aim to write.")
+      .addText((t) =>
+        t.setValue(`${this.plugin.settings.habitDaysPerWeek}`).onChange(async (v) => {
+          this.plugin.settings.habitDaysPerWeek = clampInt(v, 1, 7, 5);
+          await this.plugin.saveSettings();
+        })
+      );
+
+    new Setting(containerEl)
+      .setName("Habit: minimum words/day")
+      .setDesc("Minimum words for a day to count toward the habit.")
+      .addText((t) =>
+        t.setValue(`${this.plugin.settings.habitMinWords}`).onChange(async (v) => {
+          this.plugin.settings.habitMinWords = clampInt(v, 1, 100000, 100);
+          await this.plugin.saveSettings();
+        })
       );
 
     new Setting(containerEl)
