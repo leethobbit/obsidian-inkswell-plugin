@@ -11,6 +11,7 @@
 
 import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
 import { CodexPanel } from "../codex/codex-panel";
+import { AnalysisPanel } from "../insight/analysis-panel";
 import { BeatPanel } from "../outliner/beat-panel";
 import { BoardPanel } from "../outliner/board-panel";
 import { ProjectStats } from "../projects/project-stats";
@@ -54,7 +55,15 @@ const DESTINATIONS: Destination[] = [
   },
   { id: "write", label: "Write", icon: "pencil" },
   { id: "track", label: "Track", icon: "bar-chart-3" },
-  { id: "revise", label: "Revise", icon: "git-compare" },
+  {
+    id: "revise",
+    label: "Revise",
+    icon: "git-compare",
+    subtabs: [
+      { id: "log", label: "Log" },
+      { id: "analysis", label: "Analysis" },
+    ],
+  },
   { id: "publish", label: "Publish", icon: "upload" },
 ];
 
@@ -67,6 +76,7 @@ export class InkswellView extends ItemView {
   private write: WritePanel;
   private stats: StatsPanel;
   private revisions: RevisionPanel;
+  private analysis: AnalysisPanel;
   private compile: CompilePanel;
   private inspector: SceneInspector;
 
@@ -92,8 +102,9 @@ export class InkswellView extends ItemView {
     this.board = new BoardPanel(this.app, store);
     this.codex = new CodexPanel(this.app, plugin);
     this.write = new WritePanel(this.app, plugin, plugin.sprints);
-    this.stats = new StatsPanel(plugin, tracker, store, stats);
+    this.stats = new StatsPanel(this.app, plugin, tracker, store, stats);
     this.revisions = new RevisionPanel(this.app, plugin, store);
+    this.analysis = new AnalysisPanel(this.app, store);
     this.compile = new CompilePanel(this.app, plugin, store);
     this.inspector = new SceneInspector(this.app, store);
 
@@ -221,9 +232,12 @@ export class InkswellView extends ItemView {
       case "track":
         this.stats.render(content);
         break;
-      case "revise":
-        this.revisions.render(content);
+      case "revise": {
+        const sub = this.subtab["revise"] ?? "log";
+        if (sub === "analysis") this.analysis.render(content);
+        else this.revisions.render(content);
         break;
+      }
       case "publish":
         this.compile.render(content);
         break;

@@ -16,8 +16,11 @@ import {
   recentDailyAverage,
   weekToDateWords,
 } from "../goals/goals";
+import { App, TFile } from "obsidian";
+import { tallyBy } from "../insight/breakdown";
 import { ProjectStats } from "../projects/project-stats";
 import { ProjectStore } from "../projects/project-store";
+import { SCENE_STATUSES, readSceneMeta, statusLabel } from "../scenes/scene-meta";
 import { WritingTracker } from "../tracking/writing-tracker";
 import type InkswellPlugin from "../../main";
 
@@ -25,24 +28,34 @@ const HEAT_WEEKS = 26;
 const PROJECTION_WINDOW = 14;
 
 export class StatsPanel {
+  private app: App;
   private plugin: InkswellPlugin;
   private tracker: WritingTracker;
   private store: ProjectStore;
   private stats: ProjectStats;
+  private container: HTMLElement | null = null;
+  private breakdownPath: string | null = null;
 
   constructor(
+    app: App,
     plugin: InkswellPlugin,
     tracker: WritingTracker,
     store: ProjectStore,
     stats: ProjectStats
   ) {
+    this.app = app;
     this.plugin = plugin;
     this.tracker = tracker;
     this.store = store;
     this.stats = stats;
   }
 
+  private rerender(): void {
+    if (this.container) this.render(this.container);
+  }
+
   render(container: HTMLElement): void {
+    this.container = container;
     container.empty();
     container.addClass("inkswell-stats");
 
@@ -95,6 +108,9 @@ export class StatsPanel {
         : "All milestones reached 🎉",
     });
 
+    // Structure breakdown (per project)
+    this.renderStructure(container);
+
     // Project targets
     const projSec = container.createDiv({ cls: "inkswell-stats__section" });
     projSec.createEl("h4", { text: "Project targets" });
@@ -129,6 +145,61 @@ export class StatsPanel {
           }
         });
       }
+    }
+  }
+
+  private renderStructure(container: HTMLElement): void {
+    const sec = container.createDiv({ cls: "inkswell-stats__section" });
+    sec.createEl("h4", { text: "Structure" });
+
+    const projects = this.store.getProjects().filter((p) => p.draft.format === "scenes");
+    if (projects.length === 0) {
+      sec.createDiv({ cls: "inkswell-stats__muted", text: "No multi-scene projects." });
+      return;
+    }
+    const project =
+      projects.find((p) => p.vaultPath === this.breakdownPath) ?? projects[0];
+    if (this.breakdownPath === null) this.breakdownPath = project.vaultPath;
+
+    if (projects.length > 1) {
+      const sel = sec.createEl("select", { cls: "dropdown" });
+      for (const p of projects) {
+        const o = sel.createEl("option", { text: p.draft.title, value: p.vaultPath });
+        if (p.vaultPath === project.vaultPath) o.selected = true;
+      }
+      sel.onchange = () => {
+        this.breakdownPath = sel.value;
+        this.rerender();
+      };
+    }
+
+    const metas = project.scenes.map((s) => {
+      if (!s.path) return {} as ReturnType<typeof readSceneMeta>;
+      const f = this.app.vault.getAbstractFileByPath(s.path);
+      return f instanceof TFile ? readSceneMeta(this.app, f) : ({} as ReturnType<typeof readSceneMeta>);
+    });
+
+    sec.createDiv({ cls: "inkswell-stats__muted", text: "By status" });
+    this.tallyBars(sec, tallyBy(metas.map((m) => m.status), SCENE_STATUSES), (k) =>
+      SCENE_STATUSES.includes(k as never) ? statusLabel(k as never) : k
+    );
+    sec.createDiv({ cls: "inkswell-stats__muted", text: "By act" });
+    this.tallyBars(sec, tallyBy(metas.map((m) => m.act)));
+  }
+
+  private tallyBars(
+    parent: HTMLElement,
+    tallies: { key: string; count: number }[],
+    label: (k: string) => string = (k) => k
+  ): void {
+    const max = Math.max(1, ...tallies.map((t) => t.count));
+    const wrap = parent.createDiv({ cls: "inkswell-tally" });
+    for (const t of tallies) {
+      const row = wrap.createDiv({ cls: "inkswell-tally__row" });
+      row.createSpan({ cls: "inkswell-tally__label", text: label(t.key) });
+      const bar = row.createDiv({ cls: "inkswell-tally__bar" });
+      bar.createDiv({ cls: "inkswell-tally__fill" }).style.width = `${(t.count / max) * 100}%`;
+      row.createSpan({ cls: "inkswell-tally__count", text: `${t.count}` });
     }
   }
 

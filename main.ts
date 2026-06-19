@@ -218,9 +218,13 @@ export default class InkswellPlugin extends Plugin {
   openRevisions(): Promise<void> {
     const active = this.app.workspace.getActiveFile();
     const project = active ? this.projectForPath(active.path) : null;
-    return this.openInkswell("revise", (view) => {
-      if (project) view.getRevisionPanel().focusProject(project.vaultPath);
-    });
+    return this.openInkswell(
+      "revise",
+      (view) => {
+        if (project) view.getRevisionPanel().focusProject(project.vaultPath);
+      },
+      "log"
+    );
   }
 
   startSprint(): void {
@@ -233,7 +237,8 @@ export default class InkswellPlugin extends Plugin {
    */
   async openInkswell(
     mode: InkswellMode,
-    after?: (view: InkswellView) => void
+    after?: (view: InkswellView) => void,
+    subtab?: string
   ): Promise<void> {
     const { workspace } = this.app;
     let leaf: WorkspaceLeaf | null =
@@ -243,7 +248,7 @@ export default class InkswellPlugin extends Plugin {
       await leaf.setViewState({ type: VIEW_TYPE_INKSWELL, active: true });
     }
     if (leaf.view instanceof InkswellView) {
-      leaf.view.setMode(mode);
+      leaf.view.setMode(mode, subtab);
       if (after) after(leaf.view);
     }
     workspace.revealLeaf(leaf);

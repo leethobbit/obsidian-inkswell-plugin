@@ -542,6 +542,56 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* tally bars (structure breakdown) */
+.inkswell-tally {
+  margin: var(--size-4-1) 0 var(--size-4-3);
+}
+.inkswell-tally__row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-bottom: 3px;
+}
+.inkswell-tally__label {
+  width: 90px;
+  flex-shrink: 0;
+  font-size: var(--font-ui-smaller);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inkswell-tally__bar {
+  flex: 1;
+  height: 10px;
+  background: var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  overflow: hidden;
+}
+.inkswell-tally__fill {
+  height: 100%;
+  background: var(--interactive-accent);
+}
+.inkswell-tally__count {
+  width: 28px;
+  text-align: right;
+  font-size: var(--font-ui-smaller);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+/* analysis */
+.inkswell-analysis {
+  padding: var(--size-4-3);
+}
+.inkswell-analysis__toolbar {
+  margin-bottom: var(--size-4-3);
+}
+.inkswell-analysis__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-1);
+}
+
 /* calendar heatmap */
 .inkswell-heat {
   display: flex;
