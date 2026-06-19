@@ -53,7 +53,9 @@ export class BoardPanel {
     }
     const project =
       projects.find((p) => p.vaultPath === this.selectedPath) ?? projects[0];
-    this.selectedPath = project.vaultPath;
+    // Sticky: only initialize selectedPath; never clobber the user's choice with
+    // the fallback (a store refresh can transiently miss the project).
+    if (this.selectedPath === null) this.selectedPath = project.vaultPath;
 
     this.renderToolbar(container, projects, project);
 

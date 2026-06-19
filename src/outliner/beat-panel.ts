@@ -42,7 +42,8 @@ export class BeatPanel {
     }
     const project =
       projects.find((p) => p.vaultPath === this.selectedPath) ?? projects[0];
-    this.selectedPath = project.vaultPath;
+    // Sticky: only initialize; don't clobber the user's choice on a refresh.
+    if (this.selectedPath === null) this.selectedPath = project.vaultPath;
 
     this.renderHeader(container, projects, project);
 

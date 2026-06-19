@@ -66,7 +66,8 @@ export class RevisionPanel {
 
     const project = this.currentProject(projects);
     if (!project) return;
-    this.selectedPath = project.vaultPath;
+    // Sticky: only initialize; don't clobber the user's choice on a refresh.
+    if (this.selectedPath === null) this.selectedPath = project.vaultPath;
 
     this.renderToolbar(container, projects, project);
 
