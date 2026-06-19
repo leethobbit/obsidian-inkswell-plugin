@@ -18,6 +18,7 @@ import {
 } from "../goals/goals";
 import { App, TFile } from "obsidian";
 import { tallyBy } from "../insight/breakdown";
+import { resolveActive } from "../projects/active-project";
 import { ProjectStats } from "../projects/project-stats";
 import { ProjectStore } from "../projects/project-store";
 import { SCENE_STATUSES, readSceneMeta, statusLabel } from "../scenes/scene-meta";
@@ -34,7 +35,6 @@ export class StatsPanel {
   private store: ProjectStore;
   private stats: ProjectStats;
   private container: HTMLElement | null = null;
-  private breakdownPath: string | null = null;
 
   constructor(
     app: App,
@@ -153,24 +153,10 @@ export class StatsPanel {
     sec.createEl("h4", { text: "Structure" });
 
     const projects = this.store.getProjects().filter((p) => p.draft.format === "scenes");
-    if (projects.length === 0) {
+    const project = resolveActive(projects, this.plugin.activeProject.get());
+    if (!project) {
       sec.createDiv({ cls: "inkswell-stats__muted", text: "No multi-scene projects." });
       return;
-    }
-    const project =
-      projects.find((p) => p.vaultPath === this.breakdownPath) ?? projects[0];
-    if (this.breakdownPath === null) this.breakdownPath = project.vaultPath;
-
-    if (projects.length > 1) {
-      const sel = sec.createEl("select", { cls: "dropdown" });
-      for (const p of projects) {
-        const o = sel.createEl("option", { text: p.draft.title, value: p.vaultPath });
-        if (p.vaultPath === project.vaultPath) o.selected = true;
-      }
-      sel.onchange = () => {
-        this.breakdownPath = sel.value;
-        this.rerender();
-      };
     }
 
     const metas = project.scenes.map((s) => {

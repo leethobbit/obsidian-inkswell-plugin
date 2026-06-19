@@ -14,6 +14,7 @@ import { CodexPanel } from "../codex/codex-panel";
 import { AnalysisPanel } from "../insight/analysis-panel";
 import { BeatPanel } from "../outliner/beat-panel";
 import { BoardPanel } from "../outliner/board-panel";
+import { resolveActive } from "../projects/active-project";
 import { ProjectStats } from "../projects/project-stats";
 import { ProjectStore } from "../projects/project-store";
 import { CommentsPanel } from "../revisions/comments-panel";
@@ -87,9 +88,12 @@ export class InkswellView extends ItemView {
   /** Remembered sub-tab per destination. */
   private subtab: Partial<Record<InkswellMode, string>> = {};
   private rail!: HTMLElement;
+  private header!: HTMLElement;
   private body!: HTMLElement;
   private inspectorEl: HTMLElement | null = null;
   private unsubs: Array<() => void> = [];
+  /** Set while a body rebuild is deferred because an input is focused. */
+  private pendingRender = false;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -101,20 +105,22 @@ export class InkswellView extends ItemView {
     super(leaf);
     this.plugin = plugin;
     this.explorer = new ExplorerPanel(this.app, plugin, store, stats);
-    this.beats = new BeatPanel(this.app, store);
-    this.board = new BoardPanel(this.app, store);
+    this.beats = new BeatPanel(this.app, store, plugin.activeProject);
+    this.board = new BoardPanel(this.app, store, plugin.activeProject);
     this.codex = new CodexPanel(this.app, plugin);
     this.write = new WritePanel(this.app, plugin, store, plugin.sprints);
     this.stats = new StatsPanel(this.app, plugin, tracker, store, stats);
     this.revisions = new RevisionPanel(this.app, plugin, store);
-    this.comments = new CommentsPanel(this.app, store);
-    this.analysis = new AnalysisPanel(this.app, store);
+    this.comments = new CommentsPanel(this.app, store, plugin.activeProject);
+    this.analysis = new AnalysisPanel(this.app, store, plugin.activeProject);
     this.compile = new CompilePanel(this.app, plugin, store);
     this.inspector = new SceneInspector(this.app, store);
 
-    // Re-render the active destination whenever projects or the log change.
+    // Re-render the active destination whenever projects, the log, or the active
+    // project change.
     this.unsubs.push(store.subscribe(() => this.renderActive()));
     this.unsubs.push(tracker.onChange(() => this.renderActive()));
+    this.unsubs.push(plugin.activeProject.subscribe(() => this.renderActive()));
   }
 
   getViewType(): string {
@@ -148,12 +154,37 @@ export class InkswellView extends ItemView {
     sprint.setAttribute("aria-label", "Start a writing sprint");
     sprint.onclick = () => this.plugin.startSprint();
 
-    this.body = root.createDiv({ cls: "inkswell-host__body" });
+    // Right of the rail: a persistent header (project selector) above the body.
+    // The header lives OUTSIDE the body so renderActive()'s body.empty() never
+    // destroys it (and never steals focus from an input the user is editing).
+    const main = root.createDiv({ cls: "inkswell-host__main" });
+    this.header = main.createDiv({ cls: "inkswell-host__header" });
+    this.body = main.createDiv({ cls: "inkswell-host__body" });
     // The Scene Inspector (Home/Write) follows the active scene file.
     this.registerEvent(
       this.app.workspace.on("active-leaf-change", () => this.updateInspector())
     );
     this.renderActive();
+  }
+
+  /** Persistent project selector, visible across all destinations. */
+  private renderHeader(): void {
+    if (!this.header) return;
+    this.header.empty();
+    const projects = this.plugin.store.getProjects();
+    if (projects.length === 0) {
+      this.header.createSpan({ cls: "inkswell-stats__muted", text: "No project yet" });
+      return;
+    }
+    this.header.createSpan({ cls: "inkswell-host__headerlabel", text: "Project" });
+    const sel = this.header.createEl("select", { cls: "dropdown" });
+    const active = resolveActive(projects, this.plugin.activeProject.get());
+    for (const p of projects) {
+      const o = sel.createEl("option", { text: p.draft.title, value: p.vaultPath });
+      if (p.vaultPath === active?.vaultPath) o.selected = true;
+    }
+    sel.value = active?.vaultPath ?? "";
+    sel.onchange = () => this.plugin.activeProject.set(sel.value);
   }
 
   async onClose(): Promise<void> {
@@ -179,7 +210,29 @@ export class InkswellView extends ItemView {
   }
 
   private renderActive(): void {
-    if (!this.body || !this.rail) return;
+    if (!this.body || !this.rail || !this.header) return;
+
+    // The header is outside the body and safe to refresh anytime.
+    this.renderHeader();
+
+    // Don't rebuild the body while the user is typing inside it — that would
+    // destroy focus mid-keystroke. Defer the rebuild until the field blurs.
+    const ae = document.activeElement as HTMLElement | null;
+    const editing =
+      !!ae &&
+      this.body.contains(ae) &&
+      (ae.tagName === "TEXTAREA" || ae.tagName === "INPUT" || ae.isContentEditable);
+    if (editing) {
+      if (this.pendingRender) return;
+      this.pendingRender = true;
+      const onBlur = () => {
+        ae.removeEventListener("blur", onBlur);
+        this.pendingRender = false;
+        this.renderActive();
+      };
+      ae.addEventListener("blur", onBlur);
+      return;
+    }
 
     // Rail highlight.
     this.rail.querySelectorAll<HTMLElement>(".inkswell-rail__item").forEach((b) => {

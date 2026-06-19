@@ -42,4 +42,11 @@ describe("buildColumns by pov", () => {
     expect(cols.map((c) => c.key)).toEqual(["Anna", "Erik", ""]);
     expect(cols.find((c) => c.key === "")!.items.map((i) => i.title)).toEqual(["S3"]);
   });
+
+  it("displays the clean name for wikilink POV values but keeps the raw key", () => {
+    const linked: BoardItem[] = [{ title: "S", path: "a", pov: "[[Anna]]" }];
+    const col = buildColumns(linked, "pov")[0];
+    expect(col.key).toBe("[[Anna]]"); // drag-drop writes back the stored value
+    expect(col.label).toBe("Anna"); // header shows the clean name
+  });
 });

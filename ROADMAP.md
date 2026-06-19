@@ -2,7 +2,7 @@
 
 Phase-centric information architecture (one tab, left icon rail): **Home · Plan · Write · Track · Revise · Publish**. Each destination does one job; depth lives behind sub-tabs or the Scene Inspector. See `FEATURES.md` for the full pick list and the plan file for IA rationale.
 
-**Current status: v0.13.0** — phases 5–13 shipped. All planned features built; next is a deep end-to-end live QA pass before the 1.0 cut. Not yet live-QA'd end to end.
+**Current status: v0.14.0** — phases 5–13 shipped + a QA-fix batch from the parts 0–2 live pass. Next: finish the live QA pass (parts 3+) before the 1.0 cut.
 
 ## Shipped
 | Version | What |
@@ -21,6 +21,7 @@ Phase-centric information architecture (one tab, left icon rail): **Home · Plan
 | v0.11.0 | In-plugin manuscript editor (Write): navigator + editable body + Inspector, save-on-blur |
 | v0.12.0 | Codex profiles: master-detail editor, per-category structured frontmatter fields (incl. new `world` category), entity-link pickers, "Appears in" backlinks |
 | v0.13.0 | Series mode: group books into named series (`inkswell.series`), order them, aggregate words/target on the Home series header; codex already vault-wide (shared across books) |
+| v0.14.0 | QA-fix batch: **New project** flow (modal + command + Home button); global active-project selector (persistent header) replacing per-panel pickers; focus-loss fix (project-list signature diff + render focus-guard); "Edit scene" modal (shared scene-meta form); pinned-tab-safe scene opening; Board POV/Act labels strip wikilinks; scaffold scenes default to `idea`; lone-series book defaults to #1; codex parent shown as annotation (no false indent); subtle theme-accent color pass |
 
 ## Planned
 

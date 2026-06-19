@@ -1,6 +1,6 @@
 /**
  * Scaffold placeholder scenes from a beat template: one scene per beat (titled
- * after the beat, synopsis pre-filled from its blurb, status "outlined"), added
+ * after the beat, synopsis pre-filled from its blurb, status "idea"), added
  * to the project's index in template order. Existing scenes/files are skipped, so
  * it's safe to re-run. Touches scene files' frontmatter + the index only.
  */
@@ -42,7 +42,7 @@ export async function scaffoldFromTemplate(
     if (!title) continue;
     const path = normalizePath(folder === "/" ? `${title}.md` : `${folder}/${title}.md`);
     if (!app.vault.getAbstractFileByPath(path)) {
-      const fm = `---\nstatus: outlined\nsynopsis: ${JSON.stringify(beat.blurb)}\n---\n`;
+      const fm = `---\nstatus: idea\nsynopsis: ${JSON.stringify(beat.blurb)}\n---\n`;
       await app.vault.create(path, fm);
     }
     added.push(title);

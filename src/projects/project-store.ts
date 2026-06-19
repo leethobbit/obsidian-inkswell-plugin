@@ -19,6 +19,7 @@ import {
   parseYaml,
 } from "obsidian";
 import { parseDraft } from "./draft-serialization";
+import { projectsSignature } from "./project-signature";
 import {
   Draft,
   Project,
@@ -36,6 +37,7 @@ export class ProjectStore extends Component {
   private refreshQueued = false;
   private refreshing = false;
   private rerun = false;
+  private lastSig = "";
 
   constructor(app: App) {
     super();
@@ -125,7 +127,14 @@ export class ProjectStore extends Component {
       }
       found.sort((a, b) => a.draft.title.localeCompare(b.draft.title));
       this.projects = found;
-      this.notify();
+      // Only notify when something subscribers care about actually changed —
+      // avoids a full host re-render (and lost input focus) on every unrelated
+      // vault edit. New subscribers still get an immediate snapshot via subscribe().
+      const sig = projectsSignature(found);
+      if (sig !== this.lastSig) {
+        this.lastSig = sig;
+        this.notify();
+      }
     } finally {
       this.refreshing = false;
       if (this.rerun) {

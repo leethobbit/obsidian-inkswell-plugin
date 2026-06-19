@@ -5,6 +5,7 @@
  * ("" clears it).
  */
 
+import { linkTarget } from "../codex/codex";
 import { SCENE_STATUSES, SceneStatus, statusLabel } from "../scenes/scene-meta";
 
 export type GroupField = "status" | "act" | "pov";
@@ -51,7 +52,9 @@ export function buildColumns(items: BoardItem[], field: GroupField): BoardColumn
   const values = Array.from(
     new Set(items.map(get).filter((v): v is string => !!v))
   ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  const cols: BoardColumn[] = values.map((v) => ({ key: v, label: v, items: [] }));
+  // Display the clean name (e.g. "Anna" not "[[Anna]]") while keeping the raw
+  // value as the key so drag-drop writes back exactly what's already stored.
+  const cols: BoardColumn[] = values.map((v) => ({ key: v, label: linkTarget(v), items: [] }));
   const byKey = new Map(cols.map((c) => [c.key, c]));
   for (const it of items) {
     const v = get(it);

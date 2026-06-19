@@ -60,6 +60,30 @@
   text-align: center;
 }
 
+.inkswell-host__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.inkswell-host__header {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-3);
+  border-bottom: 1px solid var(--background-modifier-border);
+  flex-shrink: 0;
+}
+
+.inkswell-host__headerlabel {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .inkswell-host__body {
   flex: 1;
   min-width: 0;
@@ -264,6 +288,10 @@
   color: var(--text-faint);
   font-size: var(--font-ui-smaller);
 }
+.inkswell-codex__parent {
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+}
 .inkswell-codex__row.is-selected {
   background-color: var(--background-modifier-active-hover);
 }
@@ -306,6 +334,13 @@
   gap: var(--size-4-1);
   flex-wrap: wrap;
   margin-bottom: var(--size-4-1);
+}
+
+/* --- Home toolbar --- */
+.inkswell-explorer__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--size-4-3);
 }
 
 /* --- Ideas inbox (Home) --- */
@@ -1050,4 +1085,46 @@
   color: var(--text-faint);
   font-size: var(--font-ui-smaller);
   margin-top: 2px;
+}
+
+/* --- Color pass: subtle theme-accent on headers, dividers, active states ---
+   All accents use Obsidian theme variables, so they adapt to light/dark and the
+   user's chosen accent color. Kept restrained — structure, not decoration. */
+
+/* Section headers: accent text + a short accent left-bar. */
+.inkswell-codex__list h4,
+.inkswell-stats__section h4,
+.inkswell-revision__list h4 {
+  color: var(--text-accent);
+  border-left: 2px solid var(--interactive-accent);
+  padding-left: var(--size-4-2);
+}
+
+/* Series name + the persistent header label read as accented headings. */
+.inkswell-series__name,
+.inkswell-host__headerlabel {
+  color: var(--text-accent);
+}
+
+/* Board column headers get a thin accent underline (a colored divider). */
+.inkswell-board__colhead {
+  border-bottom: 2px solid var(--interactive-accent);
+  padding-bottom: var(--size-4-1);
+}
+
+/* Active destination + sub-tab carry an accent edge. */
+.inkswell-rail__item.is-active {
+  color: var(--text-accent);
+  box-shadow: inset 2px 0 0 var(--interactive-accent);
+}
+.inkswell-subtab.is-active {
+  box-shadow: inset 0 -2px 0 var(--interactive-accent);
+}
+
+/* Selected codex entry + hovered board card pick up an accent outline. */
+.inkswell-codex__row.is-selected {
+  box-shadow: inset 2px 0 0 var(--interactive-accent);
+}
+.inkswell-board__card:hover {
+  border-color: var(--interactive-accent);
 }

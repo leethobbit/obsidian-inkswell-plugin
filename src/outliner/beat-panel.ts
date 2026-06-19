@@ -8,6 +8,7 @@
  */
 
 import { App, Notice, TFile } from "obsidian";
+import { ActiveProject, resolveActive } from "../projects/active-project";
 import { persistInkswellData } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
@@ -18,12 +19,13 @@ import { scaffoldFromTemplate } from "./scaffold";
 export class BeatPanel {
   private app: App;
   private store: ProjectStore;
+  private active: ActiveProject;
   private container: HTMLElement | null = null;
-  private selectedPath: string | null = null;
 
-  constructor(app: App, store: ProjectStore) {
+  constructor(app: App, store: ProjectStore, active: ActiveProject) {
     this.app = app;
     this.store = store;
+    this.active = active;
   }
 
   private rerender(): void {
@@ -35,17 +37,13 @@ export class BeatPanel {
     container.empty();
     container.addClass("inkswell-beats");
 
-    const projects = this.store.getProjects();
-    if (projects.length === 0) {
+    const project = resolveActive(this.store.getProjects(), this.active.get());
+    if (!project) {
       container.createDiv({ cls: "inkswell-stats__muted", text: "No projects found." });
       return;
     }
-    const project =
-      projects.find((p) => p.vaultPath === this.selectedPath) ?? projects[0];
-    // Sticky: only initialize; don't clobber the user's choice on a refresh.
-    if (this.selectedPath === null) this.selectedPath = project.vaultPath;
 
-    this.renderHeader(container, projects, project);
+    this.renderHeader(container, project);
 
     const sheet = project.inkswell?.beats;
     const beats = mergeBeats(sheet);
@@ -66,20 +64,8 @@ export class BeatPanel {
     }
   }
 
-  private renderHeader(root: HTMLElement, projects: Project[], project: Project): void {
+  private renderHeader(root: HTMLElement, project: Project): void {
     const bar = root.createDiv({ cls: "inkswell-beats__toolbar" });
-
-    if (projects.length > 1) {
-      const sel = bar.createEl("select", { cls: "dropdown" });
-      for (const p of projects) {
-        const o = sel.createEl("option", { text: p.draft.title, value: p.vaultPath });
-        if (p.vaultPath === project.vaultPath) o.selected = true;
-      }
-      sel.onchange = () => {
-        this.selectedPath = sel.value;
-        this.rerender();
-      };
-    }
 
     const current = project.inkswell?.beats?.template ?? DEFAULT_TEMPLATE;
     const tsel = bar.createEl("select", { cls: "dropdown" });

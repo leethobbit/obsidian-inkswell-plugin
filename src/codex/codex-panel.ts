@@ -116,9 +116,14 @@ export class CodexPanel {
   private renderRow(parent: HTMLElement, icon: string, entity: CodexEntity): void {
     const row = parent.createDiv({ cls: "inkswell-codex__row" });
     if (entity.path === this.selectedPath) row.addClass("is-selected");
-    if (entity.parent) row.style.paddingLeft = "24px";
     setIcon(row.createSpan({ cls: "inkswell-codex__icon" }), icon);
     row.createSpan({ cls: "inkswell-codex__name", text: entity.name });
+    // Show the parent as a muted annotation rather than indenting — the parent
+    // (e.g. a World) lives in its own category group, so indenting here would
+    // imply a hierarchy the list doesn't actually show.
+    if (entity.parent) {
+      row.createSpan({ cls: "inkswell-codex__parent", text: `↳ ${entity.parent}` });
+    }
     if (entity.aliases.length) {
       row.createSpan({
         cls: "inkswell-codex__aliases",

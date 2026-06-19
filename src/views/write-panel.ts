@@ -14,6 +14,7 @@
 import { App, TFile } from "obsidian";
 import { randomPrompt } from "../ideation/prompts";
 import { countWords } from "../lib/wordcount";
+import { resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
 import { openScene } from "../scenes/scene-actions";
@@ -32,7 +33,8 @@ export class WritePanel {
   private inspector: SceneInspector;
 
   private container: HTMLElement | null = null;
-  private selectedProject: string | null = null;
+  /** Tracks the project the editor is currently bound to, to reset on change. */
+  private lastProject: string | null = null;
   private selectedScene: string | null = null;
 
   private textarea: HTMLTextAreaElement | null = null;
@@ -62,15 +64,25 @@ export class WritePanel {
     const projects = this.store.getProjects().filter((p) => p.draft.format === "scenes");
     this.renderTopbar();
 
-    if (projects.length === 0) {
-      this.emptyState(container, "No multi-scene project yet. Create one from Home.");
+    const project = resolveActive(projects, this.plugin.activeProject.get());
+    if (!project) {
+      this.emptyState(
+        container,
+        'No multi-scene project yet. Use the "New project" button on Home (or the "New project" command).'
+      );
       return;
     }
-    const project = projects.find((p) => p.vaultPath === this.selectedProject) ?? projects[0];
-    if (this.selectedProject === null) this.selectedProject = project.vaultPath;
+    // The active project changed underneath us — flush the old scene and reset,
+    // so the editor never points at a file from a different project.
+    if (project.vaultPath !== this.lastProject) {
+      void this.saveBody();
+      this.selectedScene = null;
+      this.currentFile = null;
+      this.lastProject = project.vaultPath;
+    }
 
     const main = container.createDiv({ cls: "inkswell-write__main" });
-    this.renderNavigator(main, projects, project);
+    this.renderNavigator(main, project);
     this.renderEditor(main);
     const insp = main.createDiv({ cls: "inkswell-write__inspector" });
     this.inspector.render(insp, this.currentFile);
@@ -100,22 +112,8 @@ export class WritePanel {
     this.container.prepend(bar);
   }
 
-  private renderNavigator(parent: HTMLElement, projects: Project[], project: Project): void {
+  private renderNavigator(parent: HTMLElement, project: Project): void {
     const nav = parent.createDiv({ cls: "inkswell-write__nav" });
-    if (projects.length > 1) {
-      const sel = nav.createEl("select", { cls: "dropdown" });
-      for (const p of projects) {
-        const o = sel.createEl("option", { text: p.draft.title, value: p.vaultPath });
-        if (p.vaultPath === project.vaultPath) o.selected = true;
-      }
-      sel.onchange = () => {
-        void this.saveBody();
-        this.selectedProject = sel.value;
-        this.selectedScene = null;
-        this.currentFile = null;
-        this.rerender();
-      };
-    }
     for (const scene of project.scenes) {
       const row = nav.createDiv({ cls: "inkswell-write__scene" });
       if (scene.path === this.selectedScene) row.addClass("is-active");

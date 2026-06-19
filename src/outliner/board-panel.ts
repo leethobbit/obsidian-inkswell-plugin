@@ -8,6 +8,7 @@
  */
 
 import { App, Menu, TFile } from "obsidian";
+import { ActiveProject, resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
 import { addSceneMenuItems, openScene } from "../scenes/scene-actions";
@@ -23,13 +24,14 @@ const FIELDS: { id: GroupField; label: string }[] = [
 export class BoardPanel {
   private app: App;
   private store: ProjectStore;
+  private active: ActiveProject;
   private container: HTMLElement | null = null;
-  private selectedPath: string | null = null;
   private field: GroupField = "status";
 
-  constructor(app: App, store: ProjectStore) {
+  constructor(app: App, store: ProjectStore, active: ActiveProject) {
     this.app = app;
     this.store = store;
+    this.active = active;
   }
 
   private rerender(): void {
@@ -44,20 +46,16 @@ export class BoardPanel {
     const projects = this.store
       .getProjects()
       .filter((p) => p.draft.format === "scenes");
-    if (projects.length === 0) {
+    const project = resolveActive(projects, this.active.get());
+    if (!project) {
       container.createDiv({
         cls: "inkswell-stats__muted",
         text: "No multi-scene projects to board.",
       });
       return;
     }
-    const project =
-      projects.find((p) => p.vaultPath === this.selectedPath) ?? projects[0];
-    // Sticky: only initialize selectedPath; never clobber the user's choice with
-    // the fallback (a store refresh can transiently miss the project).
-    if (this.selectedPath === null) this.selectedPath = project.vaultPath;
 
-    this.renderToolbar(container, projects, project);
+    this.renderToolbar(container);
 
     const items: BoardItem[] = [];
     for (const scene of project.scenes) {
@@ -81,19 +79,8 @@ export class BoardPanel {
     for (const col of cols) this.renderColumn(board, col, project);
   }
 
-  private renderToolbar(root: HTMLElement, projects: Project[], project: Project): void {
+  private renderToolbar(root: HTMLElement): void {
     const bar = root.createDiv({ cls: "inkswell-board__toolbar" });
-    if (projects.length > 1) {
-      const sel = bar.createEl("select", { cls: "dropdown" });
-      for (const p of projects) {
-        const o = sel.createEl("option", { text: p.draft.title, value: p.vaultPath });
-        if (p.vaultPath === project.vaultPath) o.selected = true;
-      }
-      sel.onchange = () => {
-        this.selectedPath = sel.value;
-        this.rerender();
-      };
-    }
     bar.createSpan({ cls: "inkswell-stats__muted", text: "Group by:" });
     const fsel = bar.createEl("select", { cls: "dropdown" });
     for (const f of FIELDS) {

@@ -13,7 +13,9 @@ import { Notice, Plugin, WorkspaceLeaf } from "obsidian";
 import { CompileModal } from "./src/compile/compile-modal";
 import { TargetModal } from "./src/goals/target-modal";
 import { Idea, newIdeaId } from "./src/ideation/types";
-import { promptText } from "./src/scenes/scene-actions";
+import { openScene, promptText } from "./src/scenes/scene-actions";
+import { ActiveProject } from "./src/projects/active-project";
+import { NewProjectModal } from "./src/projects/new-project-modal";
 import { ProjectStats } from "./src/projects/project-stats";
 import { ProjectStore } from "./src/projects/project-store";
 import { Project } from "./src/projects/types";
@@ -38,6 +40,7 @@ export default class InkswellPlugin extends Plugin {
   settings: InkswellSettings = DEFAULT_SETTINGS;
   writingLog: WritingLogData = emptyLog();
   ideas: Idea[] = [];
+  activeProject: ActiveProject = new ActiveProject();
   store!: ProjectStore;
   stats!: ProjectStats;
   tracker!: WritingTracker;
@@ -56,6 +59,9 @@ export default class InkswellPlugin extends Plugin {
     this.addChild(this.store);
     this.addChild(this.tracker);
     this.addChild(this.sprints);
+
+    // Persist the active project whenever it changes (survives restart).
+    this.register(this.activeProject.subscribe(() => void this.persist()));
 
     this.registerView(
       VIEW_TYPE_INKSWELL,
@@ -84,6 +90,11 @@ export default class InkswellPlugin extends Plugin {
       id: "open-explorer",
       name: "Open Inkswell projects",
       callback: () => this.openProjects(),
+    });
+    this.addCommand({
+      id: "new-project",
+      name: "New project",
+      callback: () => this.newProject(),
     });
     this.addCommand({
       id: "open-beats",
@@ -190,14 +201,18 @@ export default class InkswellPlugin extends Plugin {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, stored.settings ?? {});
     this.writingLog = Object.assign({}, emptyLog(), stored.writingLog ?? {});
     this.ideas = Array.isArray(stored.ideas) ? stored.ideas : [];
+    this.activeProject = new ActiveProject(
+      typeof stored.activeProject === "string" ? stored.activeProject : null
+    );
   }
 
-  /** Persist settings, the writing log, and ideas to data.json. */
+  /** Persist settings, the writing log, ideas, and the active project to data.json. */
   async persist(): Promise<void> {
     await this.saveData({
       settings: this.settings,
       writingLog: this.writingLog,
       ideas: this.ideas,
+      activeProject: this.activeProject.get(),
     });
   }
 
@@ -275,6 +290,16 @@ export default class InkswellPlugin extends Plugin {
 
   startSprint(): void {
     new SprintModal(this.app, this.sprints, this.settings.defaultSprintMinutes).open();
+  }
+
+  /** Create a new project, make it active, reveal it on Home, open its index. */
+  newProject(): void {
+    new NewProjectModal(this.app, (file) => {
+      this.activeProject.set(file.path);
+      this.refreshExplorer();
+      void this.openProjects();
+      openScene(this.app, file);
+    }).open();
   }
 
   /**

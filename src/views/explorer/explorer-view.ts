@@ -19,7 +19,8 @@ import {
 } from "../../projects/scene-tree";
 import { Project, isMultiScene } from "../../projects/types";
 import { Series, groupIntoSeries, projectSeries } from "../../series/series";
-import { deleteScene, editSynopsis, promptText, renameScene } from "../../scenes/scene-actions";
+import { deleteScene, editSynopsis, openScene, promptText, renameScene } from "../../scenes/scene-actions";
+import { EditSceneModal } from "../../scenes/edit-scene-modal";
 import { readSceneMeta, statusLabel } from "../../scenes/scene-meta";
 import type InkswellPlugin from "../../../main";
 
@@ -45,13 +46,17 @@ export class ExplorerPanel {
     container.empty();
     container.addClass("inkswell-explorer");
 
+    const toolbar = container.createDiv({ cls: "inkswell-explorer__toolbar" });
+    const newBtn = toolbar.createEl("button", { cls: "mod-cta", text: "New project" });
+    newBtn.onclick = () => this.plugin.newProject();
+
     this.renderIdeas(container);
 
     const projects = this.store.getProjects();
     if (projects.length === 0) {
       container.createDiv({
         cls: "inkswell-explorer__empty",
-        text: "No writing projects found. Add a `longform` key to a note's frontmatter to begin.",
+        text: 'No writing projects yet. Click "New project" above to create one (or add a `longform` key to a note\'s frontmatter).',
       });
       return;
     }
@@ -193,11 +198,18 @@ export class ExplorerPanel {
       cta: "Save",
     });
     if (name === null) return;
-    if (!name.trim()) {
+    const trimmed = name.trim();
+    if (!trimmed) {
       await writeSeries(this.app, file, null);
       return;
     }
-    await writeSeries(this.app, file, { name: name.trim(), order: cur?.order });
+    // A book that's alone in its series is Book 1 by default; joining a series
+    // that already has other books keeps any existing number (set via the menu).
+    const others = this.store
+      .getProjects()
+      .filter((p) => p.vaultPath !== project.vaultPath && projectSeries(p)?.name === trimmed);
+    const order = others.length === 0 ? 1 : cur?.order;
+    await writeSeries(this.app, file, { name: trimmed, order });
   }
 
   private async setBookNumber(project: Project, file: TFile): Promise<void> {
@@ -257,7 +269,7 @@ export class ExplorerPanel {
     row.onclick = () => {
       if (scene.path) {
         const file = this.app.vault.getAbstractFileByPath(scene.path);
-        if (file instanceof TFile) this.openScene(file);
+        if (file instanceof TFile) openScene(this.app, file);
       }
     };
 
@@ -267,18 +279,6 @@ export class ExplorerPanel {
     };
 
     this.wireDrag(row, project, index);
-  }
-
-  /**
-   * Open a scene in a separate editor tab, leaving the Inkswell host tab intact.
-   * Reuses an existing markdown editor leaf (never the host, which is type
-   * "inkswell") so repeated clicks don't pile up tabs.
-   * TODO: in-plugin manuscript editor — edit scenes inside the host tab instead.
-   */
-  private openScene(file: TFile): void {
-    const editors = this.app.workspace.getLeavesOfType("markdown");
-    const leaf = editors[0] ?? this.app.workspace.getLeaf("tab");
-    leaf.openFile(file);
   }
 
   private sceneMenu(project: Project, index: number): Menu {
@@ -309,6 +309,12 @@ export class ExplorerPanel {
       : null;
     if (scene && sceneFile instanceof TFile) {
       menu.addSeparator();
+      menu.addItem((i) =>
+        i
+          .setTitle("Edit scene…")
+          .setIcon("settings-2")
+          .onClick(() => new EditSceneModal(this.app, sceneFile).open())
+      );
       menu.addItem((i) =>
         i
           .setTitle("Edit synopsis…")

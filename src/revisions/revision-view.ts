@@ -6,6 +6,7 @@
  */
 
 import { App, Menu, setIcon } from "obsidian";
+import { resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
 import { RevisionModal } from "./revision-modal";
@@ -25,7 +26,6 @@ export class RevisionPanel {
   private store: ProjectStore;
   private container: HTMLElement | null = null;
 
-  private selectedPath: string | null = null;
   /** undefined = all scenes, null = project-wide only, string = a scene title. */
   private sceneFilter: string | null | undefined = undefined;
   private showApplied = false;
@@ -38,19 +38,12 @@ export class RevisionPanel {
 
   /** Focus a specific project (used when opened from a command on an active file). */
   focusProject(path: string): void {
-    this.selectedPath = path;
     this.sceneFilter = undefined;
-    this.rerender();
+    this.plugin.activeProject.set(path); // host re-renders on the change
   }
 
   private rerender(): void {
     if (this.container) this.render(this.container);
-  }
-
-  private currentProject(projects: Project[]): Project | null {
-    return (
-      projects.find((p) => p.vaultPath === this.selectedPath) ?? projects[0] ?? null
-    );
   }
 
   render(container: HTMLElement): void {
@@ -58,18 +51,16 @@ export class RevisionPanel {
     container.empty();
     container.addClass("inkswell-revision");
 
-    const projects = this.store.getProjects();
-    if (projects.length === 0) {
+    const project = resolveActive(
+      this.store.getProjects(),
+      this.plugin.activeProject.get()
+    );
+    if (!project) {
       container.createDiv({ cls: "inkswell-stats__muted", text: "No projects found." });
       return;
     }
 
-    const project = this.currentProject(projects);
-    if (!project) return;
-    // Sticky: only initialize; don't clobber the user's choice on a refresh.
-    if (this.selectedPath === null) this.selectedPath = project.vaultPath;
-
-    this.renderToolbar(container, projects, project);
+    this.renderToolbar(container, project);
 
     const all = decisionsOf(project);
     const pending = filterDecisions(all, { status: "pending", scene: this.sceneFilter });
@@ -93,23 +84,8 @@ export class RevisionPanel {
     }
   }
 
-  private renderToolbar(root: HTMLElement, projects: Project[], project: Project): void {
+  private renderToolbar(root: HTMLElement, project: Project): void {
     const bar = root.createDiv({ cls: "inkswell-revision__toolbar" });
-
-    if (projects.length > 1) {
-      const sel = bar.createEl("select", { cls: "dropdown" });
-      for (const p of projects) {
-        const o = sel.createEl("option", { text: p.draft.title, value: p.vaultPath });
-        if (p.vaultPath === project.vaultPath) o.selected = true;
-      }
-      sel.onchange = () => {
-        this.selectedPath = sel.value;
-        this.sceneFilter = undefined;
-        this.rerender();
-      };
-    } else {
-      bar.createSpan({ cls: "inkswell-revision__project", text: project.draft.title });
-    }
 
     const sceneSel = bar.createEl("select", { cls: "dropdown" });
     sceneSel.createEl("option", { text: "All scenes", value: "__all__" });

@@ -13,6 +13,7 @@ import {
   DEFAULT_COMPILE_CONFIG,
   OutputFormat,
 } from "../compile/types";
+import { resolveActive } from "../projects/active-project";
 import { persistInkswellData } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
@@ -26,7 +27,6 @@ export class CompilePanel {
   private plugin: InkswellPlugin;
   private store: ProjectStore;
   private container: HTMLElement | null = null;
-  private selectedPath: string | null = null;
 
   constructor(app: App, plugin: InkswellPlugin, store: ProjectStore) {
     this.app = app;
@@ -44,25 +44,10 @@ export class CompilePanel {
     container.addClass("inkswell-publish");
     container.createEl("h3", { text: "Compile" });
 
-    const projects = this.store.getProjects();
-    if (projects.length === 0) {
+    const project = resolveActive(this.store.getProjects(), this.plugin.activeProject.get());
+    if (!project) {
       container.createDiv({ cls: "inkswell-stats__muted", text: "No projects found." });
       return;
-    }
-    const project =
-      projects.find((p) => p.vaultPath === this.selectedPath) ?? projects[0];
-    if (this.selectedPath === null) this.selectedPath = project.vaultPath;
-
-    if (projects.length > 1) {
-      const sel = container.createEl("select", { cls: "dropdown" });
-      for (const p of projects) {
-        const o = sel.createEl("option", { text: p.draft.title, value: p.vaultPath });
-        if (p.vaultPath === project.vaultPath) o.selected = true;
-      }
-      sel.onchange = () => {
-        this.selectedPath = sel.value;
-        this.rerender();
-      };
     }
 
     const config = this.configFor(project);

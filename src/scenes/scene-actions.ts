@@ -5,10 +5,11 @@
  * (synopsis) — never the prose body.
  */
 
-import { App, Menu, Modal, Setting, TFile, normalizePath } from "obsidian";
+import { App, Menu, Modal, Setting, TFile, WorkspaceLeaf, normalizePath } from "obsidian";
 import { updateScenes } from "../projects/index-writer";
 import { removeScene } from "../projects/scene-tree";
 import { Project } from "../projects/types";
+import { EditSceneModal } from "./edit-scene-modal";
 import { readSceneMeta, writeSceneMeta } from "./scene-meta";
 
 class PromptModal extends Modal {
@@ -92,11 +93,22 @@ export function confirmDelete(app: App, message: string): Promise<boolean> {
   return new Promise((resolve) => new ConfirmModal(app, message, resolve).open());
 }
 
-/** Open a scene in an editor tab (reusing one, never the Inkswell host). */
+/**
+ * Open a scene in an editor tab. Reuses an existing, NON-pinned markdown leaf so
+ * repeated clicks don't pile up tabs — but never hijacks a pinned tab (the user
+ * pinned it on purpose). Falls back to a new tab when every markdown leaf is
+ * pinned or none exist. Never targets the Inkswell host (type "inkswell").
+ */
 export function openScene(app: App, file: TFile): void {
-  const editors = app.workspace.getLeavesOfType("markdown");
-  const leaf = editors[0] ?? app.workspace.getLeaf("tab");
-  leaf.openFile(file);
+  const isPinned = (leaf: WorkspaceLeaf): boolean => {
+    const state = leaf.getViewState() as { pinned?: boolean };
+    return state.pinned ?? (leaf as unknown as { pinned?: boolean }).pinned ?? false;
+  };
+  const reusable = app.workspace
+    .getLeavesOfType("markdown")
+    .find((leaf) => !isPinned(leaf));
+  const leaf = reusable ?? app.workspace.getLeaf("tab");
+  void leaf.openFile(file);
 }
 
 export async function editSynopsis(app: App, file: TFile): Promise<void> {
@@ -171,6 +183,9 @@ export function addSceneMenuItems(
       i.setTitle("Open").setIcon("file-text").onClick(() => openScene(app, file))
     );
   }
+  menu.addItem((i) =>
+    i.setTitle("Edit scene…").setIcon("settings-2").onClick(() => new EditSceneModal(app, file).open())
+  );
   menu.addItem((i) =>
     i.setTitle("Edit synopsis…").setIcon("text").onClick(() => void editSynopsis(app, file))
   );
