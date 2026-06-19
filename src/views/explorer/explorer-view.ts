@@ -18,6 +18,7 @@ import {
   unindentScene,
 } from "../../projects/scene-tree";
 import { Project, isMultiScene } from "../../projects/types";
+import { deleteScene, editSynopsis, renameScene } from "../../scenes/scene-actions";
 import { readSceneMeta, statusLabel } from "../../scenes/scene-meta";
 import type InkswellPlugin from "../../../main";
 
@@ -169,20 +170,48 @@ export class ExplorerPanel {
           updateScenes(this.app, file, project.draft, (s) => unindentScene(s, index))
         )
     );
+    // Scene-content actions (edit synopsis, rename, delete) when the file exists.
+    const scene = project.scenes[index];
+    const sceneFile = scene?.path
+      ? this.app.vault.getAbstractFileByPath(scene.path)
+      : null;
+    if (scene && sceneFile instanceof TFile) {
+      menu.addSeparator();
+      menu.addItem((i) =>
+        i
+          .setTitle("Edit synopsis…")
+          .setIcon("text")
+          .onClick(() => void editSynopsis(this.app, sceneFile))
+      );
+      menu.addItem((i) =>
+        i
+          .setTitle("Rename…")
+          .setIcon("pencil")
+          .onClick(() => void renameScene(this.app, project, scene.title, sceneFile))
+      );
+    }
+
     menu.addSeparator();
     menu.addItem((i) =>
       i
-        .setTitle("Remove from project")
-        .setIcon("trash")
+        .setTitle("Remove from project (keep file)")
+        .setIcon("link-2-off")
         .onClick(() => {
-          const title = project.scenes[index]?.title;
-          if (title) {
+          if (scene?.title) {
             updateScenes(this.app, file, project.draft, (s) =>
-              removeScene(s, title)
+              removeScene(s, scene.title)
             );
           }
         })
     );
+    if (scene && sceneFile instanceof TFile) {
+      menu.addItem((i) =>
+        i
+          .setTitle("Delete scene")
+          .setIcon("trash")
+          .onClick(() => void deleteScene(this.app, project, scene.title, sceneFile))
+      );
+    }
     return menu;
   }
 

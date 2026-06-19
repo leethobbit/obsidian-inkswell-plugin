@@ -216,6 +216,13 @@
   color: #fff;
 }
 
+/* Prompt modal input */
+.inkswell-prompt__input {
+  width: 100%;
+  margin-bottom: var(--size-4-2);
+  resize: vertical;
+}
+
 /* --- Plan toolbars + Kanban board --- */
 .inkswell-beats__toolbar,
 .inkswell-board__toolbar {

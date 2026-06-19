@@ -7,9 +7,10 @@
  * scene metadata and renders/handles drag.
  */
 
-import { App, TFile } from "obsidian";
+import { App, Menu, TFile } from "obsidian";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
+import { addSceneMenuItems, openScene } from "../scenes/scene-actions";
 import { readSceneMeta, writeSceneMeta } from "../scenes/scene-meta";
 import { BoardColumn, BoardItem, GroupField, buildColumns } from "./board";
 
@@ -75,7 +76,7 @@ export class BoardPanel {
 
     const cols = buildColumns(items, this.field);
     const board = container.createDiv({ cls: "inkswell-board__cols" });
-    for (const col of cols) this.renderColumn(board, col);
+    for (const col of cols) this.renderColumn(board, col, project);
   }
 
   private renderToolbar(root: HTMLElement, projects: Project[], project: Project): void {
@@ -103,7 +104,7 @@ export class BoardPanel {
     };
   }
 
-  private renderColumn(board: HTMLElement, col: BoardColumn): void {
+  private renderColumn(board: HTMLElement, col: BoardColumn, project: Project): void {
     const el = board.createDiv({ cls: "inkswell-board__col" });
     el.createDiv({
       cls: "inkswell-board__colhead",
@@ -123,10 +124,10 @@ export class BoardPanel {
       if (path) this.assign(path, col.key);
     });
 
-    for (const it of col.items) this.renderCard(list, it);
+    for (const it of col.items) this.renderCard(list, it, project);
   }
 
-  private renderCard(list: HTMLElement, it: BoardItem): void {
+  private renderCard(list: HTMLElement, it: BoardItem, project: Project): void {
     const card = list.createDiv({ cls: "inkswell-board__card" });
     card.draggable = true;
     if (it.color) card.style.borderLeft = `3px solid ${it.color}`;
@@ -141,11 +142,15 @@ export class BoardPanel {
     card.addEventListener("dragend", () => card.removeClass("is-dragging"));
     card.onclick = () => {
       const file = this.app.vault.getAbstractFileByPath(it.path);
-      if (file instanceof TFile) {
-        const editors = this.app.workspace.getLeavesOfType("markdown");
-        const leaf = editors[0] ?? this.app.workspace.getLeaf("tab");
-        leaf.openFile(file);
-      }
+      if (file instanceof TFile) openScene(this.app, file);
+    };
+    card.oncontextmenu = (e) => {
+      e.preventDefault();
+      const file = this.app.vault.getAbstractFileByPath(it.path);
+      if (!(file instanceof TFile)) return;
+      const menu = new Menu();
+      addSceneMenuItems(menu, this.app, project, it.title, file, { includeOpen: true });
+      menu.showAtMouseEvent(e);
     };
   }
 
