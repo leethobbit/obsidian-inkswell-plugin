@@ -7,8 +7,7 @@
  * note's frontmatter — never a scene body.
  */
 
-import { App, Menu, TFile, setIcon } from "obsidian";
-import { CompileModal } from "../../compile/compile-modal";
+import { App, Menu, TFile } from "obsidian";
 import { updateScenes } from "../../projects/index-writer";
 import { ProjectStats } from "../../projects/project-stats";
 import { ProjectStore } from "../../projects/project-store";
@@ -69,12 +68,6 @@ export class ExplorerPanel {
         count.setText(`${w.toLocaleString()} words`);
       });
     }
-
-    const compileBtn = right.createEl("button", { cls: "clickable-icon" });
-    setIcon(compileBtn, "play");
-    compileBtn.setAttribute("aria-label", "Compile");
-    compileBtn.onclick = () =>
-      new CompileModal(this.app, project, this.plugin.settings).open();
 
     if (isMultiScene(project.draft)) {
       const list = section.createDiv();

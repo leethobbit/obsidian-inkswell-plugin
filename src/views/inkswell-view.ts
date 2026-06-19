@@ -1,11 +1,12 @@
 /**
- * The single Inkswell host view: one tab in the main content area whose body
- * swaps between three panels (Projects · Stats · Revision Log) via an internal
- * tab-bar. Keeping Inkswell to one tab is a deliberate constraint — all entry
- * points (ribbon, status bar, commands) reuse this one view.
+ * The single Inkswell host view: one tab in the main content area, organized as a
+ * phase-centric workspace. A left icon rail switches between goal-bounded
+ * destinations (Home · Plan · Write · Track · Revise · Publish); each destination
+ * does one job, with depth behind ≤3 sub-tabs. All entry points reuse this one
+ * view (the one-tab constraint).
  *
- * The host owns the data subscriptions and re-renders the active panel on change;
- * the panels are created once and keep their own state across tab switches.
+ * The host owns data subscriptions and re-renders the active destination on
+ * change; panels are created once and keep their own state across switches.
  */
 
 import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
@@ -16,28 +17,48 @@ import { RevisionPanel } from "../revisions/revision-view";
 import { StatsPanel } from "../stats/stats-view";
 import { WritingTracker } from "../tracking/writing-tracker";
 import { ExplorerPanel } from "./explorer/explorer-view";
+import { CompilePanel } from "./compile-panel";
+import { WritePanel } from "./write-panel";
 import type InkswellPlugin from "../../main";
 
 export const VIEW_TYPE_INKSWELL = "inkswell";
 
-export type InkswellMode = "projects" | "beats" | "stats" | "revisions";
+/** Top-level phase destinations. */
+export type InkswellMode = "home" | "plan" | "write" | "track" | "revise" | "publish";
 
-const TABS: { mode: InkswellMode; label: string; icon: string }[] = [
-  { mode: "projects", label: "Projects", icon: "pen-tool" },
-  { mode: "beats", label: "Beats", icon: "list-ordered" },
-  { mode: "stats", label: "Stats", icon: "bar-chart-3" },
-  { mode: "revisions", label: "Revision log", icon: "git-compare" },
+interface SubTab {
+  id: string;
+  label: string;
+}
+interface Destination {
+  id: InkswellMode;
+  label: string;
+  icon: string;
+  subtabs?: SubTab[];
+}
+
+const DESTINATIONS: Destination[] = [
+  { id: "home", label: "Home", icon: "home" },
+  { id: "plan", label: "Plan", icon: "compass", subtabs: [{ id: "beats", label: "Beats" }] },
+  { id: "write", label: "Write", icon: "pencil" },
+  { id: "track", label: "Track", icon: "bar-chart-3" },
+  { id: "revise", label: "Revise", icon: "git-compare" },
+  { id: "publish", label: "Publish", icon: "upload" },
 ];
 
 export class InkswellView extends ItemView {
   private plugin: InkswellPlugin;
   private explorer: ExplorerPanel;
   private beats: BeatPanel;
+  private write: WritePanel;
   private stats: StatsPanel;
   private revisions: RevisionPanel;
+  private compile: CompilePanel;
 
-  private mode: InkswellMode = "projects";
-  private tabBar!: HTMLElement;
+  private mode: InkswellMode = "home";
+  /** Remembered sub-tab per destination. */
+  private subtab: Partial<Record<InkswellMode, string>> = {};
+  private rail!: HTMLElement;
   private body!: HTMLElement;
   private unsubs: Array<() => void> = [];
 
@@ -52,10 +73,12 @@ export class InkswellView extends ItemView {
     this.plugin = plugin;
     this.explorer = new ExplorerPanel(this.app, plugin, store, stats);
     this.beats = new BeatPanel(this.app, store);
+    this.write = new WritePanel(this.app, plugin, plugin.sprints);
     this.stats = new StatsPanel(plugin, tracker, store, stats);
     this.revisions = new RevisionPanel(this.app, plugin, store);
+    this.compile = new CompilePanel(this.app, plugin, store);
 
-    // Re-render the active panel whenever projects or the writing log change.
+    // Re-render the active destination whenever projects or the log change.
     this.unsubs.push(store.subscribe(() => this.renderActive()));
     this.unsubs.push(tracker.onChange(() => this.renderActive()));
   }
@@ -63,11 +86,9 @@ export class InkswellView extends ItemView {
   getViewType(): string {
     return VIEW_TYPE_INKSWELL;
   }
-
   getDisplayText(): string {
     return "Inkswell";
   }
-
   getIcon(): string {
     return "pen-tool";
   }
@@ -77,35 +98,36 @@ export class InkswellView extends ItemView {
     root.empty();
     root.addClass("inkswell-host");
 
-    this.tabBar = root.createDiv({ cls: "inkswell-tabbar" });
-    for (const tab of TABS) {
-      const btn = this.tabBar.createEl("button", { cls: "inkswell-tab" });
-      setIcon(btn.createSpan({ cls: "inkswell-tab__icon" }), tab.icon);
-      btn.createSpan({ text: tab.label });
-      btn.dataset.mode = tab.mode;
-      btn.onclick = () => this.setMode(tab.mode);
+    this.rail = root.createDiv({ cls: "inkswell-rail" });
+    for (const dest of DESTINATIONS) {
+      const btn = this.rail.createEl("button", { cls: "inkswell-rail__item" });
+      setIcon(btn.createSpan({ cls: "inkswell-rail__icon" }), dest.icon);
+      btn.createSpan({ cls: "inkswell-rail__label", text: dest.label });
+      btn.dataset.dest = dest.id;
+      btn.setAttribute("aria-label", dest.label);
+      btn.onclick = () => this.setMode(dest.id);
     }
-    // Spacer + sprint action on the right.
-    this.tabBar.createDiv({ cls: "inkswell-tabbar__spacer" });
-    const sprint = this.tabBar.createEl("button", { cls: "clickable-icon" });
-    setIcon(sprint, "timer");
+    this.rail.createDiv({ cls: "inkswell-rail__spacer" });
+    const sprint = this.rail.createEl("button", { cls: "inkswell-rail__item" });
+    setIcon(sprint.createSpan({ cls: "inkswell-rail__icon" }), "timer");
+    sprint.createSpan({ cls: "inkswell-rail__label", text: "Sprint" });
     sprint.setAttribute("aria-label", "Start a writing sprint");
     sprint.onclick = () => this.plugin.startSprint();
 
     this.body = root.createDiv({ cls: "inkswell-host__body" });
-    this.renderChrome();
     this.renderActive();
   }
 
   async onClose(): Promise<void> {
     this.unsubs.forEach((u) => u());
     this.unsubs = [];
+    this.write.dispose();
   }
 
-  /** Switch the active panel. */
-  setMode(mode: InkswellMode): void {
+  /** Switch destination (and optionally a sub-tab within it). */
+  setMode(mode: InkswellMode, subtab?: string): void {
     this.mode = mode;
-    this.renderChrome();
+    if (subtab) this.subtab[mode] = subtab;
     this.renderActive();
   }
 
@@ -113,24 +135,58 @@ export class InkswellView extends ItemView {
     return this.revisions;
   }
 
-  /** Force a re-render of the active panel (e.g. after a settings change). */
+  /** Force a re-render (e.g. after a settings change). */
   refresh(): void {
     this.renderActive();
   }
 
-  /** Reflect the active tab in the tab-bar highlight. */
-  private renderChrome(): void {
-    if (!this.tabBar) return;
-    this.tabBar.querySelectorAll<HTMLElement>(".inkswell-tab").forEach((btn) => {
-      btn.toggleClass("is-active", btn.dataset.mode === this.mode);
+  private renderActive(): void {
+    if (!this.body || !this.rail) return;
+
+    // Rail highlight.
+    this.rail.querySelectorAll<HTMLElement>(".inkswell-rail__item").forEach((b) => {
+      b.toggleClass("is-active", b.dataset.dest === this.mode);
     });
+
+    this.body.empty();
+    const dest = DESTINATIONS.find((d) => d.id === this.mode);
+
+    // Optional sub-tab bar.
+    if (dest?.subtabs && dest.subtabs.length > 0) {
+      const active = this.subtab[this.mode] ?? dest.subtabs[0].id;
+      const bar = this.body.createDiv({ cls: "inkswell-subtabs" });
+      for (const st of dest.subtabs) {
+        const b = bar.createEl("button", { cls: "inkswell-subtab", text: st.label });
+        b.toggleClass("is-active", st.id === active);
+        b.onclick = () => this.setMode(this.mode, st.id);
+      }
+    }
+
+    const content = this.body.createDiv({ cls: "inkswell-content" });
+    this.renderContent(content);
   }
 
-  private renderActive(): void {
-    if (!this.body) return;
-    if (this.mode === "projects") this.explorer.render(this.body);
-    else if (this.mode === "beats") this.beats.render(this.body);
-    else if (this.mode === "stats") this.stats.render(this.body);
-    else this.revisions.render(this.body);
+  private renderContent(content: HTMLElement): void {
+    switch (this.mode) {
+      case "home":
+        this.explorer.render(content);
+        break;
+      case "plan":
+        // Only the Beats sub-tab exists today; Board/Codex arrive in later phases.
+        this.beats.render(content);
+        break;
+      case "write":
+        this.write.render(content);
+        break;
+      case "track":
+        this.stats.render(content);
+        break;
+      case "revise":
+        this.revisions.render(content);
+        break;
+      case "publish":
+        this.compile.render(content);
+        break;
+    }
   }
 }

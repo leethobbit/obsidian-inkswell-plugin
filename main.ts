@@ -84,13 +84,23 @@ export default class InkswellPlugin extends Plugin {
     });
     this.addCommand({
       id: "open-beats",
-      name: "Open beat sheet",
+      name: "Open beat sheet (Plan)",
       callback: () => this.openBeats(),
     });
     this.addCommand({
+      id: "open-write",
+      name: "Open Write",
+      callback: () => this.openWrite(),
+    });
+    this.addCommand({
       id: "open-stats",
-      name: "Open writing stats",
+      name: "Open writing stats (Track)",
       callback: () => this.openStats(),
+    });
+    this.addCommand({
+      id: "open-compile",
+      name: "Open compile (Publish)",
+      callback: () => this.openCompile(),
     });
     this.addCommand({
       id: "compile-active-project",
@@ -185,22 +195,30 @@ export default class InkswellPlugin extends Plugin {
   // --- Shared entry points (used by commands, the ribbon, and the explorer toolbar) ---
 
   openProjects(): Promise<void> {
-    return this.openInkswell("projects");
+    return this.openInkswell("home");
   }
 
   openBeats(): Promise<void> {
-    return this.openInkswell("beats");
+    return this.openInkswell("plan");
+  }
+
+  openWrite(): Promise<void> {
+    return this.openInkswell("write");
   }
 
   openStats(): Promise<void> {
-    return this.openInkswell("stats");
+    return this.openInkswell("track");
+  }
+
+  openCompile(): Promise<void> {
+    return this.openInkswell("publish");
   }
 
   /** Open the revision log, focused on the active file's project when possible. */
   openRevisions(): Promise<void> {
     const active = this.app.workspace.getActiveFile();
     const project = active ? this.projectForPath(active.path) : null;
-    return this.openInkswell("revisions", (view) => {
+    return this.openInkswell("revise", (view) => {
       if (project) view.getRevisionPanel().focusProject(project.vaultPath);
     });
   }

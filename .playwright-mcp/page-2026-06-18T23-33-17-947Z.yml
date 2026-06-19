@@ -1,0 +1,15 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - heading "Writing Apps for Fiction Authors" [level=1] [ref=e3]
+    - generic [ref=e4]: Feature Comparison · 20+ tools · March 2026
+    - generic [ref=e5]:
+      - generic [ref=e6]: ✓✓ Strong
+      - generic [ref=e7]: ✓ Yes
+      - generic [ref=e8]: ~ Partial
+      - generic [ref=e9]: ✗ No
+      - generic [ref=e10]: — N/A
+  - generic [ref=e11]:
+    - navigation "Jump to app" [ref=e12]:
+      - list
+    - main [ref=e13]
+  - contentinfo [ref=e14]: Writing Apps for Authors — Feature Comparison 2026 · 20 tools surveyed · ★ StoryLine included as reference (MIT License)
