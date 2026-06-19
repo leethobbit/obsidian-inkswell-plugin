@@ -63,8 +63,8 @@ Inkswell has shipped phases 1–4 (`v0.4.0`): Longform-compatible projects + com
 
 | Pick | Feature                                                           | Have | Fit | Src      | Notes                               |
 | ---- | ----------------------------------------------------------------- | ---- | --- | -------- | ----------------------------------- |
-| X    | Character profiles (structured fields: role/arc/traits/backstory) |      | ✅   | SL/IW/MX | notes + frontmatter                 |
-| X    | Location / world profiles (nested hierarchy)                      |      | ✅   | SL/IW/MX |                                     |
+| X    | Character profiles (structured fields: role/arc/traits/backstory) | ✅   | ✅   | SL/IW/MX | v0.12.0 profile editor → frontmatter |
+| X    | Location / world profiles (nested hierarchy)                      | ✅   | ✅   | SL/IW/MX | v0.12.0; `world` category + parent  |
 | X    | Worldbuilding note types (Faction/Item/Event/Concept/Magic)       |      | ✅   | IW/MX    | templated notes                     |
 | X    | Character–scene & location–scene linking                          |      | ✅   | SL/MX    | frontmatter `characters`/`location` |
 | X    | Codex hub (unified entity browser + custom categories)            |      | ⚠️  | SL       |                                     |

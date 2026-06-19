@@ -2,7 +2,7 @@
 
 Phase-centric information architecture (one tab, left icon rail): **Home · Plan · Write · Track · Revise · Publish**. Each destination does one job; depth lives behind sub-tabs or the Scene Inspector. See `FEATURES.md` for the full pick list and the plan file for IA rationale.
 
-**Current status: v0.11.0** — phases 5–11 shipped. Remaining: codex profiles (new, below) and series mode. Not yet live-QA'd end to end (a deep dive is pending).
+**Current status: v0.12.0** — phases 5–12 shipped. Remaining: series mode. Not yet live-QA'd end to end (a deep dive is pending).
 
 ## Shipped
 | Version | What |
@@ -19,30 +19,9 @@ Phase-centric information architecture (one tab, left icon rail): **Home · Plan
 | v0.9.0 | Insight: status/act breakdowns (Track) + readability/word-frequency/echo (Revise → Analysis) |
 | v0.10.0 | Revise → Comments (`%%`/`@@` extraction); Publish compile step editor; ideas inbox + quick capture; writing prompts |
 | v0.11.0 | In-plugin manuscript editor (Write): navigator + editable body + Inspector, save-on-blur |
+| v0.12.0 | Codex profiles: master-detail editor, per-category structured frontmatter fields (incl. new `world` category), entity-link pickers, "Appears in" backlinks |
 
 ## Planned
-
-### v0.12.0 — Codex profiles (structured per-category fields)  ← next
-**Why:** the `FEATURES.md` pick "Character profiles (structured fields: role/arc/traits/backstory)" — and location/world profiles — was selected but only the entity system shipped (v0.7.0). Today every codex category shares one minimal schema (`codex`, `aliases`, `parent`) and all real attributes live as freeform body text. This phase adds **editable, structured profile fields per category**, stored in each entity note's frontmatter (Obsidian-native, Dataview/Bases-queryable), with the note body remaining freeform for prose.
-
-**Scope**
-- A **profile editor** in the Codex: selecting/opening an entity shows a focused form of its category's fields (reuse the Scene Inspector `field()` pattern), writing via `fileManager.processFrontMatter` (never the body). Aliases + parent fold into the form.
-- **Per-category field schema** (fixed set v1; extra frontmatter is preserved, not clobbered):
-  - **Character:** role, aliases, age, gender, occupation, traits, motivation, flaw, appearance, backstory, arc, relationships
-  - **Location:** type, world/parent, region, climate, population, atmosphere, significance, history
-  - **World:** *(decision point — see below)* geography, culture, politics, magic/tech, religion, economy, history
-  - **Faction:** type, leadership, size, territory, goal, allies, enemies
-  - **Item:** type, owner, significance
-  - **Event:** date, participants, outcome
-  - **Concept:** type (magic/tech/religion), rules, limitations, significance
-- Field types: text, textarea, and entity-link (e.g. relationships/allies → wikilinks to other codex entries), reusing the chip pattern.
-- "Referenced by" / "appears in" (which scenes link this entity) is a nice-to-have if cheap (we already link `characters`/`location` on scenes).
-
-**Decision point for the session that builds this:** "World" — add a 7th `world` category, OR model worlds as `location` with `type: World` and nest locations via `parent`. Recommendation: a dedicated **`world`** category (clean top-level worldbuilding, matches the user's "Character/Location/World" framing), with locations optionally referencing a world via `parent`.
-
-**Reuse:** `src/scenes/scene-meta.ts` (frontmatter read/write pattern), `SceneInspector.field()` (form rows), `src/codex/*` (entity model/store), `persistInkswellData`/`processFrontMatter`. Keep pure logic (schema definitions, field defaults) Obsidian-free + tested.
-
-**Verification:** create a Character, fill role/traits/arc → reload → fields persist in frontmatter; a relationship field links to another entity (wikilink); a Dataview query over `codex: character` can read the fields.
 
 ### v0.13.0 — Series mode
 Multi-book series with a shared codex across books.

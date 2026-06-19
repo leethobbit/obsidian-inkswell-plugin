@@ -264,6 +264,41 @@
   color: var(--text-faint);
   font-size: var(--font-ui-smaller);
 }
+.inkswell-codex__row.is-selected {
+  background-color: var(--background-modifier-active-hover);
+}
+
+/* Codex master-detail: list (left) + profile editor (right) */
+.inkswell-codex__body {
+  display: flex;
+  flex-direction: row;
+  gap: var(--size-4-3);
+  align-items: flex-start;
+}
+.inkswell-codex__list {
+  flex: 1;
+  min-width: 0;
+}
+.inkswell-codex__detail {
+  width: 300px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--background-modifier-border);
+  padding-left: var(--size-4-3);
+}
+.inkswell-codex__detail-head {
+  margin-bottom: var(--size-4-3);
+}
+.inkswell-codex__detail-head button {
+  margin-top: var(--size-4-1);
+}
+.inkswell-codex__refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-1);
+}
+.inkswell-codex__refs .inkswell-chip {
+  cursor: pointer;
+}
 
 /* Inspector chips (characters) */
 .inkswell-inspector__chips {

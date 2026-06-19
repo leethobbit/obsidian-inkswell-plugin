@@ -1,8 +1,10 @@
 /**
- * Codex hub (Plan → Codex): browse entities grouped by category, search, create
- * new entities, and open/rename/delete via right-click. Entities are plain notes
- * with a `codex` frontmatter key; rename uses fileManager so wikilinks in scenes
- * update automatically.
+ * Codex hub (Plan → Codex): a master-detail browser. The left list groups
+ * entities by category, searches, and creates new ones. Selecting an entity
+ * opens a structured profile editor on the right — a focused form of that
+ * category's fields (see `profile-schema`), written straight to the note's
+ * frontmatter via `writeProfile` (never the prose body). The note body stays
+ * freeform; "Open note" jumps to Obsidian's editor for it.
  */
 
 import { App, Menu, TFile, normalizePath, setIcon } from "obsidian";
@@ -11,7 +13,10 @@ import {
   openScene,
   promptText,
 } from "../scenes/scene-actions";
-import { createEntity, getCodexEntities } from "./codex-store";
+import { createEntity, getCodexEntities, scenesReferencing } from "./codex-store";
+import { linkTarget, toLink } from "./codex";
+import { readProfile, writeProfile } from "./codex-profile";
+import { Profile, ProfileField, profileFields } from "./profile-schema";
 import { CODEX_CATEGORIES, CodexCategory, CodexEntity, categoryLabel } from "./types";
 import type InkswellPlugin from "../../main";
 
@@ -19,7 +24,9 @@ export class CodexPanel {
   private app: App;
   private plugin: InkswellPlugin;
   private listEl: HTMLElement | null = null;
+  private detailEl: HTMLElement | null = null;
   private search = "";
+  private selectedPath: string | null = null;
 
   constructor(app: App, plugin: InkswellPlugin) {
     this.app = app;
@@ -61,11 +68,18 @@ export class CodexPanel {
         name,
         this.plugin.settings.codexFolder
       );
-      if (file) openScene(this.app, file);
+      if (file) {
+        this.selectedPath = file.path;
+        this.renderList();
+        this.renderDetail();
+      }
     };
 
-    this.listEl = container.createDiv({ cls: "inkswell-codex__list" });
+    const body = container.createDiv({ cls: "inkswell-codex__body" });
+    this.listEl = body.createDiv({ cls: "inkswell-codex__list" });
+    this.detailEl = body.createDiv({ cls: "inkswell-codex__detail" });
     this.renderList();
+    this.renderDetail();
   }
 
   private renderList(): void {
@@ -101,6 +115,7 @@ export class CodexPanel {
 
   private renderRow(parent: HTMLElement, icon: string, entity: CodexEntity): void {
     const row = parent.createDiv({ cls: "inkswell-codex__row" });
+    if (entity.path === this.selectedPath) row.addClass("is-selected");
     if (entity.parent) row.style.paddingLeft = "24px";
     setIcon(row.createSpan({ cls: "inkswell-codex__icon" }), icon);
     row.createSpan({ cls: "inkswell-codex__name", text: entity.name });
@@ -114,12 +129,16 @@ export class CodexPanel {
     const file = this.app.vault.getAbstractFileByPath(entity.path);
     if (!(file instanceof TFile)) return;
 
-    row.onclick = () => openScene(this.app, file);
+    row.onclick = () => {
+      this.selectedPath = entity.path;
+      this.renderList();
+      this.renderDetail();
+    };
     row.oncontextmenu = (e) => {
       e.preventDefault();
       const menu = new Menu();
       menu.addItem((i) =>
-        i.setTitle("Open").setIcon("file-text").onClick(() => openScene(this.app, file))
+        i.setTitle("Open note").setIcon("file-text").onClick(() => openScene(this.app, file))
       );
       menu.addItem((i) =>
         i.setTitle("Rename…").setIcon("pencil").onClick(() => this.rename(file))
@@ -130,6 +149,165 @@ export class CodexPanel {
       );
       menu.showAtMouseEvent(e);
     };
+  }
+
+  /** Render the profile editor for the selected entity (or a placeholder). */
+  private renderDetail(): void {
+    const host = this.detailEl;
+    if (!host) return;
+    host.empty();
+
+    const entity = this.selectedPath
+      ? getCodexEntities(this.app).find((e) => e.path === this.selectedPath)
+      : undefined;
+    const file = entity ? this.app.vault.getAbstractFileByPath(entity.path) : null;
+    if (!entity || !(file instanceof TFile)) {
+      host.createDiv({
+        cls: "inkswell-inspector__empty",
+        text: "Select a codex entry to edit its profile.",
+      });
+      return;
+    }
+
+    const head = host.createDiv({ cls: "inkswell-codex__detail-head" });
+    head.createDiv({ cls: "inkswell-inspector__title", text: entity.name });
+    head.createDiv({
+      cls: "inkswell-inspector__project",
+      text: categoryLabel(entity.category),
+    });
+    const openBtn = head.createEl("button", { text: "Open note" });
+    openBtn.onclick = () => openScene(this.app, file);
+
+    const profile = readProfile(this.app, file, entity.category);
+    const entities = getCodexEntities(this.app);
+    for (const field of profileFields(entity.category)) {
+      this.renderField(host, file, entity, field, profile, entities);
+    }
+
+    // Read-only: scenes that link this entity (characters/location frontmatter).
+    const scenes = scenesReferencing(this.app, entity.name);
+    this.field(host, "Appears in", (control) => {
+      if (scenes.length === 0) {
+        control.createSpan({ cls: "inkswell-stats__muted", text: "No scenes link this yet." });
+        return;
+      }
+      const wrap = control.createDiv({ cls: "inkswell-codex__refs" });
+      for (const s of scenes) {
+        const ref = wrap.createSpan({ cls: "inkswell-chip", text: s.basename });
+        ref.onclick = () => openScene(this.app, s);
+      }
+    });
+  }
+
+  private renderField(
+    host: HTMLElement,
+    file: TFile,
+    entity: CodexEntity,
+    field: ProfileField,
+    profile: Profile,
+    entities: CodexEntity[]
+  ): void {
+    const save = async (value: Profile[string]) => {
+      await writeProfile(this.app, file, entity.category, { [field.key]: value });
+    };
+    // Re-render the detail after structural edits (chips, alias/parent changes
+    // that the list also shows).
+    const saveAndRefresh = async (value: Profile[string]) => {
+      await save(value);
+      this.renderList();
+      this.renderDetail();
+    };
+
+    this.field(host, field.label, (control) => {
+      if (field.type === "text") {
+        const t = control.createEl("input", { type: "text" });
+        t.value = (profile[field.key] as string) ?? "";
+        if (field.placeholder) t.placeholder = field.placeholder;
+        t.onchange = () => void save(t.value);
+        return;
+      }
+      if (field.type === "textarea") {
+        const ta = control.createEl("textarea", { cls: "inkswell-inspector__textarea" });
+        ta.rows = 3;
+        ta.value = (profile[field.key] as string) ?? "";
+        if (field.placeholder) ta.placeholder = field.placeholder;
+        ta.onchange = () => void save(ta.value);
+        return;
+      }
+      if (field.type === "list") {
+        const current = (profile[field.key] as string[]) ?? [];
+        const chips = control.createDiv({ cls: "inkswell-inspector__chips" });
+        for (const val of current) {
+          const chip = chips.createSpan({ cls: "inkswell-chip", text: val });
+          const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
+          x.onclick = () => void saveAndRefresh(current.filter((c) => c !== val));
+        }
+        const input = control.createEl("input", { type: "text" });
+        input.placeholder = field.placeholder ?? "Add…";
+        input.onkeydown = (e) => {
+          if (e.key !== "Enter") return;
+          const v = input.value.trim();
+          if (v && !current.includes(v)) void saveAndRefresh([...current, v]);
+        };
+        return;
+      }
+      // links
+      this.renderLinkField(control, field, profile, entities, entity, saveAndRefresh);
+    });
+  }
+
+  private renderLinkField(
+    control: HTMLElement,
+    field: ProfileField,
+    profile: Profile,
+    entities: CodexEntity[],
+    self: CodexEntity,
+    saveAndRefresh: (value: Profile[string]) => void
+  ): void {
+    const candidates = entities.filter(
+      (e) =>
+        e.path !== self.path &&
+        (!field.linkCategory || e.category === field.linkCategory)
+    );
+
+    if (field.single) {
+      const cur = profile[field.key] ? linkTarget(profile[field.key] as string) : "";
+      const sel = control.createEl("select", { cls: "dropdown" });
+      sel.createEl("option", { text: "— none —", value: "" });
+      for (const c of candidates) sel.createEl("option", { text: c.name, value: c.name });
+      sel.value = candidates.some((c) => c.name === cur) ? cur : "";
+      sel.onchange = () => saveAndRefresh(sel.value ? toLink(sel.value) : "");
+      return;
+    }
+
+    const current = (profile[field.key] as string[]) ?? [];
+    const chips = control.createDiv({ cls: "inkswell-inspector__chips" });
+    for (const link of current) {
+      const chip = chips.createSpan({ cls: "inkswell-chip", text: linkTarget(link) });
+      const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
+      x.onclick = () => saveAndRefresh(current.filter((c) => c !== link));
+    }
+    const remaining = candidates.filter(
+      (c) => !current.some((link) => linkTarget(link) === c.name)
+    );
+    if (remaining.length > 0) {
+      const add = control.createEl("select", { cls: "dropdown" });
+      add.createEl("option", { text: `+ add ${field.label.toLowerCase()}`, value: "" });
+      for (const c of remaining) add.createEl("option", { text: c.name, value: c.name });
+      add.value = "";
+      add.onchange = () => {
+        if (add.value) saveAndRefresh([...current, toLink(add.value)]);
+      };
+    } else if (candidates.length === 0) {
+      const cat = field.linkCategory ? categoryLabel(field.linkCategory).toLowerCase() : "entity";
+      control.createSpan({ cls: "inkswell-stats__muted", text: `No ${cat} entries in codex.` });
+    }
+  }
+
+  private field(parent: HTMLElement, label: string, build: (host: HTMLElement) => void): void {
+    const f = parent.createDiv({ cls: "inkswell-inspector__field" });
+    if (label) f.createDiv({ cls: "inkswell-inspector__label", text: label });
+    build(f.createDiv({ cls: "inkswell-inspector__control" }));
   }
 
   private async rename(file: TFile): Promise<void> {
@@ -146,10 +324,17 @@ export class CodexPanel {
     const path = normalizePath(folder ? `${folder}/${safe}.md` : `${safe}.md`);
     if (this.app.vault.getAbstractFileByPath(path)) return;
     await this.app.fileManager.renameFile(file, path);
+    if (this.selectedPath === file.path) this.selectedPath = path;
+    this.renderList();
+    this.renderDetail();
   }
 
   private async remove(file: TFile, name: string): Promise<void> {
     const ok = await confirmDelete(this.app, `Delete codex entry "${name}"? It will be moved to trash.`);
-    if (ok) await this.app.fileManager.trashFile(file);
+    if (!ok) return;
+    await this.app.fileManager.trashFile(file);
+    if (this.selectedPath === file.path) this.selectedPath = null;
+    this.renderList();
+    this.renderDetail();
   }
 }

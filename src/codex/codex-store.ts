@@ -30,6 +30,26 @@ export function getCodexEntities(app: App): CodexEntity[] {
   return out;
 }
 
+/**
+ * Scenes that reference an entity by name through their `characters`/`location`
+ * frontmatter wikilinks. Cheap metadata-cache scan; returns matching files.
+ */
+export function scenesReferencing(app: App, entityName: string): TFile[] {
+  const out: TFile[] = [];
+  for (const file of app.vault.getMarkdownFiles()) {
+    const fm = app.metadataCache.getFileCache(file)?.frontmatter;
+    if (!fm) continue;
+    const refs: string[] = [];
+    const chars = fm["characters"];
+    if (Array.isArray(chars)) refs.push(...chars.filter((x): x is string => typeof x === "string"));
+    else if (typeof chars === "string") refs.push(chars);
+    if (typeof fm["location"] === "string") refs.push(fm["location"]);
+    if (refs.some((r) => linkTarget(r) === entityName)) out.push(file);
+  }
+  out.sort((a, b) => a.basename.localeCompare(b.basename));
+  return out;
+}
+
 /** Create a codex entity note (or return the existing one with that name). */
 export async function createEntity(
   app: App,

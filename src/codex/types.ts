@@ -7,6 +7,7 @@
 export type CodexCategory =
   | "character"
   | "location"
+  | "world"
   | "faction"
   | "item"
   | "event"
@@ -20,6 +21,7 @@ export const CODEX_CATEGORIES: {
 }[] = [
   { id: "character", label: "Character", plural: "Characters", icon: "user" },
   { id: "location", label: "Location", plural: "Locations", icon: "map-pin" },
+  { id: "world", label: "World", plural: "Worlds", icon: "globe" },
   { id: "faction", label: "Faction", plural: "Factions", icon: "users" },
   { id: "item", label: "Item", plural: "Items", icon: "package" },
   { id: "event", label: "Event", plural: "Events", icon: "calendar" },
