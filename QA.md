@@ -288,7 +288,9 @@ any task that fails.
 
 ### Focus-loss fix (#13)
 - [ ] ⏫ Typing in a Codex profile field no longer loses focus after the first keystroke #qa/v014
-- [ ] ⏫ Editing a codex entity's frontmatter does not rebuild the host panel #qa/v014
+- [ ] ⏫ Tabbing between Codex fields keeps focus (no "click twice") #qa/v014
+- [ ] ⏫ Creating a codex entry / adding a relationship refreshes the view immediately (no tab-switch needed) #qa/v014
+- [ ] ⏫ Dragging a Board card / editing scene status refreshes panels immediately #qa/v014
 - [ ] Adding a scene to the active project still refreshes the explorer/board (after blur if mid-type) #qa/v014
 - [ ] Beat/compile/goal/series edits still re-render their panel after the write #qa/v014
 

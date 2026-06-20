@@ -227,8 +227,13 @@ export class InkswellView extends ItemView {
       this.pendingRender = true;
       const onBlur = () => {
         ae.removeEventListener("blur", onBlur);
-        this.pendingRender = false;
-        this.renderActive();
+        // Defer to the next tick so focus has settled: tabbing to another field
+        // fires blur on this one before that field gains focus, so re-checking
+        // immediately would rebuild and destroy the field being tabbed into.
+        window.setTimeout(() => {
+          this.pendingRender = false;
+          this.renderActive();
+        }, 0);
       };
       ae.addEventListener("blur", onBlur);
       return;
