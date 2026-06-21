@@ -379,28 +379,35 @@
   color: var(--text-error);
 }
 
-/* --- Writing prompt card (Write) --- */
-.inkswell-prompt-card {
-  margin-top: var(--size-4-4);
-  padding: var(--size-4-3);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--radius-m);
-  max-width: 480px;
-}
+/* --- Writing prompt (Write topbar button + modal) --- */
 .inkswell-prompt-card__filters {
   display: flex;
   gap: var(--size-4-2);
   margin-bottom: var(--size-4-2);
   flex-wrap: wrap;
 }
-.inkswell-write__navprompt {
-  margin-top: var(--size-4-3);
-  padding-top: var(--size-4-3);
-  border-top: 1px solid var(--background-modifier-border);
-}
 .inkswell-prompt-card__text {
   font-style: italic;
   margin: var(--size-4-1) 0 var(--size-4-2);
+}
+.inkswell-prompt-modal__buttons {
+  display: flex;
+  gap: var(--size-4-2);
+  justify-content: flex-end;
+  margin-top: var(--size-4-3);
+}
+/* Chosen prompt shown next to the topbar "Prompt" button. */
+.inkswell-write__prompt {
+  font-style: italic;
+  color: var(--text-muted);
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inkswell-write__prompt:not(:empty) {
+  cursor: pointer;
 }
 
 /* --- Comments (Revise) --- */
@@ -570,10 +577,21 @@
 .inkswell-write__topbar {
   display: flex;
   align-items: center;
-  gap: var(--size-4-2);
+  gap: var(--size-4-3);
   padding: var(--size-4-2) var(--size-4-3);
   border-bottom: 1px solid var(--background-modifier-border);
   flex-shrink: 0;
+}
+.inkswell-write__group {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+.inkswell-write__group--prompt {
+  flex: 1;
+  min-width: 0;
+  border-left: 1px solid var(--background-modifier-border);
+  padding-left: var(--size-4-3);
 }
 .inkswell-write__count {
   color: var(--text-muted);
@@ -624,30 +642,10 @@
 .inkswell-write__editortitle {
   font-weight: var(--font-semibold);
 }
-.inkswell-write__editortools {
-  display: flex;
-  align-items: center;
-  gap: var(--size-4-2);
-}
-.inkswell-write__modetoggle {
-  display: flex;
-}
-.inkswell-write__modetoggle button {
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  padding: var(--size-4-1) var(--size-4-2);
-  color: var(--text-muted);
-  cursor: pointer;
-}
-.inkswell-write__modetoggle button.is-active {
-  color: var(--text-accent);
-  box-shadow: inset 0 -2px 0 var(--interactive-accent);
-}
 .inkswell-editor {
   flex: 1;
   width: 100%;
-  max-width: 70ch;
+  max-width: 90ch;
   margin: 0 auto;
   resize: none;
   border: none;
@@ -656,14 +654,6 @@
   font-family: var(--font-text);
   font-size: var(--font-text-size);
   line-height: var(--line-height-normal);
-}
-.inkswell-write__preview {
-  flex: 1;
-  overflow-y: auto;
-  max-width: 70ch;
-  margin: 0 auto;
-  width: 100%;
-  padding: 0 var(--size-4-2);
 }
 .inkswell-write__inspector {
   width: 260px;
