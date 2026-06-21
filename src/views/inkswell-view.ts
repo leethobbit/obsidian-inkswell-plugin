@@ -9,7 +9,7 @@
  * change; panels are created once and keep their own state across switches.
  */
 
-import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
+import { ItemView, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 import { CodexPanel } from "../codex/codex-panel";
 import { AnalysisPanel } from "../insight/analysis-panel";
 import { BeatPanel } from "../outliner/beat-panel";
@@ -91,6 +91,8 @@ export class InkswellView extends ItemView {
   private header!: HTMLElement;
   private body!: HTMLElement;
   private inspectorEl: HTMLElement | null = null;
+  /** Scene the Home inspector tracks. Driven by file-open (authoritative). */
+  private activeFile: TFile | null = null;
   private unsubs: Array<() => void> = [];
   /** Set while a body rebuild is deferred because an input is focused. */
   private pendingRender = false;
@@ -161,15 +163,25 @@ export class InkswellView extends ItemView {
     this.header = main.createDiv({ cls: "inkswell-host__header" });
     this.body = main.createDiv({ cls: "inkswell-host__body" });
     // The Scene Inspector (Home/Write) follows the active scene file.
-    // The Home inspector follows the open scene. `file-open` is the reliable
-    // signal — clicking a scene in the explorer changes the active *file*
-    // without changing the active *leaf* (focus stays in the host), so
-    // `active-leaf-change` alone misses it. Listen to both.
+    // The Home inspector tracks the open scene. `file-open` carries the file
+    // and is authoritative — clicking a scene changes the active *file* but not
+    // the active *leaf* (focus stays in the host), so we can't trust
+    // getActiveFile() at that moment. active-leaf-change only updates the target
+    // when its leaf actually has a file, so switching focus into the host (which
+    // has none) never blanks the pane.
+    this.activeFile = this.app.workspace.getActiveFile();
     this.registerEvent(
-      this.app.workspace.on("active-leaf-change", () => this.updateInspector())
+      this.app.workspace.on("file-open", (file) => {
+        this.activeFile = file;
+        this.updateInspector();
+      })
     );
     this.registerEvent(
-      this.app.workspace.on("file-open", () => this.updateInspector())
+      this.app.workspace.on("active-leaf-change", () => {
+        const f = this.app.workspace.getActiveFile();
+        if (f) this.activeFile = f;
+        this.updateInspector();
+      })
     );
     this.renderActive();
   }
@@ -282,7 +294,7 @@ export class InkswellView extends ItemView {
   /** Re-render the inspector for the active scene file (if the column is shown). */
   private updateInspector(): void {
     if (!this.inspectorEl) return;
-    this.inspector.render(this.inspectorEl, this.app.workspace.getActiveFile());
+    this.inspector.render(this.inspectorEl, this.activeFile);
   }
 
   private renderContent(content: HTMLElement): void {
