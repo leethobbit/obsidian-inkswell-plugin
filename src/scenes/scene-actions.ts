@@ -8,6 +8,7 @@
 import { App, Menu, Modal, Setting, TFile, WorkspaceLeaf, normalizePath } from "obsidian";
 import { updateScenes } from "../projects/index-writer";
 import { removeScene } from "../projects/scene-tree";
+import { pickReusableLeaf } from "../lib/leaf-select";
 import { Project } from "../projects/types";
 import { EditSceneModal } from "./edit-scene-modal";
 import { readSceneMeta, writeSceneMeta } from "./scene-meta";
@@ -104,9 +105,7 @@ export function openScene(app: App, file: TFile): void {
     const state = leaf.getViewState() as { pinned?: boolean };
     return state.pinned ?? (leaf as unknown as { pinned?: boolean }).pinned ?? false;
   };
-  const reusable = app.workspace
-    .getLeavesOfType("markdown")
-    .find((leaf) => !isPinned(leaf));
+  const reusable = pickReusableLeaf(app.workspace.getLeavesOfType("markdown"), isPinned);
   const leaf = reusable ?? app.workspace.getLeaf("tab");
   void leaf.openFile(file);
 }

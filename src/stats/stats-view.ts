@@ -20,6 +20,7 @@ import {
   weekToDateWords,
 } from "../goals/goals";
 import { tallyBy } from "../insight/breakdown";
+import { formatReadTime, heatLevel } from "./format";
 import { resolveActive } from "../projects/active-project";
 import { ProjectStats } from "../projects/project-stats";
 import { ProjectStore } from "../projects/project-store";
@@ -30,7 +31,6 @@ import type InkswellPlugin from "../../main";
 
 const HEAT_WEEKS = 26;
 const PROJECTION_WINDOW = 14;
-const READING_WPM = 250;
 
 const RANGES: { label: string; days: number | null }[] = [
   { label: "7d", days: 7 },
@@ -38,14 +38,6 @@ const RANGES: { label: string; days: number | null }[] = [
   { label: "90d", days: 90 },
   { label: "All", days: null },
 ];
-
-function formatReadTime(words: number): string {
-  const min = Math.round(words / READING_WPM);
-  if (words === 0) return "0m";
-  if (min < 1) return "<1m";
-  if (min < 60) return `${min}m`;
-  return `${Math.floor(min / 60)}h ${min % 60}m`;
-}
 
 export class StatsPanel {
   private app: App;
@@ -364,15 +356,7 @@ export class StatsPanel {
     for (const col of weeks) {
       const colEl = grid.createDiv({ cls: "inkswell-heat__col" });
       for (const cell of col) {
-        const lvl =
-          cell.words === 0
-            ? 0
-            : cell.words >= max * 0.66
-              ? 3
-              : cell.words >= max * 0.33
-                ? 2
-                : 1;
-        const c = colEl.createDiv({ cls: `inkswell-heat__cell lvl-${lvl}` });
+        const c = colEl.createDiv({ cls: `inkswell-heat__cell lvl-${heatLevel(cell.words, max)}` });
         c.setAttribute("aria-label", `${cell.key}: ${cell.words} words`);
       }
     }
