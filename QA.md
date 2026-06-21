@@ -302,6 +302,41 @@ any task that fails.
 
 ---
 
+## 7c. v0.15.0 — writing aids, export tooling, Track overhaul #qa/v015
+
+### Writing prompts (tagged system)
+- [ ] Write topbar "Prompt" button opens the prompt modal; "Use this prompt" shows the chosen text next to the button (truncated, click reopens) #qa/v015
+- [ ] Prompt modal filters by **phase** (Drafting / Revising) and **category**; both persist between opens #qa/v015
+- [ ] A `{pov}`-token prompt fills in the active scene's POV; with no POV scene open, no raw `{pov}` token is ever shown #qa/v015
+- [ ] Sprint controls and the prompt are clearly separated in the topbar (divider); a long prompt truncates instead of colliding #qa/v015
+
+### POV field (datalist)
+- [ ] POV field (Inspector + Edit-scene modal) suggests codex **character** names as you type #qa/v015
+- [ ] It still accepts free text (e.g. "Omniscient", "First person") — suggestions don't constrain it #qa/v015
+
+### Write editor UX
+- [ ] Editor is a wider centered column (~90ch), no Preview toggle, no awkward side gutters #qa/v015
+- [ ] ⏫ Type + blur saves the body, frontmatter preserved; scene-switch saves first; "Open in tab" works #qa/v015
+
+### Publish — export tooling
+- [ ] "Group scenes into chapters" step: scenes with the same `chapter` get ONE chapter heading + scene-break glyph between scenes; chapterless scenes pass through unheaded #qa/v015
+- [ ] ⏫ Enabling both `prepend-title` and `group-by-chapter` is avoided (they double-up) — pick one #qa/v015
+- [ ] Scene-separator preset dropdown changes the glyph between scenes in compiled output #qa/v015
+- [ ] "Check manuscript before export" flags tabs / double-spaces / raw HTML / manual page breaks / mixed scene-break markers / empty scenes; clean manuscript reports "Ready to export" #qa/v015
+- [ ] Pre-export findings list affected scenes as clickable chips that open the scene #qa/v015
+- [ ] "Generate reference doc" (desktop/pandoc) writes `reference.docx` beside the project and adds `--reference-doc=` to the config; a subsequent DOCX compile applies its styles #qa/v015
+- [ ] ⏫ The generated `reference.docx` opens in Word/LibreOffice (valid file from the binary capture) #qa/v015
+- [ ] Switching pandoc subtype (docx→pdf) preserves the reference-doc arg #qa/v015
+
+### Track overhaul
+- [ ] Overview cards show the active project's Words / Scenes / Read time + vault-wide Today; switching the header project updates Words/Scenes/Read time #qa/v015
+- [ ] ⏫ Sections (Goals / Activity / Sprints / Structure / Targets) collapse on header click and **stay collapsed across re-renders** (write words elsewhere to trigger one) #qa/v015
+- [ ] Writing-history chart: 7d / 30d / 90d / All toggle updates the bars + start/end date caption; matches the heatmap for recent days #qa/v015
+- [ ] Sprints section shows totals, avg + peak WPM, goal hit-rate, and a recent-sprints list; empty state before any sprint #qa/v015
+- [ ] ⏫ End a sprint **early** → its WPM reflects actual elapsed time, not the configured duration #qa/v015
+
+---
+
 ## 8. Cross-cutting data integrity (the 1.0 gate) #qa/integrity
 
 - [ ] ⏫ After exercising every panel, diff a scene file: its **body** is byte-identical except where the Write editor changed it #qa/integrity
