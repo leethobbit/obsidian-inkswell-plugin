@@ -54,6 +54,40 @@ describe("assembleManuscript", () => {
     expect(out).toBe("one\n---\ntwo");
   });
 
+  it("groups scenes into chapters with a heading and scene breaks", () => {
+    const chapScenes: CompileScene[] = [
+      { title: "s1", indent: 0, contents: "Opening beat.", chapter: "One" },
+      { title: "s2", indent: 0, contents: "Second beat.", chapter: "One" },
+      { title: "s3", indent: 0, contents: "New chapter.", chapter: "Two" },
+    ];
+    const out = assembleManuscript(
+      chapScenes,
+      config({
+        sceneSteps: [{ id: "group-by-chapter", options: { level: 1, sceneBreak: "* * *" } }],
+        manuscriptSteps: [],
+        separator: "\n\n",
+      })
+    );
+    expect(out).toBe(
+      "# One\n\nOpening beat.\n\n* * *\n\nSecond beat.\n\n# Two\n\nNew chapter."
+    );
+  });
+
+  it("passes chapterless scenes through group-by-chapter unheaded", () => {
+    const out = assembleManuscript(
+      [
+        { title: "a", indent: 0, contents: "one" },
+        { title: "b", indent: 0, contents: "two" },
+      ],
+      config({
+        sceneSteps: [{ id: "group-by-chapter", options: {} }],
+        manuscriptSteps: [],
+        separator: "\n\n",
+      })
+    );
+    expect(out).toBe("one\n\ntwo");
+  });
+
   it("throws on an unknown step id", () => {
     expect(() =>
       assembleManuscript(scenes, config({ sceneSteps: [{ id: "nope", options: {} }] }))

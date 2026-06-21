@@ -12,7 +12,8 @@ import { PandocOutput } from "./types";
 type ExecFile = (
   file: string,
   args: string[],
-  cb: (err: Error | null, stdout: string, stderr: string) => void
+  options: Record<string, unknown>,
+  cb: (err: Error | null, stdout: string | Buffer, stderr: string) => void
 ) => void;
 
 function nodeRequire(id: string): any {
@@ -38,7 +39,7 @@ export async function isPandocAvailable(): Promise<boolean> {
   try {
     const { execFile } = nodeRequire("child_process") as { execFile: ExecFile };
     return await new Promise<boolean>((resolve) => {
-      execFile("pandoc", ["--version"], (err) => resolve(!err));
+      execFile("pandoc", ["--version"], {}, (err) => resolve(!err));
     });
   } catch {
     return false;
@@ -71,6 +72,8 @@ export async function runPandoc(
       execFile(
         "pandoc",
         [inputPath, "-f", "markdown", "-t", pandoc.to, "-o", outputPath, ...pandoc.extraArgs],
+        // Run from the vault root so relative args (e.g. --reference-doc) resolve.
+        { cwd: root },
         (err, _stdout, stderr) => {
           if (err) {
             reject(new Error(`pandoc failed: ${stderr || err.message}`));
@@ -88,4 +91,32 @@ export async function runPandoc(
     }
   }
   return outputPath;
+}
+
+/**
+ * Write pandoc's default reference.docx to `vaultRelativePath` (a starting point
+ * the user then styles in Word). Returns the absolute path written.
+ */
+export async function generateReferenceDoc(
+  app: App,
+  vaultRelativePath: string
+): Promise<string> {
+  const { execFile } = nodeRequire("child_process") as { execFile: ExecFile };
+  const fs = nodeRequire("fs") as typeof import("fs");
+  const path = nodeRequire("path") as typeof import("path");
+
+  const outPath = path.join(basePath(app), vaultRelativePath);
+  const buf = await new Promise<Buffer>((resolve, reject) => {
+    execFile(
+      "pandoc",
+      ["--print-default-data-file", "reference.docx"],
+      { encoding: "buffer", maxBuffer: 16 * 1024 * 1024 },
+      (err, stdout) => {
+        if (err) reject(new Error(`pandoc failed: ${err.message}`));
+        else resolve(stdout as Buffer);
+      }
+    );
+  });
+  fs.writeFileSync(outPath, buf);
+  return outPath;
 }

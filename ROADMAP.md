@@ -2,7 +2,7 @@
 
 Phase-centric information architecture (one tab, left icon rail): **Home · Plan · Write · Track · Revise · Publish**. Each destination does one job; depth lives behind sub-tabs or the Scene Inspector. See `FEATURES.md` for the full pick list and the plan file for IA rationale.
 
-**Current status: v0.14.0** — phases 5–13 shipped + a QA-fix batch from the parts 0–2 live pass. Next: finish the live QA pass (parts 3+) before the 1.0 cut.
+**Current status: v0.15.0** — phases 5–13 shipped + a QA-fix batch (v0.14.0) + writing-aids & export-readiness (v0.15.0). Next: finish the live QA pass (parts 3+) before the 1.0 cut.
 
 ## Shipped
 | Version | What |
@@ -22,6 +22,7 @@ Phase-centric information architecture (one tab, left icon rail): **Home · Plan
 | v0.12.0 | Codex profiles: master-detail editor, per-category structured frontmatter fields (incl. new `world` category), entity-link pickers, "Appears in" backlinks |
 | v0.13.0 | Series mode: group books into named series (`inkswell.series`), order them, aggregate words/target on the Home series header; codex already vault-wide (shared across books) |
 | v0.14.0 | QA-fix batch: **New project** flow (modal + command + Home button); global active-project selector (persistent header) replacing per-panel pickers; focus-loss fix (render focus-guard that defers panel rebuilds while an input is focused); "Edit scene" modal (shared scene-meta form); pinned-tab-safe scene opening; Board POV/Act labels strip wikilinks; scaffold scenes default to `idea`; lone-series book defaults to #1; codex parent shown as annotation (no false indent); subtle theme-accent color pass |
+| v0.15.0 | Writing aids + export readiness: tagged writing-prompt system (phase/category filters, `{pov}` context, ~50/phase) with an always-visible navigator card; POV field is a codex-character datalist; **chapter-grouping compile step** (heading per chapter + scene breaks); **pre-export check** (lint for tabs/double-spaces/raw HTML/page-breaks/mixed scene-breaks/empty scenes); **Generate reference doc** button (pandoc default → styled in Word) + scene-separator picker in the Publish UI |
 
 ## Planned
 

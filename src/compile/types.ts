@@ -13,6 +13,8 @@ export interface CompileScene {
   title: string;
   indent: number;
   contents: string;
+  /** Scene's `chapter` frontmatter, if any (used by the group-by-chapter step). */
+  chapter?: string;
 }
 
 /** Options bag passed to a step instance (step-specific shape). */

@@ -16,6 +16,7 @@ import {
   normalizePath,
 } from "obsidian";
 import { Project, isMultiScene } from "../projects/types";
+import { readSceneMeta } from "../scenes/scene-meta";
 import { assembleManuscript } from "./assemble";
 import { runPandoc } from "./pandoc";
 import { CompileConfig, CompileScene } from "./types";
@@ -80,7 +81,8 @@ async function loadScenes(app: App, project: Project): Promise<CompileScene[]> {
     const file = app.vault.getAbstractFileByPath(scene.path);
     if (!(file instanceof TFile)) continue;
     const contents = await app.vault.cachedRead(file);
-    out.push({ title: scene.title, indent: scene.indent, contents });
+    const chapter = readSceneMeta(app, file).chapter;
+    out.push({ title: scene.title, indent: scene.indent, contents, chapter });
   }
   return out;
 }
