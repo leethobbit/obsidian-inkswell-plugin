@@ -2,16 +2,24 @@
 
 > Working doc: mark the **Pick** column (`P1` next · `P2` later · `P3` maybe · `X` no). When done, this becomes a dependency-ordered build plan.
 
-Inkswell has shipped phases 1–4 (`v0.4.0`): Longform-compatible projects + compile, goals/sprints/stats, invisible-revision log, Save the Cat beat sheet — inside a single-tab host view. Features below are drawn from three sources:
+Inkswell has shipped phases 1–14 (`v0.14.0`): Longform-compatible projects + compile pipeline, goals/sprints/stats, invisible-revision log, beat sheets, Kanban board, codex with structured profiles, the Track dashboard, Insight analysis, in-plugin manuscript editor, and series mode — inside a single-tab host view. Features below are drawn from three sources:
 
 - **[SL]** StoryLine (Obsidian plugin) — `r:\repos\active\obsidian-storyline`
 - **[IW]** Inkswell web app — `r:\repos\active\inkswell` (Next.js/SQLite/Tiptap)
 - **[MX]** "Writing Apps Feature Comparison 2026" matrix (pixero) — 25-dimension cross-app taxonomy
 
 **Legend**
-- **Have**: ✅ in `v0.4.0` · ◑ partial · (blank) not built
+- **Have** (as of `v0.14.0`): ✅ shipped · ◑ partial · (blank) not built
 - **Fit** (lean, local-first, frontmatter, *Obsidian-is-the-editor*): ✅ natural · ⚠️ heavy / overlaps Obsidian · ❌ conflicts
 - **Src**: source(s)
+
+## Parity snapshot (v0.14.0)
+
+**Every selected feature (`X` in Pick) is now at least partially shipped** — the original selection sheet has no untouched picks left. ~41 features fully shipped (✅), the rest of the selected set partial (◑).
+
+- **Full parity reached** on the core writing loop: project/scene structure, status/POV/synopsis/color/archive, beat sheets (7 templates) + scaffold, Kanban board, codex (profiles, linking, auto-detect, hub), goals/sprints/streaks/habit/heatmap/lifetime, stats + readability/word-frequency/echo, compile (MD/HTML/DOCX/PDF/EPUB + step editor), revision log + inline comments, ideas/quick-capture/prompts, series mode, global project switcher.
+- **Partial (◑), candidates to finish for fuller parity:** acts/chapters as real container objects (only frontmatter fields + Board grouping today), scene templates UI, codex *custom* categories (7 fixed today), per-chapter word targets, multiple drafts UI, a richer Navigator (scene search/sort/filter/pinned).
+- **Deliberately not built:** the ⚠️/❌ rows that overlap Obsidian or conflict with the local-first/no-AI philosophy (corkboard, plot grid, timeline, relationship graph, snapshots, imports, submissions, AI) — see the out-of-scope section.
 
 ---
 
@@ -22,15 +30,15 @@ Inkswell has shipped phases 1–4 (`v0.4.0`): Longform-compatible projects + com
 |      | Multi-scene projects (Longform-compatible index + scene tree)   | ✅    | ✅   | SL/IW/MX | core                                              |
 |      | Scene reorder / indent / nest                                   | ✅    | ✅   | SL       |                                                   |
 |      | Single-scene projects                                           | ◑    | ✅   | SL       | parsed, light UI                                  |
-| X    | Acts & chapters (grouping above scenes)                         |      | ✅   | SL/IW    | frontmatter `act`/`chapter`                       |
-| X    | Scene status pipeline (idea→draft→…→final, custom)              |      | ✅   | SL/IW/MX | frontmatter `status` + badges                     |
-| X    | POV tracking per scene                                          |      | ✅   | SL/MX    | frontmatter `pov`                                 |
-| X    | Scene synopsis / subtitle fields                                |      | ✅   | SL/IW    |                                                   |
+| X    | Acts & chapters (grouping above scenes)                         | ◑   | ✅   | SL/IW    | `act`/`chapter` fields + Board grouping; not container objects |
+| X    | Scene status pipeline (idea→draft→…→final, custom)              | ✅   | ✅   | SL/IW/MX | v0.5 `status` + badges (fixed set)                |
+| X    | POV tracking per scene                                          | ✅   | ✅   | SL/MX    | `pov` + Board grouping                            |
+| X    | Scene synopsis / subtitle fields                                | ✅   | ✅   | SL/IW    | Inspector                                         |
 |      | Scene metadata (conflict, emotion, intensity, custom fields)    |      | ✅   | SL       | drives pacing/analysis                            |
 |      | Custom scene fields (typed: text/dropdown/multiselect/checkbox) |      | ⚠️  | SL       | powerful but complex; Obsidian Properties overlap |
-| X    | Scene templates (defaults on new scene)                         | ◑    | ✅   | SL/IW    | Longform `sceneTemplate` exists                   |
-| X    | Scene archive / inactive (hide from compile/stats)              |      | ✅   | SL       |                                                   |
-| X    | Per-scene color tint                                            |      | ✅   | SL       | frontmatter `color`                               |
+| X    | Scene templates (defaults on new scene)                         | ◑   | ✅   | SL/IW    | Longform `sceneTemplate` parsed; no UI            |
+| X    | Scene archive / inactive (hide from compile/stats)              | ✅   | ✅   | SL       | `inactive` field                                  |
+| X    | Per-scene color tint                                            | ✅   | ✅   | SL       | `color` + swatches                                |
 |      | Scenes-within-chapters (sub-scene granularity)                  |      | ⚠️  | IW       | nesting model change                              |
 |      | Convert any note → scene                                        |      | ✅   | SL       | add `longform`/scene frontmatter                  |
 
@@ -38,7 +46,7 @@ Inkswell has shipped phases 1–4 (`v0.4.0`): Longform-compatible projects + com
 
 | Pick | Feature                                                      | Have | Fit | Src   | Notes                              |
 | ---- | ------------------------------------------------------------ | ---- | --- | ----- | ---------------------------------- |
-| X    | In-plugin manuscript/scrivenings editor (TODO already noted) |      | ⚠️  | SL/IW | big; planned someday               |
+| X    | In-plugin manuscript/scrivenings editor (TODO already noted) | ◑   | ⚠️  | SL/IW | v0.11 Write panel (plain-text editor; Live Preview embed is the upgrade) |
 |      | Focus / distraction-free mode                                |      | ⚠️  | IW    | Obsidian + community plugins cover |
 |      | Typewriter scrolling                                         |      | ⚠️  | IW    | community plugin exists            |
 |      | Ambient soundscapes (rain/cafe/etc., Web Audio)              |      | ⚠️  | IW    | distinctive but off-mission        |
@@ -50,10 +58,10 @@ Inkswell has shipped phases 1–4 (`v0.4.0`): Longform-compatible projects + com
 | Pick | Feature                                                                                            | Have | Fit | Src      | Notes                                                    |
 | ---- | -------------------------------------------------------------------------------------------------- | ---- | --- | -------- | -------------------------------------------------------- |
 | X    | Save the Cat 15-beat sheet                                                                         | ✅    | ✅   | SL/IW    | shipped                                                  |
-| X    | More beat templates (3-Act, Hero's Journey, 7-Point, Story Circle, Romancing the Beat, 27-Chapter) |      | ✅   | SL/IW    | easy extension of current template system                |
-| X    | Auto-create acts/chapters/placeholder scenes from a template                                       |      | ✅   | SL/IW    |                                                          |
+| X    | More beat templates (3-Act, Hero's Journey, 7-Point, Story Circle, Romancing the Beat, 27-Chapter) | ✅   | ✅   | SL/IW    | v0.6 — all 7 templates shipped                           |
+| X    | Auto-create acts/chapters/placeholder scenes from a template                                       | ✅   | ✅   | SL/IW    | v0.6 scaffold (placeholder scenes; acts/chapters n/a)    |
 |      | Corkboard / index-card spatial canvas                                                              |      | ⚠️  | SL/IW/MX | heavy; Obsidian Canvas overlaps                          |
-| X    | Kanban board (group by act/status/POV)                                                             |      | ⚠️  | SL/MX    | Obsidian Kanban plugin overlaps                          |
+| X    | Kanban board (group by act/status/POV)                                                             | ✅   | ⚠️  | SL/MX    | v0.6 Board (status/act/POV, drag-to-set)                 |
 |      | **Plot grid** (plot threads × scenes matrix)                                                       |      | ⚠️  | SL/IW/MX | **both apps have it; distinctive, frontmatter-storable** |
 |      | Timeline view (story date/time, chronological vs reading order)                                    |      | ⚠️  | SL/IW/MX |                                                          |
 |      | Non-linear timeline modes (flashback/parallel/frame/dream)                                         |      | ⚠️  | SL       | advanced                                                 |
@@ -65,12 +73,12 @@ Inkswell has shipped phases 1–4 (`v0.4.0`): Longform-compatible projects + com
 | ---- | ----------------------------------------------------------------- | ---- | --- | -------- | ----------------------------------- |
 | X    | Character profiles (structured fields: role/arc/traits/backstory) | ✅   | ✅   | SL/IW/MX | v0.12.0 profile editor → frontmatter |
 | X    | Location / world profiles (nested hierarchy)                      | ✅   | ✅   | SL/IW/MX | v0.12.0; `world` category + parent  |
-| X    | Worldbuilding note types (Faction/Item/Event/Concept/Magic)       |      | ✅   | IW/MX    | templated notes                     |
-| X    | Character–scene & location–scene linking                          |      | ✅   | SL/MX    | frontmatter `characters`/`location` |
-| X    | Codex hub (unified entity browser + custom categories)            |      | ⚠️  | SL       |                                     |
-| X    | Auto-detect entity mentions in text (link scanner)                |      | ⚠️  | SL/MX    | wikilinks/backlinks partly cover    |
-|      | Relationship map (force-directed graph)                           |      | ⚠️  | SL/IW/MX | Obsidian graph partly covers        |
-|      | Character × chapter appearance heatmap                            |      | ⚠️  | SL       | needs scene-character links first   |
+| X    | Worldbuilding note types (Faction/Item/Event/Concept/Magic)       | ✅   | ✅   | IW/MX    | v0.7/v0.12 categories (magic → Concept) |
+| X    | Character–scene & location–scene linking                          | ✅   | ✅   | SL/MX    | `characters`/`location` + Inspector pickers |
+| X    | Codex hub (unified entity browser + custom categories)            | ◑   | ⚠️  | SL       | v0.7 hub; 7 fixed categories, not custom |
+| X    | Auto-detect entity mentions in text (link scanner)                | ✅   | ⚠️  | SL/MX    | v0.7 "Detect mentions"              |
+|      | Relationship map (force-directed graph)                           | ◑   | ⚠️  | SL/IW/MX | relationships stored as wikilinks (v0.12); Obsidian graph renders them |
+|      | Character × chapter appearance heatmap                            | ◑   | ⚠️  | SL       | v0.12 "Appears in" backlinks (list, not heatmap) |
 |      | Portrait images / galleries per entity                            |      | ⚠️  | SL/IW    |                                     |
 
 ## 5. Goals, sprints & habit tracking
@@ -80,22 +88,22 @@ Inkswell has shipped phases 1–4 (`v0.4.0`): Longform-compatible projects + com
 |      | Daily word goal                                         | ✅    | ✅   | SL/IW/MX | shipped                                 |
 |      | Project total word target + completion forecast         | ✅    | ✅   | SL/IW    | shipped (projection)                    |
 |      | Writing sprints (timer, live count, log)                | ✅    | ✅   | SL/IW    | shipped                                 |
-| X    | Weekly / monthly goals + progress rings                 |      | ✅   | SL/IW    | extends goals                           |
-| X    | Per-chapter / per-scene word targets                    |      | ✅   | SL/IW    |                                         |
+| X    | Weekly / monthly goals + progress rings                 | ✅   | ✅   | SL/IW    | v0.8 rings                              |
+| X    | Per-chapter / per-scene word targets                    | ◑   | ✅   | SL/IW    | per-scene `targetWords` (v0.8); per-chapter needs chapter object |
 |      | Writing streaks                                         | ✅    | ✅   | IW       | shipped                                 |
-| X    | Habit goals (cadence: target days/week, min units)      |      | ✅   | IW       | distinctive vs raw word count           |
-| X    | Writing heatmap (GitHub-style calendar) + milestones    | ◑    | ✅   | IW       | have 30-day bars; calendar heatmap easy |
-| X    | Lifetime records (best day, longest streak, total ever) |      | ✅   | IW       |                                         |
+| X    | Habit goals (cadence: target days/week, min units)      | ✅   | ✅   | IW       | v0.8                                    |
+| X    | Writing heatmap (GitHub-style calendar) + milestones    | ✅   | ✅   | IW       | v0.8 calendar heatmap + milestones      |
+| X    | Lifetime records (best day, longest streak, total ever) | ✅   | ✅   | IW       | v0.8                                    |
 
 ## 6. Stats & manuscript analysis
 
 | Pick | Feature                                                             | Have | Fit | Src   | Notes                    |
 | ---- | ------------------------------------------------------------------- | ---- | --- | ----- | ------------------------ |
 |      | Stats dashboard (today, streak, 30-day chart, projection)           | ✅    | ✅   | SL/IW | shipped                  |
-| X    | Status / act / chapter breakdown charts                             |      | ✅   | SL/IW |                          |
+| X    | Status / act / chapter breakdown charts                             | ✅   | ✅   | SL/IW | v0.9 by-status + by-act (no chapter) |
 |      | Pacing & tension analysis (scene length, dialogue %, tension curve) |      | ⚠️  | SL    | needs scene metadata     |
-| X    | Readability scores (Flesch-Kincaid)                                 |      | ⚠️  | SL/IW | English-centric          |
-| X    | Word-frequency / overused-word / echo finder                        |      | ⚠️  | SL/IW | local text analysis      |
+| X    | Readability scores (Flesch-Kincaid)                                 | ✅   | ⚠️  | SL/IW | v0.9 Analysis            |
+| X    | Word-frequency / overused-word / echo finder                        | ✅   | ⚠️  | SL/IW | v0.9 Analysis            |
 |      | Plot-hole detection (timeline/character/plotline/continuity)        |      | ⚠️  | SL    | depends on rich metadata |
 |      | POV distribution / page-time                                        |      | ⚠️  | SL    | needs POV field          |
 
@@ -104,7 +112,7 @@ Inkswell has shipped phases 1–4 (`v0.4.0`): Longform-compatible projects + com
 | Pick | Feature                                                          | Have | Fit | Src      | Notes                                     |
 | ---- | ---------------------------------------------------------------- | ---- | --- | -------- | ----------------------------------------- |
 |      | Invisible-revision decision log                                  | ✅    | ✅   | (ours)   | shipped — our differentiator              |
-| X    | Inline revision comments (`@@…@@` / `%%…%%`) extracted to a list |      | ✅   | IW       | complements the decision log              |
+| X    | Inline revision comments (`@@…@@` / `%%…%%`) extracted to a list | ✅   | ✅   | IW       | v0.10 Comments panel                      |
 |      | Scene snapshots / version history + diff + restore               |      | ⚠️  | SL/IW/MX | Obsidian core File Recovery + Git overlap |
 |      | Setup/payoff tracking (foreshadow → resolution links + warnings) |      | ⚠️  | SL/MX    | distinctive; frontmatter links            |
 
@@ -114,9 +122,9 @@ Inkswell has shipped phases 1–4 (`v0.4.0`): Longform-compatible projects + com
 | ---- | ------------------------------------------------------------- | ---- | --- | -------- | ------------------------ |
 |      | Compile to Markdown / HTML                                    | ✅    | ✅   | SL/IW/MX | shipped                  |
 |      | Compile to DOCX / PDF (pandoc)                                | ✅    | ✅   | SL/IW    | shipped (pandoc-gated)   |
-|      | EPUB export                                                   |      | ⚠️  | IW       | pandoc or JS lib         |
+|      | EPUB export                                                   | ✅   | ⚠️  | IW       | v0.10 via pandoc (.epub format) |
 |      | Export templates (font, margins, line spacing, heading style) |      | ✅   | IW       | compile-step options     |
-| X    | Compile step editor UI (reorder/configure steps)              | ◑    | ✅   | SL       | engine exists; needs UI  |
+| X    | Compile step editor UI (reorder/configure steps)              | ✅   | ✅   | SL       | v0.10 Publish step editor |
 |      | Import DOCX / Markdown (heading-split into scenes)            |      | ⚠️  | IW       |                          |
 |      | Scrivener import                                              |      | ⚠️  | SL/MX    | one-time desktop utility |
 |      | Outline export (metadata + stats, not prose)                  |      | ✅   | SL       |                          |
@@ -131,10 +139,10 @@ Inkswell has shipped phases 1–4 (`v0.4.0`): Longform-compatible projects + com
 
 | Pick | Feature                                                    | Have | Fit | Src | Notes                    |
 | ---- | ---------------------------------------------------------- | ---- | --- | --- | ------------------------ |
-| X    | Story ideas inbox (global, pinnable, taggable)             |      | ✅   | IW  | light                    |
-| X    | Quick capture (jot without leaving current note)           |      | ✅   | IW  | light                    |
+| X    | Story ideas inbox (global, pinnable, taggable)             | ✅   | ✅   | IW  | v0.10 (pinnable; tagging n/a) |
+| X    | Quick capture (jot without leaving current note)           | ✅   | ✅   | IW  | v0.10 command            |
 |      | Name generator (fantasy/sci-fi)                            |      | ⚠️  | IW  | fun, scope-creepy        |
-| X    | Writing prompts                                            |      | ⚠️  | IW  |                          |
+| X    | Writing prompts                                            | ✅   | ⚠️  | IW  | v0.10/v0.11 prompt card  |
 |      | In-app cheatsheets (structure/POV/craft/genre word counts) |      | ⚠️  | IW  | static reference content |
 
 ## 11. Series, navigation & UX
@@ -143,7 +151,7 @@ Inkswell has shipped phases 1–4 (`v0.4.0`): Longform-compatible projects + com
 | ---- | -------------------------------------------------------- | ---- | --- | ----- | ---------------------------- |
 | X    | Multiple drafts of a project                             | ◑    | ✅   | SL/IW | Longform `draftTitle` exists |
 | X    | Series mode (multi-book, shared codex)                   | ✅   | ✅   | SL/IW | v0.13.0; `inkswell.series` + Home grouping |
-| X    | Project switcher / dashboard                             | ◑    | ✅   | SL/IW | explorer lists all           |
+| X    | Project switcher / dashboard                             | ✅   | ✅   | SL/IW | Home list + v0.14 persistent header selector |
 | X    | Navigator (search, sort, plotline filter, pinned scenes) | ◑    | ✅   | SL    | explorer partly covers       |
 |      | Filter presets across views                              |      | ⚠️  | SL    |                              |
 |      | Per-scene/tag color schemes & theming                    |      | ⚠️  | SL    | Obsidian theming overlaps    |
