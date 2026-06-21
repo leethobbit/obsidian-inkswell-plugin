@@ -11,7 +11,7 @@
  * Preview editor per scene; this textarea editor is the robust v1.)
  */
 
-import { App, TFile } from "obsidian";
+import { App, Component, MarkdownRenderer, TFile } from "obsidian";
 import {
   PROMPT_CATEGORIES,
   PromptCategory,
@@ -45,6 +45,9 @@ export class WritePanel {
   private textarea: HTMLTextAreaElement | null = null;
   private currentFile: TFile | null = null;
   private loadedBody = "";
+  /** Editor surface: editable textarea vs read-only rendered preview. */
+  private editorMode: "write" | "preview" = "write";
+  private previewComponent: Component | null = null;
   private countEl: HTMLElement | null = null;
   private unsub: (() => void) | null = null;
 
@@ -163,8 +166,34 @@ export class WritePanel {
 
     const head = wrap.createDiv({ cls: "inkswell-write__editorhead" });
     head.createSpan({ cls: "inkswell-write__editortitle", text: file.basename });
-    const open = head.createEl("button", { cls: "clickable-icon", text: "Open in tab" });
+
+    const right = head.createDiv({ cls: "inkswell-write__editortools" });
+    const toggle = right.createDiv({ cls: "inkswell-write__modetoggle" });
+    const writeBtn = toggle.createEl("button", { text: "Write" });
+    const prevBtn = toggle.createEl("button", { text: "Preview" });
+    writeBtn.toggleClass("is-active", this.editorMode === "write");
+    prevBtn.toggleClass("is-active", this.editorMode === "preview");
+    writeBtn.onclick = () => {
+      if (this.editorMode === "write") return;
+      this.editorMode = "write";
+      this.rerender();
+    };
+    prevBtn.onclick = () => {
+      if (this.editorMode === "preview") return;
+      // Flush any unsaved edits before rendering the read-only preview.
+      void this.saveBody().then(() => {
+        this.editorMode = "preview";
+        this.rerender();
+      });
+    };
+    const open = right.createEl("button", { cls: "clickable-icon", text: "Open in tab" });
     open.onclick = () => openScene(this.app, file);
+
+    if (this.editorMode === "preview") {
+      this.textarea = null;
+      this.renderPreview(wrap, file);
+      return;
+    }
 
     const ta = wrap.createEl("textarea", { cls: "inkswell-editor" });
     ta.placeholder = "Write…";
@@ -178,6 +207,21 @@ export class WritePanel {
     });
     ta.oninput = () => this.updateCount();
     ta.onblur = () => void this.saveBody();
+  }
+
+  /** Read-only formatted preview of the scene body via Obsidian's renderer. */
+  private renderPreview(wrap: HTMLElement, file: TFile): void {
+    const view = wrap.createDiv({ cls: "inkswell-write__preview markdown-rendered" });
+    void this.app.vault.cachedRead(file).then((content) => {
+      const m = content.match(FRONTMATTER_RE);
+      const body = m ? m[2] : content;
+      this.previewComponent?.unload();
+      const comp = new Component();
+      this.previewComponent = comp;
+      view.empty();
+      void MarkdownRenderer.render(this.app, body, view, file.path, comp);
+      if (this.countEl) this.countEl.setText(`${countWords(body)} words`);
+    });
   }
 
   private updateCount(): void {
@@ -286,6 +330,8 @@ export class WritePanel {
 
   dispose(): void {
     void this.saveBody();
+    this.previewComponent?.unload();
+    this.previewComponent = null;
     this.unsub?.();
     this.unsub = null;
   }
