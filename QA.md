@@ -1,15 +1,22 @@
 ---
 title: Inkswell — Manual QA Checklist
-version: 0.13.0
-purpose: End-to-end live QA pass gating the 1.0 cut (phases 1–13)
+version: 0.15.0
+purpose: End-to-end live QA pass gating the 1.0 cut
 ---
 
-# Inkswell — Manual QA Checklist (v0.13.0)
+# Inkswell — Manual QA Checklist (v0.15.0)
 
-Phases 5–13 are unit-tested but have **never been driven in Obsidian**. This is the
-pre-1.0 live pass. Tasks are formatted for the [Tasks](https://publish.obsidian.md/tasks/)
-plugin: `- [ ]` checkboxes, `#qa/<area>` tags for filtering, and priority signifiers
-(⏫ = data-integrity / corruption risk — these gate the 1.0 compatibility promise).
+The plugin's **pure logic is unit-tested** (`npm test`); this doc is its **complement** —
+the *wiring, real-Obsidian behavior, visual, and external-tool* checks that tests can't reach.
+Tasks are formatted for the [Tasks](https://publish.obsidian.md/tasks/) plugin: `- [ ]`
+checkboxes, `#qa/<area>` tags for filtering, and ⏫ = data-integrity / corruption risk.
+
+> [!info] Already covered by `npm test` — don't re-verify the math by hand
+> Grouping/tally logic (board columns by status/act/POV, POV wikilink stripping), compile
+> assembly + chapter grouping, the pre-export lint rules, sprint stats & WPM, writing-history
+> series, goals/streaks/heatmap-levels/read-time, prompt selection, series grouping, scene-tree
+> ops, codex profile schema, draft serialization, word count, comment extraction, leaf-reuse
+> rule. The checks below assume that logic works and focus on **whether the UI is wired to it**.
 
 > [!warning] The core invariant
 > Inkswell writes **only frontmatter** via `processFrontMatter` and **never touches a
@@ -97,10 +104,7 @@ any task that fails.
 - [ ] Project picker switches beats per project and restores state on switch-back #qa/plan
 
 ### Board (Plan → Board)
-- [ ] "Group by" offers Status / Act / POV #qa/plan
-- [ ] Status grouping shows columns Idea · Outlined · Draft · Written · Revised · Final · No status #qa/plan
-- [ ] Act grouping shows one column per distinct act value + "No Act" #qa/plan
-- [ ] POV grouping shows one column per distinct pov value + "No POV" #qa/plan
+- [ ] "Group by" offers Status / Act / POV; each renders the expected columns incl. the trailing "None" column, with POV/Act labels showing clean names (not `[[wikilinks]]`) — *(column-building logic is unit-tested; just confirm the board is wired to it)* #qa/plan
 - [ ] ⏫ Dragging a card to a column sets that field (`status`/`act`/`pov`) in the scene's frontmatter only #qa/plan
 - [ ] ⏫ Dropping on a "No …" column clears the field #qa/plan
 - [ ] Card shows title, synopsis, and a left-border tint from the scene's `color` #qa/plan
