@@ -161,8 +161,15 @@ export class InkswellView extends ItemView {
     this.header = main.createDiv({ cls: "inkswell-host__header" });
     this.body = main.createDiv({ cls: "inkswell-host__body" });
     // The Scene Inspector (Home/Write) follows the active scene file.
+    // The Home inspector follows the open scene. `file-open` is the reliable
+    // signal — clicking a scene in the explorer changes the active *file*
+    // without changing the active *leaf* (focus stays in the host), so
+    // `active-leaf-change` alone misses it. Listen to both.
     this.registerEvent(
       this.app.workspace.on("active-leaf-change", () => this.updateInspector())
+    );
+    this.registerEvent(
+      this.app.workspace.on("file-open", () => this.updateInspector())
     );
     this.renderActive();
   }

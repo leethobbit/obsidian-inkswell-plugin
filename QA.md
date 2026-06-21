@@ -41,6 +41,7 @@ any task that fails.
 - [ ] Each multi-scene project shows its scene tree; nesting (indent) renders with correct left padding #qa/home
 - [ ] Word count appears per project and per scene when "Show word counts" is on #qa/home
 - [ ] Clicking a scene opens it in a separate editor tab (not replacing the host tab) #qa/home
+- [ ] ⏫ Clicking a scene updates the Scene Details (Inspector) pane **immediately** — no tab-switch needed (v0.15.0 regression fix; `file-open` event) #qa/home
 - [ ] Repeated scene clicks reuse one (non-pinned) editor leaf rather than piling up tabs #qa/home
 - [ ] ⏫ Clicking a scene never hijacks a **pinned** tab; opens in a non-pinned tab or a new one (v0.14.0) #qa/home
 - [ ] A scene listed in the index but missing on disk renders as "missing" (greyed/flagged) #qa/home
