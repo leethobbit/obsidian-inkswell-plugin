@@ -12,7 +12,12 @@
  */
 
 import { App, TFile } from "obsidian";
-import { randomPrompt } from "../ideation/prompts";
+import {
+  PROMPT_CATEGORIES,
+  PromptCategory,
+  PromptPhase,
+  pickPrompt,
+} from "../ideation/prompts";
 import { countWords } from "../lib/wordcount";
 import { resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
@@ -41,8 +46,12 @@ export class WritePanel {
   private currentFile: TFile | null = null;
   private loadedBody = "";
   private countEl: HTMLElement | null = null;
-  private prompt: string = randomPrompt();
   private unsub: (() => void) | null = null;
+
+  // Writing-prompt card state (Write empty state).
+  private promptPhase: PromptPhase = "draft";
+  private promptCategory: PromptCategory | null = null;
+  private promptText = "";
 
   constructor(app: App, plugin: InkswellPlugin, store: ProjectStore, sprints: SprintController) {
     this.app = app;
@@ -66,10 +75,12 @@ export class WritePanel {
 
     const project = resolveActive(projects, this.plugin.activeProject.get());
     if (!project) {
-      this.emptyState(
-        container,
-        'No multi-scene project yet. Use the "New project" button on Home (or the "New project" command).'
-      );
+      const wrap = container.createDiv({ cls: "inkswell-write__empty" });
+      wrap.createDiv({
+        cls: "inkswell-stats__muted",
+        text: 'No multi-scene project yet. Use the "New project" button on Home (or the "New project" command).',
+      });
+      this.renderPromptCard(wrap);
       return;
     }
     // The active project changed underneath us — flush the old scene and reset,
@@ -131,6 +142,11 @@ export class WritePanel {
         this.rerender();
       };
     }
+
+    // Always-available writing prompt, below the scene list (uses the selected
+    // scene as POV context).
+    const promptWrap = nav.createDiv({ cls: "inkswell-write__navprompt" });
+    this.renderPromptCard(promptWrap);
   }
 
   private renderEditor(parent: HTMLElement): void {
@@ -184,14 +200,84 @@ export class WritePanel {
   private emptyState(parent: HTMLElement, text: string): void {
     const wrap = parent.createDiv({ cls: "inkswell-write__empty" });
     wrap.createDiv({ cls: "inkswell-stats__muted", text });
-    const card = wrap.createDiv({ cls: "inkswell-prompt-card" });
-    card.createDiv({ cls: "inkswell-stats__muted", text: "Prompt" });
-    card.createDiv({ cls: "inkswell-prompt-card__text", text: this.prompt });
-    const nb = card.createEl("button", { text: "New prompt" });
-    nb.onclick = () => {
-      this.prompt = randomPrompt(this.prompt);
+  }
+
+  /**
+   * The writing-prompt card. Lives at the bottom of the navigator so it's always
+   * reachable (not just on the empty state) and can use the selected scene's POV
+   * as context. Also shown on the no-project empty state.
+   */
+  private renderPromptCard(parent: HTMLElement): void {
+    const card = parent.createDiv({ cls: "inkswell-prompt-card" });
+
+    // Filters: phase (draft/revise) + category.
+    const filters = card.createDiv({ cls: "inkswell-prompt-card__filters" });
+    const phaseSel = filters.createEl("select", { cls: "dropdown" });
+    for (const [val, label] of [
+      ["draft", "Drafting"],
+      ["revise", "Revising"],
+    ] as const) {
+      const o = phaseSel.createEl("option", { text: label, value: val });
+      if (val === this.promptPhase) o.selected = true;
+    }
+    phaseSel.onchange = () => {
+      this.promptPhase = phaseSel.value as PromptPhase;
+      this.repickPrompt();
       this.rerender();
     };
+
+    const catSel = filters.createEl("select", { cls: "dropdown" });
+    catSel.createEl("option", { text: "Any category", value: "" });
+    for (const c of PROMPT_CATEGORIES) {
+      const o = catSel.createEl("option", { text: c.label, value: c.id });
+      if (c.id === this.promptCategory) o.selected = true;
+    }
+    catSel.onchange = () => {
+      this.promptCategory = (catSel.value || null) as PromptCategory | null;
+      this.repickPrompt();
+      this.rerender();
+    };
+
+    card.createDiv({ cls: "inkswell-stats__muted", text: "Prompt" });
+    if (!this.promptText) this.repickPrompt();
+    card.createDiv({
+      cls: "inkswell-prompt-card__text",
+      text: this.promptText || "No prompts match this filter.",
+    });
+    const nb = card.createEl("button", { text: "New prompt" });
+    nb.onclick = () => {
+      this.repickPrompt();
+      this.rerender();
+    };
+  }
+
+  /** Re-pick a prompt for the current phase/category, using the active scene's
+   * POV as context (fills `{pov}` prompts) and avoiding an immediate repeat. */
+  private repickPrompt(): void {
+    const picked = pickPrompt({
+      phase: this.promptPhase,
+      category: this.promptCategory,
+      pov: this.activePov(),
+      exclude: this.promptText,
+    });
+    this.promptText = picked ? picked.text : "";
+  }
+
+  /**
+   * POV for prompt context: the scene selected in Write if there is one,
+   * otherwise the workspace's active scene file. Null when neither is a scene.
+   */
+  private activePov(): string | null {
+    let file: TFile | null = null;
+    if (this.selectedScene) {
+      const f = this.app.vault.getAbstractFileByPath(this.selectedScene);
+      if (f instanceof TFile) file = f;
+    }
+    if (!file) {
+      const af = this.app.workspace.getActiveFile();
+      if (af instanceof TFile && af.extension === "md") file = af;
+    }
+    return file ? readSceneMeta(this.app, file).pov ?? null : null;
   }
 
   private rerender(): void {

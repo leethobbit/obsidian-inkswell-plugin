@@ -17,6 +17,9 @@ import {
 
 const COLORS = ["#e06c75", "#e5c07b", "#98c379", "#56b6c2", "#61afef", "#c678dd"];
 
+// Unique <datalist> id per POV field instance (Inspector + Edit modal can coexist).
+let povListSeq = 0;
+
 /** One labelled field row (label optional). */
 function field(parent: HTMLElement, label: string, build: (host: HTMLElement) => void): void {
   const f = parent.createDiv({ cls: "inkswell-inspector__field" });
@@ -59,11 +62,20 @@ export function renderSceneMetaFields(container: HTMLElement, app: App, file: TF
     ta.onchange = () => save({ synopsis: ta.value });
   });
 
-  // POV
+  // POV — suggests codex characters (typo-free, discoverable) but stays free
+  // text, since POV can also be a narrative mode ("Omniscient", "First person").
   field(container, "POV", (host) => {
     const t = host.createEl("input", { type: "text" });
     t.value = meta.pov ?? "";
-    t.placeholder = "Point-of-view character";
+    t.placeholder = "Character or narrative mode";
+    const chars = entities.filter((e) => e.category === "character");
+    if (chars.length > 0) {
+      const listId = `inkswell-pov-${povListSeq++}`;
+      const list = host.createEl("datalist");
+      list.id = listId;
+      for (const c of chars) list.createEl("option", { value: c.name });
+      t.setAttribute("list", listId);
+    }
     t.onchange = () => save({ pov: t.value });
   });
 

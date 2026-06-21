@@ -387,6 +387,17 @@
   border-radius: var(--radius-m);
   max-width: 480px;
 }
+.inkswell-prompt-card__filters {
+  display: flex;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-2);
+  flex-wrap: wrap;
+}
+.inkswell-write__navprompt {
+  margin-top: var(--size-4-3);
+  padding-top: var(--size-4-3);
+  border-top: 1px solid var(--background-modifier-border);
+}
 .inkswell-prompt-card__text {
   font-style: italic;
   margin: var(--size-4-1) 0 var(--size-4-2);
