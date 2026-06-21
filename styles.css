@@ -803,6 +803,112 @@
   letter-spacing: 0.05em;
 }
 
+/* Collapsible section header */
+.inkswell-stats__section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  cursor: pointer;
+}
+.inkswell-stats__section-head h4 {
+  margin: 0 0 var(--size-4-2);
+}
+.inkswell-stats__caret {
+  display: inline-flex;
+  color: var(--text-muted);
+  margin-bottom: var(--size-4-2);
+  transition: transform 0.12s ease;
+}
+.inkswell-stats__caret .svg-icon {
+  width: 16px;
+  height: 16px;
+}
+.inkswell-stats__section.is-collapsed .inkswell-stats__caret {
+  transform: rotate(-90deg);
+}
+.inkswell-stats__section.is-collapsed .inkswell-stats__section-body {
+  display: none;
+}
+.inkswell-stats__subhead {
+  margin-top: var(--size-4-3);
+}
+
+/* Overview cards */
+.inkswell-stats__overview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-4);
+}
+.inkswell-stats__card {
+  flex: 1 1 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--size-4-3) var(--size-4-2);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+}
+.inkswell-stats__card-icon {
+  display: inline-flex;
+  color: var(--text-accent);
+}
+.inkswell-stats__card-value {
+  font-size: 1.5em;
+  font-weight: var(--font-bold);
+  font-variant-numeric: tabular-nums;
+}
+.inkswell-stats__card-label {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+/* Writing-history range toggle */
+.inkswell-stats__rangetoggle {
+  display: flex;
+  gap: var(--size-4-1);
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-stats__rangetoggle button {
+  padding: 2px var(--size-4-2);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-stats__rangetoggle button.is-active {
+  color: var(--text-accent);
+  box-shadow: inset 0 -2px 0 var(--interactive-accent);
+}
+.inkswell-chart__caption {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--size-4-1);
+}
+
+/* Sprint history list */
+.inkswell-sprintlist {
+  margin-top: var(--size-4-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.inkswell-sprint-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-3);
+  padding: 2px 0;
+  font-size: var(--font-ui-smaller);
+  font-variant-numeric: tabular-nums;
+}
+.inkswell-sprint-date {
+  flex: 1;
+  color: var(--text-muted);
+}
+
 .inkswell-stats__big {
   font-size: 2em;
   font-weight: var(--font-bold);

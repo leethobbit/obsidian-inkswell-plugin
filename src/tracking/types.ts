@@ -9,6 +9,9 @@ export interface SprintRecord {
   start: string;
   /** Configured duration in seconds. */
   durationSec: number;
+  /** Actual seconds the sprint ran (≤ durationSec for early-ended sprints).
+   * Optional for back-compat with older records, which only stored durationSec. */
+  elapsedSec?: number;
   /** Net words written during the sprint. */
   words: number;
   /** Word goal for the sprint, if any. */

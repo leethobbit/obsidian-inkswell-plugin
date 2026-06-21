@@ -202,6 +202,37 @@ export function heatmapWeeks(
   return cols;
 }
 
+export interface DayPoint {
+  date: string;
+  words: number;
+}
+
+/**
+ * Daily word series for charting. With a numeric `days`, returns the last N
+ * calendar days ending today (oldest→newest, zero-filled). With `null` ("all"),
+ * returns every recorded date in ascending order.
+ */
+export function dailySeries(
+  daily: Record<string, number>,
+  days: number | null,
+  today: Date = new Date()
+): DayPoint[] {
+  if (days === null) {
+    return Object.keys(daily)
+      .sort()
+      .map((date) => ({ date, words: daily[date] ?? 0 }));
+  }
+  const out: DayPoint[] = [];
+  const cur = new Date(today);
+  cur.setDate(cur.getDate() - (days - 1));
+  for (let i = 0; i < days; i++) {
+    const key = dateKey(cur);
+    out.push({ date: key, words: daily[key] ?? 0 });
+    cur.setDate(cur.getDate() + 1);
+  }
+  return out;
+}
+
 function parseKey(key: string): Date {
   const [y, m, d] = key.split("-").map(Number);
   return new Date(y, m - 1, d);

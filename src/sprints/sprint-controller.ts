@@ -88,9 +88,14 @@ export class SprintController extends Component {
   finish(): void {
     if (!this.active) return;
     const a = this.active;
+    const elapsedSec = Math.min(
+      a.durationSec,
+      Math.max(1, Math.round((Date.now() - a.startMs) / 1000))
+    );
     const record: SprintRecord = {
       start: new Date(a.startMs).toISOString(),
       durationSec: a.durationSec,
+      elapsedSec,
       words: a.words,
       goal: a.goal,
     };

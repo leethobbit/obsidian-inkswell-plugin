@@ -1,11 +1,41 @@
 import { describe, expect, it } from "vitest";
 import {
   computeStreaks,
+  dailySeries,
   projectFinish,
   recentDailyAverage,
 } from "../src/goals/goals";
 
 const TODAY = new Date(2026, 5, 18); // 2026-06-18 (local)
+
+describe("dailySeries", () => {
+  it("returns the last N days ending today, zero-filled, oldest first", () => {
+    const daily = { "2026-06-16": 100, "2026-06-18": 50 };
+    const out = dailySeries(daily, 3, TODAY);
+    expect(out).toEqual([
+      { date: "2026-06-16", words: 100 },
+      { date: "2026-06-17", words: 0 },
+      { date: "2026-06-18", words: 50 },
+    ]);
+  });
+
+  it("returns all recorded dates ascending when days is null", () => {
+    const daily = { "2026-06-18": 50, "2026-01-02": 10, "2026-03-05": 20 };
+    expect(dailySeries(daily, null)).toEqual([
+      { date: "2026-01-02", words: 10 },
+      { date: "2026-03-05", words: 20 },
+      { date: "2026-06-18", words: 50 },
+    ]);
+  });
+
+  it("handles an empty log", () => {
+    expect(dailySeries({}, null)).toEqual([]);
+    expect(dailySeries({}, 2, TODAY)).toEqual([
+      { date: "2026-06-17", words: 0 },
+      { date: "2026-06-18", words: 0 },
+    ]);
+  });
+});
 
 describe("computeStreaks", () => {
   it("counts a run ending today", () => {
