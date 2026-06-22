@@ -11,14 +11,15 @@
  * Preview editor per scene; this textarea editor is the robust v1.)
  */
 
+import { EditorView } from "@codemirror/view";
 import { App, TFile } from "obsidian";
 import { PromptModal } from "../ideation/prompt-modal";
+import { createSceneEditor } from "./scene-editor";
 import { PromptCategory, PromptPhase } from "../ideation/prompts";
 import { countWords } from "../lib/wordcount";
 import { resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
-import { openScene } from "../scenes/scene-actions";
 import { readSceneMeta } from "../scenes/scene-meta";
 import { SceneInspector } from "../scenes/scene-inspector";
 import { SprintController } from "../sprints/sprint-controller";
@@ -38,7 +39,9 @@ export class WritePanel {
   private lastProject: string | null = null;
   private selectedScene: string | null = null;
 
-  private textarea: HTMLTextAreaElement | null = null;
+  private editor: EditorView | null = null;
+  /** Bumped each render; a stale async scene-load checks it and bails. */
+  private editorToken = 0;
   private currentFile: TFile | null = null;
   private loadedBody = "";
   private countEl: HTMLElement | null = null;
@@ -59,6 +62,14 @@ export class WritePanel {
   }
 
   render(container: HTMLElement): void {
+    // Flush + tear down any live editor before we rebuild the DOM. saveBody reads
+    // the doc synchronously, so calling it before destroy() captures the content.
+    if (this.editor) {
+      void this.saveBody();
+      this.editor.destroy();
+      this.editor = null;
+    }
+
     this.container = container;
     container.empty();
     container.addClass("inkswell-write");
@@ -79,10 +90,10 @@ export class WritePanel {
       });
       return;
     }
-    // The active project changed underneath us — flush the old scene and reset,
-    // so the editor never points at a file from a different project.
+    // The active project changed underneath us — reset, so the editor never
+    // points at a file from a different project. (The old scene was already
+    // flushed by the editor teardown at the top of render.)
     if (project.vaultPath !== this.lastProject) {
-      void this.saveBody();
       this.selectedScene = null;
       this.currentFile = null;
       this.lastProject = project.vaultPath;
@@ -149,7 +160,6 @@ export class WritePanel {
       }
       row.onclick = () => {
         if (!scene.path) return;
-        void this.saveBody();
         this.selectedScene = scene.path;
         this.rerender();
       };
@@ -160,9 +170,10 @@ export class WritePanel {
     const wrap = parent.createDiv({ cls: "inkswell-write__editor" });
     const file =
       this.selectedScene && this.app.vault.getAbstractFileByPath(this.selectedScene);
+    // Invalidate any in-flight scene-load from a prior render before we branch.
+    const token = ++this.editorToken;
     if (!(file instanceof TFile)) {
       this.currentFile = null;
-      this.textarea = null;
       this.emptyState(wrap, "Select a scene to write.");
       return;
     }
@@ -170,32 +181,38 @@ export class WritePanel {
 
     const head = wrap.createDiv({ cls: "inkswell-write__editorhead" });
     head.createSpan({ cls: "inkswell-write__editortitle", text: file.basename });
-    const open = head.createEl("button", { cls: "clickable-icon", text: "Open in tab" });
-    open.onclick = () => openScene(this.app, file);
 
-    const ta = wrap.createEl("textarea", { cls: "inkswell-editor" });
-    ta.placeholder = "Write…";
-    this.textarea = ta;
+    // Read async, then build the editor seeded with the body. Seeding the initial
+    // state (vs. dispatching after) keeps the undo history clean and avoids a
+    // load→empty undo step. The token guards against a stale read landing after
+    // the user has already switched scenes.
+    const host = wrap.createDiv({ cls: "inkswell-write__cm" });
     void this.app.vault.cachedRead(file).then((content) => {
+      if (token !== this.editorToken) return;
       const m = content.match(FRONTMATTER_RE);
       const body = m ? m[2] : content;
-      ta.value = body;
       this.loadedBody = body;
+      this.editor = createSceneEditor({
+        parent: host,
+        doc: body,
+        onChange: () => this.updateCount(),
+        onBlur: () => void this.saveBody(),
+      });
       this.updateCount();
     });
-    ta.oninput = () => this.updateCount();
-    ta.onblur = () => void this.saveBody();
   }
 
   private updateCount(): void {
-    if (this.countEl) this.countEl.setText(this.textarea ? `${countWords(this.textarea.value)} words` : "");
+    if (this.countEl) {
+      this.countEl.setText(this.editor ? `${countWords(this.editor.state.doc.toString())} words` : "");
+    }
   }
 
   private async saveBody(): Promise<void> {
     const file = this.currentFile;
-    const ta = this.textarea;
-    if (!file || !ta) return;
-    const body = ta.value;
+    const ed = this.editor;
+    if (!file || !ed) return;
+    const body = ed.state.doc.toString();
     if (body === this.loadedBody) return;
     const cur = await this.app.vault.read(file);
     const m = cur.match(FRONTMATTER_RE);
@@ -255,6 +272,8 @@ export class WritePanel {
 
   dispose(): void {
     void this.saveBody();
+    this.editor?.destroy();
+    this.editor = null;
     this.unsub?.();
     this.unsub = null;
   }

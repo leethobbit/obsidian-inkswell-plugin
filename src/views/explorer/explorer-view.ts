@@ -19,7 +19,7 @@ import {
 } from "../../projects/scene-tree";
 import { Project, isMultiScene } from "../../projects/types";
 import { Series, groupIntoSeries, projectSeries } from "../../series/series";
-import { deleteScene, editSynopsis, openScene, promptText, renameScene } from "../../scenes/scene-actions";
+import { deleteScene, editSynopsis, promptText, renameScene } from "../../scenes/scene-actions";
 import { EditSceneModal } from "../../scenes/edit-scene-modal";
 import { readSceneMeta, statusLabel } from "../../scenes/scene-meta";
 import type InkswellPlugin from "../../../main";
@@ -29,20 +29,42 @@ export class ExplorerPanel {
   private plugin: InkswellPlugin;
   private store: ProjectStore;
   private stats: ProjectStats;
+  /** Called when a scene row is clicked — selects it (the host drives the Inspector). */
+  private onSelectScene: (file: TFile) => void;
+
+  private container: HTMLElement | null = null;
+  /** Path of the currently selected/active scene, for the row highlight. */
+  private activeScenePath: string | null = null;
 
   constructor(
     app: App,
     plugin: InkswellPlugin,
     store: ProjectStore,
-    stats: ProjectStats
+    stats: ProjectStats,
+    onSelectScene: (file: TFile) => void
   ) {
     this.app = app;
     this.plugin = plugin;
     this.store = store;
     this.stats = stats;
+    this.onSelectScene = onSelectScene;
+  }
+
+  /**
+   * Highlight the row for `path` (or clear) without a full re-render. Called by
+   * the host whenever the active scene changes — on click or external navigation —
+   * so the highlight always tracks the Inspector.
+   */
+  setActiveScene(path: string | null): void {
+    this.activeScenePath = path;
+    if (!this.container) return;
+    this.container.querySelectorAll<HTMLElement>(".inkswell-scene").forEach((el) => {
+      el.toggleClass("is-active", el.dataset.scenePath === path && !!path);
+    });
   }
 
   render(container: HTMLElement): void {
+    this.container = container;
     container.empty();
     container.addClass("inkswell-explorer");
 
@@ -238,6 +260,10 @@ export class ExplorerPanel {
     const row = parent.createDiv({ cls: "inkswell-scene" });
     row.style.paddingLeft = `${8 + scene.indent * 16}px`;
     row.draggable = true;
+    if (scene.path) {
+      row.dataset.scenePath = scene.path;
+      if (scene.path === this.activeScenePath) row.addClass("is-active");
+    }
 
     const title = row.createSpan({ cls: "inkswell-scene__title", text: scene.title });
     if (!scene.path) {
@@ -266,11 +292,12 @@ export class ExplorerPanel {
       this.stats.sceneWords(scene.path).then((w) => wc.setText(`${w}`));
     }
 
+    // Click selects the scene (the host shows it in the Inspector). It no longer
+    // opens the note — use the Inspector's "Open in tab" button for that.
     row.onclick = () => {
-      if (scene.path) {
-        const file = this.app.vault.getAbstractFileByPath(scene.path);
-        if (file instanceof TFile) openScene(this.app, file);
-      }
+      if (!scene.path) return;
+      const file = this.app.vault.getAbstractFileByPath(scene.path);
+      if (file instanceof TFile) this.onSelectScene(file);
     };
 
     row.oncontextmenu = (e) => {

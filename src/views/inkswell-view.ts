@@ -106,7 +106,12 @@ export class InkswellView extends ItemView {
   ) {
     super(leaf);
     this.plugin = plugin;
-    this.explorer = new ExplorerPanel(this.app, plugin, store, stats);
+    this.explorer = new ExplorerPanel(this.app, plugin, store, stats, (file) => {
+      // Clicking a Home scene drives the Inspector directly — no note is opened,
+      // so we set the tracked file ourselves rather than waiting on file-open.
+      this.activeFile = file;
+      this.updateInspector();
+    });
     this.beats = new BeatPanel(this.app, store, plugin.activeProject);
     this.board = new BoardPanel(this.app, store, plugin.activeProject);
     this.codex = new CodexPanel(this.app, plugin);
@@ -162,13 +167,11 @@ export class InkswellView extends ItemView {
     const main = root.createDiv({ cls: "inkswell-host__main" });
     this.header = main.createDiv({ cls: "inkswell-host__header" });
     this.body = main.createDiv({ cls: "inkswell-host__body" });
-    // The Scene Inspector (Home/Write) follows the active scene file.
-    // The Home inspector tracks the open scene. `file-open` carries the file
-    // and is authoritative — clicking a scene changes the active *file* but not
-    // the active *leaf* (focus stays in the host), so we can't trust
-    // getActiveFile() at that moment. active-leaf-change only updates the target
-    // when its leaf actually has a file, so switching focus into the host (which
-    // has none) never blanks the pane.
+    // Clicking a Home scene drives the Inspector directly (see the ExplorerPanel
+    // callback above). These workspace events keep the Home inspector following
+    // the active scene file when you navigate notes *outside* the host: file-open
+    // carries the file; active-leaf-change only updates the target when its leaf
+    // actually has a file, so focusing the host (which has none) never blanks it.
     this.activeFile = this.app.workspace.getActiveFile();
     this.registerEvent(
       this.app.workspace.on("file-open", (file) => {
@@ -295,6 +298,8 @@ export class InkswellView extends ItemView {
   private updateInspector(): void {
     if (!this.inspectorEl) return;
     this.inspector.render(this.inspectorEl, this.activeFile);
+    // Keep the Home scene list highlight in sync with the Inspector.
+    this.explorer.setActiveScene(this.activeFile?.path ?? null);
   }
 
   private renderContent(content: HTMLElement): void {

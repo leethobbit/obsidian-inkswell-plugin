@@ -7,6 +7,7 @@
 
 import { App, TFile } from "obsidian";
 import { ProjectStore } from "../projects/project-store";
+import { openScene } from "./scene-actions";
 import { renderSceneMetaFields } from "./scene-meta-form";
 
 export class SceneInspector {
@@ -36,6 +37,14 @@ export class SceneInspector {
       cls: "inkswell-inspector__project",
       text: ctx.project.draft.title,
     });
+
+    // Opening the scene's note is now explicit (Home no longer auto-opens on
+    // click), and Write surfaces it here too — one consistent place.
+    const open = container.createEl("button", {
+      cls: "inkswell-inspector__open",
+      text: "Open in tab",
+    });
+    open.onclick = () => openScene(this.app, file);
 
     renderSceneMetaFields(container, this.app, file);
   }

@@ -23,6 +23,7 @@
   "author": "Daniel King",
   "license": "MIT",
   "devDependencies": {
+    "@codemirror/commands": "^6.10.3",
     "@types/node": "^20.11.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",

@@ -157,6 +157,10 @@
   font-size: var(--font-ui-smaller);
   margin-bottom: var(--size-4-3);
 }
+.inkswell-inspector__open {
+  width: 100%;
+  margin-bottom: var(--size-4-3);
+}
 .inkswell-inspector__field {
   margin-bottom: var(--size-4-3);
 }
@@ -340,6 +344,7 @@
 .inkswell-explorer__toolbar {
   display: flex;
   justify-content: flex-end;
+  margin-top: var(--size-4-3);
   margin-bottom: var(--size-4-3);
 }
 
@@ -642,18 +647,72 @@
 .inkswell-write__editortitle {
   font-weight: var(--font-semibold);
 }
-.inkswell-editor {
+/* CodeMirror manuscript editor surface */
+.inkswell-write__cm {
   flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.inkswell-write__cm .cm-editor {
+  flex: 1;
+  min-height: 0;
   width: 100%;
   max-width: 90ch;
   margin: 0 auto;
-  resize: none;
-  border: none;
   background: transparent;
-  padding: 0 var(--size-4-2);
+}
+.inkswell-write__cm .cm-editor.cm-focused {
+  outline: none;
+}
+.inkswell-write__cm .cm-scroller {
   font-family: var(--font-text);
   font-size: var(--font-text-size);
   line-height: var(--line-height-normal);
+}
+.inkswell-write__cm .cm-content {
+  padding: 0 var(--size-4-2);
+}
+
+/* Markdown syntax highlighting (markers stay visible but dimmed) */
+.cm-md-mark {
+  color: var(--text-faint);
+}
+.cm-md-em {
+  font-style: italic;
+}
+.cm-md-strong {
+  font-weight: var(--font-bold);
+}
+.cm-md-strike {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+.cm-md-code {
+  font-family: var(--font-monospace);
+  font-size: 0.9em;
+  color: var(--text-accent);
+}
+.cm-md-quote {
+  color: var(--text-muted);
+  font-style: italic;
+}
+.cm-md-heading {
+  font-weight: var(--font-bold);
+  line-height: 1.3;
+}
+.cm-md-h1 {
+  font-size: 1.6em;
+}
+.cm-md-h2 {
+  font-size: 1.4em;
+}
+.cm-md-h3 {
+  font-size: 1.2em;
+}
+.cm-md-h4,
+.cm-md-h5,
+.cm-md-h6 {
+  font-size: 1.05em;
 }
 .inkswell-write__inspector {
   width: 260px;
@@ -751,6 +810,10 @@
 
 .inkswell-scene:hover {
   background-color: var(--background-modifier-hover);
+}
+
+.inkswell-scene.is-active {
+  background-color: var(--background-modifier-active-hover);
 }
 
 .inkswell-scene.is-dragging {
