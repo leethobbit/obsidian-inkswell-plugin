@@ -1,7 +1,7 @@
 # Inkswell — Agent Guide
 
 ## What this project is
-Single Obsidian plugin (TypeScript + esbuild) that bundles a longform writer's suite — projects/scenes, a compile pipeline, word goals, writing sprints, and an invisible-revision decision log — replacing the fragile Longform + Word Goals + Word Sprint stack. Obsidian does all text editing; Inkswell is only the surrounding tools. Single-user, local, no backend. Desktop + mobile (pandoc export is desktop-only and feature-detected).
+Single Obsidian plugin (TypeScript + esbuild) that bundles a longform writer's suite — projects/scenes, a compile pipeline, word goals, writing sprints, and an invisible-revision decision log — replacing the fragile Longform + Word Goals + Word Sprint stack. Inkswell owns the drafting surface: scenes are written in its own embedded Live-Preview editor (the Write panel), backed by a custom CodeMirror 6 `EditorView` — not Obsidian's Markdown editor. Single-user, local, no backend. Desktop + mobile (pandoc export is desktop-only and feature-detected).
 
 ## Commands
 | Task | Command |
@@ -20,7 +20,8 @@ Single Obsidian plugin (TypeScript + esbuild) that bundles a longform writer's s
 - **Longform compatibility is the premise.** Scene indentation serializes as nested YAML arrays (see `indentedScenesToArrays`/`arraysToIndentedScenes` ported from Longform). Don't invent a flatter encoding — it breaks drop-in compatibility. Inkswell-only data goes under a `inkswell:` sub-key, never inside `longform`.
 - **Word counting:** import the single counter in [src/lib/wordcount.ts](src/lib/wordcount.ts). Don't write ad-hoc counters — goals/sprints/compile must reconcile.
 - **Keep pure logic Obsidian-free.** Testable logic (compile assembly, goals math, revision-list ops) lives in modules with NO `obsidian` import (`assemble.ts`, `goals.ts`, `decisions.ts`); the `obsidian`-importing wrapper sits beside it. Tests can't import a module that pulls `obsidian` (no runtime in vitest).
-- **Single host view.** Inkswell is ONE main-area tab (`VIEW_TYPE_INKSWELL`, `src/views/inkswell-view.ts`); Projects/Stats/Revision Log are panel classes swapped inside it via a tab-bar. Add new surfaces as panels, NOT as new `ItemView` types/tabs. All entry points call `openInkswell(mode)` so only one tab ever exists. Editing a scene opens the note in a separate editor tab (reuse a markdown leaf, never the host).
+- **Single host view.** Inkswell is ONE main-area tab (`VIEW_TYPE_INKSWELL`, `src/views/inkswell-view.ts`); Projects/Write/Stats/Revision Log are panel classes swapped inside it via a tab-bar. Add new surfaces as panels, NOT as new `ItemView` types/tabs. All entry points call `openInkswell(mode)` so only one tab ever exists. The Write panel hosts the manuscript editor in-place; `openScene` ([src/scenes/scene-actions.ts](src/scenes/scene-actions.ts)) still opens a scene in a reused markdown leaf for plain Obsidian editing.
+- **Editing surface is a custom CM6 `EditorView`, not a `MarkdownView`.** The Write panel builds the editor via `createSceneEditor` ([src/views/scene-editor.ts](src/views/scene-editor.ts)); Live-Preview rendering comes from the pure scanner ([src/lib/markdown-syntax.ts](src/lib/markdown-syntax.ts)). Consequence: Obsidian `editorCallback` commands and the `Editor` API do NOT reach this surface — wire editor behavior (shortcuts, text ops) through a CM keymap in `scene-editor.ts`, keeping the transform pure/testable. Use `editorCallback` only for the plain-markdown-leaf path.
 - **External binaries (pandoc):** feature-detect and disable gracefully. Never assume presence; never crash on mobile.
 
 ## Key files
@@ -40,6 +41,8 @@ Single Obsidian plugin (TypeScript + esbuild) that bundles a longform writer's s
 | [src/scenes/](src/scenes/) | Per-scene frontmatter (scene-meta.ts), Scene Inspector, scene actions (rename/synopsis/delete) |
 | [src/codex/](src/codex/) | Codex entities (notes w/ `codex` frontmatter), scanner, panel, pure detect/link helpers |
 | [src/lib/wordcount.ts](src/lib/wordcount.ts) | Shared markdown-aware word counter |
+| [src/lib/markdown-syntax.ts](src/lib/markdown-syntax.ts) | Pure Live-Preview syntax scanner (no CM/Obsidian import) → decoration intents |
+| [src/views/scene-editor.ts](src/views/scene-editor.ts) | Custom CM6 `EditorView` manuscript surface (Write panel); thin adapter over the scanner |
 | [src/settings/](src/settings/) | Settings tab + typed settings model |
 
 ## Common Operations
