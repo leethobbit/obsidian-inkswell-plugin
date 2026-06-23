@@ -102,6 +102,16 @@ export default class InkswellPlugin extends Plugin {
       callback: () => this.openBeats(),
     });
     this.addCommand({
+      id: "open-board",
+      name: "Open board (Plan)",
+      callback: () => this.openBoard(),
+    });
+    this.addCommand({
+      id: "open-codex",
+      name: "Open codex (Plan)",
+      callback: () => this.openCodex(),
+    });
+    this.addCommand({
       id: "open-write",
       name: "Open Write",
       callback: () => this.openWrite(),
@@ -170,6 +180,16 @@ export default class InkswellPlugin extends Plugin {
       id: "open-revisions",
       name: "Open revision log",
       callback: () => this.openRevisions(),
+    });
+    this.addCommand({
+      id: "open-comments",
+      name: "Open comments (Revise)",
+      callback: () => this.openComments(),
+    });
+    this.addCommand({
+      id: "open-analysis",
+      name: "Open analysis (Revise)",
+      callback: () => this.openAnalysis(),
     });
     this.addCommand({
       id: "quick-capture",
@@ -260,7 +280,15 @@ export default class InkswellPlugin extends Plugin {
   }
 
   openBeats(): Promise<void> {
-    return this.openInkswell("plan");
+    return this.openInkswell("plan", undefined, "beats");
+  }
+
+  openBoard(): Promise<void> {
+    return this.openInkswell("plan", undefined, "board");
+  }
+
+  openCodex(): Promise<void> {
+    return this.openInkswell("plan", undefined, "codex");
   }
 
   openWrite(): Promise<void> {
@@ -273,6 +301,14 @@ export default class InkswellPlugin extends Plugin {
 
   openCompile(): Promise<void> {
     return this.openInkswell("publish");
+  }
+
+  openComments(): Promise<void> {
+    return this.openInkswell("revise", undefined, "comments");
+  }
+
+  openAnalysis(): Promise<void> {
+    return this.openInkswell("revise", undefined, "analysis");
   }
 
   /** Open the revision log, focused on the active file's project when possible. */
@@ -289,7 +325,12 @@ export default class InkswellPlugin extends Plugin {
   }
 
   startSprint(): void {
-    new SprintModal(this.app, this.sprints, this.settings.defaultSprintMinutes).open();
+    new SprintModal(
+      this.app,
+      this.sprints,
+      this.settings.defaultSprintMinutes,
+      this.settings.defaultSprintWordGoal
+    ).open();
   }
 
   /** Create a new project, make it active, reveal it on Home, open its index. */

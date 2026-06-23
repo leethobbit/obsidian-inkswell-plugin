@@ -76,7 +76,36 @@ export class StatsPanel {
 
     this.renderOverview(container);
 
-    this.section(container, "goals", "Goals", (body) => {
+    // Activity: a full-width card on top (its own block, not in the card grid).
+    this.section(container, "activity", "Activity", (body) => {
+      const cols = body.createDiv({ cls: "inkswell-activity" });
+      const chartCol = cols.createDiv({ cls: "inkswell-activity__chart" });
+      this.renderHistory(chartCol);
+
+      const heatCol = cols.createDiv({ cls: "inkswell-activity__heat" });
+      heatCol.createDiv({
+        cls: "inkswell-stats__muted inkswell-stats__subhead",
+        text: `Activity (${HEAT_WEEKS} weeks)`,
+      });
+      this.heatmap(heatCol, daily);
+
+      const life = lifetimeRecords(daily);
+      const next = nextMilestone(life.totalWords);
+      body.createDiv({
+        cls: "inkswell-stats__muted",
+        text: next
+          ? `Next milestone: ${next.toLocaleString()} (${(next - life.totalWords).toLocaleString()} to go)`
+          : "All milestones reached 🎉",
+      });
+    });
+
+    // Card row beneath, left→right: Project targets · Goals · Sprints · Structure.
+    // With no wide item in this grid, auto-fit collapses empty tracks so the four
+    // cards stretch to fill the full width and reflow as the window resizes.
+    const grid = container.createDiv({ cls: "inkswell-stats__grid" });
+    this.section(grid, "targets", "Project targets", (body) => this.renderTargets(body, daily));
+
+    this.section(grid, "goals", "Goals", (body) => {
       const rings = body.createDiv({ cls: "inkswell-rings" });
       this.ring(rings, this.tracker.todayWords(), s.dailyWordGoal, "Today");
       this.ring(rings, weekToDateWords(daily), s.weeklyWordGoal, "Week");
@@ -104,29 +133,8 @@ export class StatsPanel {
       });
     });
 
-    this.section(container, "activity", "Activity", (body) => {
-      const historyHost = body.createDiv();
-      this.renderHistory(historyHost);
-
-      body.createDiv({
-        cls: "inkswell-stats__muted inkswell-stats__subhead",
-        text: `Activity (${HEAT_WEEKS} weeks)`,
-      });
-      this.heatmap(body, daily);
-
-      const life = lifetimeRecords(daily);
-      const next = nextMilestone(life.totalWords);
-      body.createDiv({
-        cls: "inkswell-stats__muted",
-        text: next
-          ? `Next milestone: ${next.toLocaleString()} (${(next - life.totalWords).toLocaleString()} to go)`
-          : "All milestones reached 🎉",
-      });
-    });
-
-    this.section(container, "sprints", "Sprints", (body) => this.renderSprints(body));
-    this.section(container, "structure", "Structure", (body) => this.renderStructure(body));
-    this.section(container, "targets", "Project targets", (body) => this.renderTargets(body, daily));
+    this.section(grid, "sprints", "Sprints", (body) => this.renderSprints(body));
+    this.section(grid, "structure", "Structure", (body) => this.renderStructure(body));
   }
 
   // --- Layout helpers ------------------------------------------------------
@@ -242,15 +250,34 @@ export class StatsPanel {
     });
 
     const list = body.createDiv({ cls: "inkswell-sprintlist" });
+    const head = list.createDiv({
+      cls: "inkswell-sprint-row inkswell-sprint-row--head",
+    });
+    head.createSpan({ cls: "inkswell-sprint__date", text: "Date" });
+    head.createSpan({ cls: "inkswell-sprint__num", text: "Words" });
+    head.createSpan({ cls: "inkswell-sprint__num", text: "wpm" });
+    head.createSpan({ cls: "inkswell-sprint__num", text: "Time" });
+    head.createSpan({ cls: "inkswell-sprint__goal", text: "Goal" });
+
     for (const r of records.slice(-8).reverse()) {
       const rowEl = list.createDiv({ cls: "inkswell-sprint-row" });
-      const date = new Date(r.start).toLocaleDateString();
-      rowEl.createSpan({ cls: "inkswell-sprint-date", text: date });
-      rowEl.createSpan({ text: `${r.words.toLocaleString()} w` });
-      rowEl.createSpan({ cls: "inkswell-stats__muted", text: `${Math.round(sprintWpm(r))} wpm` });
-      rowEl.createSpan({ cls: "inkswell-stats__muted", text: `${Math.round(sprintSeconds(r) / 60)}m` });
+      rowEl.createSpan({
+        cls: "inkswell-sprint__date",
+        text: new Date(r.start).toLocaleDateString(),
+      });
+      rowEl.createSpan({ cls: "inkswell-sprint__num", text: `${r.words.toLocaleString()}` });
+      rowEl.createSpan({ cls: "inkswell-sprint__num", text: `${Math.round(sprintWpm(r))}` });
+      rowEl.createSpan({
+        cls: "inkswell-sprint__num",
+        text: `${Math.round(sprintSeconds(r) / 60)}m`,
+      });
+      // Goal cell is always rendered (blank when no goal) so columns align.
+      const goal = rowEl.createSpan({ cls: "inkswell-sprint__goal" });
       if (r.goal != null) {
-        rowEl.createSpan({ text: r.words >= r.goal ? "✓" : "✗" });
+        const hit = r.words >= r.goal;
+        goal.setText(hit ? "✓" : "✗");
+        goal.toggleClass("is-hit", hit);
+        goal.toggleClass("is-miss", !hit);
       }
     }
   }

@@ -19,8 +19,10 @@
   box-sizing: border-box;
 }
 
-.inkswell-rail__spacer {
-  flex: 1;
+.inkswell-rail__separator {
+  height: 1px;
+  margin: var(--size-2-2) var(--size-2-3);
+  background: var(--background-modifier-border);
 }
 
 .inkswell-rail__item {
@@ -855,7 +857,16 @@
 }
 
 .inkswell-stats__section {
-  margin-bottom: var(--size-4-5);
+  margin: 0;
+  padding: var(--size-4-3) var(--size-4-4);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+  min-width: 0; /* let the chart/heatmap shrink inside the grid track */
+}
+/* Collapsed cards shrink to just their header so they don't leave a tall gap. */
+.inkswell-stats__section.is-collapsed {
+  align-self: start;
 }
 
 .inkswell-stats__section h4 {
@@ -927,6 +938,33 @@
   color: var(--text-muted);
 }
 
+/* Dashboard grid: the four cards stretch to fill the width and reflow on resize. */
+.inkswell-stats__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--size-4-3);
+  margin-top: var(--size-4-3);
+  align-items: start;
+}
+
+/* Activity: timeline (~75%) beside the heatmap (~25%) on one line. */
+.inkswell-activity {
+  display: flex;
+  gap: var(--size-4-4);
+  align-items: flex-start;
+}
+.inkswell-activity__chart {
+  flex: 3;
+  min-width: 0;
+}
+.inkswell-activity__heat {
+  flex: 1;
+  min-width: 0;
+}
+.inkswell-activity__heat .inkswell-stats__subhead {
+  margin-top: 0;
+}
+
 /* Writing-history range toggle */
 .inkswell-stats__rangetoggle {
   display: flex;
@@ -960,16 +998,43 @@
   gap: 2px;
 }
 .inkswell-sprint-row {
-  display: flex;
+  display: grid;
+  /* Content-sized columns packed left; trailing 1fr absorbs the slack so the
+     date column doesn't stretch across the panel. */
+  grid-template-columns: auto 6ch 5ch 6ch 5ch 1fr;
   align-items: baseline;
   gap: var(--size-4-3);
   padding: 2px 0;
   font-size: var(--font-ui-smaller);
   font-variant-numeric: tabular-nums;
 }
-.inkswell-sprint-date {
-  flex: 1;
+.inkswell-sprint__date {
   color: var(--text-muted);
+  white-space: nowrap;
+}
+.inkswell-sprint__num {
+  text-align: left;
+  color: var(--text-muted);
+}
+.inkswell-sprint__goal {
+  text-align: left;
+}
+.inkswell-sprint__goal.is-hit {
+  color: var(--text-success);
+}
+.inkswell-sprint__goal.is-miss {
+  color: var(--text-error);
+}
+/* Header row: column labels above the list. */
+.inkswell-sprint-row--head {
+  color: var(--text-faint);
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+}
+.inkswell-sprint-row--head .inkswell-sprint__date,
+.inkswell-sprint-row--head .inkswell-sprint__num {
+  color: var(--text-faint);
 }
 
 .inkswell-stats__big {

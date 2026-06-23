@@ -41,6 +41,8 @@ interface Destination {
   label: string;
   icon: string;
   subtabs?: SubTab[];
+  /** Meta cluster (cross-cutting views/tools), rendered after a separator. */
+  meta?: boolean;
 }
 
 const DESTINATIONS: Destination[] = [
@@ -56,7 +58,6 @@ const DESTINATIONS: Destination[] = [
     ],
   },
   { id: "write", label: "Write", icon: "pencil" },
-  { id: "track", label: "Track", icon: "bar-chart-3" },
   {
     id: "revise",
     label: "Revise",
@@ -68,6 +69,8 @@ const DESTINATIONS: Destination[] = [
     ],
   },
   { id: "publish", label: "Publish", icon: "upload" },
+  // Meta cluster (after a separator): a cross-cutting dashboard, not a pipeline phase.
+  { id: "track", label: "Track", icon: "bar-chart-3", meta: true },
 ];
 
 export class InkswellView extends ItemView {
@@ -146,7 +149,13 @@ export class InkswellView extends ItemView {
     root.addClass("inkswell-host");
 
     this.rail = root.createDiv({ cls: "inkswell-rail" });
+    let metaSeparated = false;
     for (const dest of DESTINATIONS) {
+      // Divider between the core pipeline and the meta cluster (Track + Sprint).
+      if (dest.meta && !metaSeparated) {
+        this.rail.createDiv({ cls: "inkswell-rail__separator" });
+        metaSeparated = true;
+      }
       const item = this.rail.createDiv({ cls: "inkswell-rail__item" });
       setIcon(item.createSpan({ cls: "inkswell-rail__icon" }), dest.icon);
       item.createSpan({ cls: "inkswell-rail__label", text: dest.label });
@@ -154,7 +163,9 @@ export class InkswellView extends ItemView {
       item.setAttribute("aria-label", dest.label);
       item.onclick = () => this.setMode(dest.id);
     }
-    this.rail.createDiv({ cls: "inkswell-rail__spacer" });
+    // Sprint is part of the meta cluster (an action, not a destination), so it
+    // sits with Track right after the separator — not pinned to the bottom.
+    if (!metaSeparated) this.rail.createDiv({ cls: "inkswell-rail__separator" });
     const sprint = this.rail.createDiv({ cls: "inkswell-rail__item" });
     setIcon(sprint.createSpan({ cls: "inkswell-rail__icon" }), "timer");
     sprint.createSpan({ cls: "inkswell-rail__label", text: "Sprint" });
