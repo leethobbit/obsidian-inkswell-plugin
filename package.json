@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "build:sample": "npm run build && node scripts/build-sample.mjs",
+    "gen:sample-data": "node scripts/gen-sample-data.mjs",
     "typecheck": "tsc -noEmit -skipLibCheck",
     "lint": "eslint src main.ts",
     "test": "vitest run",

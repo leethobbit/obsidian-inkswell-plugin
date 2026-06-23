@@ -14,6 +14,14 @@ Inkswell leaves the writing to Obsidian and gives you everything *around* the wr
 
 Active development. Phases 1 (projects + compile), 2 (goals + sprints + stats), 3 (revision log), and 4 (Save the Cat beat sheet) are implemented. Inkswell runs as a single main-window tab with internal tabs (Projects · Beats · Stats · Revision Log). See [AGENTS.md](AGENTS.md) for architecture and contribution conventions.
 
+## Try it: the sample vault
+
+[`examples/sample-vault/`](examples/) is a complete, openable vault containing a
+mid-draft novel wired up to exercise every Inkswell surface — beats, scenes,
+Codex, a populated Track dashboard, a revision log, and a compile recipe. Run
+`npm run build:sample`, then *Open folder as vault* on `examples/sample-vault`.
+See [examples/README.md](examples/README.md) for details.
+
 ## Development
 
 ```bash
