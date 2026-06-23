@@ -29,6 +29,8 @@ export interface InkswellSettings {
   habitMinWords: number;
   /** Default sprint length in minutes. */
   defaultSprintMinutes: number;
+  /** Default sprint word goal (0 = no goal). */
+  defaultSprintWordGoal: number;
   /** Minimum words for a day to count toward a writing streak. */
   streakThreshold: number;
   /** Vault folder where new codex entities are created. */
@@ -45,6 +47,7 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   habitDaysPerWeek: 5,
   habitMinWords: 100,
   defaultSprintMinutes: 15,
+  defaultSprintWordGoal: 0,
   streakThreshold: 1,
   codexFolder: "Codex",
 };
@@ -166,6 +169,18 @@ export class InkswellSettingTab extends PluginSettingTab {
           .setValue(`${this.plugin.settings.defaultSprintMinutes}`)
           .onChange(async (v) => {
             this.plugin.settings.defaultSprintMinutes = clampInt(v, 1, 600, 15);
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Default sprint word goal")
+      .setDesc("Word goal pre-filled in the sprint dialog. 0 = no goal.")
+      .addText((t) =>
+        t
+          .setValue(`${this.plugin.settings.defaultSprintWordGoal}`)
+          .onChange(async (v) => {
+            this.plugin.settings.defaultSprintWordGoal = clampInt(v, 0, 100000, 0);
             await this.plugin.saveSettings();
           })
       );

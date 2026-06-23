@@ -9,12 +9,18 @@ import { SprintController } from "./sprint-controller";
 export class SprintModal extends Modal {
   private sprints: SprintController;
   private minutes: number;
-  private goal = 0;
+  private goal: number;
 
-  constructor(app: App, sprints: SprintController, defaultMinutes: number) {
+  constructor(
+    app: App,
+    sprints: SprintController,
+    defaultMinutes: number,
+    defaultGoal = 0
+  ) {
     super(app);
     this.sprints = sprints;
     this.minutes = defaultMinutes;
+    this.goal = defaultGoal;
   }
 
   onOpen(): void {
@@ -32,7 +38,7 @@ export class SprintModal extends Modal {
       .setName("Word goal (optional)")
       .setDesc("Leave at 0 for no goal.")
       .addText((t) =>
-        t.setValue("0").onChange((v) => {
+        t.setValue(`${this.goal}`).onChange((v) => {
           const n = Math.floor(Number(v));
           this.goal = Number.isFinite(n) && n > 0 ? n : 0;
         })
