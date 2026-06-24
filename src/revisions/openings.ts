@@ -1,6 +1,6 @@
 /**
  * Pure scene-opening classifier (no Obsidian imports — unit-testable). Implements
- * the Reviser's Workbook "scene openings variety" diagnostic: classify how each
+ * a "scene openings variety" diagnostic: classify how each
  * scene opens (action / dialogue / thought / reflection) and flag stretches of
  * consecutive scenes that open the same way.
  *

@@ -1,6 +1,6 @@
 /**
- * Pure style-sheet logic (no Obsidian imports — unit-testable). Implements the
- * Reviser's Workbook consistency tool: a codified list of preferred spellings /
+ * Pure style-sheet logic (no Obsidian imports — unit-testable). A
+ * consistency tool: a codified list of preferred spellings /
  * names / terms / number & format conventions, and a scan that flags the
  * "variant" forms the writer wants to avoid.
  *

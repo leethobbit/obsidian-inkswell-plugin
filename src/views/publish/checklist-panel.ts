@@ -1,5 +1,5 @@
 /**
- * Publish → Checklist: the Self-Publisher's master checklist plus the book
+ * Publish → Checklist: the self-publishing master checklist plus the book
  * metadata worksheet (a collapsible section at the top). State persists under
  * `inkswell.publishing` via the read-merge-write `persistPublishing` helper.
  */

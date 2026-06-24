@@ -1,7 +1,7 @@
 /**
  * Invisible-revision decision log model.
  *
- * The "Invisible Revision" method (Writing Mastery Academy): while fast-drafting,
+ * The "invisible revision" method: while fast-drafting,
  * when you get an idea that would change earlier pages, you DON'T go back. You log
  * the decision ("from now on, assume X") and keep drafting forward as if it were
  * already true — then apply the real edits later, during the revision pass.

@@ -13,7 +13,7 @@ It's Longform-compatible (reads and writes the same `longform` frontmatter), so 
 - **Revise** — an **Audit** toolkit (per-scene + project revision checklists, a scene-purpose lift-out test, scene-opening variety, a character-arc grid, a side-character roster, and a style-sheet consistency scan); the **invisible-revision Log** (capture "from now on, assume X" decisions, typed and prioritized, and keep drafting forward); a **Gaps** sweep of every placeholder; **Comments** extraction (`%%`/`@@`); and **Analysis** (readability, overused words, echoes, composition mix).
 - **Publish** — a configurable **compile/export** pipeline (Markdown & HTML built in; `.docx` / `.pdf` / `.epub` via pandoc when installed) with a step editor, chapter grouping, and a pre-export check; plus a self-publishing **Checklist** (master checklist + book-metadata worksheet) and **Launch** planner (pre-order timeline + budget / cover / marketing / ARC trackers).
 
-The invisible-revision method, the fast-drafting aids, the revision audit, and the self-publishing workflow are adapted from the [Writing Mastery Academy](https://writingmastery.com/) workbooks.
+The invisible-revision method, the fast-drafting aids, the revision audit, and the self-publishing workflow draw on established, widely-taught craft methods for drafting, revising, and self-publishing fiction.
 
 ## Privacy & dependencies
 

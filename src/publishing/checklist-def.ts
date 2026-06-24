@@ -1,5 +1,5 @@
 /**
- * The Self-Publisher's Workbook master checklist as pure data (no Obsidian
+ * A self-publishing master checklist as pure data (no Obsidian
  * imports). Phase + task IDs are STABLE constants — stored state keys off them,
  * so labels can be reworded without migrating frontmatter. `deepLink` points a
  * task at an existing Inkswell surface instead of duplicating it.
@@ -8,7 +8,7 @@
 export interface ChecklistTaskDef {
   id: string;
   label: string;
-  /** Workbook ✦ — optional/skippable. */
+  /** Optional / skippable task. */
   optional?: boolean;
   /** A surface to jump to (handled by the panel), e.g. "compile". */
   deepLink?: "compile";

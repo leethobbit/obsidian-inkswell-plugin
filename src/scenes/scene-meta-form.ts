@@ -192,8 +192,8 @@ export function renderSceneMetaFields(container: HTMLElement, app: App, file: TF
 }
 
 /**
- * Render the 14 scene-level revision-audit checkpoints (Reviser's Workbook
- * scene pass) plus a freeform note, writing to scene frontmatter via
+ * Render the 14 scene-level revision-audit checkpoints (the scene-level
+ * revision pass) plus a freeform note, writing to scene frontmatter via
  * `writeSceneAudit`. Shared by the Scene Inspector and the Revise → Audit
  * dashboard. `onChange` fires after each toggle so a caller can refresh a badge.
  */

@@ -2,7 +2,7 @@
 
 > Working doc: mark the **Pick** column (`P1` next · `P2` later · `P3` maybe · `X` no). When done, this becomes a dependency-ordered build plan.
 
-Inkswell has shipped phases 1–16 (`v0.16.0`): Longform-compatible projects + compile pipeline, goals/sprints/stats, invisible-revision log, beat sheets, Kanban board, codex with structured profiles, the Track dashboard, Insight analysis, a custom Live-Preview manuscript editor, series mode, writing-aids + export tooling (`v0.15.0`), and the full **Writing Mastery Academy feature set** (`v0.16.0`: Revise audit toolkit, fast-drafting aids, self-publishing manager — see §12) — inside a single-tab host view. The pick-list below is drawn from three sources:
+Inkswell has shipped phases 1–16 (`v0.16.0`): Longform-compatible projects + compile pipeline, goals/sprints/stats, invisible-revision log, beat sheets, Kanban board, codex with structured profiles, the Track dashboard, Insight analysis, a custom Live-Preview manuscript editor, series mode, writing-aids + export tooling (`v0.15.0`), and a full **writing-method feature set** (`v0.16.0`: Revise audit toolkit, fast-drafting aids, self-publishing manager — see §12) — inside a single-tab host view. The pick-list below is drawn from three sources:
 
 - **[SL]** StoryLine (Obsidian plugin) — `r:\repos\active\obsidian-storyline`
 - **[IW]** Inkswell web app — `r:\repos\active\inkswell` (Next.js/SQLite/Tiptap)
@@ -163,9 +163,9 @@ Inkswell has shipped phases 1–16 (`v0.16.0`): Longform-compatible projects + c
 
 ---
 
-## 12. Writing-method tooling (Writing Mastery Academy — v0.15–v0.16)
+## 12. Writing-method tooling (v0.15–v0.16)
 
-Features distilled from the three WMA workbooks in `reference/`. All shipped; **Src `WMA`**. These sit on top of the scene/codex frontmatter foundation and stay local-first (no AI, no platform calls).
+Features distilled from established fast-drafting, revision, and self-publishing craft methods. All shipped. These sit on top of the scene/codex frontmatter foundation and stay local-first (no AI, no platform calls).
 
 | Have | Feature                                                                 | Phase | Notes |
 | ---- | ----------------------------------------------------------------------- | ----- | ----- |

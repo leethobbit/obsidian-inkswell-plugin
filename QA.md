@@ -341,7 +341,7 @@ any task that fails.
 
 ---
 
-## 7d. v0.16.0 — WMA feature set (Audit toolkit, fast-drafting aids, self-publishing manager) #qa/v016
+## 7d. v0.16.0 — writing-method feature set (Audit toolkit, fast-drafting aids, self-publishing manager) #qa/v016
 
 ### Sub-tab wiring
 - [ ] Revise sub-tab bar shows **Audit · Log · Comments · Gaps · Analysis**, and opening Revise lands on **Audit** by default #qa/v016

@@ -1,10 +1,10 @@
 /**
  * Pure revision-checkpoint definitions and progress math (no Obsidian imports —
- * unit-testable). Implements the Writing Mastery Academy Reviser's three-tier
- * revision method: Story → Scene → Page, each tier a master checklist.
+ * unit-testable). Implements a three-tier revision method: Story → Scene →
+ * Page, each tier a master checklist.
  *
  * - SCENE checkpoints are per-scene state (stored in scene frontmatter; see
- *   `audit-meta.ts`). The 14 checks below are the workbook's scene-level pass.
+ *   `audit-meta.ts`). The 14 checks below are the scene-level pass.
  * - STORY (18) and PAGE (5 grouped categories) checkpoints are project-level state
  *   (stored under `inkswell.revisionChecklist`; see `checklist.ts`).
  *

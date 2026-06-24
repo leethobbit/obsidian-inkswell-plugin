@@ -1,5 +1,5 @@
 /**
- * Fast-drafting placeholder tokens (Writing Mastery Academy "defer everything"
+ * Fast-drafting placeholder tokens (the "defer everything" drafting
  * method): instead of stopping to research or write a hard bit, drop a bracketed
  * marker and keep drafting forward, then find them all later.
  *

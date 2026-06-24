@@ -1,6 +1,6 @@
 /**
  * Pure character-arc timeline logic (no Obsidian imports — unit-testable).
- * Implements the Reviser's Workbook "does your hero transform?" diagnostic:
+ * Implements a "does your hero change?" character-arc diagnostic:
  * track each tracked character's internal state (flaw) and external state
  * (problem) scene by scene, flag flat stretches (no change across N scenes), and
  * compare the first vs. last snapshot for an at-a-glance transform check.

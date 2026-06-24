@@ -1,12 +1,12 @@
 /**
  * Pure side-character roster logic (no Obsidian imports — unit-testable).
- * Implements the Reviser's Workbook "side character roster": each side character
+ * Implements a "side character roster": each side character
  * should serve a narrative function, have a goal + flaw, and a memorable "thing".
  * The panel reads codex character fields + scene-appearance counts and passes the
  * assembled entries here for gap-flagging.
  */
 
-/** The nine narrative functions a side character can serve (workbook list). */
+/** The nine narrative functions a side character can serve. */
 export const SIDE_ROLES: string[] = [
   "Helps the hero grow",
   "Stands in the hero's way",

@@ -133,7 +133,7 @@ export function budgetTotals(items: BudgetItem[] | undefined): BudgetTotals {
   return t;
 }
 
-/** Keyword count guidance: the workbook recommends 7–10. */
+/** Keyword count guidance: 7–10 is the common recommendation. */
 export function keywordsInBand(keywords: string[] | undefined): boolean {
   const n = keywords?.length ?? 0;
   return n >= 7 && n <= 10;

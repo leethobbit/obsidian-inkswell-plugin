@@ -1,5 +1,5 @@
 /**
- * Audit panel (Revise → Audit): the hub for the Reviser's Workbook three-tier
+ * Audit panel (Revise → Audit): the hub for the three-tier
  * revision method.
  *
  *  - Story-level (18) and Page-level (32, grouped) checklists are project state
