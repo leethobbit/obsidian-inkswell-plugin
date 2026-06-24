@@ -14,7 +14,14 @@
  * selection sits on/touches that construct — then they're revealed (dimmed) so you
  * can edit them. Reveal is per-span for inline constructs and per-line for block
  * markers, matching Obsidian.
+ *
+ * Fast-drafting placeholder tokens (`[TK]`, `[DIALOGUE: …]`, etc. — see
+ * `lib/placeholders.ts`) are styled as whole-token marks (never hidden, so the
+ * cursor edits inside them normally) and their interiors are protected from
+ * emphasis/code scanning so `[DIALOGUE: he *runs*]` isn't half-italicised.
  */
+
+import { PLACEHOLDER_CLASS, scanPlaceholders } from "./placeholders";
 
 export interface Sel {
   from: number;
@@ -63,11 +70,18 @@ function pushMarker(out: SyntaxIntent[], from: number, to: number, revealed: boo
   else out.push({ from, to, type: "hide" });
 }
 
-function scanLine(text: string, base: number, sels: Sel[], out: SyntaxIntent[]): void {
+function scanLine(
+  text: string,
+  base: number,
+  sels: Sel[],
+  out: SyntaxIntent[],
+  seedProtected: [number, number][] = []
+): void {
   const lineFrom = base;
   const lineTo = base + text.length;
   const lineTouched = anyTouch(lineFrom, lineTo, sels);
-  const protectedSpans: [number, number][] = [];
+  // Seeded with placeholder-token interiors so emphasis/code never style inside them.
+  const protectedSpans: [number, number][] = [...seedProtected];
 
   // --- Block markers: revealed when the cursor is anywhere on the line ---
   const heading = HEADING_RE.exec(text);
@@ -99,6 +113,7 @@ function scanLine(text: string, base: number, sels: Sel[], out: SyntaxIntent[]):
   while ((code = CODE_RE.exec(text)) !== null) {
     const s = code.index;
     const e = s + code[0].length;
+    if (overlapsLocal(s, e, protectedSpans)) continue; // skip backticks inside a placeholder
     const ml = code[1].length;
     protectedSpans.push([s, e]);
     const revealed = anyTouch(base + s, base + e, sels);
@@ -139,11 +154,26 @@ function scanLine(text: string, base: number, sels: Sel[], out: SyntaxIntent[]):
  */
 export function buildSyntaxIntents(text: string, selections: Sel[]): SyntaxIntent[] {
   const out: SyntaxIntent[] = [];
+
+  // Placeholder tokens: whole-token styled marks (never hidden/atomic). Tokens are
+  // single-line, so each falls entirely within one line for protection purposes.
+  const placeholders = scanPlaceholders(text);
+  for (const p of placeholders) {
+    out.push({ from: p.from, to: p.to, type: "style", cls: PLACEHOLDER_CLASS[p.kind] });
+  }
+
   let base = 0;
   // Split on \n; a trailing \r (CRLF docs) stays in the line text and counts
   // toward its length, so absolute offsets remain correct.
   for (const line of text.split("\n")) {
-    scanLine(line, base, selections, out);
+    const lineTo = base + line.length;
+    const seed: [number, number][] = [];
+    for (const p of placeholders) {
+      if (p.from < lineTo && p.to > base) {
+        seed.push([Math.max(p.from, base) - base, Math.min(p.to, lineTo) - base]);
+      }
+    }
+    scanLine(line, base, selections, out, seed);
     base += line.length + 1;
   }
   out.sort((a, b) => a.from - b.from || a.to - b.to);

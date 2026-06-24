@@ -164,6 +164,94 @@ export function lifetimeRecords(daily: Record<string, number>): LifetimeRecords 
   return { totalWords, daysWritten, bestDay };
 }
 
+// --- Deadline pace calculator (B3) -----------------------------------------
+
+export type PaceStatus = "ahead" | "on-track" | "behind" | "met" | "no-deadline";
+
+export interface PaceResult {
+  remaining: number;
+  /** Calendar days from today to the deadline (0 if past/none). */
+  calendarDays: number;
+  /** Writing days remaining = calendarDays × daysPerWeek/7 (≥1 when time remains). */
+  writingDays: number;
+  /** Words/writing-day needed to hit the target by the deadline. */
+  requiredRate: number;
+  status: PaceStatus;
+}
+
+/**
+ * Compare the rate you need (to hit `target` by `deadline`, writing `daysPerWeek`
+ * days a week) against your actual `recentRate`. Pure; inject `today` in tests.
+ */
+export function computePace(
+  currentWords: number,
+  target: number,
+  deadline: string | null,
+  daysPerWeek: number,
+  recentRate: number,
+  today: Date = new Date()
+): PaceResult {
+  const remaining = Math.max(0, target - currentWords);
+  if (target <= 0 || remaining === 0) {
+    return { remaining, calendarDays: 0, writingDays: 0, requiredRate: 0, status: remaining === 0 && target > 0 ? "met" : "no-deadline" };
+  }
+  if (!deadline) {
+    return { remaining, calendarDays: 0, writingDays: 0, requiredRate: 0, status: "no-deadline" };
+  }
+  const d = parseKey(deadline);
+  const t = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const calendarDays = Math.round((d.getTime() - t.getTime()) / 86_400_000);
+  if (calendarDays <= 0) {
+    return { remaining, calendarDays: 0, writingDays: 0, requiredRate: remaining, status: "behind" };
+  }
+  const perWeek = Math.min(7, Math.max(1, daysPerWeek || 7));
+  const writingDays = Math.max(1, Math.round((calendarDays * perWeek) / 7));
+  const requiredRate = Math.ceil(remaining / writingDays);
+  const status: PaceStatus =
+    recentRate >= requiredRate * 1.1 ? "ahead" : recentRate >= requiredRate ? "on-track" : "behind";
+  return { remaining, calendarDays, writingDays, requiredRate, status };
+}
+
+/** Rule of thumb: ~1 week per 10k words (minimum 1). */
+export function suggestedDeadlineWeeks(target: number): number {
+  return Math.max(1, Math.ceil(target / 10000));
+}
+
+// --- Draft-progress milestone zones (B5, light-touch coaching) -------------
+
+export interface DraftZone {
+  /** Lower-bound percent through the draft this zone begins at. */
+  pct: number;
+  label: string;
+  note: string;
+}
+
+export const DRAFT_ZONES: DraftZone[] = [
+  { pct: 0, label: "Starting line", note: "Name why this story excites you, then write fast and forward." },
+  { pct: 10, label: "Catalyst check", note: "Has the inciting incident hit yet? If not, push it now." },
+  { pct: 20, label: "Into Act 2", note: "The hero commits. Keep momentum — don't restart." },
+  { pct: 30, label: "The Muddle", note: "The hardest stretch. Doubt is normal; keep drafting forward." },
+  { pct: 40, label: "Shiny new idea", note: "Tempted by a new project? Log it and finish this draft." },
+  { pct: 50, label: "Halfway", note: "Reconnect with why you started. Push through the midpoint." },
+  { pct: 60, label: "Discipline over inspiration", note: "Write regardless of how it feels today." },
+  { pct: 70, label: "Victory in sight", note: "30% to go. Resist revising — capture ideas and move on." },
+  { pct: 80, label: "Home stretch", note: "Start aiming at the ending. Save revision ideas as fuel." },
+  { pct: 90, label: "Winding down", note: "Stop chasing perfection — there's just where you stop." },
+  { pct: 100, label: "Draft complete", note: "Celebrate. Don't judge it yet — that's Future You's job." },
+];
+
+/** The draft-progress zone for the current word count against a target. */
+export function draftMilestone(
+  currentWords: number,
+  target: number
+): { pct: number; zone: DraftZone | null } {
+  if (target <= 0) return { pct: 0, zone: null };
+  const pct = Math.min(100, Math.round((currentWords / target) * 100));
+  let zone: DraftZone | null = null;
+  for (const z of DRAFT_ZONES) if (pct >= z.pct) zone = z;
+  return { pct, zone };
+}
+
 export const MILESTONES = [10000, 25000, 50000, 80000, 100000];
 
 /** The next unreached milestone for a cumulative total, or null past the top. */

@@ -91,6 +91,30 @@ describe("buildSyntaxIntents — block constructs", () => {
   });
 });
 
+describe("buildSyntaxIntents — placeholder tokens", () => {
+  it("styles a [TK] token as a whole-token mark, never hidden", () => {
+    const out = buildSyntaxIntents("a [TK] b", []);
+    expect(out).toContainEqual({ from: 2, to: 6, type: "style", cls: "cm-ph-tk" });
+    expect(hides(out)).toHaveLength(0);
+  });
+
+  it("classifies the colon forms by class", () => {
+    expect(styles(buildSyntaxIntents("[DIALOGUE: hi]", []), "cm-ph-dialogue")).toHaveLength(1);
+    expect(styles(buildSyntaxIntents("[SCENE: x]", []), "cm-ph-scene")).toHaveLength(1);
+    expect(styles(buildSyntaxIntents("[NOTE: x]", []), "cm-ph-note")).toHaveLength(1);
+    expect(styles(buildSyntaxIntents("[???]", []), "cm-ph-unknown")).toHaveLength(1);
+  });
+
+  it("does not style emphasis inside a placeholder", () => {
+    const out = buildSyntaxIntents("**b** [DIALOGUE: he *runs*]", []);
+    // The bold outside the token still styles…
+    expect(styles(out, "cm-md-strong")).toHaveLength(1);
+    // …but the emphasis inside the token is suppressed, and no markers hidden in it.
+    expect(styles(out, "cm-md-em")).toHaveLength(0);
+    expect(out).toContainEqual({ from: 6, to: 27, type: "style", cls: "cm-ph-dialogue" });
+  });
+});
+
 describe("buildSyntaxIntents — multi-line & per-span granularity", () => {
   it("uses absolute offsets across lines", () => {
     // "# H\n*i*" — line 2 starts at offset 4.

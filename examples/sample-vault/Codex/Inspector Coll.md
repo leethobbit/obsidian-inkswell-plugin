@@ -3,6 +3,8 @@ codex: character
 aliases:
   - The auditor
 role: Antagonist (initially)
+function: Stands in the hero's way
+memorableTrait: Uses silence as a tool; never fills a pause.
 age: "51"
 gender: Man
 occupation: Inspector, Bureau of Continuance

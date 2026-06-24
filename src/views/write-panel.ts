@@ -14,7 +14,9 @@
 import { EditorView } from "@codemirror/view";
 import { App, TFile } from "obsidian";
 import { PromptModal } from "../ideation/prompt-modal";
-import { createSceneEditor } from "./scene-editor";
+import { RevisionModal } from "../revisions/revision-modal";
+import { createSceneEditor, insertPlaceholder } from "./scene-editor";
+import { PlaceholderKind } from "../lib/placeholders";
 import { PromptCategory, PromptPhase } from "../ideation/prompts";
 import { countWords } from "../lib/wordcount";
 import { resolveActive } from "../projects/active-project";
@@ -99,6 +101,8 @@ export class WritePanel {
       this.lastProject = project.vaultPath;
     }
 
+    this.renderNextUp(container);
+
     const main = container.createDiv({ cls: "inkswell-write__main" });
     this.renderNavigator(main, project);
     this.renderEditor(main);
@@ -139,6 +143,32 @@ export class WritePanel {
       text: this.promptText,
     });
     if (this.promptText) promptEl.onclick = () => this.openPromptModal();
+
+    // Placeholder-insert group — only useful with a scene open. Lets you drop a
+    // [TK]/[DIALOGUE:…]/[SCENE:…]/[NOTE:…] marker and keep drafting forward.
+    if (this.selectedScene) {
+      const insertGroup = bar.createDiv({
+        cls: "inkswell-write__group inkswell-write__group--insert",
+      });
+      insertGroup.createSpan({ cls: "inkswell-stats__muted", text: "Insert:" });
+      const tokens: { label: string; kind: PlaceholderKind }[] = [
+        { label: "TK", kind: "tk" },
+        { label: "Dialogue", kind: "dialogue" },
+        { label: "Scene", kind: "scene" },
+        { label: "Note", kind: "note" },
+      ];
+      for (const { label, kind } of tokens) {
+        const btn = insertGroup.createEl("button", { text: label });
+        btn.onclick = () => {
+          if (this.editor) insertPlaceholder(this.editor, kind);
+        };
+      }
+      const gaps = insertGroup.createEl("button", { text: "Find gaps" });
+      gaps.onclick = () => void this.plugin.openGaps();
+      const issue = insertGroup.createEl("button", { text: "Log issue" });
+      issue.setAttribute("aria-label", "Log a revision issue for this scene (Mod-Shift-L)");
+      issue.onclick = () => this.logIssue();
+    }
 
     this.countEl = bar.createSpan({ cls: "inkswell-write__count" });
     this.updateCount();
@@ -197,6 +227,7 @@ export class WritePanel {
         doc: body,
         onChange: () => this.updateCount(),
         onBlur: () => void this.saveBody(),
+        onLogIssue: () => this.logIssue(),
       });
       this.updateCount();
     });
@@ -264,6 +295,31 @@ export class WritePanel {
       if (af instanceof TFile && af.extension === "md") file = af;
     }
     return file ? readSceneMeta(this.app, file).pov ?? null : null;
+  }
+
+  /**
+   * "Tell tomorrow-you what's next": a single rolling breadcrumb (data.json), shown
+   * at the top of Write so re-entry is fast. Light-touch — empty by default.
+   */
+  private renderNextUp(container: HTMLElement): void {
+    const card = container.createDiv({ cls: "inkswell-write__nextup" });
+    card.createSpan({ cls: "inkswell-stats__muted", text: "Next up:" });
+    const input = card.createEl("input", { type: "text", cls: "inkswell-write__nextupinput" });
+    input.value = this.plugin.tracker.getNextUp();
+    input.placeholder = "Leave yourself a note for next session…";
+    input.onchange = () => this.plugin.tracker.setNextUp(input.value);
+  }
+
+  /** Open the revision-issue modal anchored to the scene currently being written. */
+  private logIssue(): void {
+    const projects = this.store.getProjects().filter((p) => p.draft.format === "scenes");
+    const project = resolveActive(projects, this.plugin.activeProject.get());
+    if (!project) return;
+    const scene =
+      this.selectedScene != null
+        ? this.store.findSceneByPath(this.selectedScene)?.scene.title ?? null
+        : null;
+    new RevisionModal(this.app, project, scene).open();
   }
 
   private rerender(): void {

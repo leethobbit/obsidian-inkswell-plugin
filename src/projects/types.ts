@@ -9,6 +9,9 @@
 
 import type { CompileConfig } from "../compile/types";
 import type { BeatSheet } from "../outliner/beat-templates";
+import type { PublishingData } from "../publishing/publishing-data";
+import type { RevisionChecklistData } from "../revisions/checklist";
+import type { StyleSheetData } from "../revisions/stylesheet";
 import type { RevisionDecision } from "../revisions/types";
 
 /** A scene with its nesting depth (0 = top level). */
@@ -77,6 +80,10 @@ export interface ResolvedScene extends IndentedScene {
 export interface ProjectGoals {
   /** Total word target for the project (e.g. 80000). */
   target?: number;
+  /** Deadline (YYYY-MM-DD) for the pace calculator. */
+  deadline?: string;
+  /** Writing days per week (1–7) for the pace calculator. Default 7. */
+  daysPerWeek?: number;
 }
 
 /** Series membership for a book (project). A series is the set of books sharing a `name`. */
@@ -91,6 +98,14 @@ export interface InkswellProjectData {
   compile?: CompileConfig;
   goals?: ProjectGoals;
   revisions?: RevisionDecision[];
+  /** Story- and Page-level revision checklists (Revise → Audit). */
+  revisionChecklist?: RevisionChecklistData;
+  /** Character names whose arc is tracked in the Audit dashboard grid. */
+  arcTracked?: string[];
+  /** Style sheet (preferred spellings/terms) for the consistency scan. */
+  styleSheet?: StyleSheetData;
+  /** Self-publishing checklist, metadata, launch plan & trackers. */
+  publishing?: PublishingData;
   beats?: BeatSheet;
   series?: SeriesInfo;
 }

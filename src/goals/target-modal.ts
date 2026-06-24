@@ -10,11 +10,15 @@ import { Project } from "../projects/types";
 export class TargetModal extends Modal {
   private project: Project;
   private value: number;
+  private deadline: string;
+  private daysPerWeek: number;
 
   constructor(app: App, project: Project) {
     super(app);
     this.project = project;
     this.value = project.inkswell?.goals?.target ?? 0;
+    this.deadline = project.inkswell?.goals?.deadline ?? "";
+    this.daysPerWeek = project.inkswell?.goals?.daysPerWeek ?? 7;
   }
 
   onOpen(): void {
@@ -31,6 +35,25 @@ export class TargetModal extends Modal {
         })
       );
 
+    new Setting(contentEl)
+      .setName("Deadline")
+      .setDesc("Optional finish date — drives the pace calculator on Track.")
+      .addText((t) => {
+        t.inputEl.type = "date";
+        t.setValue(this.deadline).onChange((v) => (this.deadline = v));
+      });
+
+    new Setting(contentEl)
+      .setName("Writing days per week")
+      .setDesc("How many days a week you write (1–7), for the pace calculation.")
+      .addText((t) => {
+        t.inputEl.type = "number";
+        t.setValue(`${this.daysPerWeek}`).onChange((v) => {
+          const n = Math.floor(Number(v));
+          this.daysPerWeek = Number.isFinite(n) && n >= 1 && n <= 7 ? n : 7;
+        });
+      });
+
     new Setting(contentEl).addButton((b) =>
       b
         .setButtonText("Save")
@@ -46,7 +69,12 @@ export class TargetModal extends Modal {
       return;
     }
     await persistInkswellData(this.app, file, {
-      goals: { ...this.project.inkswell?.goals, target: this.value || undefined },
+      goals: {
+        ...this.project.inkswell?.goals,
+        target: this.value || undefined,
+        deadline: this.deadline || undefined,
+        daysPerWeek: this.daysPerWeek === 7 ? undefined : this.daysPerWeek,
+      },
     });
     new Notice(this.value ? `Target set to ${this.value} words.` : "Target cleared.");
     this.close();

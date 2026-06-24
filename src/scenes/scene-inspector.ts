@@ -8,7 +8,7 @@
 import { App, TFile } from "obsidian";
 import { ProjectStore } from "../projects/project-store";
 import { openScene } from "./scene-actions";
-import { renderSceneMetaFields } from "./scene-meta-form";
+import { renderSceneAuditFields, renderSceneMetaFields } from "./scene-meta-form";
 
 export class SceneInspector {
   private app: App;
@@ -47,5 +47,11 @@ export class SceneInspector {
     open.onclick = () => openScene(this.app, file);
 
     renderSceneMetaFields(container, this.app, file);
+
+    // Revision audit — collapsed by default so it doesn't crowd the drafting
+    // metadata. The 14-point scene checklist (Revise → Audit) lives here too.
+    const audit = container.createEl("details", { cls: "inkswell-inspector__audit" });
+    audit.createEl("summary", { text: "Revision audit" });
+    renderSceneAuditFields(audit, this.app, file);
   }
 }
