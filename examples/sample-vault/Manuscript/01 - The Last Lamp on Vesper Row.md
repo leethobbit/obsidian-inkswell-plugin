@@ -21,7 +21,7 @@ revSceneNote: "Strong opening image; confirm the 'last ordinary night' line stil
 revVerdict: keep
 revPurpose: "Establishes the Lattice and Mara's contentment; without it the catalyst in scene 2 has no baseline to overturn."
 revArc:
-  Mara Vance:
+  - character: "[[Mara Vance]]"
     internal: Content; wants nothing.
     external: An ordinary night on her route.
 ---

@@ -100,7 +100,7 @@ export interface InkswellProjectData {
   revisions?: RevisionDecision[];
   /** Story- and Page-level revision checklists (Revise → Audit). */
   revisionChecklist?: RevisionChecklistData;
-  /** Character names whose arc is tracked in the Audit dashboard grid. */
+  /** Characters whose arc is tracked in the Audit grid, stored as wikilinks (rename-safe). */
   arcTracked?: string[];
   /** Style sheet (preferred spellings/terms) for the consistency scan. */
   styleSheet?: StyleSheetData;

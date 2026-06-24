@@ -2,7 +2,7 @@
 
 > Working doc: mark the **Pick** column (`P1` next · `P2` later · `P3` maybe · `X` no). When done, this becomes a dependency-ordered build plan.
 
-Inkswell has shipped phases 1–14 (`v0.14.0`): Longform-compatible projects + compile pipeline, goals/sprints/stats, invisible-revision log, beat sheets, Kanban board, codex with structured profiles, the Track dashboard, Insight analysis, in-plugin manuscript editor, and series mode — inside a single-tab host view. Features below are drawn from three sources:
+Inkswell has shipped phases 1–16 (`v0.16.0`): Longform-compatible projects + compile pipeline, goals/sprints/stats, invisible-revision log, beat sheets, Kanban board, codex with structured profiles, the Track dashboard, Insight analysis, a custom Live-Preview manuscript editor, series mode, writing-aids + export tooling (`v0.15.0`), and the full **Writing Mastery Academy feature set** (`v0.16.0`: Revise audit toolkit, fast-drafting aids, self-publishing manager — see §12) — inside a single-tab host view. The pick-list below is drawn from three sources:
 
 - **[SL]** StoryLine (Obsidian plugin) — `r:\repos\active\obsidian-storyline`
 - **[IW]** Inkswell web app — `r:\repos\active\inkswell` (Next.js/SQLite/Tiptap)
@@ -13,13 +13,16 @@ Inkswell has shipped phases 1–14 (`v0.14.0`): Longform-compatible projects + c
 - **Fit** (lean, local-first, frontmatter, *Obsidian-is-the-editor*): ✅ natural · ⚠️ heavy / overlaps Obsidian · ❌ conflicts
 - **Src**: source(s)
 
-## Parity snapshot (v0.14.0)
+## Parity snapshot (v0.16.0)
 
-**Every selected feature (`X` in Pick) is now at least partially shipped** — the original selection sheet has no untouched picks left. ~41 features fully shipped (✅), the rest of the selected set partial (◑).
+**Every selected feature (`X` in Pick) is now at least partially shipped**, and v0.15/v0.16 added a large band of writing-method tooling beyond the original sheet (see §12). The original selection sheet has no untouched picks left.
 
-- **Full parity reached** on the core writing loop: project/scene structure, status/POV/synopsis/color/archive, beat sheets (7 templates) + scaffold, Kanban board, codex (profiles, linking, auto-detect, hub), goals/sprints/streaks/habit/heatmap/lifetime, stats + readability/word-frequency/echo, compile (MD/HTML/DOCX/PDF/EPUB + step editor), revision log + inline comments, ideas/quick-capture/prompts, series mode, global project switcher.
-- **Partial (◑), candidates to finish for fuller parity:** acts/chapters as real container objects (only frontmatter fields + Board grouping today), scene templates UI, codex *custom* categories (7 fixed today), per-chapter word targets, multiple drafts UI, a richer Navigator (scene search/sort/filter/pinned).
+- **Full parity on the core loop:** project/scene structure, status/POV/synopsis/color/archive, beat sheets (7 templates) + scaffold, Kanban board, codex (profiles, linking, auto-detect, hub), goals/sprints/streaks/habit/heatmap/lifetime, stats + readability/word-frequency/echo, compile (MD/HTML/DOCX/PDF/EPUB + step editor), revision log + inline comments, ideas/quick-capture/prompts, series mode, global project switcher, and a custom **Live-Preview** manuscript editor.
+- **Beyond the sheet (v0.15–v0.16, §12):** fast-drafting aids (placeholder tokens, deadline pace calculator, milestone zones, mood/next-up), the Revise **Audit** toolkit (3-tier checklists, lift-out test, scene-openings, character-arc grid, side-character roster, style-sheet scan), composition analysis, the **Gaps** sweep, a typed/prioritized decision log, and a self-publishing manager (checklist, metadata, pre-order planner, launch trackers).
+- **Partial (◑), candidates for post-1.0:** acts/chapters as real container objects (frontmatter fields + Board/compile grouping today), scene-templates UI, codex *custom* categories (7 fixed), per-chapter word targets, multiple-drafts UI, a richer Navigator. None blocks 1.0 (all additive).
 - **Deliberately not built:** the ⚠️/❌ rows that overlap Obsidian or conflict with the local-first/no-AI philosophy (corkboard, plot grid, timeline, relationship graph, snapshots, imports, submissions, AI) — see the out-of-scope section.
+
+> [!note] The 1.0 gate is stabilization, not features. Cut once the (now larger) frontmatter schema is frozen + documented and the deep live QA pass (see `QA.md`, incl. the v0.16 section) is done.
 
 ---
 
@@ -46,7 +49,7 @@ Inkswell has shipped phases 1–14 (`v0.14.0`): Longform-compatible projects + c
 
 | Pick | Feature                                                      | Have | Fit | Src   | Notes                              |
 | ---- | ------------------------------------------------------------ | ---- | --- | ----- | ---------------------------------- |
-| X    | In-plugin manuscript/scrivenings editor (TODO already noted) | ◑   | ⚠️  | SL/IW | v0.11 Write panel (plain-text editor; Live Preview embed is the upgrade) |
+| X    | In-plugin manuscript/scrivenings editor (TODO already noted) | ✅   | ⚠️  | SL/IW | v0.11 Write panel → v0.15 custom CM6 **Live-Preview** surface (+v0.16 placeholder-token highlighting). Embedding Obsidian's native editor remains deferred. |
 |      | Focus / distraction-free mode                                |      | ⚠️  | IW    | Obsidian + community plugins cover |
 |      | Typewriter scrolling                                         |      | ⚠️  | IW    | community plugin exists            |
 |      | Ambient soundscapes (rain/cafe/etc., Web Audio)              |      | ⚠️  | IW    | distinctive but off-mission        |
@@ -101,7 +104,7 @@ Inkswell has shipped phases 1–14 (`v0.14.0`): Longform-compatible projects + c
 | ---- | ------------------------------------------------------------------- | ---- | --- | ----- | ------------------------ |
 |      | Stats dashboard (today, streak, 30-day chart, projection)           | ✅    | ✅   | SL/IW | shipped                  |
 | X    | Status / act / chapter breakdown charts                             | ✅   | ✅   | SL/IW | v0.9 by-status + by-act (no chapter) |
-|      | Pacing & tension analysis (scene length, dialogue %, tension curve) |      | ⚠️  | SL    | needs scene metadata     |
+| X    | Pacing & tension analysis (scene length, dialogue %, tension curve) | ◑   | ⚠️  | SL    | v0.16 composition mix (dialogue/interiority/narration %, front/back-load flags) + scene-openings variety; tension curve n/a |
 | X    | Readability scores (Flesch-Kincaid)                                 | ✅   | ⚠️  | SL/IW | v0.9 Analysis            |
 | X    | Word-frequency / overused-word / echo finder                        | ✅   | ⚠️  | SL/IW | v0.9 Analysis            |
 |      | Plot-hole detection (timeline/character/plotline/continuity)        |      | ⚠️  | SL    | depends on rich metadata |
@@ -157,6 +160,31 @@ Inkswell has shipped phases 1–14 (`v0.14.0`): Longform-compatible projects + c
 |      | Per-scene/tag color schemes & theming                    |      | ⚠️  | SL    | Obsidian theming overlaps    |
 |      | Undo/redo for structural edits                           |      | ⚠️  | SL    |                              |
 |      | Commands for everything (palette-driven)                 | ✅    | ✅   | SL    | ongoing                      |
+
+---
+
+## 12. Writing-method tooling (Writing Mastery Academy — v0.15–v0.16)
+
+Features distilled from the three WMA workbooks in `reference/`. All shipped; **Src `WMA`**. These sit on top of the scene/codex frontmatter foundation and stay local-first (no AI, no platform calls).
+
+| Have | Feature                                                                 | Phase | Notes |
+| ---- | ----------------------------------------------------------------------- | ----- | ----- |
+| ✅    | Placeholder tokens (`[TK]`/`[SCENE:]`/`[DIALOGUE:]`/`[NOTE:]`/`[???]`)   | Write | editor highlighting + insert keymap/toolbar |
+| ✅    | "Find all gaps" sweep                                                   | Revise → Gaps | every placeholder across the manuscript, click-through |
+| ✅    | Deadline pace calculator (required daily words + ahead/on-track/behind) | Track | `goals.deadline`/`daysPerWeek`; ~1wk/10k suggestion |
+| ✅    | Draft-milestone zones (the Muddle, halfway, home stretch)               | Track | tied to the word-count forecast |
+| ✅    | Optional daily mood + "next up" breadcrumb                              | Track/Write | light-touch; `data.json` |
+| ✅    | Typed + prioritized decision log; log-from-editor                       | Revise → Log | extends the invisible-revision log (type/priority optional) |
+| ✅    | Per-scene 14-point revision checklist + manuscript dashboard            | Revise → Audit | `revScene` scene frontmatter |
+| ✅    | Story (18) + Page (32) project revision checklists                      | Revise → Audit | `inkswell.revisionChecklist` |
+| ✅    | Scene-purpose lift-out verdict (keep/cut/merge)                         | Revise → Audit | `revVerdict`/`revPurpose` |
+| ✅    | Scene-openings variety (heuristic) + composition mix                    | Revise → Audit/Analysis | dialogue/interiority/narration %, front/back-load flags |
+| ✅    | Character-arc grid (internal/external, flat-stretch, transform)         | Revise → Audit | `revArc` + `inkswell.arcTracked` |
+| ✅    | Side-character roster (9 functions, appearance counts)                  | Revise → Audit | codex `function`/`memorableTrait` |
+| ✅    | Style-sheet consistency scan                                            | Revise → Audit | `inkswell.styleSheet` |
+| ✅    | Self-publishing master checklist (9 phases) + book-metadata worksheet   | Publish → Checklist | `inkswell.publishing` |
+| ✅    | Pre-order timeline planner (computed milestone dates)                   | Publish → Launch | short/medium/long strategies |
+| ✅    | Budget / cover-comp / marketing / ARC trackers                          | Publish → Launch | row-list trackers |
 
 ---
 

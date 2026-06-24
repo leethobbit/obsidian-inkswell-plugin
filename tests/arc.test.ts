@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { ArcRow, buildArcTimeline, flatStretches, transformDelta } from "../src/revisions/arc";
+import {
+  ArcRow,
+  buildArcTimeline,
+  flatStretches,
+  parseSceneArc,
+  parseTracked,
+  serializeSceneArc,
+  serializeTracked,
+  transformDelta,
+} from "../src/revisions/arc";
 
 const scenes = [
   { title: "S1", arc: { Mara: { internal: "guarded", external: "hunted" } } },
@@ -60,5 +69,54 @@ describe("transformDelta", () => {
       { title: "B", arc: { X: { internal: "same" } } },
     ];
     expect(transformDelta(buildArcTimeline(flat, ["X"])[0]).changed).toBe(false);
+  });
+});
+
+describe("scene-arc (de)serialization (Option B — wikilink values)", () => {
+  it("parses the list form, resolving the wikilink to a plain name", () => {
+    const raw = [{ character: "[[Mara Vance]]", internal: "guarded", external: "hunted" }];
+    expect(parseSceneArc(raw)).toEqual({ "Mara Vance": { internal: "guarded", external: "hunted" } });
+  });
+
+  it("resolves aliased wikilinks (`[[Name|alias]]`) to the target", () => {
+    const raw = [{ character: "[[Mara Vance|Mara]]", internal: "x" }];
+    expect(parseSceneArc(raw)).toEqual({ "Mara Vance": { internal: "x" } });
+  });
+
+  it("still reads the legacy plain-name-keyed object form", () => {
+    const legacy = { "Mara Vance": { internal: "guarded", external: "hunted" } };
+    expect(parseSceneArc(legacy)).toEqual({ "Mara Vance": { internal: "guarded", external: "hunted" } });
+  });
+
+  it("drops empty snapshots and tolerates junk", () => {
+    expect(parseSceneArc([{ character: "[[A]]" }])).toEqual({});
+    expect(parseSceneArc(undefined)).toEqual({});
+    expect(parseSceneArc([{ internal: "no character" }])).toEqual({});
+  });
+
+  it("serializes a record to the wikilinked list, trimming and dropping empties", () => {
+    const out = serializeSceneArc({
+      "Mara Vance": { internal: " guarded ", external: "" },
+      Empty: {},
+    });
+    expect(out).toEqual([{ character: "[[Mara Vance]]", internal: "guarded" }]);
+  });
+
+  it("round-trips list → record → list", () => {
+    const list = [{ character: "[[Coll]]", internal: "rigid", external: "the case" }];
+    expect(serializeSceneArc(parseSceneArc(list))).toEqual(list);
+  });
+});
+
+describe("arcTracked (de)serialization", () => {
+  it("parses wikilinks and legacy plain names to plain names", () => {
+    expect(parseTracked(["[[Mara Vance]]", "Coll"])).toEqual(["Mara Vance", "Coll"]);
+  });
+  it("serializes plain names to wikilinks", () => {
+    expect(serializeTracked(["Mara Vance"])).toEqual(["[[Mara Vance]]"]);
+  });
+  it("ignores non-arrays / non-strings", () => {
+    expect(parseTracked(undefined)).toEqual([]);
+    expect(parseTracked([1, "Coll"])).toEqual(["Coll"]);
   });
 });

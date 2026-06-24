@@ -16,7 +16,7 @@ revScene:
   endsUncertain: true
 revSceneNote: "Catalyst lands; line-edit the vision paragraph and resolve the [TK]/[DIALOGUE] placeholders."
 revArc:
-  Mara Vance:
+  - character: "[[Mara Vance]]"
     internal: Certainty cracks; unsettled.
     external: A memory that isn't hers — and she hides it.
 ---

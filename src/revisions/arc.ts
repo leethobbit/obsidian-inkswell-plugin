@@ -9,6 +9,8 @@
  * assembles the plain data into rows + diagnostics.
  */
 
+import { linkTarget, toLink } from "../codex/codex";
+
 export interface ArcSnapshot {
   /** Internal state / flaw at this scene. */
   internal?: string;
@@ -98,4 +100,85 @@ export function transformDelta(row: ArcRow): TransformDelta {
     last,
     recorded: present.length,
   };
+}
+
+// --- Storage (de)serialization ---------------------------------------------
+// On disk, a scene's arc is a LIST of entries whose `character` is a WIKILINK
+// value, so Obsidian rewrites it when the character note is renamed. In memory
+// it's a plain-name → snapshot record (what the UI and the functions above use).
+// Tracked characters are likewise stored as wikilinks, resolved to plain names
+// on read. Both readers also accept the legacy plain-name-keyed object/array.
+
+export interface StoredArcEntry {
+  /** Wikilink to the character, e.g. "[[Mara Vance]]". */
+  character: string;
+  internal?: string;
+  external?: string;
+}
+
+function snapshotFrom(v: unknown): ArcSnapshot | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const internal = typeof o.internal === "string" ? o.internal.trim() : "";
+  const external = typeof o.external === "string" ? o.external.trim() : "";
+  if (!internal && !external) return null;
+  const snap: ArcSnapshot = {};
+  if (internal) snap.internal = internal;
+  if (external) snap.external = external;
+  return snap;
+}
+
+/**
+ * Parse stored `revArc` into a plain-name → snapshot record. Accepts the current
+ * list form (`[{character: "[[Name]]", …}]`) and the legacy object form keyed by
+ * (possibly wikilinked) name.
+ */
+export function parseSceneArc(raw: unknown): Record<string, ArcSnapshot> {
+  const out: Record<string, ArcSnapshot> = {};
+  if (Array.isArray(raw)) {
+    for (const entry of raw) {
+      if (!entry || typeof entry !== "object") continue;
+      const character = (entry as Record<string, unknown>).character;
+      if (typeof character !== "string") continue;
+      const name = linkTarget(character);
+      const snap = snapshotFrom(entry);
+      if (name && snap) out[name] = snap;
+    }
+  } else if (raw && typeof raw === "object") {
+    for (const [key, v] of Object.entries(raw as Record<string, unknown>)) {
+      const name = linkTarget(key);
+      const snap = snapshotFrom(v);
+      if (name && snap) out[name] = snap;
+    }
+  }
+  return out;
+}
+
+/** Serialize a plain-name → snapshot record into the stored list (wikilinked). */
+export function serializeSceneArc(record: Record<string, ArcSnapshot>): StoredArcEntry[] {
+  const out: StoredArcEntry[] = [];
+  for (const [name, snap] of Object.entries(record)) {
+    const internal = (snap.internal ?? "").trim();
+    const external = (snap.external ?? "").trim();
+    if (!internal && !external) continue;
+    const entry: StoredArcEntry = { character: toLink(name) };
+    if (internal) entry.internal = internal;
+    if (external) entry.external = external;
+    out.push(entry);
+  }
+  return out;
+}
+
+/** Resolve stored `arcTracked` (wikilinks, or legacy plain names) to plain names. */
+export function parseTracked(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((x): x is string => typeof x === "string")
+    .map((x) => linkTarget(x))
+    .filter((x) => x.length > 0);
+}
+
+/** Store tracked character names as wikilinks (rename-safe). */
+export function serializeTracked(names: string[]): string[] {
+  return names.map((n) => toLink(n));
 }

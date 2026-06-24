@@ -127,7 +127,7 @@ inkswell:
       adverbs:
         note: "Sweep -ly adverbs in dialogue tags during the line pass."
   arcTracked:
-    - Mara Vance
+    - "[[Mara Vance]]"
   styleSheet:
     entries:
       - id: s-lattice

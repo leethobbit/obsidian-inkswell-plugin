@@ -9,7 +9,7 @@ characters:
 location: "[[The Undercroft Archive]]"
 targetWords: 1800
 revArc:
-  Mara Vance:
+  - character: "[[Mara Vance]]"
     internal: Claims the pull instead of fearing it.
     external: Reads the Archive — and it answers to her.
 ---

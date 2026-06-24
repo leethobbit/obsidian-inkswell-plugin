@@ -23,7 +23,14 @@ import { Project } from "../projects/types";
 import { openScene } from "../scenes/scene-actions";
 import { readSceneMeta } from "../scenes/scene-meta";
 import { renderSceneAuditFields } from "../scenes/scene-meta-form";
-import { ArcSnapshot, buildArcTimeline, flatStretches, transformDelta } from "./arc";
+import {
+  ArcSnapshot,
+  buildArcTimeline,
+  flatStretches,
+  parseTracked,
+  serializeTracked,
+  transformDelta,
+} from "./arc";
 import { RosterEntry, rosterGaps } from "./roster";
 import {
   STYLE_KINDS,
@@ -328,7 +335,7 @@ export class AuditPanel {
         return { title: s.title, arc };
       });
 
-    const tracked = project.inkswell?.arcTracked ?? [];
+    const tracked = parseTracked(project.inkswell?.arcTracked);
     const inData = new Set<string>();
     for (const s of sceneArc) for (const name of Object.keys(s.arc)) inData.add(name);
     const codexChars = getCodexEntities(this.app)
@@ -413,7 +420,10 @@ export class AuditPanel {
 
   private saveTracked(project: Project, next: string[]): void {
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
-    if (file instanceof TFile) void persistInkswellData(this.app, file, { arcTracked: next });
+    // Store as wikilinks so renames follow; `next` holds plain names from the picker.
+    if (file instanceof TFile) {
+      void persistInkswellData(this.app, file, { arcTracked: serializeTracked(next) });
+    }
   }
 
   /**

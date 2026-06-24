@@ -6,11 +6,13 @@
  *
  * Storage: the 14 scene checkpoints live under a single nested object key
  * `revScene` (only ticked checks are stored), plus a freeform `revSceneNote`.
- * Cleared checks/notes are deleted so nothing lingers in frontmatter.
+ * Cleared checks/notes are deleted so nothing lingers in frontmatter. Arc data
+ * (`revArc`) is a list of `{character: "[[link]]", internal, external}` so it
+ * follows character renames; see arc.ts for the (de)serialization.
  */
 
 import type { App, TFile } from "obsidian";
-import { ArcSnapshot } from "./arc";
+import { ArcSnapshot, parseSceneArc, serializeSceneArc } from "./arc";
 import { SCENE_CHECK_IDS, SceneCheckId } from "./audit";
 import { OpeningType } from "./openings";
 
@@ -66,19 +68,7 @@ export function readSceneAudit(app: App, file: TFile): SceneAudit {
   const purpose = typeof fm[PURPOSE_KEY] === "string" ? fm[PURPOSE_KEY] : undefined;
   const verdict = VERDICTS.includes(fm[VERDICT_KEY]) ? (fm[VERDICT_KEY] as SceneVerdict) : undefined;
   const opening = OPENINGS.includes(fm[OPENING_KEY]) ? (fm[OPENING_KEY] as OpeningType) : undefined;
-  const arc: Record<string, ArcSnapshot> = {};
-  const rawArc = fm[ARC_KEY];
-  if (rawArc && typeof rawArc === "object") {
-    for (const [name, snap] of Object.entries(rawArc as Record<string, unknown>)) {
-      if (snap && typeof snap === "object") {
-        const s = snap as Record<string, unknown>;
-        const entry: ArcSnapshot = {};
-        if (typeof s.internal === "string") entry.internal = s.internal;
-        if (typeof s.external === "string") entry.external = s.external;
-        if (entry.internal || entry.external) arc[name] = entry;
-      }
-    }
-  }
+  const arc = parseSceneArc(fm[ARC_KEY]);
   return { checks, note, purpose, verdict, opening, arc };
 }
 
@@ -121,22 +111,18 @@ export async function writeSceneAudit(
       else delete fm[OPENING_KEY];
     }
     if (patch.arc) {
-      const cur: Record<string, unknown> =
-        fm[ARC_KEY] && typeof fm[ARC_KEY] === "object" ? { ...fm[ARC_KEY] } : {};
+      // Read the current arc as a plain-name record, merge the patch, re-serialize
+      // to the wikilinked list form so renames stay rewriteable by Obsidian.
+      const cur = parseSceneArc(fm[ARC_KEY]);
       for (const [name, snap] of Object.entries(patch.arc)) {
         const internal = (snap?.internal ?? "").trim();
         const external = (snap?.external ?? "").trim();
-        if (!snap || (!internal && !external)) {
-          delete cur[name];
-        } else {
-          const entry: ArcSnapshot = {};
-          if (internal) entry.internal = internal;
-          if (external) entry.external = external;
-          cur[name] = entry;
-        }
+        if (!snap || (!internal && !external)) delete cur[name];
+        else cur[name] = { ...(internal ? { internal } : {}), ...(external ? { external } : {}) };
       }
-      if (Object.keys(cur).length === 0) delete fm[ARC_KEY];
-      else fm[ARC_KEY] = cur;
+      const list = serializeSceneArc(cur);
+      if (list.length === 0) delete fm[ARC_KEY];
+      else fm[ARC_KEY] = list;
     }
   });
 }
