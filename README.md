@@ -1,6 +1,6 @@
 # Inkswell
 
-A local-first writer's suite for longform fiction in [Obsidian](https://obsidian.md) — one plugin instead of a fragile stack of three. Inkswell leaves the *writing* to Obsidian and gives you everything **around** the writing, organised into one tab with six phases: **Home · Plan · Write · Track · Revise · Publish**.
+A local-first writer's suite for longform fiction in [Obsidian](https://obsidian.md). Inkswell leaves the *writing* to Obsidian and gives you everything **around** the writing, organised into one tab with six phases: **Home · Plan · Write · Track · Revise · Publish**.
 
 It's Longform-compatible (reads and writes the same `longform` frontmatter), so existing projects load drop-in; Inkswell-only data lives under a separate `inkswell` key and never touches your prose body.
 
@@ -45,6 +45,10 @@ npm test         # unit tests (vitest)
 ```
 
 Copy `main.js`, `manifest.json`, and `styles.css` into `<vault>/.obsidian/plugins/inkswell/` to test in a real vault. Architecture, conventions, and the compile/version workflows are documented in [AGENTS.md](AGENTS.md).
+
+## AI disclosure
+
+This plugin was developed with the assistance of **agentic AI coding tools and practices**. I have a mandate at work to learn AI tooling, and I wanted to channel that practice into something of lasting value for a community I love rather than throwaway exercises. Direction, architecture, scope, and review are all handled by me; much of the implementation was AI-assisted under that direction. Everything is open source (MIT) and the full commit history is here for inspection — feedback and scrutiny are welcome.
 
 ## License
 
