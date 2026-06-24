@@ -8,8 +8,10 @@
 
 import { App, TFile, setIcon } from "obsidian";
 import {
+  computePace,
   computeStreaks,
   dailySeries,
+  draftMilestone,
   habitDaysMet,
   heatmapWeeks,
   lifetimeRecords,
@@ -17,6 +19,7 @@ import {
   nextMilestone,
   projectFinish,
   recentDailyAverage,
+  suggestedDeadlineWeeks,
   weekToDateWords,
 } from "../goals/goals";
 import { tallyBy } from "../insight/breakdown";
@@ -27,6 +30,7 @@ import { ProjectStore } from "../projects/project-store";
 import { SCENE_STATUSES, readSceneMeta, statusLabel } from "../scenes/scene-meta";
 import { sprintSeconds, sprintStats, sprintWpm } from "../sprints/sprint-stats";
 import { WritingTracker } from "../tracking/writing-tracker";
+import { dateKey } from "../tracking/types";
 import type InkswellPlugin from "../../main";
 
 const HEAT_WEEKS = 26;
@@ -123,6 +127,16 @@ export class StatsPanel {
         cls: "inkswell-stats__row",
         text: `Current streak ${streak.current} · Longest ${streak.longest}`,
       });
+
+      // Optional daily mood (1–10) — light-touch, never required.
+      const moodRow = body.createDiv({ cls: "inkswell-stats__row inkswell-mood" });
+      moodRow.createSpan({ cls: "inkswell-stats__muted", text: "Mood today:" });
+      const todayKey = dateKey(new Date());
+      const moodSel = moodRow.createEl("select", { cls: "dropdown" });
+      moodSel.createEl("option", { text: "—", value: "" });
+      for (let i = 1; i <= 10; i++) moodSel.createEl("option", { text: `${i}`, value: `${i}` });
+      moodSel.value = `${this.tracker.getMood(todayKey) ?? ""}`;
+      moodSel.onchange = () => this.tracker.setMood(todayKey, Number(moodSel.value) || 0);
       body.createDiv({
         cls: "inkswell-stats__muted",
         text:
@@ -321,6 +335,7 @@ export class StatsPanel {
       const row = body.createDiv({ cls: "inkswell-stats__project" });
       row.createDiv({ cls: "inkswell-stats__project-title", text: project.draft.title });
       const detail = row.createDiv({ cls: "inkswell-stats__muted" });
+      const goals = project.inkswell!.goals!;
       void this.stats.projectWords(project).then((words) => {
         const p = projectFinish(words, target, rate);
         this.progressBar(row, words, target);
@@ -334,6 +349,33 @@ export class StatsPanel {
           detail.setText(
             `${words.toLocaleString()} / ${target.toLocaleString()} — ${p.remaining.toLocaleString()} left, ${eta}`
           );
+        }
+
+        // Deadline pace (B3): required rate + verdict, or a suggestion to set one.
+        if (goals.deadline) {
+          const pace = computePace(words, target, goals.deadline, goals.daysPerWeek ?? 7, rate);
+          if (pace.status !== "met" && pace.status !== "no-deadline") {
+            const badge = row.createDiv({ cls: `inkswell-pace inkswell-pace--${pace.status}` });
+            const label =
+              pace.status === "ahead" ? "Ahead" : pace.status === "on-track" ? "On track" : "Behind";
+            badge.setText(
+              `${label} · need ~${pace.requiredRate.toLocaleString()}/writing-day · ${pace.calendarDays} days left (avg ${Math.round(rate)}/day)`
+            );
+          }
+        } else if (!p.done) {
+          row.createDiv({
+            cls: "inkswell-stats__muted",
+            text: `Set a deadline (≈${suggestedDeadlineWeeks(target)} weeks suggested) for pace tracking.`,
+          });
+        }
+
+        // Draft-progress milestone zone (B5, light-touch).
+        const ms = draftMilestone(words, target);
+        if (ms.zone) {
+          row.createDiv({
+            cls: "inkswell-stats__muted inkswell-stats__zone",
+            text: `${ms.pct}% · ${ms.zone.label} — ${ms.zone.note}`,
+          });
         }
       });
     }

@@ -9,6 +9,21 @@ characters:
 location: "[[The Lattice]]"
 targetWords: 1400
 color: "#6B9BD1"
+revScene:
+  startsRight: true
+  described: true
+  goalConflict: true
+  shift: true
+  purpose: true
+  endsUncertain: true
+  consistent: true
+revSceneNote: "Strong opening image; confirm the 'last ordinary night' line still lands after act-1 trims."
+revVerdict: keep
+revPurpose: "Establishes the Lattice and Mara's contentment; without it the catalyst in scene 2 has no baseline to overturn."
+revArc:
+  - character: "[[Mara Vance]]"
+    internal: Content; wants nothing.
+    external: An ordinary night on her route.
 ---
 
 The last lamp on Vesper Row stood crooked on its post, the way it had for as

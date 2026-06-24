@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  countByType,
+  decisionType,
   filterDecisions,
   pendingCount,
   removeDecision,
@@ -76,5 +78,36 @@ describe("filterDecisions", () => {
 describe("pendingCount", () => {
   it("counts only pending", () => {
     expect(pendingCount([d("1"), d("2", { status: "applied" }), d("3")])).toBe(2);
+  });
+});
+
+describe("type & priority (B4)", () => {
+  it("treats an absent type as continuity", () => {
+    expect(decisionType(d("1"))).toBe("continuity");
+    expect(decisionType(d("2", { type: "plot-hole" }))).toBe("plot-hole");
+  });
+
+  it("filters by type (absent = continuity) and priority", () => {
+    const list = [
+      d("1"),
+      d("2", { type: "research" }),
+      d("3", { type: "plot-hole", priority: "high" }),
+    ];
+    expect(filterDecisions(list, { type: "continuity" }).map((x) => x.id)).toEqual(["1"]);
+    expect(filterDecisions(list, { type: "research" }).map((x) => x.id)).toEqual(["2"]);
+    expect(filterDecisions(list, { priority: "high" }).map((x) => x.id)).toEqual(["3"]);
+  });
+
+  it("counts by type with old (untyped) entries bucketed as continuity", () => {
+    const counts = countByType([d("1"), d("2", { type: "rewrite" }), d("3", { type: "rewrite" })]);
+    expect(counts.continuity).toBe(1);
+    expect(counts.rewrite).toBe(2);
+    expect(counts["plot-hole"]).toBe(0);
+  });
+
+  it("preserves type/priority through upsert and status changes", () => {
+    const list = upsertDecision([], d("1", { type: "character", priority: "med" }));
+    const flipped = setDecisionStatus(list, "1", "applied");
+    expect(flipped[0]).toMatchObject({ type: "character", priority: "med", status: "applied" });
   });
 });

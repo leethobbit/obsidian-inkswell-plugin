@@ -25,10 +25,14 @@ export interface WritingLogData {
   baselines: Record<string, number>;
   /** Completed sprints, most recent last. */
   sprints: SprintRecord[];
+  /** Optional daily mood (1–10), keyed by local date. Light-touch coaching. */
+  mood?: Record<string, number>;
+  /** A single rolling "what to write next" breadcrumb for the next session. */
+  nextUp?: string;
 }
 
 export function emptyLog(): WritingLogData {
-  return { daily: {}, baselines: {}, sprints: [] };
+  return { daily: {}, baselines: {}, sprints: [], mood: {} };
 }
 
 /** Local date key (YYYY-MM-DD) for a Date. */

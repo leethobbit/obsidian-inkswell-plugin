@@ -8,6 +8,10 @@ characters:
   - "[[Mara Vance]]"
 location: "[[The Undercroft Archive]]"
 targetWords: 1800
+revArc:
+  - character: "[[Mara Vance]]"
+    internal: Claims the pull instead of fearing it.
+    external: Reads the Archive — and it answers to her.
 ---
 
 %% OUTLINE ONLY — not yet drafted. Beat: Midpoint (false victory). %%

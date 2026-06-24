@@ -6,13 +6,22 @@
 import { App, Modal, Notice, Setting } from "obsidian";
 import { Project } from "../projects/types";
 import { decisionsOf, persistRevisions, upsertDecision } from "./revisions";
-import { RevisionDecision, newRevisionId } from "./types";
+import {
+  REVISION_PRIORITIES,
+  REVISION_TYPES,
+  RevisionDecision,
+  RevisionPriority,
+  RevisionType,
+  newRevisionId,
+} from "./types";
 
 export class RevisionModal extends Modal {
   private project: Project;
   private sceneTitle: string | null;
   private text: string;
   private anchorToScene: boolean;
+  private type: RevisionType = "continuity";
+  private priority: RevisionPriority | "" = "";
 
   constructor(
     app: App,
@@ -44,6 +53,20 @@ export class RevisionModal extends Modal {
         t.inputEl.addClass("inkswell-revision__input");
         window.setTimeout(() => t.inputEl.focus(), 0);
       });
+
+    new Setting(contentEl)
+      .setName("Type")
+      .setDesc("Continuity decisions read 'from now on…'; others are issues to fix later.")
+      .addDropdown((d) => {
+        for (const t of REVISION_TYPES) d.addOption(t.id, t.label);
+        d.setValue(this.type).onChange((v) => (this.type = v as RevisionType));
+      });
+
+    new Setting(contentEl).setName("Priority").addDropdown((d) => {
+      d.addOption("", "— none —");
+      for (const p of REVISION_PRIORITIES) d.addOption(p.id, p.label);
+      d.setValue(this.priority).onChange((v) => (this.priority = v as RevisionPriority | ""));
+    });
 
     if (this.sceneTitle) {
       new Setting(contentEl)
@@ -78,6 +101,8 @@ export class RevisionModal extends Modal {
       scene: this.anchorToScene ? this.sceneTitle : null,
       status: "pending",
       created: new Date().toISOString(),
+      type: this.type,
+      priority: this.priority || undefined,
     };
     await persistRevisions(
       this.app,

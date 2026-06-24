@@ -17,7 +17,11 @@ import { BoardPanel } from "../outliner/board-panel";
 import { resolveActive } from "../projects/active-project";
 import { ProjectStats } from "../projects/project-stats";
 import { ProjectStore } from "../projects/project-store";
+import { ChecklistPanel } from "./publish/checklist-panel";
+import { LaunchPanel } from "./publish/launch-panel";
+import { AuditPanel } from "../revisions/audit-panel";
 import { CommentsPanel } from "../revisions/comments-panel";
+import { GapsPanel } from "../revisions/gaps-panel";
 import { RevisionPanel } from "../revisions/revision-view";
 import { StatsPanel } from "../stats/stats-view";
 import { WritingTracker } from "../tracking/writing-tracker";
@@ -63,12 +67,23 @@ const DESTINATIONS: Destination[] = [
     label: "Revise",
     icon: "git-compare",
     subtabs: [
+      { id: "audit", label: "Audit" },
       { id: "log", label: "Log" },
       { id: "comments", label: "Comments" },
+      { id: "gaps", label: "Gaps" },
       { id: "analysis", label: "Analysis" },
     ],
   },
-  { id: "publish", label: "Publish", icon: "upload" },
+  {
+    id: "publish",
+    label: "Publish",
+    icon: "upload",
+    subtabs: [
+      { id: "compile", label: "Compile" },
+      { id: "checklist", label: "Checklist" },
+      { id: "launch", label: "Launch" },
+    ],
+  },
   // Meta cluster (after a separator): a cross-cutting dashboard, not a pipeline phase.
   { id: "track", label: "Track", icon: "bar-chart-3", meta: true },
 ];
@@ -83,8 +98,12 @@ export class InkswellView extends ItemView {
   private stats: StatsPanel;
   private revisions: RevisionPanel;
   private comments: CommentsPanel;
+  private gaps: GapsPanel;
+  private audit: AuditPanel;
   private analysis: AnalysisPanel;
   private compile: CompilePanel;
+  private checklist: ChecklistPanel;
+  private launch: LaunchPanel;
   private inspector: SceneInspector;
 
   private mode: InkswellMode = "home";
@@ -122,8 +141,12 @@ export class InkswellView extends ItemView {
     this.stats = new StatsPanel(this.app, plugin, tracker, store, stats);
     this.revisions = new RevisionPanel(this.app, plugin, store);
     this.comments = new CommentsPanel(this.app, store, plugin.activeProject);
+    this.gaps = new GapsPanel(this.app, store, plugin.activeProject);
+    this.audit = new AuditPanel(this.app, store, plugin.activeProject);
     this.analysis = new AnalysisPanel(this.app, store, plugin.activeProject);
     this.compile = new CompilePanel(this.app, plugin, store);
+    this.checklist = new ChecklistPanel(this.app, plugin, store);
+    this.launch = new LaunchPanel(this.app, plugin, store);
     this.inspector = new SceneInspector(this.app, store);
 
     // Re-render the active destination whenever projects, the log, or the active
@@ -332,15 +355,21 @@ export class InkswellView extends ItemView {
         this.stats.render(content);
         break;
       case "revise": {
-        const sub = this.subtab["revise"] ?? "log";
+        const sub = this.subtab["revise"] ?? "audit";
         if (sub === "analysis") this.analysis.render(content);
         else if (sub === "comments") this.comments.render(content);
-        else this.revisions.render(content);
+        else if (sub === "gaps") this.gaps.render(content);
+        else if (sub === "log") this.revisions.render(content);
+        else this.audit.render(content);
         break;
       }
-      case "publish":
-        this.compile.render(content);
+      case "publish": {
+        const sub = this.subtab["publish"] ?? "compile";
+        if (sub === "checklist") this.checklist.render(content);
+        else if (sub === "launch") this.launch.render(content);
+        else this.compile.render(content);
         break;
+      }
     }
   }
 }

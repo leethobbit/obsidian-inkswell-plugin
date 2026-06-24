@@ -19,6 +19,8 @@ inkswell:
     order: 1
   goals:
     target: 90000
+    deadline: "2026-09-01"
+    daysPerWeek: 5
   compile:
     sceneSteps:
       - id: strip-frontmatter
@@ -79,16 +81,117 @@ inkswell:
       scene: "02 - What the Light Remembers"
       status: applied
       created: "2026-03-14T09:12:00.000Z"
+      type: continuity
+      priority: high
     - id: rev-coll-knows-mara
       text: From now on, Inspector Coll already knew Mara years ago, from before the Undercroft was sealed.
       scene: "03 - Inspector Coll"
       status: pending
       created: "2026-05-02T18:40:00.000Z"
+      type: character
+      priority: med
     - id: rev-archive-sentient
       text: The Archive is sentient. Assume every reference to it implies intent, not just storage.
       scene: null
       status: pending
       created: "2026-06-10T20:05:00.000Z"
+      type: continuity
+      priority: high
+    - id: rev-blackout-mechanism
+      text: "Why does the blackout wipe every lamp on Vesper Row at once? Seed a mechanism earlier or it's a plot hole."
+      scene: "07 - Blackout"
+      status: pending
+      created: "2026-06-18T11:20:00.000Z"
+      type: plot-hole
+      priority: high
+    - id: rev-undercroft-terms
+      text: "Look up period drainage/sub-cellar terminology for the Undercroft description. [TK]"
+      scene: "04 - The Undercroft"
+      status: pending
+      created: "2026-06-20T08:00:00.000Z"
+      type: research
+      priority: low
+  revisionChecklist:
+    story:
+      structure:
+        done: true
+      stakes:
+        done: true
+      heroTransforms:
+        note: "Mara goes from wanting nothing to claiming the Archive — verify the turn lands by scene 5/6."
+      consistent:
+        note: "Reconcile lamplight-stores-memory rule across early scenes."
+    page:
+      echoes:
+        done: true
+      adverbs:
+        note: "Sweep -ly adverbs in dialogue tags during the line pass."
+  arcTracked:
+    - "[[Mara Vance]]"
+  styleSheet:
+    entries:
+      - id: s-lattice
+        canonical: Lattice
+        variants:
+          - lattice
+        kind: name
+        note: The memory-network is always capitalized.
+      - id: s-undercroft
+        canonical: Undercroft
+        variants:
+          - undercroft
+        kind: name
+  publishing:
+    metadata:
+      title: The Lamplighter's Archive
+      seriesTitle: The Lattice Cycle
+      tagline: "She lights the lamps that keep a city's memory — until one shows her a life she never lived."
+      blurb: "In a city that pours each day into its street-lamps, Mara Vance is content to tend her small route and want nothing. Then a lamp shows her a memory that was never hers, and the trail leads down into the sealed Archive the city has spent a generation forgetting."
+      genre: Fantasy
+      subgenres:
+        - Gaslamp fantasy
+        - Mystery
+      targetReader: "Readers of cozy-but-eerie gaslamp fantasy with a quiet, competent heroine."
+      keywords:
+        - gaslamp fantasy
+        - memory magic
+        - lamplighter
+        - hidden archive
+        - slow burn mystery
+        - sentient magic
+        - found family
+      categories:
+        main: "FICTION / Fantasy / Historical"
+        sub:
+          - "FICTION / Fantasy / Gaslamp"
+          - "FICTION / Mystery & Detective"
+      kuExclusive: true
+      formats:
+        ebook:
+          enabled: true
+          price: 4.99
+        paperback:
+          enabled: true
+          price: 14.99
+    checklist:
+      writing:
+        draft:
+          done: true
+          notes: First draft in progress.
+      editing:
+        selfEdit:
+          done: true
+      foundational:
+        genre:
+          done: true
+        targetReader:
+          done: true
+    launch:
+      releaseDate: "2026-09-01"
+      strategy: medium
+      milestones:
+        submit:
+          done: false
 ---
 
 # The Lamplighter's Archive

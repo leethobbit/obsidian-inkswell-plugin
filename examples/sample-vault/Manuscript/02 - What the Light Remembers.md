@@ -9,6 +9,16 @@ characters:
 location: "[[The Lattice]]"
 targetWords: 1600
 color: "#6B9BD1"
+revScene:
+  startsRight: true
+  goalConflict: true
+  shift: true
+  endsUncertain: true
+revSceneNote: "Catalyst lands; line-edit the vision paragraph and resolve the [TK]/[DIALOGUE] placeholders."
+revArc:
+  - character: "[[Mara Vance]]"
+    internal: Certainty cracks; unsettled.
+    external: A memory that isn't hers — and she hides it.
 ---
 
 It happened at the seventh lamp, the clean-burning one outside the locksmith's.
@@ -34,6 +44,12 @@ in her life.
 She stood very still and made herself breathe. The locksmith's window was dark.
 The row glowed on, ordinary, dreaming. Only the seventh lamp seemed to watch her
 now, the way the crooked one never had.
+
+[DIALOGUE: Mara says something low to the seventh lamp — defiant, or afraid? Find the line in revision.]
+
+[NOTE: mirror this room's "cold stone and machine oil" in the Undercroft reveal, scene 4.]
+
+[TK: coin a lamplighter's word for a leaked memory — "a bleed"?]
 
 A lamp had shown her a memory that was not hers to be shown. Which meant either
 she was losing her mind, or something in the Lattice had begun to leak — and

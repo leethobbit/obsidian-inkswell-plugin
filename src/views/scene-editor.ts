@@ -24,6 +24,7 @@ import {
   keymap,
 } from "@codemirror/view";
 import { Sel, buildSyntaxIntents } from "../lib/markdown-syntax";
+import { PlaceholderKind, PLACEHOLDER_TEMPLATES } from "../lib/placeholders";
 
 function buildDecorations(view: EditorView): { all: DecorationSet; hidden: DecorationSet } {
   const sels: Sel[] = view.state.selection.ranges.map((r) => ({ from: r.from, to: r.to }));
@@ -70,6 +71,29 @@ const atomicMarkers = EditorView.atomicRanges.of(
   (view) => view.plugin(markdownHighlighter)?.hidden ?? Decoration.none
 );
 
+/**
+ * Insert a fast-drafting placeholder token at the selection, replacing it, and
+ * drop the cursor inside the colon forms (ready to type). Refocuses the editor so
+ * a toolbar-button insertion doesn't leave focus on the button.
+ */
+export function insertPlaceholder(view: EditorView, kind: PlaceholderKind): void {
+  const tpl = PLACEHOLDER_TEMPLATES[kind];
+  const { from, to } = view.state.selection.main;
+  view.dispatch({
+    changes: { from, to, insert: tpl.text },
+    selection: { anchor: from + tpl.cursor },
+  });
+  view.focus();
+}
+
+/** Keymap binding helper: run an insert and consume the key. */
+function insertBinding(kind: PlaceholderKind) {
+  return (view: EditorView): boolean => {
+    insertPlaceholder(view, kind);
+    return true;
+  };
+}
+
 export interface SceneEditorOptions {
   parent: HTMLElement;
   doc: string;
@@ -77,6 +101,8 @@ export interface SceneEditorOptions {
   onChange: () => void;
   /** Fired when the editor loses focus (to flush a save). */
   onBlur: () => void;
+  /** Fired by the Mod-Shift-L keymap to log a revision issue for this scene. */
+  onLogIssue?: () => void;
 }
 
 /** Create a manuscript editor bound to `parent`, seeded with `doc`. */
@@ -87,6 +113,21 @@ export function createSceneEditor(opts: SceneEditorOptions): EditorView {
       doc: opts.doc,
       extensions: [
         history(),
+        // Placeholder-insert shortcuts (local to this editor, so they never
+        // collide with Obsidian's global hotkeys). Listed first so they win.
+        keymap.of([
+          { key: "Mod-Shift-k", run: insertBinding("tk") },
+          { key: "Mod-Shift-d", run: insertBinding("dialogue") },
+          { key: "Mod-Shift-s", run: insertBinding("scene") },
+          { key: "Mod-Shift-n", run: insertBinding("note") },
+          {
+            key: "Mod-Shift-l",
+            run: () => {
+              opts.onLogIssue?.();
+              return true;
+            },
+          },
+        ]),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         EditorView.lineWrapping,
         markdownHighlighter,

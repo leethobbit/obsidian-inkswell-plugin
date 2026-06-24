@@ -2,7 +2,7 @@
 
 Phase-centric information architecture (one tab, left icon rail): **Home · Plan · Write · Track · Revise · Publish**. Each destination does one job; depth lives behind sub-tabs or the Scene Inspector. See `FEATURES.md` for the full pick list and the plan file for IA rationale.
 
-**Current status: v0.15.0** — phases 5–13 shipped + a QA-fix batch (v0.14.0) + writing-aids & export-readiness (v0.15.0). Next: finish the live QA pass (parts 3+) before the 1.0 cut.
+**Current status: v0.16.0** — phases 5–13 shipped + a QA-fix batch (v0.14.0) + writing-aids & export-readiness (v0.15.0) + the writing-method feature set (v0.16.0). Next: the deep end-to-end live QA pass (the 1.0 gate) — v0.15.0 and v0.16.0 surfaces are unit/build-verified only.
 
 ## Shipped
 | Version | What |
@@ -23,6 +23,7 @@ Phase-centric information architecture (one tab, left icon rail): **Home · Plan
 | v0.13.0 | Series mode: group books into named series (`inkswell.series`), order them, aggregate words/target on the Home series header; codex already vault-wide (shared across books) |
 | v0.14.0 | QA-fix batch: **New project** flow (modal + command + Home button); global active-project selector (persistent header) replacing per-panel pickers; focus-loss fix (render focus-guard that defers panel rebuilds while an input is focused); "Edit scene" modal (shared scene-meta form); pinned-tab-safe scene opening; Board POV/Act labels strip wikilinks; scaffold scenes default to `idea`; lone-series book defaults to #1; codex parent shown as annotation (no false indent); subtle theme-accent color pass |
 | v0.15.0 | Writing aids + export readiness: tagged writing-prompt system (phase/category filters, `{pov}` context, ~50/phase) with an always-visible navigator card; POV field is a codex-character datalist; **chapter-grouping compile step** (heading per chapter + scene breaks); **pre-export check** (lint for tabs/double-spaces/raw HTML/page-breaks/mixed scene-breaks/empty scenes); **Generate reference doc** button (pandoc default → styled in Word) + scene-separator picker in the Publish UI; Write editor refinements (widened centered measure, segmented topbar); **Track overhaul** — overview cards, collapsible sections, writing-history bar chart (7/30/90/All), and a **sprint history** section (totals, avg/peak WPM, goal hit-rate) with actual-elapsed-time recording |
+| v0.16.0 | **Writing-method feature set** (three workstreams). **Revise → Audit** toolkit: per-scene 14-point checklist + project-level Story(18)/Page(32) checklists, scene-purpose lift-out verdict, heuristic scene-openings variety, character-arc grid (per-scene internal/external + flat-stretch/transform), side-character roster (codex `function`/`memorableTrait` + appearance counts), style-sheet consistency scan; composition mix (dialogue/interiority/narration) folded into Analysis; **Gaps** sweep. **Write/Track** fast-drafting aids: placeholder tokens (`[TK]`/`[SCENE:]`/`[DIALOGUE:]`/`[NOTE:]`/`[???]`) with editor highlighting + insert keymap/toolbar; decision log extended to a **typed/prioritized** issue tracker + "Log issue" from the editor; **deadline pace calculator** + draft-milestone zones + optional daily mood + "next up" breadcrumb. **Publish** self-publishing manager: Compile · **Checklist** (9-phase master checklist + book-metadata worksheet) · **Launch** (pre-order timeline planner + budget/cover/marketing/ARC trackers) |
 
 ## Planned
 
@@ -30,9 +31,11 @@ Phase-centric information architecture (one tab, left icon rail): **Home · Plan
 Cut once the scene + codex frontmatter schema is stable enough to promise compatibility. **Gate: the deep end-to-end live QA pass must happen first** — phases 5–13 are unit-tested but have not been driven in Obsidian.
 
 ## Known gaps / deferred (not on the critical path)
-- **In-plugin editor is plain-text** (v0.11.0) — Live Preview embedding (real Obsidian editor per scene) is a future upgrade; needs in-app iteration against undocumented APIs.
-- **Per-chapter word targets** (per-scene shipped; per-chapter needs a chapter object).
+- **Write editor is a custom CM6 Live-Preview surface** (v0.11 → v0.15) — *not* Obsidian's native `MarkdownView`. Embedding Obsidian's own editor per scene remains deferred (undocumented APIs); the custom surface covers the user-facing need.
+- **Acts/chapters are frontmatter fields**, not container objects (Board/compile group by them); **per-chapter word targets** wait on a chapter object (per-scene shipped).
+- **Scene-templates UI** (Longform `sceneTemplate` is parsed, no apply-UI) and **"convert note → scene"** onboarding are unbuilt — the two feature gaps with a real pre-1.0 argument; both are additive post-1.0.
 - **Compile-active-project command** still uses the quick modal, not the saved per-project step config (Publish panel uses the saved config).
+- **Schema not yet frozen/documented.** v0.15/v0.16 added ~15 frontmatter keys; the 1.0 compat promise needs a written `docs/schema.md` and the live QA pass first.
 
 ## Out of scope (philosophy)
 AI; cloud sync / real-time collaboration; replacing Obsidian's editor wholesale; separate database/account.

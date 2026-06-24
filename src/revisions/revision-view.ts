@@ -11,13 +11,14 @@ import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
 import { RevisionModal } from "./revision-modal";
 import {
+  decisionType,
   decisionsOf,
   filterDecisions,
   persistRevisions,
   removeDecision,
   setDecisionStatus,
 } from "./revisions";
-import { RevisionDecision } from "./types";
+import { REVISION_TYPES, RevisionDecision, RevisionType } from "./types";
 import type InkswellPlugin from "../../main";
 
 export class RevisionPanel {
@@ -28,6 +29,7 @@ export class RevisionPanel {
 
   /** undefined = all scenes, null = project-wide only, string = a scene title. */
   private sceneFilter: string | null | undefined = undefined;
+  private typeFilter: RevisionType | undefined = undefined;
   private showApplied = false;
 
   constructor(app: App, plugin: InkswellPlugin, store: ProjectStore) {
@@ -63,8 +65,16 @@ export class RevisionPanel {
     this.renderToolbar(container, project);
 
     const all = decisionsOf(project);
-    const pending = filterDecisions(all, { status: "pending", scene: this.sceneFilter });
-    const applied = filterDecisions(all, { status: "applied", scene: this.sceneFilter });
+    const pending = filterDecisions(all, {
+      status: "pending",
+      scene: this.sceneFilter,
+      type: this.typeFilter,
+    });
+    const applied = filterDecisions(all, {
+      status: "applied",
+      scene: this.sceneFilter,
+      type: this.typeFilter,
+    });
 
     const list = container.createDiv({ cls: "inkswell-revision__list" });
     if (pending.length === 0 && (!this.showApplied || applied.length === 0)) {
@@ -109,6 +119,15 @@ export class RevisionPanel {
       this.rerender();
     };
 
+    const typeSel = bar.createEl("select", { cls: "dropdown" });
+    typeSel.createEl("option", { text: "All types", value: "__all__" });
+    for (const t of REVISION_TYPES) typeSel.createEl("option", { text: t.label, value: t.id });
+    typeSel.value = this.typeFilter ?? "__all__";
+    typeSel.onchange = () => {
+      this.typeFilter = typeSel.value === "__all__" ? undefined : (typeSel.value as RevisionType);
+      this.rerender();
+    };
+
     const toggle = bar.createEl("label", { cls: "inkswell-revision__toggle" });
     const cb = toggle.createEl("input", { type: "checkbox" });
     cb.checked = this.showApplied;
@@ -142,10 +161,17 @@ export class RevisionPanel {
 
     const body = row.createDiv({ cls: "inkswell-revision__body" });
     body.createDiv({ cls: "inkswell-revision__text", text: d.text });
-    body.createDiv({
-      cls: "inkswell-revision__meta",
-      text: d.scene ? `↳ ${d.scene}` : "project-wide",
-    });
+    const meta = body.createDiv({ cls: "inkswell-revision__meta" });
+    const type = decisionType(d);
+    const typeLabel = REVISION_TYPES.find((t) => t.id === type)?.label ?? type;
+    meta.createSpan({ cls: `inkswell-revision__type inkswell-revision__type--${type}`, text: typeLabel });
+    if (d.priority) {
+      meta.createSpan({
+        cls: `inkswell-revision__pri inkswell-revision__pri--${d.priority}`,
+        text: d.priority,
+      });
+    }
+    meta.createSpan({ text: d.scene ? `↳ ${d.scene}` : "project-wide" });
 
     row.oncontextmenu = (e) => {
       e.preventDefault();

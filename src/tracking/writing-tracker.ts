@@ -59,6 +59,31 @@ export class WritingTracker extends Component {
     return this.log;
   }
 
+  /** Optional daily mood (1–10) for a date key, or undefined. */
+  getMood(date: string): number | undefined {
+    return this.log.mood?.[date];
+  }
+
+  /** Set/clear the mood for a date (0 or falsy clears). Persists immediately. */
+  setMood(date: string, value: number): void {
+    if (!this.log.mood) this.log.mood = {};
+    if (value >= 1 && value <= 10) this.log.mood[date] = value;
+    else delete this.log.mood[date];
+    this.persist();
+    for (const fn of this.changeListeners) fn();
+  }
+
+  /** The rolling "what's next" breadcrumb left for the next session. */
+  getNextUp(): string {
+    return this.log.nextUp ?? "";
+  }
+
+  setNextUp(text: string): void {
+    this.log.nextUp = text.trim() || undefined;
+    this.persist();
+    for (const fn of this.changeListeners) fn();
+  }
+
   private async handleModify(file: TAbstractFile): Promise<void> {
     if (!(file instanceof TFile) || file.extension !== "md") return;
     const contents = await this.app.vault.cachedRead(file);

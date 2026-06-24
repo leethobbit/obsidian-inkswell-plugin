@@ -43,6 +43,18 @@ const ALIASES: ProfileField = {
 const CATEGORY_FIELDS: Record<CodexCategory, ProfileField[]> = {
   character: [
     { key: "role", label: "Role", type: "text", placeholder: "Protagonist, mentor…" },
+    {
+      key: "function",
+      label: "Narrative function",
+      type: "text",
+      placeholder: "e.g. Stands in the hero's way",
+    },
+    {
+      key: "memorableTrait",
+      label: "Memorable trait",
+      type: "text",
+      placeholder: "A distinctive 'thing'",
+    },
     { key: "age", label: "Age", type: "text" },
     { key: "gender", label: "Gender", type: "text" },
     { key: "occupation", label: "Occupation", type: "text" },

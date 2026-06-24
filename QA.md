@@ -1,10 +1,10 @@
 ---
 title: Inkswell — Manual QA Checklist
-version: 0.15.0
+version: 0.16.0
 purpose: End-to-end live QA pass gating the 1.0 cut
 ---
 
-# Inkswell — Manual QA Checklist (v0.15.0)
+# Inkswell — Manual QA Checklist (v0.16.0)
 
 The plugin's **pure logic is unit-tested** (`npm test`); this doc is its **complement** —
 the *wiring, real-Obsidian behavior, visual, and external-tool* checks that tests can't reach.
@@ -341,12 +341,91 @@ any task that fails.
 
 ---
 
+## 7d. v0.16.0 — writing-method feature set (Audit toolkit, fast-drafting aids, self-publishing manager) #qa/v016
+
+### Sub-tab wiring
+- [ ] Revise sub-tab bar shows **Audit · Log · Comments · Gaps · Analysis**, and opening Revise lands on **Audit** by default #qa/v016
+- [ ] Publish sub-tab bar shows **Compile · Checklist · Launch**, defaulting to Compile #qa/v016
+- [ ] Remembered sub-tab per phase survives leaving and returning (e.g. leave Revise on Gaps, come back to Gaps) #qa/v016
+
+### Write — placeholder tokens & capture
+- [ ] Typing `[TK]`, `[SCENE: …]`, `[DIALOGUE: …]`, `[NOTE: …]`, `[???]` highlights each as a distinct tinted chip #qa/v016
+- [ ] ⏫ The cursor edits **inside** a token normally (tokens are not atomic) and emphasis inside `[DIALOGUE: *x*]` is **not** italicised #qa/v016
+- [ ] Insert toolbar (TK / Dialogue / Scene / Note) inserts at the cursor; the keymap `Mod-Shift-K/D/S/N` does the same; cursor lands inside the colon forms #qa/v016
+- [ ] "Find gaps" and "Log issue" buttons appear in the Write topbar only when a scene is selected #qa/v016
+- [ ] ⏫ "Log issue" (and `Mod-Shift-L`) opens the decision modal anchored to the scene being written #qa/v016
+- [ ] The "Next up" breadcrumb card saves on change and reappears next session #qa/v016
+
+### Revise → Gaps
+- [ ] Lists every placeholder across the project's scenes, grouped by scene, with kind-filter chips + counts #qa/v016
+- [ ] Filtering by kind narrows the list; "All" restores it #qa/v016
+- [ ] Clicking a row or scene header opens that scene #qa/v016
+- [ ] ⏫ The sweep is read-only — it never modifies a scene #qa/v016
+- [ ] Empty state shows the "drop a [TK]…" hint when there are no placeholders #qa/v016
+
+### Revise → Audit — per-scene checklist
+- [ ] Summary line shows `Scenes audited X/N · Story a/18 · Page b/32` #qa/v016
+- [ ] Each scene row shows a `done/14` badge; expanding it reveals the 14 checkpoints + a revision note #qa/v016
+- [ ] ⏫ Ticking a checkpoint writes `revScene.<id>` to that **scene's** frontmatter; unticking removes it; the prose body is untouched #qa/v016
+- [ ] The Scene Inspector's "Revision audit" `<details>` shows the same fields and writes the same keys (Home + Write) #qa/v016
+- [ ] ⏫ Lift-out: setting a verdict (keep/cut/merge) + "if removed…" note persists (`revVerdict`/`revPurpose`); the verdict tag shows on the scene row #qa/v016
+- [ ] Opening-type override (`revOpening`) overrides the heuristic for that scene #qa/v016
+- [ ] ⏫ Per-character arc inputs (shown for the scene's linked characters) persist to `revArc` as a list of `{character: "[[link]]", internal, external}` #qa/v016
+- [ ] Toggling a checkbox in the dashboard updates that row's badge without losing your place (open sections stay open) #qa/v016
+
+### Revise → Audit — project checklists & diagnostics
+- [ ] Story-level (18) and Page-level (32, grouped into 5 categories) render as checkboxes; a per-item note field appears once an item is checked #qa/v016
+- [ ] ⏫ Checking an item writes `inkswell.revisionChecklist.story|page.<id>`; clearing drops the item, and an empty tier drops cleanly #qa/v016
+- [ ] **Scene openings**: one type-chip per scene in reading order; runs of ≥2 same-type scenes are flagged; the "heuristic — overridable" caption is shown #qa/v016
+- [ ] **Character arcs**: pick tracked characters from the codex; the grid shows per-scene state, shades flat stretches, and badges transforms/flat; tracked list persists to `inkswell.arcTracked` as wikilinks #qa/v016
+- [ ] ⏫ **Rename safety**: rename a tracked character (Codex → Rename, or rename the note) → the `revArc` `character` links and `arcTracked` entries follow the rename; the arc grid still shows that character's data (not orphaned) #qa/v016
+- [ ] **Side-character roster**: lists codex characters with function/goal/flaw/trait + "appears in N scenes"; flags missing fields and appears-once walk-ons #qa/v016
+- [ ] **Style sheet**: add/remove entries (canonical / variants / kind); "Scan manuscript" lists deviations by scene; clicking a hit opens the scene #qa/v016
+- [ ] ⏫ The style-sheet scan and the roster are read-only over scene bodies #qa/v016
+
+### Revise → Analysis — composition
+- [ ] A "Scene composition" section shows dialogue / interiority / narration %, plus per-scene balance flags, with an honest "heuristic" caption #qa/v016
+
+### Revise → Log — typed & prioritized
+- [ ] The log modal offers a **Type** dropdown (default *continuity*) and a **Priority** dropdown #qa/v016
+- [ ] Rows show a type tag + priority dot; the toolbar **type filter** narrows the list #qa/v016
+- [ ] ⏫ Pre-v0.16 entries with no `type` read as *continuity*; round-tripping (status flip, reload) preserves `type`/`priority` #qa/v016
+
+### Track — pace, milestone, mood
+- [ ] "Set word target…" modal now also captures **Deadline** and **Writing days/week** #qa/v016
+- [ ] With a target **and** deadline, Project targets shows required-daily words + an ahead/on-track/behind verdict + days left #qa/v016
+- [ ] With a target but **no** deadline, it shows the "Set a deadline (≈N weeks suggested)" hint #qa/v016
+- [ ] The current **draft-milestone zone** label + note shows for a targeted project (e.g. "50% · Halfway") #qa/v016
+- [ ] ⏫ Deadline + days/week persist to `inkswell.goals` and survive reload #qa/v016
+- [ ] The Goals card has a **Mood today** selector; ⏫ a chosen value persists in `data.json` and reloads; leaving it blank records nothing #qa/v016
+
+### Publish → Checklist & Metadata
+- [ ] The checklist renders 9 phases as collapsible sections with `done/total` per phase; optional tasks are marked #qa/v016
+- [ ] ⏫ Ticking a task / setting its date / typing notes persists under `inkswell.publishing.checklist.<phase>.<task>` #qa/v016
+- [ ] Deep-link tasks ("Open Compile →") switch to the Compile sub-tab #qa/v016
+- [ ] Metadata section: title/subtitle/series/tagline/blurb/genre/subgenres/target-reader/keywords/categories/formats; keyword field shows a 7–10 count hint; series title prefills from the project's series #qa/v016
+- [ ] ⏫ Metadata edits persist under `inkswell.publishing.metadata` and reload #qa/v016
+
+### Publish → Launch
+- [ ] Pick a **release date** + **strategy** (short/medium/long) → a computed milestone list appears with date(s) and status badges (overdue/upcoming/future/done) #qa/v016
+- [ ] ⏫ Ticking a milestone persists under `inkswell.publishing.launch.milestones`; the verify/deliver milestones stay manual (no platform calls) #qa/v016
+- [ ] Budget tracker: add need/want rows with estimate/actual; the totals line sums correctly #qa/v016
+- [ ] Cover-comp, Marketing, and ARC trackers add/edit/remove rows #qa/v016
+- [ ] ⏫ Removing the last row of a tracker drops its sub-object cleanly (no empty `budget: {}` left behind) #qa/v016
+
+### Data integrity — v0.16 keys
+- [ ] ⏫ `persistPublishing` edits `inkswell.publishing` **without** clobbering sibling `inkswell` keys (series / compile / goals / beats / revisions / revisionChecklist / arcTracked / styleSheet) #qa/v016
+- [ ] ⏫ Every new scene key (`revScene`, `revSceneNote`, `revPurpose`, `revVerdict`, `revOpening`, `revArc`) is written via `processFrontMatter` — the scene body stays byte-identical #qa/v016
+- [ ] ⏫ After a full v0.16 pass + reload, all new persisted data survives: `revisionChecklist`, `arcTracked`, `styleSheet`, `publishing`, `goals.deadline/daysPerWeek`, and `data.json` `mood`/`nextUp` #qa/v016
+
+---
+
 ## 8. Cross-cutting data integrity (the 1.0 gate) #qa/integrity
 
 - [ ] ⏫ After exercising every panel, diff a scene file: its **body** is byte-identical except where the Write editor changed it #qa/integrity
 - [ ] ⏫ No feature ever writes Inkswell data inside the `longform` key (only under `inkswell`) #qa/integrity
 - [ ] ⏫ Frontmatter written by Inkswell is valid YAML and re-opens cleanly in Obsidian #qa/integrity
-- [ ] ⏫ Reload the vault after a full pass — every persisted value (beats, codex profiles, series, targets, compile config, revisions) survives #qa/integrity
+- [ ] ⏫ Reload the vault after a full pass — every persisted value (beats, codex profiles, series, targets, compile config, revisions, revision checklists, scene audits/arcs, style sheet, publishing) survives #qa/integrity
 - [ ] ⏫ Editing a scene/index in another app while Inkswell is open doesn't cause a stale-overwrite #qa/integrity
 - [ ] ⏫ A project with a large scene count (50+) loads and refreshes without noticeable lag #qa/integrity
 - [ ] No uncaught exceptions in the console after a full pass #qa/integrity

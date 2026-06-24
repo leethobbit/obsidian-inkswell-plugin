@@ -5,7 +5,7 @@
  */
 
 import type { Project } from "../projects/types";
-import { RevisionDecision, RevisionStatus } from "./types";
+import { RevisionDecision, RevisionPriority, RevisionStatus, RevisionType } from "./types";
 
 /** Append (or replace by id) a decision. */
 export function upsertDecision(
@@ -36,6 +36,13 @@ export interface DecisionFilter {
   status?: RevisionStatus;
   /** Match a scene title, or null for project-wide decisions. */
   scene?: string | null;
+  type?: RevisionType;
+  priority?: RevisionPriority;
+}
+
+/** A decision's effective type (absent = continuity). */
+export function decisionType(d: RevisionDecision): RevisionType {
+  return d.type ?? "continuity";
 }
 
 export function filterDecisions(
@@ -45,8 +52,24 @@ export function filterDecisions(
   return list.filter((d) => {
     if (filter.status && d.status !== filter.status) return false;
     if (filter.scene !== undefined && d.scene !== filter.scene) return false;
+    if (filter.type && decisionType(d) !== filter.type) return false;
+    if (filter.priority && d.priority !== filter.priority) return false;
     return true;
   });
+}
+
+/** Count decisions by effective type. */
+export function countByType(list: RevisionDecision[]): Record<RevisionType, number> {
+  const out = {
+    continuity: 0,
+    "plot-hole": 0,
+    rewrite: 0,
+    character: 0,
+    research: 0,
+    "new-scene": 0,
+  } as Record<RevisionType, number>;
+  for (const d of list) out[decisionType(d)] += 1;
+  return out;
 }
 
 /** Count pending decisions — handy for badges. */

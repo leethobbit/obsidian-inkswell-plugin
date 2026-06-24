@@ -9,6 +9,7 @@ import { ActiveProject, resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
 import { findEchoes, readability, wordFrequency } from "./analysis";
+import { compositionProfile } from "./composition";
 
 export class AnalysisPanel {
   private app: App;
@@ -38,13 +39,15 @@ export class AnalysisPanel {
   }
 
   private async analyze(results: HTMLElement, project: Project): Promise<void> {
-    const parts: string[] = [];
+    const scenes: { title: string; text: string }[] = [];
     for (const scene of project.scenes) {
       if (!scene.path) continue;
       const file = this.app.vault.getAbstractFileByPath(scene.path);
-      if (file instanceof TFile) parts.push(await this.app.vault.cachedRead(file));
+      if (file instanceof TFile) {
+        scenes.push({ title: scene.title, text: await this.app.vault.cachedRead(file) });
+      }
     }
-    const text = parts.join("\n\n");
+    const text = scenes.map((s) => s.text).join("\n\n");
     results.empty();
 
     if (!text.trim()) {
@@ -82,6 +85,30 @@ export class AnalysisPanel {
           cls: "inkswell-stats__row",
           text: `“${e.phrase}” ×${e.count}`,
         });
+      }
+    }
+
+    // Composition — paragraph mix + per-scene balance flags. Honest about limits.
+    const compSec = results.createDiv({ cls: "inkswell-stats__section" });
+    compSec.createEl("h4", { text: "Scene composition" });
+    compSec.createDiv({
+      cls: "inkswell-stats__muted",
+      text: "Heuristic: paragraphs classified as dialogue / interiority / narration (description + action are merged, not split).",
+    });
+    const overall = compositionProfile(text);
+    const pct = (r: number) => `${Math.round(r * 100)}%`;
+    compSec.createDiv({
+      cls: "inkswell-stats__row",
+      text: `Dialogue ${pct(overall.ratios.dialogue)} · Interiority ${pct(overall.ratios.interiority)} · Narration ${pct(overall.ratios.narration)}`,
+    });
+    const flagged = scenes
+      .map((s) => ({ title: s.title, flags: compositionProfile(s.text).flags }))
+      .filter((s) => s.flags.length > 0);
+    if (flagged.length === 0) {
+      compSec.createDiv({ cls: "inkswell-stats__muted", text: "No scene-level balance flags." });
+    } else {
+      for (const s of flagged) {
+        compSec.createDiv({ cls: "inkswell-stats__row", text: `${s.title}: ${s.flags.join(" ")}` });
       }
     }
   }

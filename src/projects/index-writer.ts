@@ -57,6 +57,32 @@ export async function persistInkswellData(
 }
 
 /**
+ * Mutate the project's `inkswell.publishing` sub-object in place via `mutator`,
+ * then write it back whole. Needed because `persistInkswellData` shallow-merges —
+ * patching `{ publishing }` would replace the entire sub-object, so callers that
+ * change one nested field must read-merge-write (the `writeSeries` pattern).
+ */
+export async function persistPublishing(
+  app: App,
+  indexFile: TFile,
+  mutator: (publishing: Record<string, unknown>) => void
+): Promise<void> {
+  await app.fileManager.processFrontMatter(indexFile, (fm) => {
+    const inkswell: Record<string, unknown> =
+      fm["inkswell"] && typeof fm["inkswell"] === "object" ? { ...fm["inkswell"] } : {};
+    const publishing: Record<string, unknown> =
+      inkswell["publishing"] && typeof inkswell["publishing"] === "object"
+        ? { ...inkswell["publishing"] }
+        : {};
+    mutator(publishing);
+    if (Object.keys(publishing).length === 0) delete inkswell["publishing"];
+    else inkswell["publishing"] = publishing;
+    if (Object.keys(inkswell).length === 0) delete fm["inkswell"];
+    else fm["inkswell"] = inkswell;
+  });
+}
+
+/**
  * Set or clear a book's series membership under `inkswell.series`. Passing null
  * removes it (and drops the `inkswell` key entirely if nothing else remains).
  */

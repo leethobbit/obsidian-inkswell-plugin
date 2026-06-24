@@ -134,6 +134,11 @@ export default class InkswellPlugin extends Plugin {
       ),
     });
     this.addCommand({
+      id: "open-gaps",
+      name: "Find drafting placeholders (Revise → Gaps)",
+      callback: () => this.openGaps(),
+    });
+    this.addCommand({
       id: "start-sprint",
       name: "Start a writing sprint",
       callback: () => this.startSprint(),
@@ -305,6 +310,10 @@ export default class InkswellPlugin extends Plugin {
 
   openComments(): Promise<void> {
     return this.openInkswell("revise", undefined, "comments");
+  }
+
+  openGaps(): Promise<void> {
+    return this.openInkswell("revise", undefined, "gaps");
   }
 
   openAnalysis(): Promise<void> {

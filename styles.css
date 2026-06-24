@@ -443,6 +443,407 @@
   flex: 1;
 }
 
+/* --- Gaps panel (Revise → Gaps): fast-drafting placeholder sweep --- */
+.inkswell-gaps__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-1);
+  margin: var(--size-4-3) 0;
+}
+.inkswell-gaps__chip {
+  font-size: var(--font-ui-smaller);
+  padding: 2px var(--size-4-2);
+}
+.inkswell-gaps__chip.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+.inkswell-gaps__scene {
+  font-weight: var(--font-semibold);
+  margin-top: var(--size-4-3);
+  cursor: pointer;
+}
+.inkswell-gaps__row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-2);
+  padding: 2px 0;
+  cursor: pointer;
+}
+.inkswell-gaps__row:hover {
+  background: var(--background-modifier-hover);
+}
+.inkswell-gaps__kind {
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-medium);
+  border-radius: 3px;
+  padding: 0 var(--size-4-1);
+  white-space: nowrap;
+}
+.inkswell-gaps__kind--tk {
+  background: hsla(45, 90%, 50%, 0.25);
+}
+.inkswell-gaps__kind--unknown {
+  background: hsla(0, 80%, 55%, 0.22);
+}
+.inkswell-gaps__kind--dialogue {
+  background: hsla(210, 80%, 55%, 0.2);
+}
+.inkswell-gaps__kind--scene {
+  background: hsla(265, 70%, 60%, 0.2);
+}
+.inkswell-gaps__kind--note {
+  background: hsla(150, 60%, 45%, 0.2);
+}
+.inkswell-gaps__line {
+  color: var(--text-faint);
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-gaps__excerpt {
+  flex: 1;
+  color: var(--text-muted);
+}
+
+/* --- Audit panel (Revise → Audit): 3-tier revision checklists --- */
+.inkswell-audit__summary {
+  margin-bottom: var(--size-4-3);
+}
+.inkswell-audit__section {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  margin-bottom: var(--size-4-2);
+  padding: var(--size-4-1) var(--size-4-2);
+}
+.inkswell-audit__section > summary {
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  padding: var(--size-4-1) 0;
+}
+.inkswell-audit__body {
+  padding: var(--size-4-2) 0 var(--size-4-1);
+}
+.inkswell-audit__grouplabel {
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+  margin: var(--size-4-2) 0 var(--size-4-1);
+}
+.inkswell-audit__item {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: 1px 0;
+}
+.inkswell-audit__check {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+}
+.inkswell-audit__note {
+  flex: 1;
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-audit__scene {
+  border-top: 1px solid var(--background-modifier-border);
+  padding: var(--size-4-1) 0;
+}
+.inkswell-audit__scene > summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+.inkswell-audit__badge {
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  background: var(--background-modifier-border);
+  border-radius: 3px;
+  padding: 0 var(--size-4-1);
+}
+.inkswell-audit__badge.is-complete {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+.inkswell-audit__verdict {
+  font-size: var(--font-ui-smaller);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 3px;
+  padding: 0 var(--size-4-1);
+}
+.inkswell-audit__verdict--keep {
+  background: hsla(150, 60%, 45%, 0.22);
+}
+.inkswell-audit__verdict--cut {
+  background: hsla(0, 80%, 55%, 0.22);
+}
+.inkswell-audit__verdict--merge {
+  background: hsla(45, 90%, 50%, 0.22);
+}
+/* Scene-openings variety strip */
+.inkswell-audit__openings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-1);
+  margin: var(--size-4-2) 0;
+}
+.inkswell-audit__opening {
+  font-size: var(--font-ui-smaller);
+  border-radius: 3px;
+  padding: 0 var(--size-4-1);
+  background: var(--background-modifier-border);
+}
+.inkswell-audit__opening--dialogue {
+  background: hsla(210, 80%, 55%, 0.18);
+}
+.inkswell-audit__opening--action {
+  background: hsla(0, 80%, 55%, 0.16);
+}
+.inkswell-audit__opening--thought {
+  background: hsla(265, 70%, 60%, 0.18);
+}
+.inkswell-audit__opening--reflection {
+  background: hsla(150, 60%, 45%, 0.16);
+}
+.inkswell-audit__opening.is-flagged {
+  outline: 1px solid var(--text-warning, var(--text-accent));
+  font-weight: var(--font-medium);
+}
+.inkswell-audit__runs {
+  margin-top: var(--size-4-2);
+}
+/* Character-arc tracker */
+.inkswell-audit__arcpicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-1);
+  margin-bottom: var(--size-4-3);
+}
+.inkswell-audit__arcblock {
+  margin-bottom: var(--size-4-3);
+}
+.inkswell-audit__archead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-2);
+}
+.inkswell-audit__arcname {
+  font-weight: var(--font-semibold);
+}
+.inkswell-audit__arcbadge {
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-audit__arcbadge.is-transforms {
+  color: var(--text-success, var(--text-accent));
+}
+.inkswell-audit__arcstrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin: var(--size-4-1) 0;
+}
+.inkswell-audit__arccell {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--background-modifier-border);
+}
+.inkswell-audit__arccell.has-data {
+  background: var(--interactive-accent);
+}
+.inkswell-audit__arccell.is-flat {
+  outline: 1px solid var(--text-warning, var(--text-accent));
+}
+/* Per-scene arc editing rows (Inspector) */
+.inkswell-audit__arcrow {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  margin-bottom: 2px;
+}
+.inkswell-audit__arcrow .inkswell-audit__arcname {
+  min-width: 6em;
+  font-weight: var(--font-normal);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-audit__arcfield {
+  flex: 1;
+  font-size: var(--font-ui-smaller);
+}
+/* Side-character roster */
+.inkswell-audit__rosterrow {
+  padding: var(--size-4-1) 0;
+  border-top: 1px solid var(--background-modifier-border);
+}
+.inkswell-audit__rosterhead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-2);
+  cursor: pointer;
+}
+.inkswell-audit__rosterdetail {
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-audit__rosterflags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-1);
+  margin-top: 2px;
+}
+.inkswell-audit__flag {
+  font-size: var(--font-ui-smaller);
+  background: hsla(45, 90%, 50%, 0.2);
+  border-radius: 3px;
+  padding: 0 var(--size-4-1);
+}
+/* Style sheet */
+.inkswell-audit__stylerow {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: 2px 0;
+}
+.inkswell-audit__stylecanon {
+  font-weight: var(--font-medium);
+}
+.inkswell-audit__styleadd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-1);
+  margin: var(--size-4-2) 0;
+}
+.inkswell-audit__styleresults {
+  margin-top: var(--size-4-2);
+}
+/* Pace badge + draft milestone zone (Track → Project targets) */
+.inkswell-pace {
+  font-size: var(--font-ui-smaller);
+  border-radius: 3px;
+  padding: 1px var(--size-4-1);
+  display: inline-block;
+  margin-top: 2px;
+}
+.inkswell-pace--ahead,
+.inkswell-pace--on-track {
+  background: hsla(150, 60%, 45%, 0.2);
+}
+.inkswell-pace--behind {
+  background: hsla(0, 80%, 55%, 0.2);
+}
+.inkswell-stats__zone {
+  font-style: italic;
+}
+.inkswell-mood {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+/* Write: "next up" breadcrumb card */
+.inkswell-write__nextup {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-1) var(--size-4-2);
+  margin: 0 auto var(--size-4-2);
+  max-width: 90ch;
+  width: 100%;
+  border: 1px dashed var(--background-modifier-border);
+  border-radius: var(--radius-s);
+}
+.inkswell-write__nextupinput {
+  flex: 1;
+}
+
+/* --- Publishing (Publish → Checklist / Launch) --- */
+.inkswell-publishing__task {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: 2px 0;
+}
+.inkswell-publishing__date {
+  width: 9em;
+}
+.inkswell-publishing__notes {
+  flex: 1;
+  min-width: 8em;
+}
+.inkswell-publishing__link {
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-publishing__format {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: 2px 0;
+}
+.inkswell-publishing__price {
+  width: 6em;
+}
+.inkswell-publishing__isbn {
+  width: 12em;
+}
+.inkswell-publishing__preorderctl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-3);
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-publishing__milestone {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: 2px 0;
+}
+.inkswell-publishing__mlabel {
+  flex: 1;
+}
+.inkswell-publishing__mstatus {
+  font-size: var(--font-ui-smaller);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 3px;
+  padding: 0 var(--size-4-1);
+}
+.inkswell-publishing__mstatus.is-overdue {
+  background: hsla(0, 80%, 55%, 0.22);
+}
+.inkswell-publishing__mstatus.is-upcoming {
+  background: hsla(45, 90%, 50%, 0.22);
+}
+.inkswell-publishing__mstatus.is-done {
+  background: hsla(150, 60%, 45%, 0.22);
+}
+.inkswell-tracker__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-1);
+  padding: 2px 0;
+}
+.inkswell-tracker__cell {
+  min-width: 6em;
+}
+/* Scene-level checklist (shared by Inspector + dashboard) */
+.inkswell-audit__checks {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--size-4-2) 0;
+}
+.inkswell-inspector__audit {
+  margin-top: var(--size-4-3);
+}
+.inkswell-inspector__audit > summary {
+  cursor: pointer;
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+}
+
 /* --- Publish step editor --- */
 .inkswell-publish__field {
   display: flex;
@@ -715,6 +1116,39 @@
 .cm-md-h5,
 .cm-md-h6 {
   font-size: 1.05em;
+}
+
+/* Fast-drafting placeholder tokens: distinct tinted, rounded chips so unfilled
+   gaps are obvious at a glance while drafting. */
+.cm-ph-tk,
+.cm-ph-dialogue,
+.cm-ph-scene,
+.cm-ph-note,
+.cm-ph-unknown {
+  border-radius: 3px;
+  padding: 0 2px;
+  font-size: 0.92em;
+  font-weight: var(--font-medium);
+}
+.cm-ph-tk {
+  background: hsla(45, 90%, 50%, 0.2);
+  color: var(--text-normal);
+}
+.cm-ph-unknown {
+  background: hsla(0, 80%, 55%, 0.18);
+  color: var(--text-normal);
+}
+.cm-ph-dialogue {
+  background: hsla(210, 80%, 55%, 0.16);
+  color: var(--text-normal);
+}
+.cm-ph-scene {
+  background: hsla(265, 70%, 60%, 0.16);
+  color: var(--text-normal);
+}
+.cm-ph-note {
+  background: hsla(150, 60%, 45%, 0.16);
+  color: var(--text-normal);
 }
 .inkswell-write__inspector {
   width: 260px;
@@ -1385,6 +1819,31 @@
   color: var(--text-faint);
   font-size: var(--font-ui-smaller);
   margin-top: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-1);
+}
+.inkswell-revision__type {
+  border-radius: 3px;
+  padding: 0 var(--size-4-1);
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+}
+.inkswell-revision__pri {
+  border-radius: 3px;
+  padding: 0 var(--size-4-1);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.inkswell-revision__pri--high {
+  background: hsla(0, 80%, 55%, 0.22);
+}
+.inkswell-revision__pri--med {
+  background: hsla(45, 90%, 50%, 0.22);
+}
+.inkswell-revision__pri--low {
+  background: hsla(210, 80%, 55%, 0.18);
 }
 
 /* --- Color pass: subtle theme-accent on headers, dividers, active states ---

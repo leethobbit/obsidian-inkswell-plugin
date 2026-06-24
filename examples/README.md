@@ -22,8 +22,8 @@ Open [`_Start Here`](sample-vault/_Start%20Here.md) inside the vault for the tou
 
 | Path | Role |
 |------|------|
-| `The Lamplighter's Archive.md` | Project **index** — the `longform:` + `inkswell:` frontmatter (scene order, target, beats, compile recipe, series, revision log). |
-| `Manuscript/` | Seven scenes spanning every `status` (idea → revised), 5 chapters, 3 acts, 2 POVs. |
+| `The Lamplighter's Archive.md` | Project **index** — the `longform:` + `inkswell:` frontmatter: scene order, target + **deadline**, beats, compile recipe, series, **typed/prioritized** revision log, **revision checklist**, tracked-arc character, **style sheet**, and the **publishing** block (checklist, metadata, pre-order launch). |
+| `Manuscript/` | Seven scenes spanning every `status` (idea → revised), 5 chapters, 3 acts, 2 POVs. Scenes 1/2/5 carry **revision-audit** frontmatter (`revScene`, `revArc`, lift-out verdict); scene 2 has **placeholder tokens** in its body. |
 | `Codex/` | Seven entities across 5 categories (character, location, world, concept, faction). |
 | `.obsidian/plugins/inkswell/data.json` | Seeded `writingLog` (≈24 weeks of daily words + 14 sprints), settings, and captured ideas. **Committed.** |
 | `_Start Here.md` | In-vault getting-started guide and tips. |
