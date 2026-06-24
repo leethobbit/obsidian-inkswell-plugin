@@ -27,7 +27,7 @@ The invisible-revision method, the fast-drafting aids, the revision audit, and t
 **Requirements:** Obsidian 1.5.0+ (pandoc optional, for `.docx`/`.pdf`/`.epub`).
 
 - **Community plugins** (once accepted into the directory): Settings → *Community plugins* → *Browse* → search **Inkswell** → Install → Enable. *(Directory submission pending.)*
-- **Manual:** download `main.js`, `manifest.json`, and `styles.css` from the latest [release](https://github.com/leethobbit/obsidian-scribe-plugin/releases) into `<vault>/.obsidian/plugins/inkswell/`, then enable Inkswell in *Community plugins*.
+- **Manual:** download `main.js`, `manifest.json`, and `styles.css` from the latest [release](https://github.com/leethobbit/obsidian-inkswell-plugin/releases) into `<vault>/.obsidian/plugins/inkswell/`, then enable Inkswell in *Community plugins*.
 
 Open Inkswell from the pen-tip ribbon icon or the *"Open Inkswell"* command.
 
