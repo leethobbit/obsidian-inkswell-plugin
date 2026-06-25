@@ -88,6 +88,23 @@ describe("assembleManuscript", () => {
     expect(out).toBe("one\n\ntwo");
   });
 
+  it("removes drafting markers via the remove-todos step", () => {
+    const out = assembleManuscript(
+      [
+        { title: "A", indent: 0, contents: "He paused [NOTE: check this] then left." },
+        { title: "B", indent: 0, contents: "[TODO: open] and [SCENE: the duel] follow." },
+      ],
+      config({
+        sceneSteps: [{ id: "remove-todos", options: {} }],
+        manuscriptSteps: [],
+        separator: "\n\n",
+      })
+    );
+    expect(out).not.toMatch(/\[(TODO|NOTE|SCENE)/);
+    expect(out).toContain("He paused");
+    expect(out).toContain("then left.");
+  });
+
   it("throws on an unknown step id", () => {
     expect(() =>
       assembleManuscript(scenes, config({ sceneSteps: [{ id: "nope", options: {} }] }))

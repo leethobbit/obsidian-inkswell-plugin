@@ -36,6 +36,19 @@ export class WritingTracker extends Component {
     this.registerEvent(
       this.app.vault.on("modify", (file) => this.handleModify(file))
     );
+    // Live keystroke counting for Obsidian's own editors (the in-plugin Write
+    // panel reports separately via noteLiveContent). `modify` only fires when the
+    // buffer is flushed to disk — on blur/autosave — so without this a running
+    // sprint wouldn't tick until you click away. Funnels through the same
+    // baseline, so the later disk save is a no-op (no double count).
+    this.registerEvent(
+      this.app.workspace.on("editor-change", (editor, info) => {
+        const file = info.file;
+        if (file instanceof TFile && file.extension === "md") {
+          this.applyCount(file.path, countWords(editor.getValue()), true);
+        }
+      })
+    );
   }
 
   /** Subscribe to per-edit deltas (e.g. for live sprint counting). */
@@ -84,12 +97,37 @@ export class WritingTracker extends Component {
     for (const fn of this.changeListeners) fn();
   }
 
+  /**
+   * Live word count from the active editor buffer, before it's saved to disk.
+   * The in-plugin Write editor defers saves to blur/switch, so disk `modify`
+   * events (and thus the live sprint tally) would otherwise only fire when you
+   * click away. This funnels editor edits through the SAME per-file baseline as
+   * {@link handleModify}, so a live edit and its later disk save can't
+   * double-count: by save time the baseline already equals the count, so the
+   * disk pass is a no-op. `text` should match what gets written (frontmatter +
+   * body); `countWords` strips frontmatter, so body-only text reconciles too.
+   */
+  noteLiveContent(path: string, text: string): void {
+    this.applyCount(path, countWords(text), true);
+  }
+
   private async handleModify(file: TAbstractFile): Promise<void> {
     if (!(file instanceof TFile) || file.extension !== "md") return;
     const contents = await this.app.vault.cachedRead(file);
-    const count = countWords(contents);
-    const prev = this.log.baselines[file.path];
-    this.log.baselines[file.path] = count;
+    this.applyCount(file.path, countWords(contents));
+  }
+
+  /**
+   * Attribute the net change for `path` to today, given its current word count.
+   * `live` (per-keystroke) edits notify only the delta listeners — the sprint
+   * tally, which the status bar reflects — and skip the heavier change listeners
+   * that drive full re-renders, so typing in a background editor can't trigger a
+   * host rebuild on every keystroke. The eventual disk `modify` (live=false)
+   * fires the change listeners once.
+   */
+  private applyCount(path: string, count: number, live = false): void {
+    const prev = this.log.baselines[path];
+    this.log.baselines[path] = count;
 
     // First time we've seen this file (no persisted baseline): set baseline
     // only, so pre-existing content isn't counted as "written now".
@@ -103,8 +141,8 @@ export class WritingTracker extends Component {
     const key = dateKey(new Date());
     this.log.daily[key] = (this.log.daily[key] ?? 0) + delta;
 
-    for (const fn of this.listeners) fn(delta, file.path);
-    for (const fn of this.changeListeners) fn();
+    for (const fn of this.listeners) fn(delta, path);
+    if (!live) for (const fn of this.changeListeners) fn();
     this.save();
   }
 }

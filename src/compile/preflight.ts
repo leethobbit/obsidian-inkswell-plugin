@@ -6,6 +6,8 @@
  * stripped first, exactly as the compile does, so they never false-flag.
  */
 
+import { scanPlaceholders } from "../lib/placeholders";
+
 const FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/;
 const OBSIDIAN_COMMENT_RE = /%%[\s\S]*?%%/g;
 
@@ -54,6 +56,7 @@ export function preflight(scenes: SceneText[]): PreflightFinding[] {
   const doubleSpace = new Map<string, number>();
   const html = new Map<string, number>();
   const pagebreak = new Map<string, number>();
+  const todos = new Map<string, number>();
   const empty: string[] = [];
   const styles = new Set<string>();
 
@@ -70,6 +73,7 @@ export function preflight(scenes: SceneText[]): PreflightFinding[] {
     if ((n = count(DOUBLE_SPACE_RE, text))) doubleSpace.set(s.title, n);
     if ((n = count(RAW_HTML_RE, text))) html.set(s.title, n);
     if ((n = count(PAGEBREAK_RE, text))) pagebreak.set(s.title, n);
+    if ((n = scanPlaceholders(text).length)) todos.set(s.title, n);
     for (const line of text.split("\n")) {
       const style = breakStyle(line);
       if (style) styles.add(style);
@@ -88,6 +92,11 @@ export function preflight(scenes: SceneText[]): PreflightFinding[] {
   fromMap("double-space", "Double spaces — collapse to single spaces", doubleSpace);
   fromMap("html", "Raw HTML tags — won't survive cleanly into DOCX", html);
   fromMap("page-break", "Manual page breaks — let the chapter style handle breaks", pagebreak);
+  fromMap(
+    "todos",
+    "Unresolved drafting markers ([TODO]/[NOTE]/[SCENE]…) — resolve them or the 'remove-todos' step will drop them",
+    todos
+  );
 
   if (empty.length > 0) {
     findings.push({

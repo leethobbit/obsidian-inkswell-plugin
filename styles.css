@@ -1440,9 +1440,11 @@
 }
 .inkswell-sprint-row {
   display: grid;
-  /* Content-sized columns packed left; trailing 1fr absorbs the slack so the
-     date column doesn't stretch across the panel. */
-  grid-template-columns: auto 6ch 5ch 6ch 5ch 1fr;
+  /* Each row is its own grid, so the date column must be a FIXED width or a
+     single-digit day ("6/9/2026") makes it narrower than a two-digit one
+     ("6/10/2026") and every following column shifts. 10ch fits a numeric
+     locale date (e.g. "12/30/2026"); trailing 1fr absorbs the slack. */
+  grid-template-columns: 10ch 6ch 5ch 6ch 5ch 1fr;
   align-items: baseline;
   gap: var(--size-4-3);
   padding: 2px 0;

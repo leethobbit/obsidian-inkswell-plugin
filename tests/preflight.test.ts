@@ -53,6 +53,16 @@ describe("preflight", () => {
     expect(f.detail).toContain("---");
   });
 
+  it("flags unresolved drafting markers across kinds", () => {
+    const f = preflight([
+      { title: "A", text: "He paused. [NOTE: check timeline] and walked on." },
+      { title: "B", text: "[TODO]\nLater: [SCENE: the big fight]" },
+      { title: "Clean", text: "Nothing to defer here." },
+    ]).find((x) => x.rule === "todos")!;
+    expect(f.count).toBe(3);
+    expect(f.scenes).toEqual(["A", "B"]);
+  });
+
   it("aggregates counts and affected scene titles", () => {
     const f = preflight([
       { title: "A", text: "tab\there" },

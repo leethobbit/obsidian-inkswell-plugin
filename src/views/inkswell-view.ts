@@ -119,6 +119,9 @@ export class InkswellView extends ItemView {
   private unsubs: Array<() => void> = [];
   /** Set while a body rebuild is deferred because an input is focused. */
   private pendingRender = false;
+  /** True between pointerdown and pointerup — a deferred rebuild must not fire
+   *  mid-gesture or it tears down the element a click is landing on. */
+  private pointerDown = false;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -209,6 +212,20 @@ export class InkswellView extends ItemView {
     // the active scene file when you navigate notes *outside* the host: file-open
     // carries the file; active-leaf-change only updates the target when its leaf
     // actually has a file, so focusing the host (which has none) never blanks it.
+    // Track pointer-press state (capture phase, so it's set before the focus
+    // change that fires blur). A deferred body rebuild checks this so it never
+    // runs between a mousedown and its mouseup — which would destroy the click
+    // target and swallow the click (it would just "refresh" the view instead).
+    this.registerDomEvent(document, "pointerdown", () => (this.pointerDown = true), {
+      capture: true,
+    });
+    this.registerDomEvent(document, "pointerup", () => (this.pointerDown = false), {
+      capture: true,
+    });
+    this.registerDomEvent(document, "pointercancel", () => (this.pointerDown = false), {
+      capture: true,
+    });
+
     this.activeFile = this.app.workspace.getActiveFile();
     this.registerEvent(
       this.app.workspace.on("file-open", (file) => {
@@ -305,10 +322,17 @@ export class InkswellView extends ItemView {
         // Defer to the next tick so focus has settled: tabbing to another field
         // fires blur on this one before that field gains focus, so re-checking
         // immediately would rebuild and destroy the field being tabbed into.
-        window.setTimeout(() => {
+        // And never rebuild mid-click — if a pointer is down (the user is
+        // clicking away), wait for it to lift so the click isn't swallowed.
+        const flush = () => {
+          if (this.pointerDown) {
+            window.setTimeout(flush, 50);
+            return;
+          }
           this.pendingRender = false;
           this.renderActive();
-        }, 0);
+        };
+        window.setTimeout(flush, 0);
       };
       ae.addEventListener("blur", onBlur);
       return;

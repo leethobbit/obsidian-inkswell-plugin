@@ -62,6 +62,16 @@ function kindOf(keyword: string): PlaceholderKind {
   return keyword.toLowerCase() as PlaceholderKind;
 }
 
+/**
+ * Remove every to-do marker from `text` — the compile-step / pre-export cleanup
+ * so drafting placeholders never ship in the manuscript. Markers are single-line
+ * by construction, so this can't swallow real prose across a paragraph break;
+ * leftover blank lines are tidied by the `trim-blank-lines` manuscript step.
+ */
+export function stripPlaceholders(text: string): string {
+  return text.replace(PLACEHOLDER_RE, "");
+}
+
 /** Find every to-do marker in `text`, sorted by start offset. */
 export function scanPlaceholders(text: string): PlaceholderMatch[] {
   const out: PlaceholderMatch[] = [];

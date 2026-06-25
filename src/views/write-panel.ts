@@ -77,6 +77,9 @@ export class WritePanel {
   private editorToken = 0;
   private currentFile: TFile | null = null;
   private loadedBody = "";
+  /** Frontmatter of the loaded scene, kept so the live word count reconciles
+   *  with the on-disk count (which includes it). */
+  private loadedFrontmatter = "";
   private countEl: HTMLElement | null = null;
   private unsub: (() => void) | null = null;
   /** A token to scroll-to + flash once the editor finishes loading (from Todos). */
@@ -277,14 +280,18 @@ export class WritePanel {
       const m = content.match(FRONTMATTER_RE);
       const body = m ? m[2] : content;
       this.loadedBody = body;
+      this.loadedFrontmatter = m ? m[1] : "";
       this.editor = createSceneEditor({
         parent: host,
         doc: body,
-        onChange: () => this.updateCount(),
+        onChange: () => this.onEditorChange(),
         onBlur: () => void this.saveBody(),
         onLogIssue: () => this.logIssue(),
       });
       this.updateCount();
+      // Prime the tracker baseline for this scene so the first word typed in a
+      // not-yet-seen file isn't lost to first-sight baselining.
+      this.reportLiveCount();
       this.applyPendingHighlight(body);
     });
   }
@@ -308,6 +315,21 @@ export class WritePanel {
     if (this.countEl) {
       this.countEl.setText(this.editor ? `${countWords(this.editor.state.doc.toString())} words` : "");
     }
+  }
+
+  /** A live document edit: refresh the visible count and feed the live word
+   *  count to the tracker so the sprint tally ticks up as you type (not just on
+   *  blur/save). */
+  private onEditorChange(): void {
+    this.updateCount();
+    this.reportLiveCount();
+  }
+
+  /** Report the editor's current word count to the tracker for the active scene. */
+  private reportLiveCount(): void {
+    if (!this.editor || !this.currentFile) return;
+    const body = this.editor.state.doc.toString();
+    this.plugin.tracker.noteLiveContent(this.currentFile.path, this.loadedFrontmatter + body);
   }
 
   private async saveBody(): Promise<void> {

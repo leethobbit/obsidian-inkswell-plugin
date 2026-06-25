@@ -5,6 +5,7 @@
  * see AGENTS.md "Adding a compile step".
  */
 
+import { stripPlaceholders } from "../lib/placeholders";
 import { CompileScene, CompileStep, ManuscriptStep, SceneStep } from "./types";
 
 const FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/;
@@ -29,6 +30,19 @@ const removeComments: SceneStep = {
       ...s,
       contents: s.contents.replace(OBSIDIAN_COMMENT_RE, ""),
     })),
+};
+
+/**
+ * Remove drafting to-do markers ([TODO:], [NOTE:], [RESEARCH:], [DIALOGUE:],
+ * [SCENE:]) from each scene. These are "defer everything" placeholders, never
+ * part of the finished manuscript — without this step they ship verbatim.
+ */
+const removeTodos: SceneStep = {
+  id: "remove-todos",
+  description: "Remove drafting markers ([TODO], [NOTE], [SCENE]…) — unfinished spots",
+  kind: "scene",
+  run: (scenes) =>
+    scenes.map((s) => ({ ...s, contents: stripPlaceholders(s.contents) })),
 };
 
 /** Prepend a markdown heading (scene title) to each scene. */
@@ -98,6 +112,7 @@ const trimBlankLines: ManuscriptStep = {
 export const BUILTIN_STEPS: CompileStep[] = [
   stripFrontmatter,
   removeComments,
+  removeTodos,
   prependTitle,
   groupByChapter,
   trimBlankLines,

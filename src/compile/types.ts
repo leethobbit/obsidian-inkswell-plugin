@@ -71,6 +71,7 @@ export const DEFAULT_COMPILE_CONFIG: CompileConfig = {
   sceneSteps: [
     { id: "strip-frontmatter", options: {} },
     { id: "remove-comments", options: {} },
+    { id: "remove-todos", options: {} },
   ],
   manuscriptSteps: [{ id: "trim-blank-lines", options: {} }],
   separator: "\n\n",
