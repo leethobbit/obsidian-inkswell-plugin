@@ -76,8 +76,8 @@ Cut `1.0.0` only once the Longform-compatible frontmatter format is stable enoug
 1. `npm version <patch|minor|major> --no-git-tag-version` — bumps `package.json` and runs `version-bump.mjs`, which syncs `manifest.json` + `versions.json` and stages them.
 2. Confirm the three files agree on the new number.
 3. `npm run build` — REQUIRED after the bump so auto-deploy copies the new `manifest.json` to the vault. Skipping this leaves the installed plugin on the old version. (Reload Obsidian to pick it up.)
-4. `git add -A && git commit -m "vX.Y.Z: <summary>"` (include the Co-authored-by trailer; `-A` so new files are caught).
-5. `git tag vX.Y.Z`.
+4. `git add -A && git commit -m "X.Y.Z: <summary>"` (include the Co-authored-by trailer; `-A` so new files are caught).
+5. `git tag X.Y.Z` — **no `v` prefix.** Obsidian resolves a release's assets by the exact `manifest.json` version, so the tag must equal it verbatim (`1.0.0`, not `v1.0.0`). Pushing the tag triggers `.github/workflows/release.yml`, which builds and drafts the GitHub release; publish that draft to distribute.
 
 ## Gotchas
 1. **Scene indent encoding** — symptom: Longform stops recognizing a project after Inkswell edits it. Cause: serializing `scenes` as flat strings with indent ints instead of nested arrays. Fix: use the ported `indentedScenesToArrays`.

@@ -112,7 +112,7 @@ export class InkswellSettingTab extends PluginSettingTab {
           })
       );
 
-    containerEl.createEl("h3", { text: "Goals & sprints" });
+    new Setting(containerEl).setName("Goals & sprints").setHeading();
 
     new Setting(containerEl)
       .setName("Daily word goal")
@@ -203,7 +203,7 @@ export class InkswellSettingTab extends PluginSettingTab {
           })
       );
 
-    containerEl.createEl("h3", { text: "Folders" });
+    new Setting(containerEl).setName("Folders").setHeading();
 
     new Setting(containerEl)
       .setName("Base folder")
