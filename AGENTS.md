@@ -72,12 +72,15 @@ Pre-1.0 the leading `0` means "unstable": data-format/compat breaks are allowed 
 
 Cut `1.0.0` only once the Longform-compatible frontmatter format is stable enough to promise compatibility. `minAppVersion` rises only when adopting a newer Obsidian API — record the mapping in `versions.json`.
 
+**Release notes are mandatory.** Every change toward a release — feature, fix, or user-facing behavior change — adds a line under the `## [Unreleased]` section of [CHANGELOG.md](CHANGELOG.md) **in the same commit/PR that makes the change** (Keep a Changelog format: Added / Changed / Fixed / Removed). Don't defer it to release time; the changelog is how we always have a current description of what's shipping (store listing, GitHub release, Discord post).
+
 ### Bumping a version (in order)
-1. `npm version <patch|minor|major> --no-git-tag-version` — bumps `package.json` and runs `version-bump.mjs`, which syncs `manifest.json` + `versions.json` and stages them.
-2. Confirm the three files agree on the new number.
-3. `npm run build` — REQUIRED after the bump so auto-deploy copies the new `manifest.json` to the vault. Skipping this leaves the installed plugin on the old version. (Reload Obsidian to pick it up.)
-4. `git add -A && git commit -m "X.Y.Z: <summary>"` (include the Co-authored-by trailer; `-A` so new files are caught).
-5. `git tag X.Y.Z` — **no `v` prefix.** Obsidian resolves a release's assets by the exact `manifest.json` version, so the tag must equal it verbatim (`1.0.0`, not `v1.0.0`). Pushing the tag triggers `.github/workflows/release.yml`, which builds and drafts the GitHub release; publish that draft to distribute.
+1. **Promote the changelog** — in [CHANGELOG.md](CHANGELOG.md), rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, add a fresh empty `## [Unreleased]` above it, and update the link refs at the bottom. The release workflow injects this section as the GitHub release body, so it must be accurate before you tag.
+2. `npm version <patch|minor|major> --no-git-tag-version` — bumps `package.json` and runs `version-bump.mjs`, which syncs `manifest.json` + `versions.json` and stages them.
+3. Confirm the three files agree on the new number.
+4. `npm run build` — REQUIRED after the bump so auto-deploy copies the new `manifest.json` to the vault. Skipping this leaves the installed plugin on the old version. (Reload Obsidian to pick it up.)
+5. `git add -A && git commit -m "X.Y.Z: <summary>"` (include the Co-authored-by trailer; `-A` so new files are caught).
+6. `git tag X.Y.Z` — **no `v` prefix.** Obsidian resolves a release's assets by the exact `manifest.json` version, so the tag must equal it verbatim (`1.0.0`, not `v1.0.0`). Pushing the tag triggers `.github/workflows/release.yml`, which builds and drafts the GitHub release (with the matching CHANGELOG section as its body); publish that draft to distribute.
 
 ## Gotchas
 1. **Scene indent encoding** — symptom: Longform stops recognizing a project after Inkswell edits it. Cause: serializing `scenes` as flat strings with indent ints instead of nested arrays. Fix: use the ported `indentedScenesToArrays`.

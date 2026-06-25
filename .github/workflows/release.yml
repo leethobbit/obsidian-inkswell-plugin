@@ -23,6 +23,18 @@ jobs:
           npm ci
           npm run build
 
+      - name: Extract changelog section
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          awk -v tag="$tag" '
+            $0 ~ "^## \\[" tag "\\]" { found=1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md | sed '/./,$!d' > RELEASE_NOTES.md
+          if [ ! -s RELEASE_NOTES.md ]; then
+            echo "Release $tag" > RELEASE_NOTES.md
+          fi
+
       - name: Create draft release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -31,4 +43,5 @@ jobs:
           gh release create "$tag" \
             --title="$tag" \
             --draft \
+            --notes-file RELEASE_NOTES.md \
             main.js manifest.json styles.css

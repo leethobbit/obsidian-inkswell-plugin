@@ -33,9 +33,9 @@
 
 ## Why Inkswell
 
-- **Drop-in for Longform users.** Inkswell reads and writes the same `longform` frontmatter, so existing projects load with **zero migration**. Inkswell-only data lives under a separate `inkswell` key and never touches your prose.
 - **The whole lifecycle in one plugin.** Most tools cover one or two stages. Inkswell organizes the entire arc of a novel — **Home · Plan · Write · Revise · Publish**, plus a cross-cutting **Codex** and **Track** dashboard — into a single host view. Think Scrivener-class project management, but native to Obsidian and local-first.
 - **Local-first. No AI.** Inkswell makes **no network calls**, collects **no telemetry**, and generates **nothing** for you. Your manuscript lives in your vault's frontmatter and the plugin's local `data.json` — and nowhere else. Inkswell supports your writing but does not do any writing for you.
+- **Drop-in for Longform users.** Inkswell reads and writes the same `longform` frontmatter, so existing projects load with **zero migration**. Inkswell-only data lives under a separate `inkswell` key and never touches your prose.
 
 ## What's inside
 
@@ -115,7 +115,7 @@ Daily / weekly / monthly word goals, habit streaks, a GitHub-style heatmap, life
 
 ## Install
 
-**Requirements:** Obsidian 1.5.0+ (pandoc optional, for `.docx` / `.pdf` / `.epub`).
+**Requirements:** Obsidian 1.7.2+ (pandoc optional, for `.docx` / `.pdf` / `.epub`).
 
 - **Community plugins:** Settings → *Community plugins* → *Browse* → search **Inkswell** → Install → Enable.
 - **Manual:** download `main.js`, `manifest.json`, and `styles.css` from the latest [release](https://github.com/leethobbit/obsidian-inkswell-plugin/releases) into `<vault>/.obsidian/plugins/inkswell/`, then enable Inkswell in *Community plugins*.
