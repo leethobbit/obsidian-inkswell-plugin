@@ -12,6 +12,7 @@
  */
 
 import type { App, TFile } from "obsidian";
+import { asRecord } from "../lib/frontmatter";
 import { ArcSnapshot, parseSceneArc, serializeSceneArc } from "./arc";
 import { SCENE_CHECK_IDS, SceneCheckId } from "./audit";
 import { OpeningType } from "./openings";
@@ -56,7 +57,8 @@ export interface SceneAuditPatch {
 
 /** Read a scene's audit state from the metadata cache. */
 export function readSceneAudit(app: App, file: TFile): SceneAudit {
-  const fm = app.metadataCache.getFileCache(file)?.frontmatter ?? {};
+  const fm: Record<string, unknown> =
+    app.metadataCache.getFileCache(file)?.frontmatter ?? {};
   const raw = fm[SCENE_KEY];
   const checks: Partial<Record<SceneCheckId, boolean>> = {};
   if (raw && typeof raw === "object") {
@@ -66,8 +68,16 @@ export function readSceneAudit(app: App, file: TFile): SceneAudit {
   }
   const note = typeof fm[NOTE_KEY] === "string" ? fm[NOTE_KEY] : undefined;
   const purpose = typeof fm[PURPOSE_KEY] === "string" ? fm[PURPOSE_KEY] : undefined;
-  const verdict = VERDICTS.includes(fm[VERDICT_KEY]) ? (fm[VERDICT_KEY] as SceneVerdict) : undefined;
-  const opening = OPENINGS.includes(fm[OPENING_KEY]) ? (fm[OPENING_KEY] as OpeningType) : undefined;
+  const rawVerdict = fm[VERDICT_KEY];
+  const verdict =
+    typeof rawVerdict === "string" && (VERDICTS as string[]).includes(rawVerdict)
+      ? (rawVerdict as SceneVerdict)
+      : undefined;
+  const rawOpening = fm[OPENING_KEY];
+  const opening =
+    typeof rawOpening === "string" && (OPENINGS as string[]).includes(rawOpening)
+      ? (rawOpening as OpeningType)
+      : undefined;
   const arc = parseSceneArc(fm[ARC_KEY]);
   return { checks, note, purpose, verdict, opening, arc };
 }
@@ -82,10 +92,9 @@ export async function writeSceneAudit(
   file: TFile,
   patch: SceneAuditPatch
 ): Promise<void> {
-  await app.fileManager.processFrontMatter(file, (fm) => {
+  await app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
     if (patch.checks) {
-      const cur: Record<string, unknown> =
-        fm[SCENE_KEY] && typeof fm[SCENE_KEY] === "object" ? { ...fm[SCENE_KEY] } : {};
+      const cur: Record<string, unknown> = { ...asRecord(fm[SCENE_KEY]) };
       for (const id of SCENE_CHECK_IDS) {
         if (!(id in patch.checks)) continue;
         if (patch.checks[id]) cur[id] = true;

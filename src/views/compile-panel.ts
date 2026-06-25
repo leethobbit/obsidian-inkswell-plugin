@@ -289,7 +289,7 @@ export class CompilePanel {
   private configFor(project: Project): CompileConfig {
     const saved = project.inkswell?.compile;
     if (saved && Array.isArray(saved.sceneSteps)) return saved;
-    return JSON.parse(JSON.stringify(DEFAULT_COMPILE_CONFIG));
+    return JSON.parse(JSON.stringify(DEFAULT_COMPILE_CONFIG)) as CompileConfig;
   }
 
   private save(project: Project, config: CompileConfig): void {

@@ -304,7 +304,9 @@ export class CodexPanel {
         return;
       }
       // links
-      this.renderLinkField(control, field, profile, entities, entity, saveAndRefresh);
+      this.renderLinkField(control, field, profile, entities, entity, (value) =>
+        void saveAndRefresh(value)
+      );
     });
   }
 

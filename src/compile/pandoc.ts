@@ -16,9 +16,9 @@ type ExecFile = (
   cb: (err: Error | null, stdout: string | Buffer, stderr: string) => void
 ) => void;
 
-function nodeRequire(id: string): any {
+function nodeRequire(id: string): unknown {
   // Guarded indirect require: present on desktop (Electron), absent on mobile.
-  const req = (window as any).require;
+  const req = (window as unknown as { require?: (id: string) => unknown }).require;
   if (typeof req !== "function") {
     throw new Error("Node APIs unavailable (mobile?) — pandoc export needs desktop.");
   }

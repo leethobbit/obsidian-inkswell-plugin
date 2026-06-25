@@ -112,7 +112,9 @@ export class ProjectStore extends Component {
     try {
       const found: Project[] = [];
       for (const file of this.app.vault.getMarkdownFiles()) {
-        const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
+        const fm = this.app.metadataCache.getFileCache(file)?.frontmatter as
+          | Record<string, unknown>
+          | undefined;
         if (!fm || !("longform" in fm)) continue; // cheap detection only
         const parsed = await this.readFrontmatter(file);
         const longform = parsed?.["longform"] ?? fm["longform"];
@@ -143,14 +145,14 @@ export class ProjectStore extends Component {
   /** Read and YAML-parse a note's frontmatter block (reliable for nested data). */
   private async readFrontmatter(
     file: TFile
-  ): Promise<Record<string, any> | null> {
+  ): Promise<Record<string, unknown> | null> {
     try {
       const text = await this.app.vault.cachedRead(file);
       const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
       if (!m) return null;
-      const parsed = parseYaml(m[1]);
+      const parsed: unknown = parseYaml(m[1]);
       return parsed && typeof parsed === "object"
-        ? (parsed as Record<string, any>)
+        ? (parsed as Record<string, unknown>)
         : null;
     } catch {
       return null;

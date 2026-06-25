@@ -18,7 +18,9 @@ import {
 export function getCodexEntities(app: App): CodexEntity[] {
   const out: CodexEntity[] = [];
   for (const file of app.vault.getMarkdownFiles()) {
-    const fm = app.metadataCache.getFileCache(file)?.frontmatter;
+    const fm = app.metadataCache.getFileCache(file)?.frontmatter as
+      | Record<string, unknown>
+      | undefined;
     const cat = fm?.["codex"];
     if (!isCodexCategory(cat)) continue;
 
@@ -57,7 +59,7 @@ export async function writeEntityScope(
   file: TFile,
   scope: EntityScope
 ): Promise<void> {
-  await app.fileManager.processFrontMatter(file, (fm) => {
+  await app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
     delete fm[SCOPE_PROJECT_KEY];
     delete fm[SCOPE_SERIES_KEY];
     if (scope.series) fm[SCOPE_SERIES_KEY] = scope.series;
@@ -72,7 +74,9 @@ export async function writeEntityScope(
 export function scenesReferencing(app: App, entityName: string): TFile[] {
   const out: TFile[] = [];
   for (const file of app.vault.getMarkdownFiles()) {
-    const fm = app.metadataCache.getFileCache(file)?.frontmatter;
+    const fm = app.metadataCache.getFileCache(file)?.frontmatter as
+      | Record<string, unknown>
+      | undefined;
     if (!fm) continue;
     const refs: string[] = [];
     const chars = fm["characters"];

@@ -105,7 +105,7 @@ export async function writeSceneMeta(
   file: TFile,
   patch: Partial<SceneMeta>
 ): Promise<void> {
-  await app.fileManager.processFrontMatter(file, (fm) => {
+  await app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
     for (const key of FIELD_KEYS) {
       if (!(key in patch)) continue;
       const value = patch[key];

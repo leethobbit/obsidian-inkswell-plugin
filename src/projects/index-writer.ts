@@ -8,6 +8,7 @@
  */
 
 import { App, TFile } from "obsidian";
+import { asRecord } from "../lib/frontmatter";
 import { writeDraftToFrontmatter } from "./draft-serialization";
 import { Draft, IndentedScene, MultipleSceneDraft, InkswellProjectData, ProjectOverview, SeriesInfo } from "./types";
 
@@ -17,7 +18,7 @@ export async function persistDraft(
   indexFile: TFile,
   draft: Draft
 ): Promise<void> {
-  await app.fileManager.processFrontMatter(indexFile, (fm) => {
+  await app.fileManager.processFrontMatter(indexFile, (fm: Record<string, unknown>) => {
     writeDraftToFrontmatter(fm, draft);
   });
 }
@@ -49,10 +50,8 @@ export async function persistInkswellData(
   indexFile: TFile,
   patch: Partial<InkswellProjectData>
 ): Promise<void> {
-  await app.fileManager.processFrontMatter(indexFile, (fm) => {
-    const existing =
-      fm["inkswell"] && typeof fm["inkswell"] === "object" ? fm["inkswell"] : {};
-    fm["inkswell"] = { ...existing, ...patch };
+  await app.fileManager.processFrontMatter(indexFile, (fm: Record<string, unknown>) => {
+    fm["inkswell"] = { ...asRecord(fm["inkswell"]), ...patch };
   });
 }
 
@@ -67,13 +66,9 @@ export async function persistPublishing(
   indexFile: TFile,
   mutator: (publishing: Record<string, unknown>) => void
 ): Promise<void> {
-  await app.fileManager.processFrontMatter(indexFile, (fm) => {
-    const inkswell: Record<string, unknown> =
-      fm["inkswell"] && typeof fm["inkswell"] === "object" ? { ...fm["inkswell"] } : {};
-    const publishing: Record<string, unknown> =
-      inkswell["publishing"] && typeof inkswell["publishing"] === "object"
-        ? { ...inkswell["publishing"] }
-        : {};
+  await app.fileManager.processFrontMatter(indexFile, (fm: Record<string, unknown>) => {
+    const inkswell = { ...asRecord(fm["inkswell"]) };
+    const publishing = { ...asRecord(inkswell["publishing"]) };
     mutator(publishing);
     if (Object.keys(publishing).length === 0) delete inkswell["publishing"];
     else inkswell["publishing"] = publishing;
@@ -93,13 +88,9 @@ export async function persistOverview(
   indexFile: TFile,
   patch: Partial<ProjectOverview>
 ): Promise<void> {
-  await app.fileManager.processFrontMatter(indexFile, (fm) => {
-    const inkswell: Record<string, unknown> =
-      fm["inkswell"] && typeof fm["inkswell"] === "object" ? { ...fm["inkswell"] } : {};
-    const overview: Record<string, unknown> =
-      inkswell["overview"] && typeof inkswell["overview"] === "object"
-        ? { ...inkswell["overview"] }
-        : {};
+  await app.fileManager.processFrontMatter(indexFile, (fm: Record<string, unknown>) => {
+    const inkswell = { ...asRecord(fm["inkswell"]) };
+    const overview = { ...asRecord(inkswell["overview"]) };
     for (const [key, value] of Object.entries(patch)) {
       if (value === undefined || value === null || value === "") delete overview[key];
       else overview[key] = value;
@@ -120,9 +111,8 @@ export async function writeSeries(
   indexFile: TFile,
   series: SeriesInfo | null
 ): Promise<void> {
-  await app.fileManager.processFrontMatter(indexFile, (fm) => {
-    const existing: Record<string, unknown> =
-      fm["inkswell"] && typeof fm["inkswell"] === "object" ? fm["inkswell"] : {};
+  await app.fileManager.processFrontMatter(indexFile, (fm: Record<string, unknown>) => {
+    const existing = asRecord(fm["inkswell"]);
     if (series && series.name.trim()) {
       existing["series"] =
         series.order != null

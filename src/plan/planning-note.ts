@@ -56,7 +56,7 @@ export async function ensurePlanningNote(app: App, project: Project): Promise<TF
 export function readSection(source: string, heading: string): string {
   const lines = source.split(/\r?\n/);
   const norm = (s: string) => s.trim().toLowerCase();
-  let i = lines.findIndex((l) => /^##\s+/.test(l) && norm(l.replace(/^##\s+/, "")) === norm(heading));
+  const i = lines.findIndex((l) => /^##\s+/.test(l) && norm(l.replace(/^##\s+/, "")) === norm(heading));
   if (i < 0) return "";
   const body: string[] = [];
   for (let j = i + 1; j < lines.length; j++) {

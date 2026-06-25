@@ -9,23 +9,26 @@
 
 import type { Draft, IndentedScene } from "./types";
 
+/** The recursive nested-array shape Longform stores `scenes` as in YAML. */
+type SceneArray = Array<string | SceneArray>;
+
 /**
  * Convert a flat, indented scene list into the nested-array form stored in YAML.
  * A scene at indent 0 is a bare string; deeper scenes nest inside arrays.
  * Ported from Longform's `indentedScenesToArrays`.
  */
-export function indentedScenesToArrays(indented: IndentedScene[]): any[] {
-  const result: any = [];
+export function indentedScenesToArrays(indented: IndentedScene[]): SceneArray {
+  const result: SceneArray = [];
   let currentIndent = 0;
-  let currentNesting = result;
-  const nestingAt: Record<number, any> = {};
+  let currentNesting: SceneArray = result;
+  const nestingAt: Record<number, SceneArray> = {};
   nestingAt[0] = currentNesting;
 
   indented.forEach(({ title, indent }) => {
     if (indent > currentIndent) {
       while (currentIndent < indent) {
         currentIndent = currentIndent + 1;
-        const newNesting: any = [];
+        const newNesting: SceneArray = [];
         currentNesting.push(newNesting);
         nestingAt[currentIndent] = newNesting;
         currentNesting = newNesting;
@@ -47,15 +50,15 @@ export function indentedScenesToArrays(indented: IndentedScene[]): any[] {
  * clone — see {@link parseScenes}.
  */
 export function arraysToIndentedScenes(
-  arr: any,
+  arr: string | SceneArray,
   result: IndentedScene[] = [],
   currentIndent = -1
 ): IndentedScene[] {
-  if (arr instanceof Array) {
+  if (Array.isArray(arr)) {
     if (arr.length === 0) {
       return result;
     }
-    const next = arr.shift();
+    const next = arr.shift() as string | SceneArray;
     const inner = arraysToIndentedScenes(next, [], currentIndent + 1);
     return arraysToIndentedScenes(arr, [...result, ...inner], currentIndent);
   } else {
@@ -67,7 +70,7 @@ export function arraysToIndentedScenes(
 export function parseScenes(rawScenes: unknown): IndentedScene[] {
   if (!Array.isArray(rawScenes)) return [];
   // Deep clone: arraysToIndentedScenes destroys its input via .shift().
-  const clone = JSON.parse(JSON.stringify(rawScenes));
+  const clone = JSON.parse(JSON.stringify(rawScenes)) as SceneArray;
   return arraysToIndentedScenes(clone);
 }
 
@@ -79,40 +82,38 @@ export function parseScenes(rawScenes: unknown): IndentedScene[] {
  * isn't authored in frontmatter.
  */
 export function parseDraft(
-  longform: any,
+  longform: unknown,
   fallbackTitle: string
 ): Draft | null {
   if (!longform || typeof longform !== "object") return null;
+  const lf = longform as Record<string, unknown>;
 
-  const titleInFrontmatter = typeof longform.title === "string";
-  const title = titleInFrontmatter ? longform.title : fallbackTitle;
-  const draftTitle =
-    typeof longform.draftTitle === "string" ? longform.draftTitle : null;
-  const workflow =
-    typeof longform.workflow === "string" ? longform.workflow : null;
+  const titleInFrontmatter = typeof lf.title === "string";
+  const title = typeof lf.title === "string" ? lf.title : fallbackTitle;
+  const draftTitle = typeof lf.draftTitle === "string" ? lf.draftTitle : null;
+  const workflow = typeof lf.workflow === "string" ? lf.workflow : null;
 
-  if (longform.format === "single") {
+  if (lf.format === "single") {
     return { format: "single", title, titleInFrontmatter, draftTitle, workflow };
   }
 
   // Default to multi-scene when format is "scenes" or absent but scene fields exist.
-  if (longform.format === "scenes" || longform.sceneFolder || longform.scenes) {
+  if (lf.format === "scenes" || lf.sceneFolder || lf.scenes) {
     return {
       format: "scenes",
       title,
       titleInFrontmatter,
       draftTitle,
       workflow,
-      sceneFolder:
-        typeof longform.sceneFolder === "string" ? longform.sceneFolder : "/",
-      scenes: parseScenes(longform.scenes),
-      ignoredFiles: Array.isArray(longform.ignoredFiles)
-        ? longform.ignoredFiles.filter((f: unknown) => typeof f === "string")
+      sceneFolder: typeof lf.sceneFolder === "string" ? lf.sceneFolder : "/",
+      scenes: parseScenes(lf.scenes),
+      ignoredFiles: Array.isArray(lf.ignoredFiles)
+        ? (lf.ignoredFiles as unknown[]).filter(
+            (f): f is string => typeof f === "string"
+          )
         : [],
       sceneTemplate:
-        typeof longform.sceneTemplate === "string"
-          ? longform.sceneTemplate
-          : null,
+        typeof lf.sceneTemplate === "string" ? lf.sceneTemplate : null,
     };
   }
 
@@ -126,10 +127,10 @@ export function parseDraft(
  * `inkswell`) untouched.
  */
 export function writeDraftToFrontmatter(
-  frontmatter: Record<string, any>,
+  frontmatter: Record<string, unknown>,
   draft: Draft
 ): void {
-  const lf: Record<string, any> = {};
+  const lf: Record<string, unknown> = {};
   lf["format"] = draft.format;
   if (draft.titleInFrontmatter) {
     lf["title"] = draft.title;

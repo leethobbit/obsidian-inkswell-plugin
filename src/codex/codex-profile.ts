@@ -9,7 +9,6 @@ import type { App, TFile } from "obsidian";
 import { CodexCategory } from "./types";
 import {
   Profile,
-  ProfileValue,
   coerceValue,
   isEmptyValue,
   profileFields,
@@ -36,7 +35,7 @@ export async function writeProfile(
   patch: Partial<Profile>
 ): Promise<void> {
   const managed = new Set(profileFields(category).map((f) => f.key));
-  await app.fileManager.processFrontMatter(file, (fm) => {
+  await app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
     for (const key of Object.keys(patch)) {
       if (!managed.has(key)) continue;
       const value = patch[key];
