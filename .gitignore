@@ -34,3 +34,7 @@ reference/
 !examples/sample-vault/.obsidian/plugins/inkswell/data.json
 examples/sample-vault/.obsidian/plugins/inkswell/styles.css
 examples/sample-vault/.obsidian/plugins/inkswell/manifest.json
+
+# internal QA checklists — dev collateral, kept locally, never shipped in the demo
+examples/sample-vault/QA.md
+examples/sample-vault/QA-lite.md

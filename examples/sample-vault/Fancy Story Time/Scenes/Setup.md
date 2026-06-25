@@ -1,4 +1,0 @@
----
-status: outlined
-synopsis: EDITED
----
