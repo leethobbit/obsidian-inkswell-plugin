@@ -33,11 +33,9 @@
 
 ## Why Inkswell
 
-- **Local-first. No AI. No account.** Inkswell makes **no network calls**, collects **no telemetry**, and generates **nothing** for you. Your manuscript lives in your vault's frontmatter and the plugin's local `data.json` — and nowhere else. It's tooling *around* your writing, not a co-author.
 - **Drop-in for Longform users.** Inkswell reads and writes the same `longform` frontmatter, so existing projects load with **zero migration**. Inkswell-only data lives under a separate `inkswell` key and never touches your prose.
-- **The whole lifecycle, one tab.** Most tools cover one or two stages. Inkswell organizes the entire arc of a novel — **Home · Plan · Write · Revise · Publish**, plus a cross-cutting **Codex** and **Track** dashboard — into a single host view. Think Scrivener-class project management, but native to Obsidian and local-first.
-
-Obsidian stays the editor. Inkswell gives you everything around it.
+- **The whole lifecycle in one plugin.** Most tools cover one or two stages. Inkswell organizes the entire arc of a novel — **Home · Plan · Write · Revise · Publish**, plus a cross-cutting **Codex** and **Track** dashboard — into a single host view. Think Scrivener-class project management, but native to Obsidian and local-first.
+- **Local-first. No AI.** Inkswell makes **no network calls**, collects **no telemetry**, and generates **nothing** for you. Your manuscript lives in your vault's frontmatter and the plugin's local `data.json` — and nowhere else. Inkswell supports your writing but does not do any writing for you.
 
 ## What's inside
 
@@ -111,7 +109,7 @@ Daily / weekly / monthly word goals, habit streaks, a GitHub-style heatmap, life
 ## Privacy & dependencies
 
 - **Local-first.** No network calls, no telemetry, no account. Everything is stored in your vault's frontmatter and the plugin's local `data.json`.
-- **No AI.** By design — Inkswell is tooling around your writing, not a generator.
+- **No AI.** By design — Inkswell is tooling around your writing. It cannot generate any text.
 - **Optional pandoc.** Exporting to `.docx` / `.pdf` / `.epub` shells out to a [pandoc](https://pandoc.org/) binary on your machine. It's feature-detected and disabled gracefully when pandoc isn't present; Markdown and HTML export need nothing extra.
 - **Desktop-only** for now (`isDesktopOnly`). A focused mobile view (idea capture + read-only review) is planned for a future release.
 
