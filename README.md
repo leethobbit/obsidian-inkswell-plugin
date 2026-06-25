@@ -11,7 +11,7 @@
   assets/plan.png    — Kanban Board grouped by status, colored scene cards.
                        (Beat sheet or a Codex character profile is a fine alt.)
   assets/write.png   — Live-Preview editor with placeholder tokens HIGHLIGHTED
-                       ([TK], [DIALOGUE: …]) + sprint timer running. Annotate the
+                       ([TODO: …], [RESEARCH: …]) + sprint timer running. Annotate the
                        token highlighting — it's invisible unless pointed at.
   assets/revise.png  — Audit toolkit: character-arc grid or per-scene revision
                        checklist dashboard.
@@ -46,7 +46,7 @@ Five pipeline phases — **Home · Plan · Write · Revise · Publish** — plus
 | **Home** | Projects, a nestable scene tree, ideas inbox + quick capture, and series grouping for multi-book worlds. |
 | **Plan** | Beat sheets (7 outline templates incl. Save the Cat!) and a Kanban Board (by status / act / POV). |
 | **Write** | A distraction-light Live-Preview editor, writing prompts, fast-drafting placeholder tokens, and timed sprints. |
-| **Revise** | An Audit toolkit, the invisible-revision Log, a placeholder Gaps sweep, Comments extraction, and manuscript Analysis. |
+| **Revise** | An Audit toolkit, the invisible-revision Log, a Todos sweep for placeholder markers, and manuscript Analysis. |
 | **Publish** | A configurable compile/export pipeline plus a self-publishing checklist and launch planner. |
 | **Codex** | A story bible — characters, locations, worlds, factions, items, events, and concepts — with scene linking and mention auto-detect. |
 | **Track** | Word goals, streaks, a GitHub-style heatmap, lifetime records, a deadline pace calculator, and milestone zones. |
@@ -67,7 +67,7 @@ Projects and a nestable scene tree, an ideas inbox with quick capture, and serie
 
 ### Write — draft fast, fix later
 
-A distraction-light, Live-Preview manuscript editor with writing prompts and timed **sprints**. Fast-drafting **placeholder tokens** — `[TK]`, `[SCENE: …]`, `[DIALOGUE: …]`, `[NOTE: …]` — highlight as you type, so you can mark a gap and keep moving instead of stalling. Find them all later in the Revise → Gaps sweep.
+A distraction-light, Live-Preview manuscript editor with writing prompts and timed **sprints**. Fast-drafting **placeholder tokens** — `[TODO: …]`, `[RESEARCH: …]`, `[DIALOGUE: …]`, `[SCENE: …]`, `[NOTE: …]` — highlight as you type, so you can mark a gap and keep moving instead of stalling. Find them all later in the Revise → Todos sweep.
 
 <!-- WRITE -->
 ![Write: Live-Preview editor with highlighted placeholder tokens and a running sprint timer](assets/write.png)
@@ -76,8 +76,7 @@ A distraction-light, Live-Preview manuscript editor with writing prompts and tim
 
 - **Audit** — per-scene and project revision checklists, a scene-purpose lift-out test, scene-opening variety, a character-arc grid, a side-character roster, and a style-sheet consistency scan.
 - **The invisible-revision Log** — capture *"from now on, assume X"* decisions (e.g. "the inn is now called the Gilded Wren") as typed, prioritized entries and **keep drafting forward** instead of breaking flow to backfill earlier chapters. This is the feature writers tell us they didn't know they needed.
-- **Gaps** — a one-click sweep of every placeholder token across the manuscript.
-- **Comments** — extract inline `%%` / `@@` notes into a clickable list.
+- **Todos** — a one-click sweep of every placeholder marker (`[TODO]`, `[RESEARCH]`, …) across the manuscript.
 - **Analysis** — readability, overused words, echoes, and composition mix.
 
 <!-- REVISE -->

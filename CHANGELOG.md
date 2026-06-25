@@ -11,8 +11,9 @@ time the version bump renames that section to the new version and date.
 ## [Unreleased]
 
 ### Changed
-- Replaced the README hero gif with a larger, clearer capture.
+- Replaced the README hero gif with a larger, clearer capture, and re-shot the surface screenshots at the matching zoom.
 - Corrected the documented Obsidian requirement to 1.7.2 (matching the manifest) and tightened README copy.
+- Fixed stale README references: placeholder tokens are now `[TODO]` / `[RESEARCH]` (not `[TK]`), the sweep is **Revise → Todos** (renamed from Gaps), and the removed `%%` / `@@` "Comments" extraction feature is no longer listed.
 
 ## [1.0.1] - 2026-06-25
 
