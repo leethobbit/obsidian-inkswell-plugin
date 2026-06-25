@@ -16,6 +16,7 @@
   assets/revise.png  — Audit toolkit: character-arc grid or per-scene revision
                        checklist dashboard.
   assets/publish.png — compile/export step editor, or the Launch pre-order timeline.
+  assets/codex.png   — a Codex entry profile (e.g. a character) with its linked scenes.
 
   Craft: crop tight to the Inkswell panel but leave a sliver of Obsidian visible;
   use a clean common theme (default dark); keep GIF small. See examples/README.md
@@ -34,20 +35,23 @@
 
 - **Local-first. No AI. No account.** Inkswell makes **no network calls**, collects **no telemetry**, and generates **nothing** for you. Your manuscript lives in your vault's frontmatter and the plugin's local `data.json` — and nowhere else. It's tooling *around* your writing, not a co-author.
 - **Drop-in for Longform users.** Inkswell reads and writes the same `longform` frontmatter, so existing projects load with **zero migration**. Inkswell-only data lives under a separate `inkswell` key and never touches your prose.
-- **The whole lifecycle, one tab.** Most tools cover one or two stages. Inkswell organizes the entire arc of a novel — **Home · Plan · Write · Track · Revise · Publish** — into a single host view. Think Scrivener-class project management, but native to Obsidian and local-first.
+- **The whole lifecycle, one tab.** Most tools cover one or two stages. Inkswell organizes the entire arc of a novel — **Home · Plan · Write · Revise · Publish**, plus a cross-cutting **Codex** and **Track** dashboard — into a single host view. Think Scrivener-class project management, but native to Obsidian and local-first.
 
 Obsidian stays the editor. Inkswell gives you everything around it.
 
-## The six phases
+## What's inside
 
-| Phase | What it's for |
-|-------|---------------|
+Five pipeline phases — **Home · Plan · Write · Revise · Publish** — plus two cross-cutting tools, **Codex** and **Track**, that you reach for at any stage.
+
+| Surface | What it's for |
+|---------|---------------|
 | **Home** | Projects, a nestable scene tree, ideas inbox + quick capture, and series grouping for multi-book worlds. |
-| **Plan** | Beat sheets (7 outline templates incl. Save the Cat!), a Kanban Board (by status / act / POV), and a Codex story bible. |
+| **Plan** | Beat sheets (7 outline templates incl. Save the Cat!) and a Kanban Board (by status / act / POV). |
 | **Write** | A distraction-light Live-Preview editor, writing prompts, fast-drafting placeholder tokens, and timed sprints. |
-| **Track** | Word goals, streaks, a GitHub-style heatmap, lifetime records, a deadline pace calculator, and milestone zones. |
 | **Revise** | An Audit toolkit, the invisible-revision Log, a placeholder Gaps sweep, Comments extraction, and manuscript Analysis. |
 | **Publish** | A configurable compile/export pipeline plus a self-publishing checklist and launch planner. |
+| **Codex** | A story bible — characters, locations, worlds, factions, items, events, and concepts — with scene linking and mention auto-detect. |
+| **Track** | Word goals, streaks, a GitHub-style heatmap, lifetime records, a deadline pace calculator, and milestone zones. |
 
 ### Home — organize the whole world
 
@@ -58,7 +62,7 @@ Projects and a nestable scene tree, an ideas inbox with quick capture, and serie
 
 ### Plan — structure before you draft
 
-*Beats* (7 outline templates incl. Save the Cat!, with scene scaffolding), a *Board* (Kanban by status / act / POV), and a *Codex* story bible — characters, locations, worlds, factions, items, events, concepts — with scene linking and mention auto-detect.
+*Beats* (7 outline templates incl. Save the Cat!, with scene scaffolding) and a *Board* (Kanban by status / act / POV).
 
 <!-- PLAN -->
 ![Plan: Kanban board with colored scene cards grouped by status](assets/plan.png)
@@ -69,13 +73,6 @@ A distraction-light, Live-Preview manuscript editor with writing prompts and tim
 
 <!-- WRITE -->
 ![Write: Live-Preview editor with highlighted placeholder tokens and a running sprint timer](assets/write.png)
-
-### Track — see the habit, not just the wordcount
-
-Daily / weekly / monthly word goals, habit streaks, a GitHub-style heatmap, lifetime records, a writing-history chart, sprint stats, a **deadline pace calculator** (required daily words, ahead / on-track / behind), draft-milestone zones, and an optional daily mood.
-
-<!-- TRACK -->
-![Track: heatmap, streak, progress rings, and writing-history chart](assets/track.png)
 
 ### Revise — the part most tools skip
 
@@ -94,6 +91,20 @@ A configurable **compile/export** pipeline (Markdown & HTML built in; `.docx` / 
 
 <!-- PUBLISH -->
 ![Publish: compile step editor and the self-publishing launch planner](assets/publish.png)
+
+### Codex — your story bible
+
+Characters, locations, worlds, factions, items, events, and concepts, each with its own profile and linked scenes, plus mention auto-detect so your canon stays consistent as the manuscript grows. It's reference material you reach for across Plan, Write, and Revise — so it sits alongside the pipeline rather than inside any one phase.
+
+<!-- CODEX -->
+![Codex: a character profile in the story bible with linked scenes](assets/codex.png)
+
+### Track — see the habit, not just the wordcount
+
+Daily / weekly / monthly word goals, habit streaks, a GitHub-style heatmap, lifetime records, a writing-history chart, sprint stats, a **deadline pace calculator** (required daily words, ahead / on-track / behind), draft-milestone zones, and an optional daily mood.
+
+<!-- TRACK -->
+![Track: heatmap, streak, progress rings, and writing-history chart](assets/track.png)
 
 > The invisible-revision method, the fast-drafting aids, the revision audit, and the self-publishing workflow draw on established, widely-taught craft methods for drafting, revising, and self-publishing fiction.
 
