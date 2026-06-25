@@ -127,7 +127,7 @@
       "2026-06-20": 239,
       "2026-06-21": 358,
       "2026-06-22": 430,
-      "2026-06-25": 477
+      "2026-06-25": 447
     },
     "baselines": {
       "The Lamplighter's Archive.md": 105,
@@ -145,7 +145,8 @@
       "_Start Here.md": 905,
       "QA.md": 4869,
       "Manuscript/08 - Let's Dance Night.md": 0,
-      "QA-lite.md": 948
+      "QA-lite.md": 948,
+      "Discord brief.md": 0
     },
     "sprints": [
       {

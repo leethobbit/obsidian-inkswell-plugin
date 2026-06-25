@@ -26,12 +26,9 @@ revArc:
     external: An ordinary night on her route.
 ---
 
-The last lamp on Vesper Row stood crooked on its post, the way it had for as
-long as Mara could remember, and she loved it a little for that.
+The last lamp on Vesper Row stood crooked on its post, the way it had for as long as Mara could remember, and she loved it a little for that.
 
-She climbed the three rungs of her ladder, opened the small glass door, and let
-the wick take the flame from her taper. The light did not so much brighten as
-*settle* — a warmth that had nothing to do with heat. Down the length of the
+She climbed the three rungs of her ladder, opened the small glass door, and let the wick take the flame from her taper. The light did not so much brighten as*settle* — a warmth that had nothing to do with heat. Down the length of the
 row, behind shuttered windows, the people of the district slept, and their day
 went into the lamps the way water finds the lowest place. A first kiss on the
 tram. An argument left unfinished. The particular blue of a kettle bought

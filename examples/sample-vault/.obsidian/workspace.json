@@ -16,6 +16,62 @@
               "icon": "pen-tool",
               "title": "Inkswell"
             }
+          },
+          {
+            "id": "39758df41fa53101",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Lamplighter - manuscript.md",
+                "mode": "preview",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Lamplighter - manuscript"
+            }
+          },
+          {
+            "id": "79ce09d85d94f929",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "The Lamplighter's Archive.md",
+                "mode": "source",
+                "source": true
+              },
+              "icon": "lucide-file",
+              "title": "The Lamplighter's Archive"
+            }
+          },
+          {
+            "id": "9170af957569b06a",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "QA-lite.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "QA-lite"
+            }
+          },
+          {
+            "id": "1c07153d63c04950",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Manuscript/01 - The Last Lamp on Vesper Row.md",
+                "mode": "preview",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "01 - The Last Lamp on Vesper Row"
+            }
           }
         ]
       }
@@ -69,6 +125,16 @@
               "icon": "lucide-bookmark",
               "title": "Bookmarks"
             }
+          },
+          {
+            "id": "41f14a6f176d91a9",
+            "type": "leaf",
+            "state": {
+              "type": "VIEW_TYPE_LONGFORM_EXPLORER",
+              "state": {},
+              "icon": "lucide-ghost",
+              "title": "VIEW_TYPE_LONGFORM_EXPLORER"
+            }
           }
         ]
       }
@@ -90,7 +156,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "QA.md",
+                "file": "Manuscript/01 - The Last Lamp on Vesper Row.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -100,7 +166,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for QA"
+              "title": "Backlinks for 01 - The Last Lamp on Vesper Row"
             }
           },
           {
@@ -163,7 +229,8 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 300,
+    "collapsed": true
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -177,8 +244,18 @@
   },
   "active": "efc4907aee1a7a7c",
   "lastOpenFiles": [
-    "QA-lite.md.tmp.42672.adc99acb9ce9",
+    "Discord brief.md",
+    "Lamplighter - manuscript.md",
     "QA-lite.md",
+    "The Lamplighter's Archive.md",
+    "The Lamplighter's Archive — Plan.md",
+    "Manuscript/11 - The Aftermath.md",
+    "Manuscript/04 - The Undercroft.md",
+    "Manuscript/01 - The Last Lamp on Vesper Row.md",
+    "Manuscript/09 - Falcom is Cool.md",
+    "_Start Here.md",
+    "QA.md",
+    "QA-lite.md.tmp.42672.adc99acb9ce9",
     "QA-lite.md.tmp.42672.5d0b4397f749",
     "_Start Here.md.tmp.42672.077018b31082",
     "_Start Here.md.tmp.42672.4bde62694fa1",
@@ -188,17 +265,13 @@
     "QA.md.tmp.42672.05ac4f8bea56",
     "QA.md.tmp.42672.4e05b81fcdc2",
     "QA.md.tmp.42672.d7b68649cd54",
-    "QA.md.tmp.42672.42a72de91401",
     "Manuscript/08 - Let's Dance Night.md",
     "Manuscript/All Is Lost.md",
     "Manuscript/02 - What the Light Remembers.md",
     "Manuscript/05 - A Memory Not Her Own.md",
-    "Manuscript/04 - The Undercroft.md",
     "Manuscript/03 - Inspector Coll.md",
     "Manuscript/Verify Test Scene.md",
-    "The Lamplighter's Archive — Plan.md",
     "Fancy Story Time/Scenes/Theme Stated.md",
-    "QA.md",
     "Manuscript/Final Image.md",
     "Manuscript/Finale.md",
     "Manuscript/Break Into Three.md",
@@ -206,12 +279,6 @@
     "Manuscript/Bad Guys Close In.md",
     "Manuscript/Midpoint.md",
     "Manuscript/Fun and Games.md",
-    "Manuscript/B Story.md",
-    "Manuscript/Break Into Two.md",
-    "Manuscript/Debate.md",
-    "Manuscript/Catalyst.md",
-    "Manuscript/Setup.md",
-    "Manuscript/Theme Stated.md",
-    "Manuscript/Opening Image.md"
+    "Manuscript/B Story.md"
   ]
 }
