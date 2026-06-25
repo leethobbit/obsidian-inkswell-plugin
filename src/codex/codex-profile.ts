@@ -39,7 +39,7 @@ export async function writeProfile(
   await app.fileManager.processFrontMatter(file, (fm) => {
     for (const key of Object.keys(patch)) {
       if (!managed.has(key)) continue;
-      const value = patch[key] as ProfileValue | undefined;
+      const value = patch[key];
       if (isEmptyValue(value)) delete fm[key];
       else fm[key] = value;
     }

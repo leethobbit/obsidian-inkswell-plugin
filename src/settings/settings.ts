@@ -104,7 +104,6 @@ export class InkswellSettingTab extends PluginSettingTab {
       .addSlider((s) =>
         s
           .setLimits(1, 6, 1)
-          .setDynamicTooltip()
           .setValue(this.plugin.settings.sceneHeadingLevel)
           .onChange(async (v) => {
             this.plugin.settings.sceneHeadingLevel = v;

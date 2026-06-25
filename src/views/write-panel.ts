@@ -240,8 +240,9 @@ export class WritePanel {
       const row = nav.createDiv({ cls: "inkswell-write__scene" });
       if (scene.path === this.selectedScene) row.addClass("is-active");
       row.createSpan({ cls: "inkswell-scene__title", text: scene.title });
-      if (scene.path) {
-        const meta = readSceneMeta(this.app, this.app.vault.getAbstractFileByPath(scene.path) as TFile);
+      const sceneFile = scene.path && this.app.vault.getAbstractFileByPath(scene.path);
+      if (sceneFile instanceof TFile) {
+        const meta = readSceneMeta(this.app, sceneFile);
         if (meta.status) {
           row.createSpan({ cls: `inkswell-status inkswell-status--${meta.status}`, text: meta.status[0].toUpperCase() });
         }

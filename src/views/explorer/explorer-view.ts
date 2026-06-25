@@ -163,7 +163,7 @@ export class ExplorerPanel {
     const right = header.createDiv({ cls: "inkswell-project__right" });
     const count = right.createSpan({ cls: "inkswell-project__count" });
     if (this.plugin.settings.showWordCounts) {
-      this.stats.projectWords(project).then((w) => {
+      void this.stats.projectWords(project).then((w) => {
         count.setText(`${w.toLocaleString()} words`);
       });
     }
@@ -302,7 +302,7 @@ export class ExplorerPanel {
 
     if (this.plugin.settings.showWordCounts && scene.path) {
       const wc = row.createSpan({ cls: "inkswell-scene__count" });
-      this.stats.sceneWords(scene.path).then((w) => wc.setText(`${w}`));
+      void this.stats.sceneWords(scene.path).then((w) => wc.setText(`${w}`));
     }
 
     // Click selects the scene (the host shows it in the Inspector). It no longer
@@ -376,7 +376,7 @@ export class ExplorerPanel {
         .setIcon("link-2-off")
         .onClick(() => {
           if (scene?.title) {
-            updateScenes(this.app, file, project.draft, (s) =>
+            void updateScenes(this.app, file, project.draft, (s) =>
               removeScene(s, scene.title)
             );
           }
@@ -416,7 +416,7 @@ export class ExplorerPanel {
       if (payload.project !== project.vaultPath) return; // only within a project
       const file = this.indexFile(project);
       if (!file) return;
-      updateScenes(this.app, file, project.draft, (s) =>
+      void updateScenes(this.app, file, project.draft, (s) =>
         moveScene(s, payload.index, index)
       );
     });

@@ -115,7 +115,7 @@ export class OverviewPanel {
     const source = await this.app.vault.read(file);
     for (const [heading, ta] of editors) {
       // Don't clobber a field the user is actively editing.
-      if (document.activeElement === ta) continue;
+      if (activeDocument.activeElement === ta) continue;
       ta.value = readSection(source, heading);
     }
   }

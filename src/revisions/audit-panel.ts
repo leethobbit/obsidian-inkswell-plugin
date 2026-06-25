@@ -114,7 +114,7 @@ export class AuditPanel {
       (host) => this.renderScenes(host, project)
     );
     this.section(container, "audit-openings", "Scene openings", (host) =>
-      this.renderOpenings(host, project)
+      void this.renderOpenings(host, project)
     );
     this.section(container, "audit-arc", "Character arcs", (host) => this.renderArc(host, project));
     this.section(container, "audit-roster", "Side-character roster", (host) =>

@@ -216,13 +216,13 @@ export class InkswellView extends ItemView {
     // change that fires blur). A deferred body rebuild checks this so it never
     // runs between a mousedown and its mouseup — which would destroy the click
     // target and swallow the click (it would just "refresh" the view instead).
-    this.registerDomEvent(document, "pointerdown", () => (this.pointerDown = true), {
+    this.registerDomEvent(activeDocument, "pointerdown", () => (this.pointerDown = true), {
       capture: true,
     });
-    this.registerDomEvent(document, "pointerup", () => (this.pointerDown = false), {
+    this.registerDomEvent(activeDocument, "pointerup", () => (this.pointerDown = false), {
       capture: true,
     });
-    this.registerDomEvent(document, "pointercancel", () => (this.pointerDown = false), {
+    this.registerDomEvent(activeDocument, "pointercancel", () => (this.pointerDown = false), {
       capture: true,
     });
 
@@ -309,7 +309,7 @@ export class InkswellView extends ItemView {
 
     // Don't rebuild the body while the user is typing inside it — that would
     // destroy focus mid-keystroke. Defer the rebuild until the field blurs.
-    const ae = document.activeElement as HTMLElement | null;
+    const ae = activeDocument.activeElement as HTMLElement | null;
     const editing =
       !!ae &&
       this.body.contains(ae) &&

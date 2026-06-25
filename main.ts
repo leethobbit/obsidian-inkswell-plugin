@@ -52,9 +52,9 @@ export default class InkswellPlugin extends Plugin {
 
     this.store = new ProjectStore(this.app);
     this.stats = new ProjectStats(this.app);
-    this.tracker = new WritingTracker(this.app, this.writingLog, () => this.persist());
+    this.tracker = new WritingTracker(this.app, this.writingLog, () => void this.persist());
     this.sprints = new SprintController(this.tracker, this.writingLog, () =>
-      this.persist()
+      void this.persist()
     );
     this.addChild(this.store);
     this.addChild(this.tracker);
@@ -77,7 +77,7 @@ export default class InkswellPlugin extends Plugin {
       this.tracker,
       this.sprints,
       () => this.settings.dailyWordGoal,
-      () => this.openStats()
+      () => void this.openStats()
     );
     this.register(() => this.statusBar?.destroy());
 
@@ -88,7 +88,7 @@ export default class InkswellPlugin extends Plugin {
   private registerCommands(): void {
     this.addCommand({
       id: "open-explorer",
-      name: "Open Inkswell projects",
+      name: "Open projects",
       callback: () => this.openProjects(),
     });
     this.addCommand({
@@ -227,7 +227,12 @@ export default class InkswellPlugin extends Plugin {
   }
 
   async loadPersisted(): Promise<void> {
-    const stored = (await this.loadData()) ?? {};
+    const stored = ((await this.loadData()) ?? {}) as {
+      settings?: Partial<InkswellSettings>;
+      writingLog?: Partial<WritingLogData>;
+      ideas?: Idea[];
+      activeProject?: string;
+    };
     this.settings = Object.assign({}, DEFAULT_SETTINGS, stored.settings ?? {});
     this.writingLog = Object.assign({}, emptyLog(), stored.writingLog ?? {});
     this.ideas = Array.isArray(stored.ideas) ? stored.ideas : [];
@@ -380,7 +385,7 @@ export default class InkswellPlugin extends Plugin {
       leaf.view.setMode(mode, subtab);
       if (after) after(leaf.view);
     }
-    workspace.revealLeaf(leaf);
+    void workspace.revealLeaf(leaf);
   }
 
   /** Reveal the Inkswell tab, switch to Write, and open the given scene there. */
