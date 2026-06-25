@@ -11,9 +11,12 @@ import { App, Menu, TFile } from "obsidian";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
-import { addSceneMenuItems, openScene } from "../scenes/scene-actions";
+import { addSceneMenuItems } from "../scenes/scene-actions";
+import { promptNewScene } from "./create-scene";
+import { EditSceneModal } from "../scenes/edit-scene-modal";
 import { readSceneMeta, writeSceneMeta } from "../scenes/scene-meta";
 import { BoardColumn, BoardItem, GroupField, buildColumns } from "./board";
+import type InkswellPlugin from "../../main";
 
 const FIELDS: { id: GroupField; label: string }[] = [
   { id: "status", label: "Status" },
@@ -23,13 +26,15 @@ const FIELDS: { id: GroupField; label: string }[] = [
 
 export class BoardPanel {
   private app: App;
+  private plugin: InkswellPlugin;
   private store: ProjectStore;
   private active: ActiveProject;
   private container: HTMLElement | null = null;
   private field: GroupField = "status";
 
-  constructor(app: App, store: ProjectStore, active: ActiveProject) {
+  constructor(app: App, plugin: InkswellPlugin, store: ProjectStore, active: ActiveProject) {
     this.app = app;
+    this.plugin = plugin;
     this.store = store;
     this.active = active;
   }
@@ -55,7 +60,7 @@ export class BoardPanel {
       return;
     }
 
-    this.renderToolbar(container);
+    this.renderToolbar(container, project);
 
     const items: BoardItem[] = [];
     for (const scene of project.scenes) {
@@ -79,7 +84,7 @@ export class BoardPanel {
     for (const col of cols) this.renderColumn(board, col, project);
   }
 
-  private renderToolbar(root: HTMLElement): void {
+  private renderToolbar(root: HTMLElement, project: Project): void {
     const bar = root.createDiv({ cls: "inkswell-board__toolbar" });
     bar.createSpan({ cls: "inkswell-stats__muted", text: "Group by:" });
     const fsel = bar.createEl("select", { cls: "dropdown" });
@@ -91,6 +96,10 @@ export class BoardPanel {
       this.field = fsel.value as GroupField;
       this.rerender();
     };
+
+    const add = bar.createEl("button", { text: "New scene" });
+    add.setAttribute("aria-label", "Create a new scene");
+    add.onclick = () => void promptNewScene(this.app, this.store, project);
   }
 
   private renderColumn(board: HTMLElement, col: BoardColumn, project: Project): void {
@@ -131,14 +140,16 @@ export class BoardPanel {
     card.addEventListener("dragend", () => card.removeClass("is-dragging"));
     card.onclick = () => {
       const file = this.app.vault.getAbstractFileByPath(it.path);
-      if (file instanceof TFile) openScene(this.app, file);
+      // Click opens the scene's metadata window (not a random editor tab) — the
+      // modal carries "Open in tab" / "Open in Write" for explicit navigation.
+      if (file instanceof TFile) new EditSceneModal(this.app, file, project, this.plugin).open();
     };
     card.oncontextmenu = (e) => {
       e.preventDefault();
       const file = this.app.vault.getAbstractFileByPath(it.path);
       if (!(file instanceof TFile)) return;
       const menu = new Menu();
-      addSceneMenuItems(menu, this.app, project, it.title, file, { includeOpen: true });
+      addSceneMenuItems(menu, this.app, project, it.title, file, { includeOpen: true, plugin: this.plugin });
       menu.showAtMouseEvent(e);
     };
   }

@@ -4,11 +4,11 @@
     "type": "split",
     "children": [
       {
-        "id": "147d297be22b50fd",
+        "id": "2f58a28f6ea9a6df",
         "type": "tabs",
         "children": [
           {
-            "id": "7d14a04b04b84aa2",
+            "id": "efc4907aee1a7a7c",
             "type": "leaf",
             "state": {
               "type": "inkswell",
@@ -90,6 +90,7 @@
             "state": {
               "type": "backlink",
               "state": {
+                "file": "QA.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -99,7 +100,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks"
+              "title": "Backlinks for QA"
             }
           },
           {
@@ -174,6 +175,43 @@
       "inkswell:Inkswell projects": false
     }
   },
-  "active": "7d14a04b04b84aa2",
-  "lastOpenFiles": []
+  "active": "efc4907aee1a7a7c",
+  "lastOpenFiles": [
+    "QA-lite.md.tmp.42672.adc99acb9ce9",
+    "QA-lite.md",
+    "QA-lite.md.tmp.42672.5d0b4397f749",
+    "_Start Here.md.tmp.42672.077018b31082",
+    "_Start Here.md.tmp.42672.4bde62694fa1",
+    "QA.md.tmp.42672.eef6c6ba80c3",
+    "QA.md.tmp.42672.720d4d6d3fd9",
+    "QA.md.tmp.42672.193b2b6f707e",
+    "QA.md.tmp.42672.05ac4f8bea56",
+    "QA.md.tmp.42672.4e05b81fcdc2",
+    "QA.md.tmp.42672.d7b68649cd54",
+    "QA.md.tmp.42672.42a72de91401",
+    "Manuscript/08 - Let's Dance Night.md",
+    "Manuscript/All Is Lost.md",
+    "Manuscript/02 - What the Light Remembers.md",
+    "Manuscript/05 - A Memory Not Her Own.md",
+    "Manuscript/04 - The Undercroft.md",
+    "Manuscript/03 - Inspector Coll.md",
+    "Manuscript/Verify Test Scene.md",
+    "The Lamplighter's Archive — Plan.md",
+    "Fancy Story Time/Scenes/Theme Stated.md",
+    "QA.md",
+    "Manuscript/Final Image.md",
+    "Manuscript/Finale.md",
+    "Manuscript/Break Into Three.md",
+    "Manuscript/Dark Night of the Soul.md",
+    "Manuscript/Bad Guys Close In.md",
+    "Manuscript/Midpoint.md",
+    "Manuscript/Fun and Games.md",
+    "Manuscript/B Story.md",
+    "Manuscript/Break Into Two.md",
+    "Manuscript/Debate.md",
+    "Manuscript/Catalyst.md",
+    "Manuscript/Setup.md",
+    "Manuscript/Theme Stated.md",
+    "Manuscript/Opening Image.md"
+  ]
 }

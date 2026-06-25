@@ -43,7 +43,10 @@ every crooked post on three streets, knew which lamps guttered in the damp off
 the canal and which burned clean. She knew the order to light them so the row
 came up like a held breath let slowly out.
 
-%% TODO: land the mother's line here or in scene 2? See beat "theme-stated". %%
+[TODO: land the mother's line here or in scene 2? See beat "theme-stated".]
+
+[RESEARCH: Find out how water works.]
+
 
 Her mother had lit these same posts, and her mother's mother. *Some things are
 only true while someone remembers them*, her mother used to say, which Mara had

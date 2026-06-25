@@ -14,14 +14,14 @@ import { CodexPanel } from "../codex/codex-panel";
 import { AnalysisPanel } from "../insight/analysis-panel";
 import { BeatPanel } from "../outliner/beat-panel";
 import { BoardPanel } from "../outliner/board-panel";
+import { OverviewPanel } from "../plan/overview-panel";
 import { resolveActive } from "../projects/active-project";
 import { ProjectStats } from "../projects/project-stats";
 import { ProjectStore } from "../projects/project-store";
 import { ChecklistPanel } from "./publish/checklist-panel";
 import { LaunchPanel } from "./publish/launch-panel";
 import { AuditPanel } from "../revisions/audit-panel";
-import { CommentsPanel } from "../revisions/comments-panel";
-import { GapsPanel } from "../revisions/gaps-panel";
+import { TodosPanel } from "../revisions/todos-panel";
 import { RevisionPanel } from "../revisions/revision-view";
 import { StatsPanel } from "../stats/stats-view";
 import { WritingTracker } from "../tracking/writing-tracker";
@@ -34,7 +34,7 @@ import type InkswellPlugin from "../../main";
 export const VIEW_TYPE_INKSWELL = "inkswell";
 
 /** Top-level phase destinations. */
-export type InkswellMode = "home" | "plan" | "write" | "track" | "revise" | "publish";
+export type InkswellMode = "home" | "plan" | "write" | "track" | "revise" | "publish" | "codex";
 
 interface SubTab {
   id: string;
@@ -56,9 +56,9 @@ const DESTINATIONS: Destination[] = [
     label: "Plan",
     icon: "compass",
     subtabs: [
+      { id: "overview", label: "Overview" },
       { id: "beats", label: "Beats" },
       { id: "board", label: "Board" },
-      { id: "codex", label: "Codex" },
     ],
   },
   { id: "write", label: "Write", icon: "pencil" },
@@ -69,8 +69,7 @@ const DESTINATIONS: Destination[] = [
     subtabs: [
       { id: "audit", label: "Audit" },
       { id: "log", label: "Log" },
-      { id: "comments", label: "Comments" },
-      { id: "gaps", label: "Gaps" },
+      { id: "todos", label: "Todos" },
       { id: "analysis", label: "Analysis" },
     ],
   },
@@ -84,21 +83,23 @@ const DESTINATIONS: Destination[] = [
       { id: "launch", label: "Launch" },
     ],
   },
-  // Meta cluster (after a separator): a cross-cutting dashboard, not a pipeline phase.
+  // Meta cluster (after a separator): cross-cutting tools, not pipeline phases.
+  // Codex is reference material used across Plan/Write/Revise, so it sits here.
+  { id: "codex", label: "Codex", icon: "book-marked", meta: true },
   { id: "track", label: "Track", icon: "bar-chart-3", meta: true },
 ];
 
 export class InkswellView extends ItemView {
   private plugin: InkswellPlugin;
   private explorer: ExplorerPanel;
+  private overview: OverviewPanel;
   private beats: BeatPanel;
   private board: BoardPanel;
   private codex: CodexPanel;
   private write: WritePanel;
   private stats: StatsPanel;
   private revisions: RevisionPanel;
-  private comments: CommentsPanel;
-  private gaps: GapsPanel;
+  private todos: TodosPanel;
   private audit: AuditPanel;
   private analysis: AnalysisPanel;
   private compile: CompilePanel;
@@ -134,14 +135,16 @@ export class InkswellView extends ItemView {
       this.activeFile = file;
       this.updateInspector();
     });
-    this.beats = new BeatPanel(this.app, store, plugin.activeProject);
-    this.board = new BoardPanel(this.app, store, plugin.activeProject);
+    this.overview = new OverviewPanel(this.app, plugin, store, plugin.activeProject);
+    this.beats = new BeatPanel(this.app, plugin, store, plugin.activeProject);
+    this.board = new BoardPanel(this.app, plugin, store, plugin.activeProject);
     this.codex = new CodexPanel(this.app, plugin);
     this.write = new WritePanel(this.app, plugin, store, plugin.sprints);
     this.stats = new StatsPanel(this.app, plugin, tracker, store, stats);
     this.revisions = new RevisionPanel(this.app, plugin, store);
-    this.comments = new CommentsPanel(this.app, store, plugin.activeProject);
-    this.gaps = new GapsPanel(this.app, store, plugin.activeProject);
+    this.todos = new TodosPanel(this.app, store, plugin.activeProject, (path, hl) =>
+      this.openSceneInWrite(path, hl)
+    );
     this.audit = new AuditPanel(this.app, store, plugin.activeProject);
     this.analysis = new AnalysisPanel(this.app, store, plugin.activeProject);
     this.compile = new CompilePanel(this.app, plugin, store);
@@ -256,8 +259,24 @@ export class InkswellView extends ItemView {
     this.renderActive();
   }
 
+  /** Select a scene in the Write panel and switch to it (cross-panel navigation). */
+  openSceneInWrite(path: string, highlight?: { from: number; to: number }): void {
+    this.write.selectScene(path, highlight);
+    this.setMode("write");
+  }
+
   getRevisionPanel(): RevisionPanel {
     return this.revisions;
+  }
+
+  /** True when Write is active with a live editor (gates the insert-todo command). */
+  canInsertTodo(): boolean {
+    return this.mode === "write" && this.write.hasEditor();
+  }
+
+  /** Open the to-do picker for the active Write editor. */
+  insertTodo(): void {
+    this.write.promptInsertTodo();
   }
 
   /** Force a re-render (e.g. after a settings change). */
@@ -342,12 +361,15 @@ export class InkswellView extends ItemView {
         this.explorer.render(content);
         break;
       case "plan": {
-        const sub = this.subtab["plan"] ?? "beats";
+        const sub = this.subtab["plan"] ?? "overview";
         if (sub === "board") this.board.render(content);
-        else if (sub === "codex") this.codex.render(content);
-        else this.beats.render(content);
+        else if (sub === "beats") this.beats.render(content);
+        else this.overview.render(content);
         break;
       }
+      case "codex":
+        this.codex.render(content);
+        break;
       case "write":
         this.write.render(content);
         break;
@@ -357,8 +379,7 @@ export class InkswellView extends ItemView {
       case "revise": {
         const sub = this.subtab["revise"] ?? "audit";
         if (sub === "analysis") this.analysis.render(content);
-        else if (sub === "comments") this.comments.render(content);
-        else if (sub === "gaps") this.gaps.render(content);
+        else if (sub === "todos") this.todos.render(content);
         else if (sub === "log") this.revisions.render(content);
         else this.audit.render(content);
         break;

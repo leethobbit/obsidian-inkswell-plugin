@@ -1,5 +1,6 @@
 ---
 codex: faction
+codex-series: The Lattice Cycle
 aliases:
   - The Bureau
 type: Governing body / memory authority

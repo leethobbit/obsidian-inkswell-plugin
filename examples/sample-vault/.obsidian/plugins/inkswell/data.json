@@ -11,7 +11,9 @@
     "defaultSprintMinutes": 25,
     "defaultSprintWordGoal": 600,
     "streakThreshold": 100,
-    "codexFolder": "Codex"
+    "baseFolder": "",
+    "codexFolder": "Codex",
+    "coLocateCodex": true
   },
   "writingLog": {
     "daily": {
@@ -124,9 +126,27 @@
       "2026-06-19": 433,
       "2026-06-20": 239,
       "2026-06-21": 358,
-      "2026-06-22": 430
+      "2026-06-22": 430,
+      "2026-06-25": 477
     },
-    "baselines": {},
+    "baselines": {
+      "The Lamplighter's Archive.md": 105,
+      "The Lamplighter's Archive — Plan.md": 14,
+      "Manuscript/Verify Test Scene.md": 0,
+      "Fancy Story Time/Scenes/Opening Image.md": 0,
+      "Fancy Story Time/Fancy Story Time.md": 0,
+      "Manuscript/01 - The Last Lamp on Vesper Row.md": 312,
+      "Manuscript/03 - Inspector Coll.md": 309,
+      "Manuscript/04 - The Undercroft.md": 213,
+      "Manuscript/05 - A Memory Not Her Own.md": 148,
+      "Manuscript/06 - The Archivist's Bargain.md": 60,
+      "Manuscript/07 - Blackout.md": 63,
+      "Manuscript/02 - What the Light Remembers.md": 385,
+      "_Start Here.md": 905,
+      "QA.md": 4869,
+      "Manuscript/08 - Let's Dance Night.md": 0,
+      "QA-lite.md": 948
+    },
     "sprints": [
       {
         "start": "2026-05-11T20:16:00.000Z",
@@ -226,7 +246,8 @@
         "words": 578,
         "goal": null
       }
-    ]
+    ],
+    "mood": {}
   },
   "ideas": [
     {

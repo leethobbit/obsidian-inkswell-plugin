@@ -4,22 +4,23 @@ longform:
   title: The Lamplighter's Archive
   draftTitle: First Draft
   sceneFolder: Manuscript
-  ignoredFiles: []
   scenes:
-    - "01 - The Last Lamp on Vesper Row"
-    - "02 - What the Light Remembers"
-    - "03 - Inspector Coll"
-    - "04 - The Undercroft"
-    - "05 - A Memory Not Her Own"
-    - "06 - The Archivist's Bargain"
-    - "07 - Blackout"
+    - 01 - The Last Lamp on Vesper Row
+    - 02 - What the Light Remembers
+    - 03 - Inspector Coll
+    - 04 - The Undercroft
+    - 05 - A Memory Not Her Own
+    - 06 - The Archivist's Bargain
+    - 07 - Blackout
+    - 08 - Let's Dance Night
+  ignoredFiles: []
 inkswell:
   series:
     name: The Lattice Cycle
     order: 1
   goals:
     target: 90000
-    deadline: "2026-09-01"
+    deadline: 2026-09-01
     daysPerWeek: 5
   compile:
     sceneSteps:
@@ -42,73 +43,73 @@ inkswell:
     assignments:
       opening-image:
         scenes:
-          - "01 - The Last Lamp on Vesper Row"
+          - 01 - The Last Lamp on Vesper Row
         note: Mara lights the last lamp on her route as the district sleeps — the city's memory kept safe for one more night.
         done: true
       theme-stated:
-        note: "A line from her mother: \"Some things are only true while someone remembers them.\""
+        note: 'A line from her mother: "Some things are only true while someone remembers them."'
         done: true
       setup:
         scenes:
-          - "01 - The Last Lamp on Vesper Row"
-          - "02 - What the Light Remembers"
+          - 01 - The Last Lamp on Vesper Row
+          - 02 - What the Light Remembers
         note: Establish the Lattice, the lamplighter's trade, and Mara's quiet, unambitious life.
         done: true
       catalyst:
         scenes:
-          - "02 - What the Light Remembers"
+          - 02 - What the Light Remembers
         note: A lamp shows Mara a memory that cannot be hers — a room she has never entered.
         done: true
       debate:
         scenes:
-          - "03 - Inspector Coll"
+          - 03 - Inspector Coll
         note: Report the anomaly and stay safe, or keep it secret and chase it? Coll's arrival forces the question.
       break-into-2:
         scenes:
-          - "04 - The Undercroft"
+          - 04 - The Undercroft
         note: Mara descends into the sealed Undercroft to find where stray memories drain to.
       midpoint:
         scenes:
-          - "05 - A Memory Not Her Own"
+          - 05 - A Memory Not Her Own
         note: False victory — she finds the Archive, and learns it has been waiting for someone who can read it.
       all-is-lost:
         scenes:
-          - "07 - Blackout"
+          - 07 - Blackout
         note: The district goes dark. Every lamp on Vesper Row is wiped at once.
   revisions:
     - id: rev-lamplight-stores
-      text: "From now on, lamplight stores memory — it doesn't merely illuminate. Treat earlier \"light\" references as retroactively true."
-      scene: "02 - What the Light Remembers"
+      text: From now on, lamplight stores memory — it doesn't merely illuminate. Treat earlier "light" references as retroactively true.
+      scene: 02 - What the Light Remembers
       status: applied
-      created: "2026-03-14T09:12:00.000Z"
+      created: 2026-03-14T09:12:00.000Z
       type: continuity
       priority: high
     - id: rev-coll-knows-mara
-      text: From now on, Inspector Coll already knew Mara years ago, from before the Undercroft was sealed.
-      scene: "03 - Inspector Coll"
+      text: From now on, Inspector Coll already knew Mara years ago, from before the Undercroft was sealed. EDIT
+      scene: 03 - Inspector Coll
       status: pending
-      created: "2026-05-02T18:40:00.000Z"
+      created: 2026-05-02T18:40:00.000Z
       type: character
       priority: med
     - id: rev-archive-sentient
       text: The Archive is sentient. Assume every reference to it implies intent, not just storage.
-      scene: null
+      scene:
       status: pending
-      created: "2026-06-10T20:05:00.000Z"
+      created: 2026-06-10T20:05:00.000Z
       type: continuity
       priority: high
     - id: rev-blackout-mechanism
-      text: "Why does the blackout wipe every lamp on Vesper Row at once? Seed a mechanism earlier or it's a plot hole."
-      scene: "07 - Blackout"
+      text: Why does the blackout wipe every lamp on Vesper Row at once? Seed a mechanism earlier or it's a plot hole.
+      scene: 07 - Blackout
       status: pending
-      created: "2026-06-18T11:20:00.000Z"
+      created: 2026-06-18T11:20:00.000Z
       type: plot-hole
       priority: high
     - id: rev-undercroft-terms
-      text: "Look up period drainage/sub-cellar terminology for the Undercroft description. [TK]"
-      scene: "04 - The Undercroft"
+      text: Look up period drainage/sub-cellar terminology for the Undercroft description. [RESEARCH]
+      scene: 04 - The Undercroft
       status: pending
-      created: "2026-06-20T08:00:00.000Z"
+      created: 2026-06-20T08:00:00.000Z
       type: research
       priority: low
   revisionChecklist:
@@ -118,14 +119,14 @@ inkswell:
       stakes:
         done: true
       heroTransforms:
-        note: "Mara goes from wanting nothing to claiming the Archive — verify the turn lands by scene 5/6."
+        note: Mara goes from wanting nothing to claiming the Archive — verify the turn lands by scene 5/6.
       consistent:
-        note: "Reconcile lamplight-stores-memory rule across early scenes."
+        note: Reconcile lamplight-stores-memory rule across early scenes.
     page:
       echoes:
         done: true
       adverbs:
-        note: "Sweep -ly adverbs in dialogue tags during the line pass."
+        note: Sweep -ly adverbs in dialogue tags during the line pass.
   arcTracked:
     - "[[Mara Vance]]"
   styleSheet:
@@ -145,13 +146,13 @@ inkswell:
     metadata:
       title: The Lamplighter's Archive
       seriesTitle: The Lattice Cycle
-      tagline: "She lights the lamps that keep a city's memory — until one shows her a life she never lived."
-      blurb: "In a city that pours each day into its street-lamps, Mara Vance is content to tend her small route and want nothing. Then a lamp shows her a memory that was never hers, and the trail leads down into the sealed Archive the city has spent a generation forgetting."
+      tagline: She lights the lamps that keep a city's memory — until one shows her a life she never lived.
+      blurb: In a city that pours each day into its street-lamps, Mara Vance is content to tend her small route and want nothing. Then a lamp shows her a memory that was never hers, and the trail leads down into the sealed Archive the city has spent a generation forgetting.
       genre: Fantasy
       subgenres:
         - Gaslamp fantasy
         - Mystery
-      targetReader: "Readers of cozy-but-eerie gaslamp fantasy with a quiet, competent heroine."
+      targetReader: Readers of cozy-but-eerie gaslamp fantasy with a quiet, competent heroine.
       keywords:
         - gaslamp fantasy
         - memory magic
@@ -161,10 +162,10 @@ inkswell:
         - sentient magic
         - found family
       categories:
-        main: "FICTION / Fantasy / Historical"
+        main: FICTION / Fantasy / Historical
         sub:
-          - "FICTION / Fantasy / Gaslamp"
-          - "FICTION / Mystery & Detective"
+          - FICTION / Fantasy / Gaslamp
+          - FICTION / Mystery & Detective
       kuExclusive: true
       formats:
         ebook:
@@ -187,11 +188,17 @@ inkswell:
         targetReader:
           done: true
     launch:
-      releaseDate: "2026-09-01"
+      releaseDate: 2026-09-01
       strategy: medium
       milestones:
         submit:
           done: false
+    budget:
+      items:
+        - id: p-mqtp8n9n-aar6
+          label: Cover art
+          category: want
+          estimate: 500
 ---
 
 # The Lamplighter's Archive

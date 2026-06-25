@@ -46,7 +46,7 @@ export class SceneInspector {
     });
     open.onclick = () => openScene(this.app, file);
 
-    renderSceneMetaFields(container, this.app, file);
+    renderSceneMetaFields(container, this.app, file, ctx.project);
 
     // Revision audit — collapsed by default so it doesn't crowd the drafting
     // metadata. The 14-point scene checklist (Revise → Audit) lives here too.

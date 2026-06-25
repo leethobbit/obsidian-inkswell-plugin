@@ -32,4 +32,4 @@ She lifted her lamp. The nearest unlit lamp on the shelf turned, very slightly,
 toward the flame — and Mara understood that down here, she was not the one doing
 the reading.
 
-%% This is the threshold. Make sure scene 03 plants that Coll fears exactly this place. %%
+[NOTE: This is the threshold. Make sure scene 03 plants that Coll fears exactly this place.]

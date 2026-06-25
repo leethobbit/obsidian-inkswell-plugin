@@ -86,6 +86,20 @@ export interface ProjectGoals {
   daysPerWeek?: number;
 }
 
+/**
+ * Novel-level planning metadata (Plan → Overview). Short, single-line fields only
+ * — long-form prose (synopsis, outline) lives in a separate planning note, never
+ * in frontmatter. `planningNote` records that note's vault path once created.
+ */
+export interface ProjectOverview {
+  logline?: string;
+  theme?: string;
+  genre?: string;
+  audience?: string;
+  /** Vault path of the project's planning note, set lazily on first prose save. */
+  planningNote?: string;
+}
+
 /** Series membership for a book (project). A series is the set of books sharing a `name`. */
 export interface SeriesInfo {
   /** Series display name. Books with the same name form one series. */
@@ -108,6 +122,8 @@ export interface InkswellProjectData {
   publishing?: PublishingData;
   beats?: BeatSheet;
   series?: SeriesInfo;
+  /** Novel-level planning (logline/theme/genre/audience + planning-note pointer). */
+  overview?: ProjectOverview;
 }
 
 export function isMultiScene(draft: Draft): draft is MultipleSceneDraft {

@@ -1,5 +1,6 @@
 ---
 codex: world
+codex-series: The Lattice Cycle
 aliases: []
 geography: A canal city built in tiers, lower wards in fog, upper wards in clean light.
 culture: Built around the daily ritual of "giving the day to the lamps." To carry your own memories awake is seen as both proud and slightly unwell.

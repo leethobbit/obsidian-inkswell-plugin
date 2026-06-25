@@ -1,24 +1,25 @@
 /**
- * Fast-drafting placeholder tokens (the "defer everything" drafting
- * method): instead of stopping to research or write a hard bit, drop a bracketed
- * marker and keep drafting forward, then find them all later.
+ * To-do markers (the "defer everything" drafting method): instead of stopping to
+ * research or write a hard bit, drop a bracketed marker and keep drafting forward,
+ * then find them all later in Revise → Todos.
  *
- *   [TK]            — journalism "to come": a missing fact/name to fill in
+ *   [TODO: …]       — a generic to-do
+ *   [RESEARCH: …]   — a fact/detail to look up or verify
+ *   [NOTE: …]       — a note/reminder to yourself
  *   [DIALOGUE: …]   — a line/exchange you'll write later
  *   [SCENE: …]      — a whole scene summarised as a one-liner for now
- *   [NOTE: …]       — a memo to yourself
- *   [???]           — generic uncertainty
  *
- * Pure module — no CodeMirror or Obsidian imports — so it's unit-testable and can
- * be shared by the editor scanner (`markdown-syntax.ts`, for highlighting) and the
- * "find all gaps" view (for the revision-pass sweep).
+ * One syntax family — `[KEYWORD: content]`, with the `: content` optional so a bare
+ * `[TODO]` is valid too. Pure module — no CodeMirror or Obsidian imports — so it's
+ * unit-testable and shared by the editor scanner (`markdown-syntax.ts`, for
+ * highlighting) and the Todos sweep view.
  *
- * Tokens are single-line by design: the colon forms match any content EXCEPT a
- * closing bracket or newline. This keeps highlighting to a clean single-line mark
- * and per-line protection simple; multi-line skips should use bullet lists.
+ * Tokens are single-line by design: the content matches any text EXCEPT a closing
+ * bracket or newline. This keeps highlighting to a clean single-line mark and
+ * per-line protection simple; multi-line skips should use bullet lists.
  */
 
-export type PlaceholderKind = "tk" | "dialogue" | "scene" | "note" | "unknown";
+export type PlaceholderKind = "todo" | "research" | "note" | "dialogue" | "scene";
 
 export interface PlaceholderMatch {
   /** Absolute start offset (inclusive). */
@@ -30,11 +31,11 @@ export interface PlaceholderMatch {
 
 /** CSS class applied to each token's styled span in the editor. */
 export const PLACEHOLDER_CLASS: Record<PlaceholderKind, string> = {
-  tk: "cm-ph-tk",
+  todo: "cm-ph-todo",
+  research: "cm-ph-research",
+  note: "cm-ph-note",
   dialogue: "cm-ph-dialogue",
   scene: "cm-ph-scene",
-  note: "cm-ph-note",
-  unknown: "cm-ph-unknown",
 };
 
 export interface PlaceholderTemplate {
@@ -44,28 +45,24 @@ export interface PlaceholderTemplate {
   cursor: number;
 }
 
-/** Insertion templates; the cursor lands inside the colon forms, ready to type. */
+/** Insertion templates; the cursor lands inside the colon form, ready to type. */
 export const PLACEHOLDER_TEMPLATES: Record<PlaceholderKind, PlaceholderTemplate> = {
-  tk: { text: "[TK]", cursor: 4 },
+  todo: { text: "[TODO: ]", cursor: 7 },
+  research: { text: "[RESEARCH: ]", cursor: 11 },
+  note: { text: "[NOTE: ]", cursor: 7 },
   dialogue: { text: "[DIALOGUE: ]", cursor: 11 },
   scene: { text: "[SCENE: ]", cursor: 8 },
-  note: { text: "[NOTE: ]", cursor: 7 },
-  unknown: { text: "[???]", cursor: 5 },
 };
 
-// `TK` and `???` are exact; the colon forms take any single-line content up to the
-// closing `]`. Case-insensitive on the keyword so `[tk]`/`[dialogue: …]` also match.
-const PLACEHOLDER_RE = /\[(TK|\?\?\?|(DIALOGUE|SCENE|NOTE):[^\]\n]*)\]/gi;
+// One family: `[KEYWORD: content]`, with the `: content` optional (so `[TODO]` also
+// matches). Case-insensitive on the keyword so `[todo: …]` matches too.
+const PLACEHOLDER_RE = /\[(TODO|RESEARCH|NOTE|DIALOGUE|SCENE)(?::[^\]\n]*)?\]/gi;
 
-function kindOf(inner: string, keyword: string | undefined): PlaceholderKind {
-  if (keyword) {
-    const k = keyword.toUpperCase();
-    return k === "DIALOGUE" ? "dialogue" : k === "SCENE" ? "scene" : "note";
-  }
-  return inner.toUpperCase() === "TK" ? "tk" : "unknown";
+function kindOf(keyword: string): PlaceholderKind {
+  return keyword.toLowerCase() as PlaceholderKind;
 }
 
-/** Find every placeholder token in `text`, sorted by start offset. */
+/** Find every to-do marker in `text`, sorted by start offset. */
 export function scanPlaceholders(text: string): PlaceholderMatch[] {
   const out: PlaceholderMatch[] = [];
   PLACEHOLDER_RE.lastIndex = 0;
@@ -74,7 +71,7 @@ export function scanPlaceholders(text: string): PlaceholderMatch[] {
     out.push({
       from: m.index,
       to: m.index + m[0].length,
-      kind: kindOf(m[1], m[2]),
+      kind: kindOf(m[1]),
     });
   }
   return out.sort((a, b) => a.from - b.from);

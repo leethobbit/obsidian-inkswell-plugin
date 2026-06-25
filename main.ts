@@ -108,7 +108,7 @@ export default class InkswellPlugin extends Plugin {
     });
     this.addCommand({
       id: "open-codex",
-      name: "Open codex (Plan)",
+      name: "Open codex",
       callback: () => this.openCodex(),
     });
     this.addCommand({
@@ -134,9 +134,19 @@ export default class InkswellPlugin extends Plugin {
       ),
     });
     this.addCommand({
-      id: "open-gaps",
-      name: "Find drafting placeholders (Revise → Gaps)",
-      callback: () => this.openGaps(),
+      id: "open-todos",
+      name: "Open to-dos (Revise)",
+      callback: () => this.openTodos(),
+    });
+    this.addCommand({
+      id: "insert-todo",
+      name: "Insert a to-do marker…",
+      checkCallback: (checking) => {
+        const view = this.inkswellView();
+        if (!view || !view.canInsertTodo()) return false;
+        if (!checking) view.insertTodo();
+        return true;
+      },
     });
     this.addCommand({
       id: "start-sprint",
@@ -185,11 +195,6 @@ export default class InkswellPlugin extends Plugin {
       id: "open-revisions",
       name: "Open revision log",
       callback: () => this.openRevisions(),
-    });
-    this.addCommand({
-      id: "open-comments",
-      name: "Open comments (Revise)",
-      callback: () => this.openComments(),
     });
     this.addCommand({
       id: "open-analysis",
@@ -293,7 +298,7 @@ export default class InkswellPlugin extends Plugin {
   }
 
   openCodex(): Promise<void> {
-    return this.openInkswell("plan", undefined, "codex");
+    return this.openInkswell("codex");
   }
 
   openWrite(): Promise<void> {
@@ -308,12 +313,15 @@ export default class InkswellPlugin extends Plugin {
     return this.openInkswell("publish");
   }
 
-  openComments(): Promise<void> {
-    return this.openInkswell("revise", undefined, "comments");
+  /** Open the Todos sweep (all bracketed to-do markers across the project). */
+  openTodos(): Promise<void> {
+    return this.openInkswell("revise", undefined, "todos");
   }
 
-  openGaps(): Promise<void> {
-    return this.openInkswell("revise", undefined, "gaps");
+  /** The live InkswellView, if its tab is open (for editor-scoped commands). */
+  private inkswellView(): InkswellView | null {
+    const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_INKSWELL)[0];
+    return leaf && leaf.view instanceof InkswellView ? leaf.view : null;
   }
 
   openAnalysis(): Promise<void> {
@@ -344,7 +352,7 @@ export default class InkswellPlugin extends Plugin {
 
   /** Create a new project, make it active, reveal it on Home, open its index. */
   newProject(): void {
-    new NewProjectModal(this.app, (file) => {
+    new NewProjectModal(this.app, this.settings, (file) => {
       this.activeProject.set(file.path);
       this.refreshExplorer();
       void this.openProjects();
@@ -373,6 +381,11 @@ export default class InkswellPlugin extends Plugin {
       if (after) after(leaf.view);
     }
     workspace.revealLeaf(leaf);
+  }
+
+  /** Reveal the Inkswell tab, switch to Write, and open the given scene there. */
+  openSceneInWrite(path: string): void {
+    void this.openInkswell("write", (view) => view.openSceneInWrite(path));
   }
 
   private withActiveProject(fn: (p: Project) => void): void {

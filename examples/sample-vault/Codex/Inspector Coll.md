@@ -1,5 +1,6 @@
 ---
 codex: character
+codex-series: The Lattice Cycle
 aliases:
   - The auditor
 role: Antagonist (initially)

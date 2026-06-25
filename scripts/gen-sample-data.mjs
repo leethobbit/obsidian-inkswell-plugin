@@ -107,7 +107,9 @@ const data = {
     defaultSprintMinutes: 25,
     defaultSprintWordGoal: 600,
     streakThreshold: 100,
+    baseFolder: "",
     codexFolder: "Codex",
+    coLocateCodex: true,
   },
   writingLog: { daily, baselines: {}, sprints },
   ideas: [

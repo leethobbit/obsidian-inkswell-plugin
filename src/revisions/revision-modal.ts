@@ -1,6 +1,8 @@
 /**
- * Capture a revision decision while drafting. Pre-fills with the editor selection
- * (if any) and lets you anchor it to the current scene or the whole project.
+ * Capture (or edit) a revision decision. When logging, pre-fills with the editor
+ * selection (if any) and anchors to the current scene or the whole project. When
+ * an existing decision is passed, it edits in place — its id, created timestamp,
+ * and applied/pending status are preserved (upsertDecision keys by id).
  */
 
 import { App, Modal, Notice, Setting } from "obsidian";
@@ -22,23 +24,39 @@ export class RevisionModal extends Modal {
   private anchorToScene: boolean;
   private type: RevisionType = "continuity";
   private priority: RevisionPriority | "" = "";
+  /** The decision being edited, or null when logging a new one. */
+  private existing: RevisionDecision | null;
 
   constructor(
     app: App,
     project: Project,
     sceneTitle: string | null,
-    initialText = ""
+    initialText = "",
+    existing: RevisionDecision | null = null
   ) {
     super(app);
     this.project = project;
-    this.sceneTitle = sceneTitle;
-    this.text = initialText.trim();
-    this.anchorToScene = sceneTitle !== null;
+    this.existing = existing;
+    if (existing) {
+      // Edit mode: seed every field from the decision; its anchor scene drives
+      // the anchor dropdown (null = project-wide, which stays project-wide).
+      this.sceneTitle = existing.scene;
+      this.text = existing.text;
+      this.anchorToScene = existing.scene !== null;
+      this.type = existing.type ?? "continuity";
+      this.priority = existing.priority ?? "";
+    } else {
+      this.sceneTitle = sceneTitle;
+      this.text = initialText.trim();
+      this.anchorToScene = sceneTitle !== null;
+    }
   }
 
   onOpen(): void {
     const { contentEl } = this;
-    contentEl.createEl("h3", { text: "Log a revision decision" });
+    contentEl.createEl("h3", {
+      text: this.existing ? "Edit revision decision" : "Log a revision decision",
+    });
     contentEl.createEl("p", {
       cls: "inkswell-revision__hint",
       text: "Note the change and keep writing forward — apply it later during revision.",
@@ -83,7 +101,7 @@ export class RevisionModal extends Modal {
 
     new Setting(contentEl).addButton((b) =>
       b
-        .setButtonText("Log decision")
+        .setButtonText(this.existing ? "Save changes" : "Log decision")
         .setCta()
         .onClick(() => this.save())
     );
@@ -96,11 +114,11 @@ export class RevisionModal extends Modal {
       return;
     }
     const decision: RevisionDecision = {
-      id: newRevisionId(),
+      id: this.existing?.id ?? newRevisionId(),
       text,
       scene: this.anchorToScene ? this.sceneTitle : null,
-      status: "pending",
-      created: new Date().toISOString(),
+      status: this.existing?.status ?? "pending",
+      created: this.existing?.created ?? new Date().toISOString(),
       type: this.type,
       priority: this.priority || undefined,
     };
@@ -109,7 +127,7 @@ export class RevisionModal extends Modal {
       this.project,
       upsertDecision(decisionsOf(this.project), decision)
     );
-    new Notice("Revision decision logged.");
+    new Notice(this.existing ? "Revision decision updated." : "Revision decision logged.");
     this.close();
   }
 

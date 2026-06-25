@@ -9,7 +9,7 @@
 
 import { App, TFile } from "obsidian";
 import { writeDraftToFrontmatter } from "./draft-serialization";
-import { Draft, IndentedScene, MultipleSceneDraft, InkswellProjectData, SeriesInfo } from "./types";
+import { Draft, IndentedScene, MultipleSceneDraft, InkswellProjectData, ProjectOverview, SeriesInfo } from "./types";
 
 /** Write a full draft object to the index note's `longform` frontmatter. */
 export async function persistDraft(
@@ -77,6 +77,35 @@ export async function persistPublishing(
     mutator(publishing);
     if (Object.keys(publishing).length === 0) delete inkswell["publishing"];
     else inkswell["publishing"] = publishing;
+    if (Object.keys(inkswell).length === 0) delete fm["inkswell"];
+    else fm["inkswell"] = inkswell;
+  });
+}
+
+/**
+ * Merge a partial overview patch into `inkswell.overview` (read-merge-write), like
+ * `persistPublishing`. A raw `persistInkswellData({ overview })` would shallow-merge
+ * at the top level and clobber sibling overview fields — this preserves them. Keys
+ * set to empty string / undefined are dropped so cleared fields don't linger.
+ */
+export async function persistOverview(
+  app: App,
+  indexFile: TFile,
+  patch: Partial<ProjectOverview>
+): Promise<void> {
+  await app.fileManager.processFrontMatter(indexFile, (fm) => {
+    const inkswell: Record<string, unknown> =
+      fm["inkswell"] && typeof fm["inkswell"] === "object" ? { ...fm["inkswell"] } : {};
+    const overview: Record<string, unknown> =
+      inkswell["overview"] && typeof inkswell["overview"] === "object"
+        ? { ...inkswell["overview"] }
+        : {};
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined || value === null || value === "") delete overview[key];
+      else overview[key] = value;
+    }
+    if (Object.keys(overview).length === 0) delete inkswell["overview"];
+    else inkswell["overview"] = overview;
     if (Object.keys(inkswell).length === 0) delete fm["inkswell"];
     else fm["inkswell"] = inkswell;
   });

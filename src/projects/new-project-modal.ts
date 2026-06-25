@@ -9,21 +9,37 @@
 import { App, Modal, Notice, Setting, TFile, normalizePath } from "obsidian";
 import { persistDraft } from "./index-writer";
 import { MultipleSceneDraft } from "./types";
+import { FolderSettings, joinPath, projectFolder } from "../settings/folders";
 
 export interface NewProjectOptions {
   title: string;
-  /** Folder for the index note (vault-relative; "" = vault root). */
-  folder: string;
-  /** Scene folder, relative to the index note ("/" = same folder as the index). */
+  /** Base/parent folder; the project gets its own subfolder here ("" = vault root). */
+  baseFolder: string;
+  /** Scene folder, relative to the project folder ("/" = the project folder itself). */
   sceneFolder: string;
+  /** Folder layout settings (codex subfolder name + co-location). */
+  folders: FolderSettings;
 }
 
 const sanitize = (name: string): string => name.trim().replace(/[\\/:*?"<>|]/g, "-");
 const trimSlashes = (s: string): string => s.trim().replace(/^\/+|\/+$/g, "");
 
+/** Create a vault folder if it doesn't already exist (swallows exists/race). */
+async function ensureFolder(app: App, path: string): Promise<void> {
+  if (path && !app.vault.getAbstractFileByPath(path)) {
+    try {
+      await app.vault.createFolder(path);
+    } catch {
+      /* exists / race */
+    }
+  }
+}
+
 /**
- * Create the index note for a new multi-scene project (and its scene folder).
- * Returns the index TFile, or null if the title was empty or the note exists.
+ * Scaffold a new multi-scene project in its own folder: `<base>/<Title>/` holding
+ * the index note, a `Scenes/` subfolder, and (when co-location is on) a codex
+ * subfolder. Returns the index TFile, or null if the title was empty or the note
+ * already exists.
  */
 export async function createProject(
   app: App,
@@ -35,16 +51,10 @@ export async function createProject(
     return null;
   }
 
-  const folder = trimSlashes(opts.folder);
-  if (folder && !app.vault.getAbstractFileByPath(folder)) {
-    try {
-      await app.vault.createFolder(folder);
-    } catch {
-      /* exists / race */
-    }
-  }
+  const projFolder = projectFolder(opts.baseFolder, safe);
+  await ensureFolder(app, projFolder);
 
-  const indexPath = normalizePath(folder ? `${folder}/${safe}.md` : `${safe}.md`);
+  const indexPath = normalizePath(joinPath(projFolder, `${safe}.md`));
   if (app.vault.getAbstractFileByPath(indexPath)) {
     new Notice(`A note named "${safe}" already exists here.`);
     return null;
@@ -65,17 +75,14 @@ export async function createProject(
   };
   await persistDraft(app, file, draft);
 
-  // Create the scene folder (resolved relative to the index) when it's a subfolder.
+  // Scene subfolder (relative to the project folder) when it's not the folder itself.
   if (sceneFolder !== "/") {
-    const base = file.parent ? file.parent.path : "";
-    const scenePath = normalizePath(base ? `${base}/${sceneFolder}` : sceneFolder);
-    if (!app.vault.getAbstractFileByPath(scenePath)) {
-      try {
-        await app.vault.createFolder(scenePath);
-      } catch {
-        /* exists / race */
-      }
-    }
+    await ensureFolder(app, normalizePath(joinPath(projFolder, sceneFolder)));
+  }
+
+  // Pre-create the project's codex folder so it's ready when co-location is on.
+  if (opts.folders.coLocateCodex) {
+    await ensureFolder(app, normalizePath(joinPath(projFolder, opts.folders.codexFolder || "Codex")));
   }
 
   return file;
@@ -83,12 +90,15 @@ export async function createProject(
 
 export class NewProjectModal extends Modal {
   private title = "";
-  private folder = "";
-  private sceneFolder = "/";
+  private baseFolder: string;
+  private sceneFolder = "Scenes";
+  private folders: FolderSettings;
   private onCreated: (file: TFile) => void;
 
-  constructor(app: App, onCreated: (file: TFile) => void) {
+  constructor(app: App, folders: FolderSettings, onCreated: (file: TFile) => void) {
     super(app);
+    this.folders = folders;
+    this.baseFolder = folders.baseFolder;
     this.onCreated = onCreated;
   }
 
@@ -105,14 +115,19 @@ export class NewProjectModal extends Modal {
     });
 
     new Setting(contentEl)
-      .setName("Folder")
-      .setDesc("Where the project index note lives. Leave blank for the vault root.")
-      .addText((t) => t.setPlaceholder("(vault root)").onChange((v) => (this.folder = v)));
+      .setName("Base folder")
+      .setDesc("The project gets its own subfolder here. Blank = vault root.")
+      .addText((t) =>
+        t
+          .setPlaceholder("(vault root)")
+          .setValue(this.baseFolder)
+          .onChange((v) => (this.baseFolder = v))
+      );
 
     new Setting(contentEl)
       .setName("Scene folder")
-      .setDesc('Where scene files live, relative to the index. "/" = same folder.')
-      .addText((t) => t.setValue("/").onChange((v) => (this.sceneFolder = v)));
+      .setDesc('Where scene files live, relative to the project folder. "/" = the folder itself.')
+      .addText((t) => t.setValue(this.sceneFolder).onChange((v) => (this.sceneFolder = v)));
 
     new Setting(contentEl).addButton((b) =>
       b
@@ -125,8 +140,9 @@ export class NewProjectModal extends Modal {
   private async submit(): Promise<void> {
     const file = await createProject(this.app, {
       title: this.title,
-      folder: this.folder,
+      baseFolder: this.baseFolder,
       sceneFolder: this.sceneFolder,
+      folders: this.folders,
     });
     if (!file) return; // createProject already surfaced the reason
     this.close();

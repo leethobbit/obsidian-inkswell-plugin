@@ -16,6 +16,7 @@
 import { App, TFile } from "obsidian";
 import { linkTarget } from "../codex/codex";
 import { getCodexEntities } from "../codex/codex-store";
+import { filterToScope, scopeContextForProject } from "../codex/codex-scope";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { persistInkswellData } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
@@ -338,7 +339,7 @@ export class AuditPanel {
     const tracked = parseTracked(project.inkswell?.arcTracked);
     const inData = new Set<string>();
     for (const s of sceneArc) for (const name of Object.keys(s.arc)) inData.add(name);
-    const codexChars = getCodexEntities(this.app)
+    const codexChars = filterToScope(getCodexEntities(this.app), scopeContextForProject(project))
       .filter((e) => e.category === "character")
       .map((e) => e.name);
     const available = Array.from(new Set([...codexChars, ...inData])).sort();
@@ -429,7 +430,7 @@ export class AuditPanel {
   /**
    * Side-character roster: each codex character's narrative function, goal, flaw,
    * memorable trait, and scene-appearance count, flagging missing fields and
-   * one-appearance walk-ons. Read-only — edit the fields in Plan → Codex.
+   * one-appearance walk-ons. Read-only — edit the fields in the Codex.
    */
   private renderRoster(host: HTMLElement, project: Project): void {
     // Appearance counts from scene `characters` links.
@@ -444,18 +445,21 @@ export class AuditPanel {
       }
     }
 
-    const chars = getCodexEntities(this.app).filter((e) => e.category === "character");
+    const chars = filterToScope(
+      getCodexEntities(this.app),
+      scopeContextForProject(project)
+    ).filter((e) => e.category === "character");
     if (chars.length === 0) {
       host.createDiv({
         cls: "inkswell-stats__muted",
-        text: "No codex characters yet. Add characters in Plan → Codex to build a roster.",
+        text: "No codex characters yet. Add characters in the Codex to build a roster.",
       });
       return;
     }
 
     host.createDiv({
       cls: "inkswell-stats__muted",
-      text: "Each side character should serve a function, have a goal + flaw, and a memorable trait. Edit fields in Plan → Codex.",
+      text: "Each side character should serve a function, have a goal + flaw, and a memorable trait. Edit fields in the Codex.",
     });
 
     for (const c of chars) {
@@ -591,14 +595,14 @@ export class AuditPanel {
       return;
     }
     for (const g of groups) {
-      const header = results.createDiv({ cls: "inkswell-gaps__scene" });
+      const header = results.createDiv({ cls: "inkswell-todos__scene" });
       header.setText(`${g.title} (${g.hits.length})`);
       header.onclick = () => openScene(this.app, g.file);
       for (const h of g.hits) {
-        const r = results.createDiv({ cls: "inkswell-gaps__row" });
-        r.createSpan({ cls: "inkswell-gaps__line", text: `L${h.line}` });
+        const r = results.createDiv({ cls: "inkswell-todos__row" });
+        r.createSpan({ cls: "inkswell-todos__line", text: `L${h.line}` });
         r.createSpan({ cls: "inkswell-stats__muted", text: `“${h.variant}” → ${h.canonical}` });
-        r.createSpan({ cls: "inkswell-gaps__excerpt", text: h.excerpt });
+        r.createSpan({ cls: "inkswell-todos__text", text: h.excerpt });
       }
     }
   }

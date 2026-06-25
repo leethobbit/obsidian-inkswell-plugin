@@ -14,7 +14,7 @@
  */
 
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { EditorState } from "@codemirror/state";
+import { EditorState, StateEffect, StateField } from "@codemirror/state";
 import {
   Decoration,
   DecorationSet,
@@ -71,18 +71,76 @@ const atomicMarkers = EditorView.atomicRanges.of(
   (view) => view.plugin(markdownHighlighter)?.hidden ?? Decoration.none
 );
 
+// Transient "flash" highlight used when navigating to a to-do from the Todos
+// panel: a single mark over the token that auto-clears (see `flashRange`).
+const setFlash = StateEffect.define<{ from: number; to: number } | null>();
+
+const flashField = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(deco, tr) {
+    deco = deco.map(tr.changes);
+    for (const e of tr.effects) {
+      if (e.is(setFlash)) {
+        deco =
+          e.value && e.value.to > e.value.from
+            ? Decoration.set([
+                Decoration.mark({ class: "cm-todo-flash" }).range(e.value.from, e.value.to),
+              ])
+            : Decoration.none;
+      }
+    }
+    return deco;
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
 /**
- * Insert a fast-drafting placeholder token at the selection, replacing it, and
- * drop the cursor inside the colon forms (ready to type). Refocuses the editor so
- * a toolbar-button insertion doesn't leave focus on the button.
+ * Select a range, scroll it into view, and flash it briefly — the editor-side of
+ * "click a to-do in Revise → jump here and show me which one". Offsets are clamped
+ * to the document; the flash clears itself after a beat.
+ */
+export function flashRange(view: EditorView, from: number, to: number): void {
+  const len = view.state.doc.length;
+  const a = Math.max(0, Math.min(from, len));
+  const b = Math.max(a, Math.min(to, len));
+  view.dispatch({
+    selection: { anchor: a, head: b },
+    effects: setFlash.of({ from: a, to: b }),
+    scrollIntoView: true,
+  });
+  view.focus();
+  window.setTimeout(() => {
+    try {
+      view.dispatch({ effects: setFlash.of(null) });
+    } catch {
+      /* editor was destroyed before the flash cleared — ignore */
+    }
+  }, 1200);
+}
+
+/**
+ * Insert a to-do marker. With no selection, drops the empty template and lands the
+ * cursor inside it (ready to type). With a selection, WRAPS it as the marker's
+ * content — `[KIND: <selection>]` — so you can tag existing text in place.
+ * Refocuses the editor so a toolbar-button insertion doesn't strand focus.
  */
 export function insertPlaceholder(view: EditorView, kind: PlaceholderKind): void {
   const tpl = PLACEHOLDER_TEMPLATES[kind];
   const { from, to } = view.state.selection.main;
-  view.dispatch({
-    changes: { from, to, insert: tpl.text },
-    selection: { anchor: from + tpl.cursor },
-  });
+  const selected = view.state.sliceDoc(from, to);
+  if (selected) {
+    const open = tpl.text.slice(0, tpl.cursor); // e.g. "[TODO: "
+    const insert = `${open}${selected}]`;
+    view.dispatch({
+      changes: { from, to, insert },
+      selection: { anchor: from + open.length, head: from + open.length + selected.length },
+    });
+  } else {
+    view.dispatch({
+      changes: { from, to, insert: tpl.text },
+      selection: { anchor: from + tpl.cursor },
+    });
+  }
   view.focus();
 }
 
@@ -116,7 +174,8 @@ export function createSceneEditor(opts: SceneEditorOptions): EditorView {
         // Placeholder-insert shortcuts (local to this editor, so they never
         // collide with Obsidian's global hotkeys). Listed first so they win.
         keymap.of([
-          { key: "Mod-Shift-k", run: insertBinding("tk") },
+          { key: "Mod-Shift-t", run: insertBinding("todo") },
+          { key: "Mod-Shift-r", run: insertBinding("research") },
           { key: "Mod-Shift-d", run: insertBinding("dialogue") },
           { key: "Mod-Shift-s", run: insertBinding("scene") },
           { key: "Mod-Shift-n", run: insertBinding("note") },
@@ -132,6 +191,7 @@ export function createSceneEditor(opts: SceneEditorOptions): EditorView {
         EditorView.lineWrapping,
         markdownHighlighter,
         atomicMarkers,
+        flashField,
         EditorView.updateListener.of((u) => {
           if (u.docChanged) opts.onChange();
         }),

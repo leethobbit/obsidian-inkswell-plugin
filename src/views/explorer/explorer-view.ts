@@ -20,6 +20,7 @@ import {
 import { Project, isMultiScene } from "../../projects/types";
 import { Series, groupIntoSeries, projectSeries } from "../../series/series";
 import { deleteScene, editSynopsis, promptText, renameScene } from "../../scenes/scene-actions";
+import { promptNewScene } from "../../outliner/create-scene";
 import { EditSceneModal } from "../../scenes/edit-scene-modal";
 import { readSceneMeta, statusLabel } from "../../scenes/scene-meta";
 import type InkswellPlugin from "../../../main";
@@ -159,12 +160,24 @@ export class ExplorerPanel {
       this.projectMenu(project).showAtMouseEvent(e);
     };
 
-    const right = header.createDiv();
+    const right = header.createDiv({ cls: "inkswell-project__right" });
     const count = right.createSpan({ cls: "inkswell-project__count" });
     if (this.plugin.settings.showWordCounts) {
       this.stats.projectWords(project).then((w) => {
         count.setText(`${w.toLocaleString()} words`);
       });
+    }
+    if (isMultiScene(project.draft)) {
+      const add = right.createEl("button", {
+        cls: "inkswell-project__addscene",
+        text: "+ scene",
+      });
+      add.setAttribute("aria-label", "Create a new scene in this project");
+      add.onclick = async (e) => {
+        e.stopPropagation();
+        const file = await promptNewScene(this.app, this.store, project);
+        if (file) this.onSelectScene(file);
+      };
     }
 
     if (isMultiScene(project.draft)) {
@@ -340,7 +353,7 @@ export class ExplorerPanel {
         i
           .setTitle("Edit scene…")
           .setIcon("settings-2")
-          .onClick(() => new EditSceneModal(this.app, sceneFile).open())
+          .onClick(() => new EditSceneModal(this.app, sceneFile, project, this.plugin).open())
       );
       menu.addItem((i) =>
         i

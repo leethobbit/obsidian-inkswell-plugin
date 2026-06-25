@@ -1,5 +1,6 @@
 ---
 codex: concept
+codex-series: The Lattice Cycle
 aliases:
   - The trade
   - Giving the day

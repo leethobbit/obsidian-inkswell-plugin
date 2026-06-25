@@ -12,11 +12,11 @@
  */
 
 import { EditorView } from "@codemirror/view";
-import { App, TFile } from "obsidian";
+import { App, FuzzySuggestModal, TFile } from "obsidian";
 import { PromptModal } from "../ideation/prompt-modal";
 import { RevisionModal } from "../revisions/revision-modal";
-import { createSceneEditor, insertPlaceholder } from "./scene-editor";
-import { PlaceholderKind } from "../lib/placeholders";
+import { createSceneEditor, flashRange, insertPlaceholder } from "./scene-editor";
+import { PlaceholderKind, scanPlaceholders } from "../lib/placeholders";
 import { PromptCategory, PromptPhase } from "../ideation/prompts";
 import { countWords } from "../lib/wordcount";
 import { resolveActive } from "../projects/active-project";
@@ -28,6 +28,37 @@ import { SprintController } from "../sprints/sprint-controller";
 import type InkswellPlugin from "../../main";
 
 const FRONTMATTER_RE = /^(---\r?\n[\s\S]*?\r?\n---\r?\n?)([\s\S]*)$/;
+
+/** The five to-do marker types, for the insert picker. */
+interface TodoType {
+  kind: PlaceholderKind;
+  label: string;
+  desc: string;
+}
+const TODO_TYPES: TodoType[] = [
+  { kind: "todo", label: "TODO", desc: "A generic to-do" },
+  { kind: "research", label: "Research", desc: "A fact or detail to look up / verify" },
+  { kind: "note", label: "Note", desc: "A note or reminder to yourself" },
+  { kind: "dialogue", label: "Dialogue", desc: "Dialogue to write later" },
+  { kind: "scene", label: "Scene", desc: "A scene to write or expand" },
+];
+
+/** Quick picker for "Insert a to-do marker…" (command palette + toolbar). */
+class TodoPickerModal extends FuzzySuggestModal<TodoType> {
+  constructor(app: App, private onPick: (kind: PlaceholderKind) => void) {
+    super(app);
+    this.setPlaceholder("Insert a to-do marker…");
+  }
+  getItems(): TodoType[] {
+    return TODO_TYPES;
+  }
+  getItemText(t: TodoType): string {
+    return `${t.label} — ${t.desc}`;
+  }
+  onChooseItem(t: TodoType): void {
+    this.onPick(t.kind);
+  }
+}
 
 export class WritePanel {
   private app: App;
@@ -48,6 +79,8 @@ export class WritePanel {
   private loadedBody = "";
   private countEl: HTMLElement | null = null;
   private unsub: (() => void) | null = null;
+  /** A token to scroll-to + flash once the editor finishes loading (from Todos). */
+  private pendingHighlight: { from: number; to: number } | null = null;
 
   // Writing-prompt state. Filters persist across modal opens; promptText is the
   // chosen prompt currently shown next to the topbar "Prompt" button ("" = none).
@@ -61,6 +94,33 @@ export class WritePanel {
     this.store = store;
     this.sprints = sprints;
     this.inspector = new SceneInspector(this.app, store);
+  }
+
+  /**
+   * Select a scene for editing (used when navigating in from another panel).
+   * Sets the owning project active and pins `lastProject` so the next render
+   * keeps the selection instead of clearing it on a perceived project change.
+   */
+  selectScene(path: string, highlight?: { from: number; to: number }): void {
+    const ctx = this.store.findSceneByPath(path);
+    if (!ctx) return;
+    this.plugin.activeProject.set(ctx.project.vaultPath);
+    this.selectedScene = path;
+    this.lastProject = ctx.project.vaultPath;
+    this.pendingHighlight = highlight ?? null;
+  }
+
+  /** Whether a live scene editor is currently mounted (for command availability). */
+  hasEditor(): boolean {
+    return !!this.editor;
+  }
+
+  /** Open the to-do picker and insert the chosen marker into the live editor. */
+  promptInsertTodo(): void {
+    if (!this.editor) return;
+    new TodoPickerModal(this.app, (kind) => {
+      if (this.editor) insertPlaceholder(this.editor, kind);
+    }).open();
   }
 
   render(container: HTMLElement): void {
@@ -144,27 +204,22 @@ export class WritePanel {
     });
     if (this.promptText) promptEl.onclick = () => this.openPromptModal();
 
-    // Placeholder-insert group — only useful with a scene open. Lets you drop a
-    // [TK]/[DIALOGUE:…]/[SCENE:…]/[NOTE:…] marker and keep drafting forward.
+    // To-do-insert group — only useful with a scene open. Lets you drop a
+    // [TODO:…]/[RESEARCH:…]/[NOTE:…]/[DIALOGUE:…]/[SCENE:…] marker and keep drafting.
     if (this.selectedScene) {
       const insertGroup = bar.createDiv({
         cls: "inkswell-write__group inkswell-write__group--insert",
       });
       insertGroup.createSpan({ cls: "inkswell-stats__muted", text: "Insert:" });
-      const tokens: { label: string; kind: PlaceholderKind }[] = [
-        { label: "TK", kind: "tk" },
-        { label: "Dialogue", kind: "dialogue" },
-        { label: "Scene", kind: "scene" },
-        { label: "Note", kind: "note" },
-      ];
-      for (const { label, kind } of tokens) {
+      for (const { kind, label } of TODO_TYPES) {
         const btn = insertGroup.createEl("button", { text: label });
         btn.onclick = () => {
           if (this.editor) insertPlaceholder(this.editor, kind);
         };
       }
-      const gaps = insertGroup.createEl("button", { text: "Find gaps" });
-      gaps.onclick = () => void this.plugin.openGaps();
+      const gaps = insertGroup.createEl("button", { text: "Find to-dos" });
+      gaps.setAttribute("aria-label", "Open the Todos sweep (Revise)");
+      gaps.onclick = () => void this.plugin.openTodos();
       const issue = insertGroup.createEl("button", { text: "Log issue" });
       issue.setAttribute("aria-label", "Log a revision issue for this scene (Mod-Shift-L)");
       issue.onclick = () => this.logIssue();
@@ -230,7 +285,23 @@ export class WritePanel {
         onLogIssue: () => this.logIssue(),
       });
       this.updateCount();
+      this.applyPendingHighlight(body);
     });
+  }
+
+  /**
+   * After the editor loads, scroll to + flash the token a Todos-panel click asked
+   * for. Editor doc == body (frontmatter stripped), so the panel's offsets line up;
+   * we re-scan to confirm the exact token (the file may have shifted since the scan)
+   * and fall back to the raw offsets (flashRange clamps them) if it's gone.
+   */
+  private applyPendingHighlight(body: string): void {
+    const hl = this.pendingHighlight;
+    this.pendingHighlight = null;
+    if (!hl || !this.editor) return;
+    const match = scanPlaceholders(body).find((m) => m.from === hl.from);
+    const target = match ?? hl;
+    flashRange(this.editor, target.from, target.to);
   }
 
   private updateCount(): void {

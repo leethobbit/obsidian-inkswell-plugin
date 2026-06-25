@@ -2,7 +2,7 @@
 
 > Working doc: mark the **Pick** column (`P1` next · `P2` later · `P3` maybe · `X` no). When done, this becomes a dependency-ordered build plan.
 
-Inkswell has shipped phases 1–16 (`v0.16.0`): Longform-compatible projects + compile pipeline, goals/sprints/stats, invisible-revision log, beat sheets, Kanban board, codex with structured profiles, the Track dashboard, Insight analysis, a custom Live-Preview manuscript editor, series mode, writing-aids + export tooling (`v0.15.0`), and a full **writing-method feature set** (`v0.16.0`: Revise audit toolkit, fast-drafting aids, self-publishing manager — see §12) — inside a single-tab host view. The pick-list below is drawn from three sources:
+Inkswell has shipped phases 1–17 (`v0.17.0`): Longform-compatible projects + compile pipeline, goals/sprints/stats, invisible-revision log, beat sheets, Kanban board, codex with structured profiles, the Track dashboard, Insight analysis, a custom Live-Preview manuscript editor, series mode, writing-aids + export tooling (`v0.15.0`), a full **writing-method feature set** (`v0.16.0`: Revise audit toolkit, fast-drafting aids, self-publishing manager — see §12), and a **Plan-reorg / navigation / to-do-marker pass** (`v0.17.0`: Plan → Overview, single-scene creation, Codex as a top-level destination, Flags→Todos with jump-to-Write, editable Log) — inside a single-tab host view. The pick-list below is drawn from three sources:
 
 - **[SL]** StoryLine (Obsidian plugin) — `r:\repos\active\obsidian-storyline`
 - **[IW]** Inkswell web app — `r:\repos\active\inkswell` (Next.js/SQLite/Tiptap)
@@ -17,8 +17,8 @@ Inkswell has shipped phases 1–16 (`v0.16.0`): Longform-compatible projects + c
 
 **Every selected feature (`X` in Pick) is now at least partially shipped**, and v0.15/v0.16 added a large band of writing-method tooling beyond the original sheet (see §12). The original selection sheet has no untouched picks left.
 
-- **Full parity on the core loop:** project/scene structure, status/POV/synopsis/color/archive, beat sheets (7 templates) + scaffold, Kanban board, codex (profiles, linking, auto-detect, hub), goals/sprints/streaks/habit/heatmap/lifetime, stats + readability/word-frequency/echo, compile (MD/HTML/DOCX/PDF/EPUB + step editor), revision log + inline comments, ideas/quick-capture/prompts, series mode, global project switcher, and a custom **Live-Preview** manuscript editor.
-- **Beyond the sheet (v0.15–v0.16, §12):** fast-drafting aids (placeholder tokens, deadline pace calculator, milestone zones, mood/next-up), the Revise **Audit** toolkit (3-tier checklists, lift-out test, scene-openings, character-arc grid, side-character roster, style-sheet scan), composition analysis, the **Gaps** sweep, a typed/prioritized decision log, and a self-publishing manager (checklist, metadata, pre-order planner, launch trackers).
+- **Full parity on the core loop:** project/scene structure (incl. single-scene creation from Home/Board/Beats), status/POV/synopsis/color/archive, novel-level **Overview** planning, beat sheets (7 templates) + scaffold, Kanban board, codex (profiles, linking, auto-detect, hub — a top-level destination), goals/sprints/streaks/habit/heatmap/lifetime, stats + readability/word-frequency/echo, compile (MD/HTML/DOCX/PDF/EPUB + step editor), an editable revision log, ideas/quick-capture/prompts, series mode, global project switcher, and a custom **Live-Preview** manuscript editor.
+- **Beyond the sheet (v0.15–v0.17, §12):** fast-drafting aids (to-do markers with jump-to-Write, deadline pace calculator, milestone zones, mood/next-up), the Revise **Audit** toolkit (3-tier checklists, lift-out test, scene-openings, character-arc grid, side-character roster, style-sheet scan), composition analysis, the **Todos** sweep, a typed/prioritized + editable decision log, and a self-publishing manager (checklist, metadata, pre-order planner, launch trackers).
 - **Partial (◑), candidates for post-1.0:** acts/chapters as real container objects (frontmatter fields + Board/compile grouping today), scene-templates UI, codex *custom* categories (7 fixed), per-chapter word targets, multiple-drafts UI, a richer Navigator. None blocks 1.0 (all additive).
 - **Deliberately not built:** the ⚠️/❌ rows that overlap Obsidian or conflict with the local-first/no-AI philosophy (corkboard, plot grid, timeline, relationship graph, snapshots, imports, submissions, AI) — see the out-of-scope section.
 
@@ -169,8 +169,8 @@ Features distilled from established fast-drafting, revision, and self-publishing
 
 | Have | Feature                                                                 | Phase | Notes |
 | ---- | ----------------------------------------------------------------------- | ----- | ----- |
-| ✅    | Placeholder tokens (`[TK]`/`[SCENE:]`/`[DIALOGUE:]`/`[NOTE:]`/`[???]`)   | Write | editor highlighting + insert keymap/toolbar |
-| ✅    | "Find all gaps" sweep                                                   | Revise → Gaps | every placeholder across the manuscript, click-through |
+| ✅    | To-do markers (`[TODO:]`/`[RESEARCH:]`/`[NOTE:]`/`[DIALOGUE:]`/`[SCENE:]`) | Write | editor highlighting + insert picker/keymap/toolbar + wrap-selection (v0.17; replaced `%%`/`[TK]`/`[???]`) |
+| ✅    | To-do sweep — click a marker to jump to it in Write + flash             | Revise → Todos | every marker across the manuscript; renamed from "Gaps/Flags" (v0.17) |
 | ✅    | Deadline pace calculator (required daily words + ahead/on-track/behind) | Track | `goals.deadline`/`daysPerWeek`; ~1wk/10k suggestion |
 | ✅    | Draft-milestone zones (the Muddle, halfway, home stretch)               | Track | tied to the word-count forecast |
 | ✅    | Optional daily mood + "next up" breadcrumb                              | Track/Write | light-touch; `data.json` |

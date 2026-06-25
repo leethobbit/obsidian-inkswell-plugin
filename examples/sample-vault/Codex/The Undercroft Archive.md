@@ -1,5 +1,6 @@
 ---
 codex: location
+codex-series: The Lattice Cycle
 aliases:
   - The Undercroft
   - The Archive

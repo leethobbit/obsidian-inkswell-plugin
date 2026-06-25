@@ -10,7 +10,7 @@ location: "[[The Lattice]]"
 targetWords: 1500
 ---
 
-%% IDEA STAGE — placeholder for the Act 3 low point. %%
+[NOTE: IDEA STAGE — the Act 3 low point, captured for now.]
 
 The "whiff of death" beat. Vesper Row goes dark and stays dark; the district
 wakes up a stranger to itself. Coll has to decide what he is willing to remember

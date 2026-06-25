@@ -33,8 +33,12 @@ export interface InkswellSettings {
   defaultSprintWordGoal: number;
   /** Minimum words for a day to count toward a writing streak. */
   streakThreshold: number;
-  /** Vault folder where new codex entities are created. */
+  /** Parent folder new projects + the shared codex scaffold under ("" = vault root). */
+  baseFolder: string;
+  /** Codex subfolder name, used both for the shared codex and per-project codex. */
   codexFolder: string;
+  /** When true, book-scoped codex co-locates in its project folder; series/global go shared. */
+  coLocateCodex: boolean;
 }
 
 export const DEFAULT_SETTINGS: InkswellSettings = {
@@ -49,7 +53,9 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   defaultSprintMinutes: 15,
   defaultSprintWordGoal: 0,
   streakThreshold: 1,
+  baseFolder: "",
   codexFolder: "Codex",
+  coLocateCodex: true,
 };
 
 export class InkswellSettingTab extends PluginSettingTab {
@@ -197,11 +203,28 @@ export class InkswellSettingTab extends PluginSettingTab {
           })
       );
 
-    containerEl.createEl("h3", { text: "Codex" });
+    containerEl.createEl("h3", { text: "Folders" });
 
     new Setting(containerEl)
-      .setName("Codex folder")
-      .setDesc("Vault folder where new codex entities (characters, locations…) are created.")
+      .setName("Base folder")
+      .setDesc(
+        "Folder new projects and the shared codex scaffold under. Blank = vault root. " +
+          "This only sets where new content is created — existing projects and codex " +
+          "anywhere in the vault still work."
+      )
+      .addText((t) =>
+        t
+          .setPlaceholder("(vault root)")
+          .setValue(this.plugin.settings.baseFolder)
+          .onChange(async (v) => {
+            this.plugin.settings.baseFolder = trimSlashes(v);
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Codex folder name")
+      .setDesc("Subfolder name used for codex notes (shared and per-project).")
       .addText((t) =>
         t
           .setValue(this.plugin.settings.codexFolder)
@@ -210,7 +233,26 @@ export class InkswellSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
+
+    new Setting(containerEl)
+      .setName("Co-locate codex with projects")
+      .setDesc(
+        "Book-scoped entries are created in their project's own codex folder; " +
+          "series and global entries go to the shared base codex. Organization only — " +
+          "visibility is set per-entry by its Scope field, not by where the note lives."
+      )
+      .addToggle((t) =>
+        t.setValue(this.plugin.settings.coLocateCodex).onChange(async (v) => {
+          this.plugin.settings.coLocateCodex = v;
+          await this.plugin.saveSettings();
+        })
+      );
   }
+}
+
+/** Trim leading/trailing slashes and surrounding whitespace from a folder path. */
+function trimSlashes(s: string): string {
+  return s.trim().replace(/^\/+|\/+$/g, "");
 }
 
 function clampInt(raw: string, lo: number, hi: number, fallback: number): number {

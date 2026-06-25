@@ -15,7 +15,7 @@
  * can edit them. Reveal is per-span for inline constructs and per-line for block
  * markers, matching Obsidian.
  *
- * Fast-drafting placeholder tokens (`[TK]`, `[DIALOGUE: …]`, etc. — see
+ * To-do markers (`[TODO: …]`, `[DIALOGUE: …]`, etc. — see
  * `lib/placeholders.ts`) are styled as whole-token marks (never hidden, so the
  * cursor edits inside them normally) and their interiors are protected from
  * emphasis/code scanning so `[DIALOGUE: he *runs*]` isn't half-italicised.

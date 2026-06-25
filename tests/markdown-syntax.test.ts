@@ -92,9 +92,9 @@ describe("buildSyntaxIntents — block constructs", () => {
 });
 
 describe("buildSyntaxIntents — placeholder tokens", () => {
-  it("styles a [TK] token as a whole-token mark, never hidden", () => {
-    const out = buildSyntaxIntents("a [TK] b", []);
-    expect(out).toContainEqual({ from: 2, to: 6, type: "style", cls: "cm-ph-tk" });
+  it("styles a [TODO] token as a whole-token mark, never hidden", () => {
+    const out = buildSyntaxIntents("a [TODO] b", []);
+    expect(out).toContainEqual({ from: 2, to: 8, type: "style", cls: "cm-ph-todo" });
     expect(hides(out)).toHaveLength(0);
   });
 
@@ -102,7 +102,7 @@ describe("buildSyntaxIntents — placeholder tokens", () => {
     expect(styles(buildSyntaxIntents("[DIALOGUE: hi]", []), "cm-ph-dialogue")).toHaveLength(1);
     expect(styles(buildSyntaxIntents("[SCENE: x]", []), "cm-ph-scene")).toHaveLength(1);
     expect(styles(buildSyntaxIntents("[NOTE: x]", []), "cm-ph-note")).toHaveLength(1);
-    expect(styles(buildSyntaxIntents("[???]", []), "cm-ph-unknown")).toHaveLength(1);
+    expect(styles(buildSyntaxIntents("[RESEARCH: x]", []), "cm-ph-research")).toHaveLength(1);
   });
 
   it("does not style emphasis inside a placeholder", () => {

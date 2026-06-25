@@ -1,5 +1,5 @@
 /**
- * Codex hub (Plan → Codex): a master-detail browser. The left list groups
+ * Codex hub (a top-level destination): a master-detail browser. The left list groups
  * entities by category, searches, and creates new ones. Selecting an entity
  * opens a structured profile editor on the right — a focused form of that
  * category's fields (see `profile-schema`), written straight to the note's
@@ -13,11 +13,20 @@ import {
   openScene,
   promptText,
 } from "../scenes/scene-actions";
-import { createEntity, getCodexEntities, scenesReferencing } from "./codex-store";
+import { createEntity, getCodexEntities, scenesReferencing, writeEntityScope } from "./codex-store";
 import { linkTarget, toLink } from "./codex";
+import {
+  defaultScopeForProject,
+  filterToScope,
+  projectName,
+  scopeContextForProject,
+} from "./codex-scope";
+import { resolveCodexFolder } from "../settings/folders";
 import { readProfile, writeProfile } from "./codex-profile";
 import { Profile, ProfileField, profileFields } from "./profile-schema";
-import { CODEX_CATEGORIES, CodexCategory, CodexEntity, categoryLabel } from "./types";
+import { CODEX_CATEGORIES, CodexCategory, CodexEntity, EntityScope, categoryLabel } from "./types";
+import { Project } from "../projects/types";
+import { groupIntoSeries } from "../series/series";
 import type InkswellPlugin from "../../main";
 
 export class CodexPanel {
@@ -27,10 +36,18 @@ export class CodexPanel {
   private detailEl: HTMLElement | null = null;
   private search = "";
   private selectedPath: string | null = null;
+  /** When false, the list is filtered to the active project's scope (default). */
+  private showAll = false;
 
   constructor(app: App, plugin: InkswellPlugin) {
     this.app = app;
     this.plugin = plugin;
+  }
+
+  /** The active project (the vantage point for scoping), or null. */
+  private activeProject(): Project | null {
+    const path = this.plugin.activeProject.get();
+    return path ? this.plugin.store.getProject(path) ?? null : null;
   }
 
   render(container: HTMLElement): void {
@@ -48,11 +65,29 @@ export class CodexPanel {
       this.renderList();
     };
 
+    // Scope filter: by default show only entries in the active project's scope
+    // (its own + its series + globals). "All projects" reveals everything. With no
+    // active project there is nothing to scope by, so the control is moot.
+    const active = this.activeProject();
+    const scopeSel = bar.createEl("select", { cls: "dropdown" });
+    scopeSel.createEl("option", { text: "In scope", value: "scope" });
+    scopeSel.createEl("option", { text: "All projects", value: "all" });
+    scopeSel.value = this.showAll || !active ? "all" : "scope";
+    scopeSel.disabled = !active;
+    scopeSel.onchange = () => {
+      this.showAll = scopeSel.value === "all";
+      this.renderList();
+    };
+
     const catSel = bar.createEl("select", { cls: "dropdown" });
     for (const c of CODEX_CATEGORIES) {
       catSel.createEl("option", { text: c.label, value: c.id });
     }
     const newBtn = bar.createEl("button", { cls: "mod-cta", text: "New" });
+    // New entries inherit the active project's scope: its series if it belongs to
+    // one, else the book itself. With no active project they are created global.
+    const createScope = defaultScopeForProject(active);
+    newBtn.setAttribute("aria-label", this.scopeHint(active, createScope));
     newBtn.onclick = async () => {
       const category = catSel.value as CodexCategory;
       const name = await promptText(this.app, {
@@ -66,7 +101,8 @@ export class CodexPanel {
         this.app,
         category,
         name,
-        this.plugin.settings.codexFolder
+        resolveCodexFolder(this.plugin.settings, createScope, active?.vaultPath),
+        createScope
       );
       if (file) {
         this.selectedPath = file.path;
@@ -87,8 +123,14 @@ export class CodexPanel {
     if (!list) return;
     list.empty();
 
+    const active = this.activeProject();
+    const scoped =
+      this.showAll || !active
+        ? getCodexEntities(this.app)
+        : filterToScope(getCodexEntities(this.app), scopeContextForProject(active));
+
     const q = this.search.trim().toLowerCase();
-    const all = getCodexEntities(this.app).filter((e) =>
+    const all = scoped.filter((e) =>
       !q
         ? true
         : e.name.toLowerCase().includes(q) ||
@@ -96,11 +138,14 @@ export class CodexPanel {
     );
 
     if (all.length === 0) {
+      const inScope = !this.showAll && !!active;
       list.createDiv({
         cls: "inkswell-stats__muted",
         text: q
           ? "No matching codex entries."
-          : "No codex entries yet. Create one above.",
+          : inScope
+            ? "No codex entries in scope. Create one, or switch to “All projects”."
+            : "No codex entries yet. Create one above.",
       });
       return;
     }
@@ -182,6 +227,8 @@ export class CodexPanel {
     });
     const openBtn = head.createEl("button", { text: "Open note" });
     openBtn.onclick = () => openScene(this.app, file);
+
+    this.renderScopeField(host, file, entity);
 
     const profile = readProfile(this.app, file, entity.category);
     const entities = getCodexEntities(this.app);
@@ -313,6 +360,60 @@ export class CodexPanel {
     const f = parent.createDiv({ cls: "inkswell-inspector__field" });
     if (label) f.createDiv({ cls: "inkswell-inspector__label", text: label });
     build(f.createDiv({ cls: "inkswell-inspector__control" }));
+  }
+
+  /** Tooltip describing what scope a new entry will inherit. */
+  private scopeHint(_active: Project | null, scope: EntityScope): string {
+    if (scope.series) return `New entries are tagged for the “${scope.series}” series.`;
+    if (scope.project) return `New entries are tagged for “${scope.project}”.`;
+    return "New entries are created global — no project selected.";
+  }
+
+  /**
+   * Scope selector for the open entity: Global, any series, or any single book.
+   * Series wins over project (one tag is written); writes go straight to the note's
+   * frontmatter. A tag pointing at something no longer in the lists is preserved.
+   */
+  private renderScopeField(host: HTMLElement, file: TFile, entity: CodexEntity): void {
+    const projects = this.plugin.store.getProjects();
+    const seriesNames = groupIntoSeries(projects).series.map((s) => s.name);
+    const books = projects.map((p) => projectName(p)).sort((a, b) => a.localeCompare(b));
+
+    const scope = entity.scope ?? {};
+    const current = scope.series ? `s:${scope.series}` : scope.project ? `p:${scope.project}` : "";
+
+    this.field(host, "Scope", (control) => {
+      const sel = control.createEl("select", { cls: "dropdown" });
+      sel.createEl("option", { text: "Global (all projects)", value: "" });
+      if (seriesNames.length) {
+        const grp = sel.createEl("optgroup");
+        grp.label = "Series";
+        for (const name of seriesNames) grp.createEl("option", { text: name, value: `s:${name}` });
+      }
+      if (books.length) {
+        const grp = sel.createEl("optgroup");
+        grp.label = "Books";
+        for (const name of books) grp.createEl("option", { text: name, value: `p:${name}` });
+      }
+      if (current && !Array.from(sel.options).some((o) => o.value === current)) {
+        const label = scope.series ? `${scope.series} (series)` : `${scope.project} (book)`;
+        sel.createEl("option", { text: `${label} — current`, value: current });
+      }
+      sel.value = current;
+      sel.onchange = () => {
+        const v = sel.value;
+        const next: EntityScope = !v
+          ? {}
+          : v.startsWith("s:")
+            ? { series: v.slice(2) }
+            : { project: v.slice(2) };
+        void (async () => {
+          await writeEntityScope(this.app, file, next);
+          this.renderList();
+          this.renderDetail();
+        })();
+      };
+    });
   }
 
   private async rename(file: TFile): Promise<void> {

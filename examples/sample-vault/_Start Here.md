@@ -22,13 +22,14 @@ Inkswell is one tab with a **left icon rail**. Each stop does one job:
 | Stop | What you'll see in this sample |
 |------|-------------------------------|
 | **Home** | The project's scene list with per-scene word counts and status colors. Click a scene to open the **Inspector** (status, POV, chapter, characters, word target). |
-| **Plan → Beats** | A *Save the Cat!* beat sheet. Several beats are filled in and ticked; later beats are still open — exactly mid-outline. |
+| **Plan → Overview** | Novel-level planning — logline, theme, genre, audience, plus a linked planning note holding the synopsis, plot groundwork, and a light 3-act outline. The high-level view, before anything is broken into beats or scenes. |
+| **Plan → Beats** | A *Save the Cat!* beat sheet. Several beats are filled in and ticked; later beats are still open — exactly mid-outline. Each beat has a **+ new scene** button that creates the scene and links it to the beat. |
 | **Plan → Board** | The same scenes as draggable status cards. |
-| **Plan → Codex** | The story bible: characters, locations, a world, a concept, and a faction. Open **Mara Vance** to see her profile and the scenes that reference her. |
-| **Write** | A distraction-light Live-Preview editor that walks the manuscript in order. Scene 02 carries fast-drafting **placeholder tokens** (`[TK]`, `[NOTE: …]`, `[DIALOGUE: …]`) — they highlight in the editor. Use the topbar **Insert** buttons (or `Ctrl/Cmd-Shift-K/D/S/N`) to drop your own, and **Log issue** to capture a fix without stopping. Start a **Sprint** from the rail (bottom). |
+| **Codex** *(rail — meta cluster, above Track)* | The story bible: characters, locations, a world, a concept, and a faction. Open **Mara Vance** to see her profile and the scenes that reference her. Every entry is **scoped to the series** *The Lattice Cycle* (its **Scope** field) — so it follows the book across the whole series, but won't clutter an unrelated project like *Fancy Story Time*. |
+| **Write** | A distraction-light Live-Preview editor that walks the manuscript in order. Scene 02 carries **to-do markers** (`[RESEARCH: …]`, `[NOTE: …]`, `[DIALOGUE: …]`) — they highlight in the editor. Use the topbar **Insert** buttons (or `Ctrl/Cmd-Shift-T/R/D/S/N`) to drop your own, and **Log issue** to capture a fix without stopping. Start a **Sprint** from the rail (bottom). |
 | **Track** | Word-goal rings, a writing-history chart, a 26-week heatmap, streaks, and sprint stats. A **deadline** is set, so Project targets shows a **pace verdict** and the current **draft-milestone** zone. Set today's **mood** in Goals. |
 | **Revise → Audit** | The 3-tier revision toolkit: per-scene **14-point checklist** (scenes 1–2 are partly audited), Story/Page project checklists, the scene-**purpose** lift-out verdict, a **scene-openings** variety strip, the **character-arc** grid (Mara is tracked — watch her internal/external state change), a **side-character roster**, and a **style sheet** scan. |
-| **Revise → Log / Gaps** | **Log**: the invisible-revision decisions, now **typed & prioritized** (continuity/plot-hole/research…). **Gaps**: every placeholder token across the manuscript, click-through to fix. |
+| **Revise → Log / Todos** | **Log**: the invisible-revision decisions, now **typed & prioritized** (continuity/plot-hole/research…). **Todos**: every to-do marker across the manuscript — click one to jump straight to it in the editor. |
 | **Publish → Compile / Checklist / Launch** | **Compile**: the export pipeline (groups scenes into chapters). **Checklist**: the self-publishing master checklist + the **book-metadata worksheet** (both partly filled). **Launch**: the **pre-order timeline** (release date + Medium strategy → computed milestone dates) and budget/cover/marketing/ARC trackers. |
 
 ---
@@ -47,6 +48,12 @@ Nothing here is magic — it's all plain Markdown you can inspect:
 - **Codex entries** in [Codex/](Codex/) are just notes carrying a `codex:` key.
   Scenes link to them with ordinary `[[wikilinks]]` in their `characters` /
   `location` fields, and the Codex panel finds the references automatically.
+  Each entry here also carries `codex-series: The Lattice Cycle`, which **scopes**
+  it to that series — it shows in pickers for every book in the cycle but is hidden
+  from unrelated projects. (Use `codex-project: "[[Book]]"` to scope to a single
+  book, or leave both off to share an entry globally. New entries inherit the
+  active project's scope automatically; folder location is just tidy storage —
+  the tag is what controls visibility.)
 - **Sprint and daily-word history** is *not* in these notes — it lives in the
   plugin's `data.json`. That's why it travels with this vault but wouldn't travel
   with a loose folder of chapters.

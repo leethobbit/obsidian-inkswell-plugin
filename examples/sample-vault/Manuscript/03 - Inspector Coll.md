@@ -35,7 +35,7 @@ knew he knew it. He let the silence do its work. She let it, too, which was
 interesting. Most people filled a silence with the truth eventually. She filled
 it with nothing at all, and watched him while she did.
 
-%% Coll's interiority is too on-the-nose here — trust the reader more in revision. %%
+[NOTE: Coll's interiority is too on-the-nose here — trust the reader more in revision.]
 
 "The Bureau takes an interest when a row goes dark," he said. "Continuance is
 fragile in the lower districts. You understand."

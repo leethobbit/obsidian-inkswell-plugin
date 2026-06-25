@@ -14,7 +14,7 @@ revScene:
   goalConflict: true
   shift: true
   endsUncertain: true
-revSceneNote: "Catalyst lands; line-edit the vision paragraph and resolve the [TK]/[DIALOGUE] placeholders."
+revSceneNote: "Catalyst lands; line-edit the vision paragraph and resolve the [RESEARCH]/[DIALOGUE] to-dos."
 revArc:
   - character: "[[Mara Vance]]"
     internal: Certainty cracks; unsettled.
@@ -49,7 +49,7 @@ now, the way the crooked one never had.
 
 [NOTE: mirror this room's "cold stone and machine oil" in the Undercroft reveal, scene 4.]
 
-[TK: coin a lamplighter's word for a leaked memory — "a bleed"?]
+[RESEARCH: coin a lamplighter's word for a leaked memory — "a bleed"?]
 
 A lamp had shown her a memory that was not hers to be shown. Which meant either
 she was losing her mind, or something in the Lattice had begun to leak — and

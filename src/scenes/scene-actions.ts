@@ -12,6 +12,7 @@ import { pickReusableLeaf } from "../lib/leaf-select";
 import { Project } from "../projects/types";
 import { EditSceneModal } from "./edit-scene-modal";
 import { readSceneMeta, writeSceneMeta } from "./scene-meta";
+import type InkswellPlugin from "../../main";
 
 class PromptModal extends Modal {
   private result: string | null = null;
@@ -175,7 +176,7 @@ export function addSceneMenuItems(
   project: Project,
   title: string,
   file: TFile,
-  opts: { includeOpen?: boolean } = {}
+  opts: { includeOpen?: boolean; plugin?: InkswellPlugin } = {}
 ): void {
   if (opts.includeOpen) {
     menu.addItem((i) =>
@@ -183,7 +184,7 @@ export function addSceneMenuItems(
     );
   }
   menu.addItem((i) =>
-    i.setTitle("Edit scene…").setIcon("settings-2").onClick(() => new EditSceneModal(app, file).open())
+    i.setTitle("Edit scene…").setIcon("settings-2").onClick(() => new EditSceneModal(app, file, project, opts.plugin ?? null).open())
   );
   menu.addItem((i) =>
     i.setTitle("Edit synopsis…").setIcon("text").onClick(() => void editSynopsis(app, file))

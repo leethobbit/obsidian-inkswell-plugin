@@ -7,6 +7,8 @@
 import { App, TFile } from "obsidian";
 import { detectMentions, linkTarget, toLink } from "../codex/codex";
 import { getCodexEntities } from "../codex/codex-store";
+import { filterToScope, scopeContextForProject } from "../codex/codex-scope";
+import { Project } from "../projects/types";
 import { SCENE_CHECKPOINTS } from "../revisions/audit";
 import { readSceneAudit, writeSceneAudit } from "../revisions/audit-meta";
 import { OPENING_LABEL, OPENING_TYPES, OpeningType } from "../revisions/openings";
@@ -30,11 +32,20 @@ function field(parent: HTMLElement, label: string, build: (host: HTMLElement) =>
   build(f.createDiv({ cls: "inkswell-inspector__control" }));
 }
 
-/** Render all editable scene-metadata field rows into `container`. */
-export function renderSceneMetaFields(container: HTMLElement, app: App, file: TFile): void {
+/**
+ * Render all editable scene-metadata field rows into `container`. When `project`
+ * (the scene's owning book) is given, codex pickers and auto-detect are scoped to
+ * that book + its series + global entries; without it, all entities are offered.
+ */
+export function renderSceneMetaFields(
+  container: HTMLElement,
+  app: App,
+  file: TFile,
+  project: Project | null = null
+): void {
   const meta = readSceneMeta(app, file);
   const save = (patch: Partial<SceneMeta>) => void writeSceneMeta(app, file, patch);
-  const entities = getCodexEntities(app);
+  const entities = filterToScope(getCodexEntities(app), scopeContextForProject(project));
 
   // Status
   field(container, "Status", (host) => {

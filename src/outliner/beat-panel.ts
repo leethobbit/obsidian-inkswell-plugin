@@ -7,23 +7,30 @@
  * bodies), via persistInkswellData.
  */
 
-import { App, Notice, TFile } from "obsidian";
+import { App, Menu, Notice, TFile } from "obsidian";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { persistInkswellData } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
+import { EditSceneModal } from "../scenes/edit-scene-modal";
+import { addSceneMenuItems } from "../scenes/scene-actions";
+import { readSceneMeta, statusLabel } from "../scenes/scene-meta";
 import { BeatSheet, DEFAULT_TEMPLATE, TEMPLATE_META } from "./beat-templates";
 import { beatProgress, mergeBeats, setAssignment } from "./beats";
+import { promptNewScene } from "./create-scene";
 import { scaffoldFromTemplate } from "./scaffold";
+import type InkswellPlugin from "../../main";
 
 export class BeatPanel {
   private app: App;
+  private plugin: InkswellPlugin;
   private store: ProjectStore;
   private active: ActiveProject;
   private container: HTMLElement | null = null;
 
-  constructor(app: App, store: ProjectStore, active: ActiveProject) {
+  constructor(app: App, plugin: InkswellPlugin, store: ProjectStore, active: ActiveProject) {
     this.app = app;
+    this.plugin = plugin;
     this.store = store;
     this.active = active;
   }
@@ -126,7 +133,33 @@ export class BeatPanel {
     const attached = beat.assignment.scenes ?? [];
     const chips = sceneRow.createDiv({ cls: "inkswell-beat__chips" });
     for (const t of attached) {
-      const chip = chips.createSpan({ cls: "inkswell-chip", text: t });
+      const chip = chips.createSpan({ cls: "inkswell-chip" });
+      // The label opens the scene's metadata window; the × unlinks the scene.
+      const label = chip.createSpan({ cls: "inkswell-beat__chiplabel", text: t });
+      label.setAttribute("aria-label", `Open ${t} metadata`);
+      label.onclick = () => this.openSceneMeta(project, t);
+
+      // Status badge + right-click menu, for parity with the Board's scene cards.
+      const file = this.sceneFile(project, t);
+      if (file) {
+        const status = readSceneMeta(this.app, file).status;
+        if (status) {
+          chip.createSpan({
+            cls: `inkswell-status inkswell-status--${status}`,
+            text: statusLabel(status),
+          });
+        }
+        chip.oncontextmenu = (e) => {
+          e.preventDefault();
+          const menu = new Menu();
+          addSceneMenuItems(menu, this.app, project, t, file, {
+            includeOpen: true,
+            plugin: this.plugin,
+          });
+          menu.showAtMouseEvent(e);
+        };
+      }
+
       const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
       x.setAttribute("aria-label", `Remove ${t}`);
       x.onclick = () =>
@@ -141,6 +174,39 @@ export class BeatPanel {
       add.onchange = () => {
         if (add.value) this.update(project, beat.id, { scenes: [...attached, add.value] });
       };
+    }
+
+    // Create a brand-new scene already attached to this beat (synopsis seeded from
+    // the beat's blurb). createScene inserts it into the index, so the chip links a
+    // real file immediately.
+    const create = sceneRow.createEl("button", {
+      cls: "inkswell-beat__newscene",
+      text: "+ new scene",
+    });
+    create.setAttribute("aria-label", "Create a new scene attached to this beat");
+    create.onclick = async () => {
+      const file = await promptNewScene(this.app, this.store, project, {
+        meta: { synopsis: beat.blurb },
+      });
+      if (file) this.update(project, beat.id, { scenes: [...attached, file.basename] });
+    };
+  }
+
+  /** Resolve a beat-attached scene title to its TFile, if the file exists. */
+  private sceneFile(project: Project, title: string): TFile | null {
+    const scene = project.scenes.find((s) => s.title === title);
+    const file = scene?.path ? this.app.vault.getAbstractFileByPath(scene.path) : null;
+    return file instanceof TFile ? file : null;
+  }
+
+  /** Open a beat-attached scene's metadata window, if the scene file exists. */
+  private openSceneMeta(project: Project, title: string): void {
+    const scene = project.scenes.find((s) => s.title === title);
+    const file = scene?.path ? this.app.vault.getAbstractFileByPath(scene.path) : null;
+    if (file instanceof TFile) {
+      new EditSceneModal(this.app, file, project, this.plugin).open();
+    } else {
+      new Notice(`No scene file for "${title}" yet — scaffold scenes first.`);
     }
   }
 

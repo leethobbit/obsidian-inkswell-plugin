@@ -58,7 +58,7 @@
 }
 
 .inkswell-rail__label {
-  font-size: var(--font-ui-smaller);
+  font-size: var(--font-ui-small);
   text-align: center;
 }
 
@@ -149,14 +149,14 @@
 }
 .inkswell-inspector__empty {
   color: var(--text-muted);
-  font-size: var(--font-ui-smaller);
+  font-size: var(--font-ui-small);
 }
 .inkswell-inspector__title {
   font-weight: var(--font-semibold);
 }
 .inkswell-inspector__project {
   color: var(--text-muted);
-  font-size: var(--font-ui-smaller);
+  font-size: var(--font-ui-small);
   margin-bottom: var(--size-4-3);
 }
 .inkswell-inspector__open {
@@ -167,7 +167,7 @@
   margin-bottom: var(--size-4-3);
 }
 .inkswell-inspector__label {
-  font-size: var(--font-ui-smaller);
+  font-size: var(--font-ui-small);
   color: var(--text-muted);
   margin-bottom: 2px;
 }
@@ -187,7 +187,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--size-4-1);
-  font-size: var(--font-ui-smaller);
+  font-size: var(--font-ui-small);
   color: var(--text-muted);
 }
 .inkswell-inspector__swatches {
@@ -365,7 +365,7 @@
   align-items: center;
   gap: var(--size-4-2);
   padding: 2px var(--size-4-1);
-  font-size: var(--font-ui-smaller);
+  font-size: var(--font-ui-small);
 }
 .inkswell-idea__pin {
   cursor: pointer;
@@ -417,90 +417,67 @@
   cursor: pointer;
 }
 
-/* --- Comments (Revise) --- */
-.inkswell-comments {
+/* --- Todos panel (Revise → Todos): the bracketed to-do marker sweep --- */
+.inkswell-todos {
   padding: var(--size-4-3);
 }
-.inkswell-comments__toolbar {
-  margin-bottom: var(--size-4-3);
-}
-.inkswell-comments__scene {
-  font-weight: var(--font-semibold);
-  margin-top: var(--size-4-3);
-  cursor: pointer;
-}
-.inkswell-comments__row {
-  display: flex;
-  gap: var(--size-4-2);
-  padding: 2px 0;
-}
-.inkswell-comments__marker {
-  color: var(--text-faint);
-  font-family: var(--font-monospace);
-  font-size: var(--font-ui-smaller);
-}
-.inkswell-comments__text {
-  flex: 1;
-}
-
-/* --- Gaps panel (Revise → Gaps): fast-drafting placeholder sweep --- */
-.inkswell-gaps__filters {
+.inkswell-todos__filters {
   display: flex;
   flex-wrap: wrap;
   gap: var(--size-4-1);
   margin: var(--size-4-3) 0;
 }
-.inkswell-gaps__chip {
+.inkswell-todos__chip {
   font-size: var(--font-ui-smaller);
   padding: 2px var(--size-4-2);
 }
-.inkswell-gaps__chip.is-active {
+.inkswell-todos__chip.is-active {
   background: var(--interactive-accent);
   color: var(--text-on-accent);
 }
-.inkswell-gaps__scene {
+.inkswell-todos__scene {
   font-weight: var(--font-semibold);
   margin-top: var(--size-4-3);
   cursor: pointer;
 }
-.inkswell-gaps__row {
+.inkswell-todos__row {
   display: flex;
   align-items: baseline;
   gap: var(--size-4-2);
   padding: 2px 0;
   cursor: pointer;
 }
-.inkswell-gaps__row:hover {
+.inkswell-todos__row:hover {
   background: var(--background-modifier-hover);
 }
-.inkswell-gaps__kind {
+.inkswell-todos__kind {
   font-size: var(--font-ui-smaller);
   font-weight: var(--font-medium);
   border-radius: 3px;
   padding: 0 var(--size-4-1);
   white-space: nowrap;
 }
-.inkswell-gaps__kind--tk {
-  background: hsla(45, 90%, 50%, 0.25);
-}
-.inkswell-gaps__kind--unknown {
+.inkswell-todos__kind--todo {
   background: hsla(0, 80%, 55%, 0.22);
 }
-.inkswell-gaps__kind--dialogue {
-  background: hsla(210, 80%, 55%, 0.2);
+.inkswell-todos__kind--research {
+  background: hsla(45, 90%, 50%, 0.25);
 }
-.inkswell-gaps__kind--scene {
-  background: hsla(265, 70%, 60%, 0.2);
-}
-.inkswell-gaps__kind--note {
+.inkswell-todos__kind--note {
   background: hsla(150, 60%, 45%, 0.2);
 }
-.inkswell-gaps__line {
+.inkswell-todos__kind--dialogue {
+  background: hsla(210, 80%, 55%, 0.2);
+}
+.inkswell-todos__kind--scene {
+  background: hsla(265, 70%, 60%, 0.2);
+}
+.inkswell-todos__line {
   color: var(--text-faint);
   font-family: var(--font-monospace);
   font-size: var(--font-ui-smaller);
 }
-.inkswell-gaps__excerpt {
+.inkswell-todos__text {
   flex: 1;
   color: var(--text-muted);
 }
@@ -541,7 +518,7 @@
 }
 .inkswell-audit__note {
   flex: 1;
-  font-size: var(--font-ui-smaller);
+  font-size: var(--font-ui-small);
 }
 .inkswell-audit__scene {
   border-top: 1px solid var(--background-modifier-border);
@@ -666,11 +643,11 @@
 .inkswell-audit__arcrow .inkswell-audit__arcname {
   min-width: 6em;
   font-weight: var(--font-normal);
-  font-size: var(--font-ui-smaller);
+  font-size: var(--font-ui-small);
 }
 .inkswell-audit__arcfield {
   flex: 1;
-  font-size: var(--font-ui-smaller);
+  font-size: var(--font-ui-small);
 }
 /* Side-character roster */
 .inkswell-audit__rosterrow {
@@ -684,7 +661,7 @@
   cursor: pointer;
 }
 .inkswell-audit__rosterdetail {
-  font-size: var(--font-ui-smaller);
+  font-size: var(--font-ui-small);
 }
 .inkswell-audit__rosterflags {
   display: flex;
@@ -772,7 +749,7 @@
   min-width: 8em;
 }
 .inkswell-publishing__link {
-  font-size: var(--font-ui-smaller);
+  font-size: var(--font-ui-small);
 }
 .inkswell-publishing__format {
   display: flex;
@@ -865,7 +842,7 @@
   display: flex;
   align-items: center;
   gap: var(--size-4-2);
-  font-size: var(--font-ui-smaller);
+  font-size: var(--font-ui-small);
 }
 .inkswell-publish__preflight {
   margin-top: var(--size-4-4);
@@ -1074,6 +1051,10 @@
 }
 .inkswell-write__cm .cm-content {
   padding: 0 var(--size-4-2);
+  /* This editor uses the native browser caret (no CM drawSelection extension).
+     Obsidian's app CSS hides it with caret-color: transparent for its own editor,
+     so re-enable it here or the cursor is invisible while typing. */
+  caret-color: var(--caret-color, var(--text-normal));
 }
 
 /* Markdown syntax highlighting (markers stay visible but dimmed) */
@@ -1118,24 +1099,28 @@
   font-size: 1.05em;
 }
 
-/* Fast-drafting placeholder tokens: distinct tinted, rounded chips so unfilled
-   gaps are obvious at a glance while drafting. */
-.cm-ph-tk,
-.cm-ph-dialogue,
-.cm-ph-scene,
+/* To-do markers: distinct tinted, rounded chips so unresolved to-dos are obvious
+   at a glance while drafting. */
+.cm-ph-todo,
+.cm-ph-research,
 .cm-ph-note,
-.cm-ph-unknown {
+.cm-ph-dialogue,
+.cm-ph-scene {
   border-radius: 3px;
   padding: 0 2px;
   font-size: 0.92em;
   font-weight: var(--font-medium);
 }
-.cm-ph-tk {
+.cm-ph-todo {
+  background: hsla(0, 80%, 55%, 0.2);
+  color: var(--text-normal);
+}
+.cm-ph-research {
   background: hsla(45, 90%, 50%, 0.2);
   color: var(--text-normal);
 }
-.cm-ph-unknown {
-  background: hsla(0, 80%, 55%, 0.18);
+.cm-ph-note {
+  background: hsla(150, 60%, 45%, 0.16);
   color: var(--text-normal);
 }
 .cm-ph-dialogue {
@@ -1146,9 +1131,20 @@
   background: hsla(265, 70%, 60%, 0.16);
   color: var(--text-normal);
 }
-.cm-ph-note {
-  background: hsla(150, 60%, 45%, 0.16);
-  color: var(--text-normal);
+
+/* Transient flash when navigating to a to-do from the Todos panel. */
+.cm-todo-flash {
+  border-radius: 3px;
+  animation: inkswell-todo-flash 1.2s ease-out;
+}
+@keyframes inkswell-todo-flash {
+  0% {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+  }
+  100% {
+    background: transparent;
+  }
 }
 .inkswell-write__inspector {
   width: 260px;
@@ -1233,6 +1229,17 @@
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
   font-variant-numeric: tabular-nums;
+}
+
+.inkswell-project__right {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+
+.inkswell-project__addscene {
+  font-size: var(--font-ui-smaller);
+  padding: 2px 8px;
 }
 
 .inkswell-scene {
@@ -1412,7 +1419,7 @@
   box-shadow: none;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: var(--font-ui-smaller);
+  font-size: var(--font-ui-small);
 }
 .inkswell-stats__rangetoggle button.is-active {
   color: var(--text-accent);
@@ -1701,7 +1708,7 @@
 
 .inkswell-beat__blurb {
   color: var(--text-muted);
-  font-size: var(--font-ui-smaller);
+  font-size: var(--font-ui-small);
   margin: var(--size-4-1) 0;
 }
 
@@ -1734,6 +1741,13 @@
   font-size: var(--font-ui-smaller);
 }
 
+.inkswell-beat__chiplabel {
+  cursor: pointer;
+}
+.inkswell-beat__chiplabel:hover {
+  text-decoration: underline;
+}
+
 .inkswell-chip__x {
   cursor: pointer;
   color: var(--text-muted);
@@ -1744,6 +1758,68 @@
   color: var(--text-error);
 }
 
+.inkswell-beat__newscene {
+  font-size: var(--font-ui-smaller);
+  padding: 2px 8px;
+  margin-left: var(--size-4-2);
+}
+
+/* --- Plan → Overview --- */
+.inkswell-overview {
+  padding: var(--size-4-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-4);
+}
+
+.inkswell-overview__fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-3);
+}
+
+.inkswell-overview__field,
+.inkswell-overview__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-1);
+}
+
+.inkswell-overview__label {
+  font-weight: var(--font-semibold);
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+}
+
+.inkswell-overview__input,
+.inkswell-overview__textarea {
+  width: 100%;
+}
+
+.inkswell-overview__textarea {
+  resize: vertical;
+  min-height: 3.5em;
+}
+
+.inkswell-overview__prose {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-3);
+  border-top: 1px solid var(--background-modifier-border);
+  padding-top: var(--size-4-4);
+}
+
+.inkswell-overview__prosehead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--size-4-2);
+}
+
+.inkswell-overview__prosetitle {
+  font-weight: var(--font-semibold);
+}
+
 /* --- Revision log --- */
 .inkswell-revision {
   padding: var(--size-4-3);
@@ -1751,7 +1827,7 @@
 
 .inkswell-revision__hint {
   color: var(--text-muted);
-  font-size: var(--font-ui-smaller);
+  font-size: var(--font-ui-small);
   margin-top: 0;
 }
 
@@ -1776,7 +1852,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--size-4-1);
-  font-size: var(--font-ui-smaller);
+  font-size: var(--font-ui-small);
   color: var(--text-muted);
 }
 
@@ -1813,6 +1889,11 @@
 
 .inkswell-revision__text {
   white-space: pre-wrap;
+  cursor: pointer;
+}
+
+.inkswell-revision__text:hover {
+  text-decoration: underline;
 }
 
 .inkswell-revision__meta {

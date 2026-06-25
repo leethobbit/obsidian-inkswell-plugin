@@ -1,6 +1,8 @@
 {
   "livePreview": true,
-  "readableLineLength": true,
+  "readableLineLength": false,
   "showInlineTitle": true,
-  "defaultViewMode": "preview"
+  "defaultViewMode": "preview",
+  "showLineNumber": true,
+  "promptDelete": false
 }

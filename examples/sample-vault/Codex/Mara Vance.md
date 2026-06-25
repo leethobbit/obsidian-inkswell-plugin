@@ -1,5 +1,6 @@
 ---
 codex: character
+codex-series: The Lattice Cycle
 aliases:
   - The lighter on Vesper Row
 role: Protagonist

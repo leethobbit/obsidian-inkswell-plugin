@@ -160,7 +160,9 @@ export class RevisionPanel {
       );
 
     const body = row.createDiv({ cls: "inkswell-revision__body" });
-    body.createDiv({ cls: "inkswell-revision__text", text: d.text });
+    const textEl = body.createDiv({ cls: "inkswell-revision__text", text: d.text });
+    textEl.setAttribute("aria-label", "Edit decision");
+    textEl.onclick = () => this.openEdit(project, d);
     const meta = body.createDiv({ cls: "inkswell-revision__meta" });
     const type = decisionType(d);
     const typeLabel = REVISION_TYPES.find((t) => t.id === type)?.label ?? type;
@@ -178,12 +180,24 @@ export class RevisionPanel {
       const menu = new Menu();
       menu.addItem((i) =>
         i
+          .setTitle("Edit…")
+          .setIcon("pencil")
+          .onClick(() => this.openEdit(project, d))
+      );
+      menu.addSeparator();
+      menu.addItem((i) =>
+        i
           .setTitle("Delete")
           .setIcon("trash")
           .onClick(() => this.persist(project, removeDecision(decisionsOf(project), d.id)))
       );
       menu.showAtMouseEvent(e);
     };
+  }
+
+  /** Open the modal pre-filled to edit a decision in place (preserves id/status). */
+  private openEdit(project: Project, d: RevisionDecision): void {
+    new RevisionModal(this.app, project, d.scene, "", d).open();
   }
 
   private persist(project: Project, list: RevisionDecision[]): void {

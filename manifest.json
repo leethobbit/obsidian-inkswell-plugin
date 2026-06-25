@@ -1,10 +1,10 @@
 {
   "id": "inkswell",
   "name": "Inkswell",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "minAppVersion": "1.5.0",
-  "description": "A local-first writer's suite for longform fiction — projects & scenes, compile/export, goals & sprints, a revision toolkit, and self-publishing planning. Obsidian stays the editor.",
-  "author": "Daniel King",
+  "description": "A complete workbench for novelists. Plan with beat sheets and a story bible, draft with sprints and goals, revise with an audit toolkit, and prepare to publish.",
+  "author": "Dan King",
   "authorUrl": "https://github.com/leethobbit",
   "isDesktopOnly": true
 }

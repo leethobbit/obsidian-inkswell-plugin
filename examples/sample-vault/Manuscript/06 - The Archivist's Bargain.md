@@ -10,7 +10,7 @@ location: "[[The Undercroft Archive]]"
 targetWords: 1700
 ---
 
-%% IDEA STAGE — placeholder. Captured so the beat and the Codex links exist. %%
+[NOTE: IDEA STAGE — captured so the beat and the Codex links exist.]
 
 The Archive makes its offer. The price is the thing Mara has been not-looking-at
 since scene 01.

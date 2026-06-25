@@ -14,7 +14,7 @@ revArc:
     external: Reads the Archive — and it answers to her.
 ---
 
-%% OUTLINE ONLY — not yet drafted. Beat: Midpoint (false victory). %%
+[NOTE: OUTLINE ONLY — not yet drafted. Beat: Midpoint (false victory).]
 
 Beats to hit in this scene:
 
