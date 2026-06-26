@@ -111,6 +111,10 @@ export class ProjectStore extends Component {
     this.refreshing = true;
     try {
       const found: Project[] = [];
+      // Intentional whole-vault scan: Longform/Inkswell projects may live in any
+      // folder (drop-in Longform compat imposes no structure), so discovery can't
+      // be scoped. Detection is cache-only — full frontmatter is read only for the
+      // handful of candidates that carry a `longform` key (see the guard below).
       for (const file of this.app.vault.getMarkdownFiles()) {
         const fm = this.app.metadataCache.getFileCache(file)?.frontmatter as
           | Record<string, unknown>

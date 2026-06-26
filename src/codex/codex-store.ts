@@ -17,6 +17,9 @@ import {
 
 export function getCodexEntities(app: App): CodexEntity[] {
   const out: CodexEntity[] = [];
+  // Intentional whole-vault scan: codex entities may live in any folder, so we
+  // can't scope this. It's cache-only (no vault.read), so the cost is the file
+  // list + frontmatter cache lookups — don't "optimize" it into a folder filter.
   for (const file of app.vault.getMarkdownFiles()) {
     const fm = app.metadataCache.getFileCache(file)?.frontmatter as
       | Record<string, unknown>
@@ -73,6 +76,8 @@ export async function writeEntityScope(
  */
 export function scenesReferencing(app: App, entityName: string): TFile[] {
   const out: TFile[] = [];
+  // Intentional whole-vault scan (cache-only): scenes referencing an entity can
+  // live in any folder, so this can't be scoped to a directory.
   for (const file of app.vault.getMarkdownFiles()) {
     const fm = app.metadataCache.getFileCache(file)?.frontmatter as
       | Record<string, unknown>
