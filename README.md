@@ -26,16 +26,17 @@
 
 # Inkswell
 
-**A local-first writer's suite for longform fiction in [Obsidian](https://obsidian.md).** Plan it, draft it, track it, revise it, and publish it — without leaving your vault, and without your words ever leaving your machine.
+**A local-first writer's suite for longform fiction in [Obsidian](https://obsidian.md).** Plan, draft, track, revise, and prepare to publish with Inkswell. My goal is to build the best end-to-end plugin toolkit for writers, especially those working on large series longform projects.
 
 <!-- HERO -->
 ![Inkswell — Plan · Write · Track · Revise · Publish, all inside Obsidian](assets/hero.gif)
 
 ## Why Inkswell
 
-- **The whole lifecycle in one plugin.** Most tools cover one or two stages. Inkswell organizes the entire arc of a novel — **Home · Plan · Write · Revise · Publish**, plus a cross-cutting **Codex** and **Track** dashboard — into a single host view. Think Scrivener-class project management, but native to Obsidian and local-first.
-- **Local-first. No AI.** Inkswell makes **no network calls**, collects **no telemetry**, and generates **nothing** for you. Your manuscript lives in your vault's frontmatter and the plugin's local `data.json` — and nowhere else. Inkswell supports your writing but does not do any writing for you.
-- **Drop-in for Longform users.** Inkswell reads and writes the same `longform` frontmatter, so existing projects load with **zero migration**. Inkswell-only data lives under a separate `inkswell` key and never touches your prose.
+- **You can handle nearly the entire writing process just with Inkswell.** Inkswell organizes the entire arc of a novel — **Plan · Write · Revise · Publish**, plus a cross-cutting **Codex** and **Track** dashboard — into a single host view. Inkswell can get you from your first story ideas to a finished manuscript, with unique and powerful tools at each stage.
+- **Focus on UX with only the features you need.** I have noticed a trend in other writing tools to add every possible feature under the sun.  For some writers, this may be what they want, but my experience is that those tools often try to do too many things, and it makes it challenging to use them effectively.  Inkswell is built with user experience at the forefront - I have made a huge effort to deliver the most vital features for each stage of the writing journey, in order to get the most streamlined workflows possible without being overly opinionated. (I hope!)
+- **Local-first. No AI.** Inkswell makes **no network calls**, collects **no telemetry**, and does not generate any text. Your manuscript lives in your vault's frontmatter and the notes you write. Inkswell is built to make it easier for you to write, not do the writing for you.
+- **Drop-in for Longform users.** I am a long time fan of the [Longform plugin](https://github.com/kevboh/longform), so I made Inkswell compatible with that format. Inkswell reads and writes the same `longform` frontmatter, so existing projects load with **zero migration**. Inkswell-only data lives under a separate `inkswell` key to avoid collisions.
 
 ## What's inside
 
@@ -67,15 +68,15 @@ Projects and a nestable scene tree, an ideas inbox with quick capture, and serie
 
 ### Write — draft fast, fix later
 
-A distraction-light, Live-Preview manuscript editor with writing prompts and timed **sprints**. Fast-drafting **placeholder tokens** — `[TODO: …]`, `[RESEARCH: …]`, `[DIALOGUE: …]`, `[SCENE: …]`, `[NOTE: …]` — highlight as you type, so you can mark a gap and keep moving instead of stalling. Find them all later in the Revise → Todos sweep.
+A distraction-light, Live-Preview manuscript editor with writing prompts and timed **sprints**. Fast-drafting **placeholder tokens** — `[TODO: …]`, `[RESEARCH: …]`, `[DIALOGUE: …]`, `[SCENE: …]`, `[NOTE: …]` — highlight as you type, so you can mark a gap and keep moving forward. Find them all later in the Revise → Todos sweep.
 
 <!-- WRITE -->
 ![Write: Live-Preview editor with highlighted placeholder tokens and a running sprint timer](assets/write.png)
 
-### Revise — the part most tools skip
+### Revise — from draft to book
 
 - **Audit** — per-scene and project revision checklists, a scene-purpose lift-out test, scene-opening variety, a character-arc grid, a side-character roster, and a style-sheet consistency scan.
-- **The invisible-revision Log** — capture *"from now on, assume X"* decisions (e.g. "the inn is now called the Gilded Wren") as typed, prioritized entries and **keep drafting forward** instead of breaking flow to backfill earlier chapters. This is the feature writers tell us they didn't know they needed.
+- **The invisible-revision Log** — capture *"from now on, assume X"* decisions (e.g. "the inn is now called the Gilded Wren") as typed, prioritized entries and **keep drafting forward** instead of breaking flow to backfill earlier chapters.
 - **Todos** — a one-click sweep of every placeholder marker (`[TODO]`, `[RESEARCH]`, …) across the manuscript.
 - **Analysis** — readability, overused words, echoes, and composition mix.
 
@@ -91,7 +92,7 @@ A configurable **compile/export** pipeline (Markdown & HTML built in; `.docx` / 
 
 ### Codex — your story bible
 
-Characters, locations, worlds, factions, items, events, and concepts, each with its own profile and linked scenes, plus mention auto-detect so your canon stays consistent as the manuscript grows. It's reference material you reach for across Plan, Write, and Revise — so it sits alongside the pipeline rather than inside any one phase.
+Characters, locations, worlds, factions, items, events, and concepts, each with its own profile and linked scenes, plus mention auto-detect so your canon stays consistent as the manuscript grows. Can be scoped for single writing projects, or shared across a series.
 
 <!-- CODEX -->
 ![Codex: a character profile in the story bible with linked scenes](assets/codex.png)
@@ -102,8 +103,6 @@ Daily / weekly / monthly word goals, habit streaks, a GitHub-style heatmap, life
 
 <!-- TRACK -->
 ![Track: heatmap, streak, progress rings, and writing-history chart](assets/track.png)
-
-> The invisible-revision method, the fast-drafting aids, the revision audit, and the self-publishing workflow draw on established, widely-taught craft methods for drafting, revising, and self-publishing fiction.
 
 ## Privacy & dependencies
 
@@ -138,7 +137,7 @@ Copy `main.js`, `manifest.json`, and `styles.css` into `<vault>/.obsidian/plugin
 
 ## AI disclosure
 
-This plugin was developed with the assistance of **agentic AI coding tools and practices**. I have a mandate at work to learn AI tooling, and I wanted to channel that practice into something of lasting value for a community I love rather than throwaway exercises. Direction, architecture, scope, and review are all handled by me; much of the implementation was AI-assisted under that direction. Everything is open source (MIT) and the full commit history is here for inspection — feedback and scrutiny are welcome.
+This plugin was developed with the assistance of **agentic AI coding tools and practices**. I have a mandate at work to learn AI tooling, and I wanted to channel that practice into something useful for a community I love - hopefully this counts as that. Direction, architecture, scope, and review are all handled by me; much of the implementation was AI-assisted under that direction. That said, there is absolutely NO AI-generation in the plugin itself.  I used agents to help build it, but the plugin itself has a strict "No AI" policy and no AI or word generation features will ever be added.
 
 ## License
 
