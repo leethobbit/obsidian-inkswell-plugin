@@ -14,6 +14,8 @@ time the version bump renames that section to the new version and date.
 - Replaced the README hero gif with a larger, clearer capture, and re-shot the surface screenshots at the matching zoom.
 - Corrected the documented Obsidian requirement to 1.7.2 (matching the manifest) and tightened README copy.
 - Fixed stale README references: placeholder tokens are now `[TODO]` / `[RESEARCH]` (not `[TK]`), the sweep is **Revise → Todos** (renamed from Gaps), and the removed `%%` / `@@` "Comments" extraction feature is no longer listed.
+- The delete-scene confirmation button now uses Obsidian's `setDestructive()` styling, replacing the deprecated `setWarning()`.
+- Build: dropped the `builtin-modules` dev dependency in favor of Node's native `module.builtinModules` (build tooling only, no runtime change).
 
 ## [1.0.1] - 2026-06-25
 

@@ -72,7 +72,7 @@ class ConfirmModal extends Modal {
   onOpen(): void {
     this.contentEl.createEl("p", { text: this.message });
     new Setting(this.contentEl)
-      .addButton((b) => b.setButtonText("Delete").setWarning().onClick(() => {
+      .addButton((b) => b.setButtonText("Delete").setDestructive().onClick(() => {
         this.ok = true;
         this.close();
       }))
