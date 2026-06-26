@@ -1,6 +1,6 @@
 {
   "name": "obsidian-inkswell-plugin",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Inkswell — a full writer's suite for Obsidian: projects, compile, goals, sprints, and an invisible-revision decision log.",
   "main": "main.js",
   "type": "module",
@@ -29,14 +29,16 @@
     "@codemirror/commands": "^6.10.3",
     "@codemirror/state": "^6.5.0",
     "@codemirror/view": "^6.38.6",
+    "@eslint/js": "^9.39.4",
+    "@eslint/json": "^0.14.0",
     "@types/node": "^20.11.0",
-    "@typescript-eslint/eslint-plugin": "^7.0.0",
-    "@typescript-eslint/parser": "^7.0.0",
     "esbuild": "^0.20.0",
-    "eslint": "^8.57.0",
+    "eslint": "^9.39.4",
+    "eslint-plugin-obsidianmd": "^0.3.0",
     "obsidian": "latest",
     "tslib": "^2.6.2",
     "typescript": "^5.4.0",
+    "typescript-eslint": "^8.62.0",
     "vitest": "^1.4.0"
   }
 }

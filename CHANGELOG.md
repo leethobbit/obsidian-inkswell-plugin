@@ -10,6 +10,11 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-06-26
+
+### Fixed
+- The delete-scene confirmation button uses `setWarning()` (red destructive styling, available on all supported Obsidian versions) instead of `setDestructive()`, which requires Obsidian 1.13.0 — newer than the plugin's `minAppVersion` and therefore rejected by Obsidian's plugin-API validation.
+
 ## [1.0.3] - 2026-06-26
 
 ### Fixed
@@ -67,7 +72,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.3...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.4...HEAD
+[1.0.4]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.3...1.0.4
 [1.0.3]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.2...1.0.3
 [1.0.2]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.1...1.0.2
 [1.0.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.0...1.0.1

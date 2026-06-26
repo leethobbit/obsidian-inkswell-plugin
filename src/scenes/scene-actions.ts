@@ -5,26 +5,13 @@
  * (synopsis) — never the prose body.
  */
 
-import { App, ButtonComponent, MarkdownView, Menu, Modal, Setting, TFile, normalizePath } from "obsidian";
+import { App, MarkdownView, Menu, Modal, Setting, TFile, normalizePath } from "obsidian";
 import { updateScenes } from "../projects/index-writer";
 import { removeScene } from "../projects/scene-tree";
 import { Project } from "../projects/types";
 import { EditSceneModal } from "./edit-scene-modal";
 import { readSceneMeta, writeSceneMeta } from "./scene-meta";
 import type InkswellPlugin from "../../main";
-
-/**
- * Apply the red "destructive" styling to a button. `setDestructive()` was added
- * to the Obsidian API after our `minAppVersion` (1.7.2), so calling it directly
- * throws on older runtimes — which silently kills the button's onClick. Prefer it
- * when present (the non-deprecated path), else fall back to the still-functional
- * `setWarning()`.
- */
-function markDestructive(b: ButtonComponent): void {
-  const withDestructive = b as ButtonComponent & { setDestructive?: () => unknown };
-  if (typeof withDestructive.setDestructive === "function") withDestructive.setDestructive();
-  else b.setWarning();
-}
 
 class PromptModal extends Modal {
   private result: string | null = null;
@@ -84,13 +71,16 @@ class ConfirmModal extends Modal {
   onOpen(): void {
     this.contentEl.createEl("p", { text: this.message });
     new Setting(this.contentEl)
-      .addButton((b) => {
-        b.setButtonText("Delete").onClick(() => {
+      // `setWarning()` (red destructive styling) has been in the API since long
+      // before our minAppVersion. Do NOT use `setDestructive()` — it was added
+      // after 1.7.4, so it trips obsidianmd/no-unsupported-api (and throws at
+      // runtime on the floor). See the no-unsupported-api lint rule.
+      .addButton((b) =>
+        b.setButtonText("Delete").setWarning().onClick(() => {
           this.ok = true;
           this.close();
-        });
-        markDestructive(b);
-      })
+        })
+      )
       .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()));
   }
   onClose(): void {
