@@ -1,8 +1,8 @@
 {
   "id": "inkswell",
   "name": "Inkswell",
-  "version": "1.0.2",
-  "minAppVersion": "1.7.2",
+  "version": "1.0.3",
+  "minAppVersion": "1.7.4",
   "description": "A complete workbench for novelists. Plan with beat sheets and a story bible, draft with sprints and goals, revise with an audit toolkit, and prepare to publish.",
   "author": "Dan King",
   "authorUrl": "https://github.com/leethobbit",

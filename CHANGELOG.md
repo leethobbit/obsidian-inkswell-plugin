@@ -10,6 +10,14 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-06-26
+
+### Fixed
+- Set `minAppVersion` to **1.7.4**, the first *public* 1.7 release. The previous value (1.7.2) was an early-access-only build that Obsidian's plugin validation doesn't recognize as a released version.
+
+### Changed
+- The release workflow now publishes **GitHub artifact attestations** for `main.js`, `manifest.json`, and `styles.css`, so the release assets' provenance can be cryptographically verified.
+
 ## [1.0.2] - 2026-06-26
 
 ### Added
@@ -59,7 +67,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.2...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.3...HEAD
+[1.0.3]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.2...1.0.3
 [1.0.2]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.1...1.0.2
 [1.0.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.0...1.0.1
 [1.0.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/releases/tag/1.0.0
