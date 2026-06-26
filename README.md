@@ -97,7 +97,7 @@ Characters, locations, worlds, factions, items, events, and concepts, each with 
 <!-- CODEX -->
 ![Codex: a character profile in the story bible with linked scenes](assets/codex.png)
 
-### Track — see the habit, not just the wordcount
+### Track — view stats, keep pace, achieve goals
 
 Daily / weekly / monthly word goals, habit streaks, a GitHub-style heatmap, lifetime records, a writing-history chart, sprint stats, a **deadline pace calculator** (required daily words, ahead / on-track / behind), draft-milestone zones, and an optional daily mood.
 
