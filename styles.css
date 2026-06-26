@@ -938,6 +938,13 @@
   opacity: 0.4;
 }
 
+.inkswell-board__cardhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--size-4-2);
+}
+
 .inkswell-board__cardtitle {
   font-weight: var(--font-semibold);
   font-size: var(--font-ui-small);
@@ -1223,6 +1230,21 @@
   justify-content: space-between;
   font-weight: var(--font-semibold);
   padding: var(--size-4-1) 0;
+}
+
+.inkswell-project__title {
+  cursor: pointer;
+}
+.inkswell-project__title:hover {
+  color: var(--text-accent);
+}
+
+/* "All projects" affordance shown when Home is focused on one project. */
+.inkswell-explorer__focus {
+  margin: var(--size-4-2) 0;
+}
+.inkswell-explorer__showall {
+  font-size: var(--font-ui-smaller);
 }
 
 .inkswell-project__count {

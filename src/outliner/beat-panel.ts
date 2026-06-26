@@ -184,11 +184,17 @@ export class BeatPanel {
       text: "+ new scene",
     });
     create.setAttribute("aria-label", "Create a new scene attached to this beat");
-    create.onclick = async () => {
-      const file = await promptNewScene(this.app, this.store, project, {
+    create.onclick = () => {
+      // Accumulate across repeated "Create another" so every new scene stays
+      // attached to this beat, not just the last one.
+      const attachedNow = [...attached];
+      promptNewScene(this.app, this.store, project, {
         meta: { synopsis: beat.blurb },
+        onCreated: (file) => {
+          attachedNow.push(file.basename);
+          this.update(project, beat.id, { scenes: attachedNow });
+        },
       });
-      if (file) this.update(project, beat.id, { scenes: [...attached, file.basename] });
     };
   }
 

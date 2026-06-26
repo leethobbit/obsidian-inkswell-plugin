@@ -5,14 +5,26 @@
  * (synopsis) — never the prose body.
  */
 
-import { App, Menu, Modal, Setting, TFile, WorkspaceLeaf, normalizePath } from "obsidian";
+import { App, ButtonComponent, MarkdownView, Menu, Modal, Setting, TFile, normalizePath } from "obsidian";
 import { updateScenes } from "../projects/index-writer";
 import { removeScene } from "../projects/scene-tree";
-import { pickReusableLeaf } from "../lib/leaf-select";
 import { Project } from "../projects/types";
 import { EditSceneModal } from "./edit-scene-modal";
 import { readSceneMeta, writeSceneMeta } from "./scene-meta";
 import type InkswellPlugin from "../../main";
+
+/**
+ * Apply the red "destructive" styling to a button. `setDestructive()` was added
+ * to the Obsidian API after our `minAppVersion` (1.7.2), so calling it directly
+ * throws on older runtimes — which silently kills the button's onClick. Prefer it
+ * when present (the non-deprecated path), else fall back to the still-functional
+ * `setWarning()`.
+ */
+function markDestructive(b: ButtonComponent): void {
+  const withDestructive = b as ButtonComponent & { setDestructive?: () => unknown };
+  if (typeof withDestructive.setDestructive === "function") withDestructive.setDestructive();
+  else b.setWarning();
+}
 
 class PromptModal extends Modal {
   private result: string | null = null;
@@ -72,10 +84,13 @@ class ConfirmModal extends Modal {
   onOpen(): void {
     this.contentEl.createEl("p", { text: this.message });
     new Setting(this.contentEl)
-      .addButton((b) => b.setButtonText("Delete").setDestructive().onClick(() => {
-        this.ok = true;
-        this.close();
-      }))
+      .addButton((b) => {
+        b.setButtonText("Delete").onClick(() => {
+          this.ok = true;
+          this.close();
+        });
+        markDestructive(b);
+      })
       .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()));
   }
   onClose(): void {
@@ -96,19 +111,22 @@ export function confirmDelete(app: App, message: string): Promise<boolean> {
 }
 
 /**
- * Open a scene in an editor tab. Reuses an existing, NON-pinned markdown leaf so
- * repeated clicks don't pile up tabs — but never hijacks a pinned tab (the user
- * pinned it on purpose). Falls back to a new tab when every markdown leaf is
- * pinned or none exist. Never targets the Inkswell host (type "inkswell").
+ * Open a scene/note for plain editing. If it's already open in a tab, just focus
+ * that tab; otherwise open it in a new, focused tab (like Ctrl/Cmd-clicking a
+ * wikilink). Never reuses an unrelated background tab, so navigating from
+ * Inkswell never clobbers a different note the user has open.
  */
 export function openScene(app: App, file: TFile): void {
-  const isPinned = (leaf: WorkspaceLeaf): boolean => {
-    const state = leaf.getViewState() as { pinned?: boolean };
-    return state.pinned ?? (leaf as unknown as { pinned?: boolean }).pinned ?? false;
-  };
-  const reusable = pickReusableLeaf(app.workspace.getLeavesOfType("markdown"), isPinned);
-  const leaf = reusable ?? app.workspace.getLeaf("tab");
-  void leaf.openFile(file);
+  const existing = app.workspace
+    .getLeavesOfType("markdown")
+    .find((leaf) => leaf.view instanceof MarkdownView && leaf.view.file?.path === file.path);
+  if (existing) {
+    void app.workspace.revealLeaf(existing);
+    app.workspace.setActiveLeaf(existing, { focus: true });
+    return;
+  }
+  const leaf = app.workspace.getLeaf("tab");
+  void leaf.openFile(file, { active: true });
 }
 
 export async function editSynopsis(app: App, file: TFile): Promise<void> {

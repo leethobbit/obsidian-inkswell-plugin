@@ -8,13 +8,14 @@
 import { linkTarget } from "../codex/codex";
 import { SCENE_STATUSES, SceneStatus, statusLabel } from "../scenes/scene-meta";
 
-export type GroupField = "status" | "act" | "pov";
+export type GroupField = "status" | "act" | "chapter" | "pov";
 
 export interface BoardItem {
   title: string;
   path: string;
   status?: SceneStatus;
   act?: string;
+  chapter?: string;
   pov?: string;
   synopsis?: string;
   color?: string;
@@ -27,10 +28,17 @@ export interface BoardColumn {
   items: BoardItem[];
 }
 
+const NONE_LABEL: Record<GroupField, string> = {
+  status: "No status",
+  act: "No act",
+  chapter: "No chapter",
+  pov: "No POV",
+};
+
 export function buildColumns(items: BoardItem[], field: GroupField): BoardColumn[] {
   const none: BoardColumn = {
     key: "",
-    label: field === "status" ? "No status" : field === "act" ? "No act" : "No POV",
+    label: NONE_LABEL[field],
     items: [],
   };
 
@@ -48,7 +56,8 @@ export function buildColumns(items: BoardItem[], field: GroupField): BoardColumn
     return [...cols, none];
   }
 
-  const get = (it: BoardItem) => (field === "act" ? it.act : it.pov);
+  const get = (it: BoardItem) =>
+    field === "act" ? it.act : field === "chapter" ? it.chapter : it.pov;
   const values = Array.from(
     new Set(items.map(get).filter((v): v is string => !!v))
   ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));

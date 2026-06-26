@@ -28,6 +28,23 @@ Open [`_Start Here`](sample-vault/_Start%20Here.md) inside the vault for the tou
 | `.obsidian/plugins/inkswell/data.json` | Seeded `writingLog` (≈24 weeks of daily words + 14 sprints), settings, and captured ideas. **Committed.** |
 | `_Start Here.md` | In-vault getting-started guide and tips. |
 
+## Testing without dirtying the sample
+
+`sample-vault/` is a **committed deliverable** — keep it pristine. Don't test in
+it directly (Obsidian rewrites `workspace.json`, the writing log churns
+`data.json`, and stray scenes pile up). Instead test in the throwaway scratch
+vault:
+
+```bash
+npm run dev-vault:reset   # make examples/dev-vault/ — a git-ignored copy of the sample
+npm run dev               # esbuild deploys here by default; redeploys on every save
+```
+
+`examples/dev-vault/` is fully git-ignored, so anything you do there never shows
+up in `git status`. Re-run `dev-vault:reset` anytime for a clean slate. The
+committed sample only receives binaries via `npm run build:sample` (below), used
+when packaging the demo.
+
 ## Maintaining the sample
 
 - **Telemetry is wall-clock-anchored.** `data.json` dates end **2026-06-22**, so

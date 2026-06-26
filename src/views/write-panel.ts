@@ -216,6 +216,12 @@ export class WritePanel {
       insertGroup.createSpan({ cls: "inkswell-stats__muted", text: "Insert:" });
       for (const { kind, label } of TODO_TYPES) {
         const btn = insertGroup.createEl("button", { text: label });
+        // Insert WITHOUT stealing focus from the editor. If the button took focus,
+        // the editor would blur → saveBody → store refresh → the host rebuilds the
+        // Write panel, destroying the live editor mid-insert (cursor resets to 0,
+        // the next clicks misfire). preventDefault on mousedown keeps the caret in
+        // the editor so every click inserts where the cursor actually is.
+        btn.onmousedown = (e) => e.preventDefault();
         btn.onclick = () => {
           if (this.editor) insertPlaceholder(this.editor, kind);
         };

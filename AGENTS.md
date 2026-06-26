@@ -6,9 +6,11 @@ Single Obsidian plugin (TypeScript + esbuild) that bundles a longform writer's s
 ## Commands
 | Task | Command |
 |------|---------|
-| Dev (watch build) | `npm run dev` (auto-deploys to the vault on each rebuild) |
-| Production build | `npm run build` (`tsc -noEmit` then esbuild; auto-deploys to the vault) |
-| Deploy target | `X:/DKB/.obsidian/plugins/inkswell` — override with `INKSWELL_VAULT` env var |
+| Seed test vault | `npm run dev-vault:reset` (copy the pristine sample vault into the git-ignored `examples/dev-vault/`) |
+| Dev (watch build) | `npm run dev` (auto-deploys to the dev scratch vault on each rebuild) |
+| Production build | `npm run build` (`tsc -noEmit` then esbuild; auto-deploys to the dev scratch vault) |
+| Refresh demo binaries | `npm run build:sample` (deploys into the committed `examples/sample-vault/` for packaging) |
+| Deploy target | `examples/dev-vault/.obsidian/plugins/inkswell` (git-ignored) — override with `INKSWELL_VAULT`. Test here, NOT in the committed sample vault, and never in a real user vault (DKB runs the published store build). |
 | Typecheck only | `npm run typecheck` |
 | Lint | `npm run lint` |
 | Tests | `npm test` (vitest) |
@@ -21,7 +23,7 @@ Single Obsidian plugin (TypeScript + esbuild) that bundles a longform writer's s
 - **Frontmatter is a frozen 1.0 contract.** Every key Inkswell reads/writes is documented in [SCHEMA.md](SCHEMA.md). Don't rename or repurpose an existing key (including checkpoint/beat/task/category IDs) in a `1.x` release — new optional keys are fine; renames/removals wait for `2.0`. Update SCHEMA.md when adding a key.
 - **Word counting:** import the single counter in [src/lib/wordcount.ts](src/lib/wordcount.ts). Don't write ad-hoc counters — goals/sprints/compile must reconcile.
 - **Keep pure logic Obsidian-free.** Testable logic (compile assembly, goals math, revision-list ops) lives in modules with NO `obsidian` import (`assemble.ts`, `goals.ts`, `decisions.ts`); the `obsidian`-importing wrapper sits beside it. Tests can't import a module that pulls `obsidian` (no runtime in vitest).
-- **Single host view.** Inkswell is ONE main-area tab (`VIEW_TYPE_INKSWELL`, `src/views/inkswell-view.ts`); Projects/Write/Stats/Revision Log are panel classes swapped inside it via a tab-bar. Add new surfaces as panels, NOT as new `ItemView` types/tabs. All entry points call `openInkswell(mode)` so only one tab ever exists. The Write panel hosts the manuscript editor in-place; `openScene` ([src/scenes/scene-actions.ts](src/scenes/scene-actions.ts)) still opens a scene in a reused markdown leaf for plain Obsidian editing.
+- **Single host view.** Inkswell is ONE main-area tab (`VIEW_TYPE_INKSWELL`, `src/views/inkswell-view.ts`); Projects/Write/Stats/Revision Log are panel classes swapped inside it via a tab-bar. Add new surfaces as panels, NOT as new `ItemView` types/tabs. All entry points call `openInkswell(mode)` so only one tab ever exists. The Write panel hosts the manuscript editor in-place; `openScene` ([src/scenes/scene-actions.ts](src/scenes/scene-actions.ts)) opens a scene in a new, focused markdown tab (like Ctrl/Cmd-clicking a wikilink) for plain Obsidian editing.
 - **Editing surface is a custom CM6 `EditorView`, not a `MarkdownView`.** The Write panel builds the editor via `createSceneEditor` ([src/views/scene-editor.ts](src/views/scene-editor.ts)); Live-Preview rendering comes from the pure scanner ([src/lib/markdown-syntax.ts](src/lib/markdown-syntax.ts)). Consequence: Obsidian `editorCallback` commands and the `Editor` API do NOT reach this surface — wire editor behavior (shortcuts, text ops) through a CM keymap in `scene-editor.ts`, keeping the transform pure/testable. Use `editorCallback` only for the plain-markdown-leaf path.
 - **External binaries (pandoc):** feature-detect and disable gracefully. Never assume presence; never crash on mobile.
 
@@ -78,7 +80,7 @@ Cut `1.0.0` only once the Longform-compatible frontmatter format is stable enoug
 1. **Promote the changelog** — in [CHANGELOG.md](CHANGELOG.md), rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, add a fresh empty `## [Unreleased]` above it, and update the link refs at the bottom. The release workflow injects this section as the GitHub release body, so it must be accurate before you tag.
 2. `npm version <patch|minor|major> --no-git-tag-version` — bumps `package.json` and runs `version-bump.mjs`, which syncs `manifest.json` + `versions.json` and stages them.
 3. Confirm the three files agree on the new number.
-4. `npm run build` — REQUIRED after the bump so auto-deploy copies the new `manifest.json` to the vault. Skipping this leaves the installed plugin on the old version. (Reload Obsidian to pick it up.)
+4. `npm run build` — REQUIRED after the bump so auto-deploy copies the new `manifest.json` to the sample vault. Skipping this leaves the installed plugin on the old version. (Reload Obsidian to pick it up.)
 5. `git add -A && git commit -m "X.Y.Z: <summary>"` (include the Co-authored-by trailer; `-A` so new files are caught).
 6. `git tag X.Y.Z` — **no `v` prefix.** Obsidian resolves a release's assets by the exact `manifest.json` version, so the tag must equal it verbatim (`1.0.0`, not `v1.0.0`). Pushing the tag triggers `.github/workflows/release.yml`, which builds and drafts the GitHub release (with the matching CHANGELOG section as its body); publish that draft to distribute.
 
@@ -90,3 +92,4 @@ Cut `1.0.0` only once the Longform-compatible frontmatter format is stable enoug
 5. **Word-delta baselines** — the first edit to a file in a session with no persisted baseline is counted as delta 0 (baseline-set only), so pre-existing prose isn't logged as "written today". Don't change this to count from zero, or opening a vault would log thousands of phantom words. Baselines persist in data.json across sessions.
 6. **data.json shape** — it is `{ settings, writingLog }`, NOT settings at the top level. Read/write via `loadPersisted`/`persist` in main.ts; don't call `saveData(this.settings)` directly or you'll wipe the writing log.
 7. **Base folder is a scaffolding default, not a boundary** — symptom: assuming a project/codex outside `settings.baseFolder` won't be found, or that codex visibility comes from where the note lives. Cause: discovery is vault-wide frontmatter scans (`project-store`, `codex-store`); `baseFolder` only sets where *new* content scaffolds. Fix: never filter discovery by folder, never derive scope from path — codex visibility is the `codex-series`/`codex-project` tag (`src/codex/codex-scope.ts`); the folder (`src/settings/folders.ts`) is cosmetic co-location only.
+8. **API types are ahead of the runtime floor** — symptom: a feature compiles and works on your machine but a button/handler silently does nothing for users (the chained call throws before `.onClick` attaches). Cause: `devDependencies.obsidian` is `latest` (e.g. 1.13.x types) but `minAppVersion` is 1.7.2 — calling an API added after 1.7.2 (e.g. `ButtonComponent.setDestructive()`) is `undefined` at runtime on supported versions. Fix: don't call methods newer than `minAppVersion`; feature-detect with a fallback (see `markDestructive` in [scene-actions.ts](src/scenes/scene-actions.ts)) or verify the method's introduction version before relying on it.

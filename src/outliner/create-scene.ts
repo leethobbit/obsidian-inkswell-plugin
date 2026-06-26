@@ -6,12 +6,11 @@
  * frontmatter + the index only.
  */
 
-import { App, Notice, TFile, normalizePath } from "obsidian";
+import { App, Modal, Notice, Setting, TFile, normalizePath } from "obsidian";
 import { updateScenes } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project, isMultiScene } from "../projects/types";
 import { SceneMeta, writeSceneMeta } from "../scenes/scene-meta";
-import { promptText } from "../scenes/scene-actions";
 
 export interface CreateSceneOptions {
   title: string;
@@ -79,32 +78,92 @@ export async function createScene(
   return file;
 }
 
+export interface NewSceneOptions {
+  /** Insert after this index entry (inheriting its indent); else append at root. */
+  afterTitle?: string;
+  /** Seeds the new scene's frontmatter. */
+  meta?: Partial<SceneMeta>;
+  /** Called once per scene successfully created (fires repeatedly for "Create another"). */
+  onCreated?: (file: TFile) => void;
+}
+
 /**
- * Prompt for a title and create a scene. Returns the new TFile, or null if the
- * user cancelled or creation failed (a Notice explains the latter).
+ * Modal to create a scene by title. "Create" creates and closes; "Create
+ * another" creates and stays open (cleared + refocused) for back-to-back entry.
+ * Each successful create fires `onCreated`, so callers can react to every scene
+ * (e.g. select it, attach it to a beat) — not just the last one.
  */
-export async function promptNewScene(
+class NewSceneModal extends Modal {
+  private input!: HTMLInputElement;
+
+  constructor(
+    app: App,
+    private store: ProjectStore,
+    private project: Project,
+    private opts: NewSceneOptions
+  ) {
+    super(app);
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.createEl("h3", { text: "New scene" });
+    this.input = contentEl.createEl("input", { type: "text", cls: "inkswell-prompt__input" });
+    this.input.placeholder = "Scene title";
+    this.input.onkeydown = (e) => {
+      if (e.key === "Enter") void this.create(true);
+    };
+    window.setTimeout(() => {
+      this.input.focus();
+      this.input.select();
+    }, 0);
+
+    new Setting(contentEl)
+      .addButton((b) => b.setButtonText("Create").setCta().onClick(() => void this.create(true)))
+      .addButton((b) => b.setButtonText("Create another").onClick(() => void this.create(false)))
+      .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()));
+  }
+
+  /** Create the scene; dismiss the modal when `close`, else reset for another. */
+  private async create(close: boolean): Promise<void> {
+    const title = sanitizeTitle(this.input.value);
+    if (!title) {
+      new Notice("Enter a scene title.");
+      this.input.focus();
+      return;
+    }
+    const file = await createScene(this.app, this.store, this.project, {
+      title,
+      afterTitle: this.opts.afterTitle,
+      meta: this.opts.meta,
+    });
+    if (!file) {
+      // Keep the dialog open so the user can fix the name instead of losing it.
+      new Notice(`Couldn't create "${title}" — a scene with that name may already exist.`);
+      return;
+    }
+    this.opts.onCreated?.(file);
+    if (close) {
+      this.close();
+    } else {
+      new Notice(`Created "${title}".`);
+      this.input.value = "";
+      this.input.focus();
+    }
+  }
+}
+
+/**
+ * Open the New scene modal for a multi-scene project. No-op for single-draft
+ * projects (they have no scene list). Per-scene side effects go through
+ * `opts.onCreated`.
+ */
+export function promptNewScene(
   app: App,
   store: ProjectStore,
   project: Project,
-  opts?: { afterTitle?: string; meta?: Partial<SceneMeta> }
-): Promise<TFile | null> {
-  const title = await promptText(app, {
-    title: "New scene",
-    value: "",
-    multiline: false,
-    cta: "Create",
-  });
-  if (title === null) return null;
-  if (!sanitizeTitle(title)) {
-    new Notice("Enter a scene title.");
-    return null;
-  }
-  const file = await createScene(app, store, project, {
-    title,
-    afterTitle: opts?.afterTitle,
-    meta: opts?.meta,
-  });
-  if (!file) new Notice(`Couldn't create "${title}" — a scene with that name may already exist.`);
-  return file;
+  opts?: NewSceneOptions
+): void {
+  if (!isMultiScene(project.draft)) return;
+  new NewSceneModal(app, store, project, opts ?? {}).open();
 }

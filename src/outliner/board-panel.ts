@@ -14,13 +14,14 @@ import { Project } from "../projects/types";
 import { addSceneMenuItems } from "../scenes/scene-actions";
 import { promptNewScene } from "./create-scene";
 import { EditSceneModal } from "../scenes/edit-scene-modal";
-import { readSceneMeta, writeSceneMeta } from "../scenes/scene-meta";
+import { readSceneMeta, statusLabel, writeSceneMeta } from "../scenes/scene-meta";
 import { BoardColumn, BoardItem, GroupField, buildColumns } from "./board";
 import type InkswellPlugin from "../../main";
 
 const FIELDS: { id: GroupField; label: string }[] = [
   { id: "status", label: "Status" },
   { id: "act", label: "Act" },
+  { id: "chapter", label: "Chapter" },
   { id: "pov", label: "POV" },
 ];
 
@@ -73,6 +74,7 @@ export class BoardPanel {
         path: scene.path,
         status: m.status,
         act: m.act,
+        chapter: m.chapter,
         pov: m.pov,
         synopsis: m.synopsis,
         color: m.color,
@@ -99,7 +101,7 @@ export class BoardPanel {
 
     const add = bar.createEl("button", { text: "New scene" });
     add.setAttribute("aria-label", "Create a new scene");
-    add.onclick = () => void promptNewScene(this.app, this.store, project);
+    add.onclick = () => promptNewScene(this.app, this.store, project);
   }
 
   private renderColumn(board: HTMLElement, col: BoardColumn, project: Project): void {
@@ -129,7 +131,17 @@ export class BoardPanel {
     const card = list.createDiv({ cls: "inkswell-board__card" });
     card.draggable = true;
     if (it.color) card.style.borderLeft = `3px solid ${it.color}`;
-    card.createDiv({ cls: "inkswell-board__cardtitle", text: it.title });
+    const head = card.createDiv({ cls: "inkswell-board__cardhead" });
+    head.createDiv({ cls: "inkswell-board__cardtitle", text: it.title });
+    // Status badge on every card EXCEPT when grouping by status (where the column
+    // already conveys it). Lets you read each scene's status while grouped by act,
+    // chapter, or POV.
+    if (this.field !== "status" && it.status) {
+      head.createSpan({
+        cls: `inkswell-status inkswell-status--${it.status}`,
+        text: statusLabel(it.status),
+      });
+    }
     if (it.synopsis) {
       card.createDiv({ cls: "inkswell-board__cardsyn", text: it.synopsis });
     }
@@ -163,7 +175,9 @@ export class BoardPanel {
         ? { status: value as BoardItem["status"] }
         : this.field === "act"
           ? { act: value }
-          : { pov: value };
+          : this.field === "chapter"
+            ? { chapter: value }
+            : { pov: value };
     // Writing the scene frontmatter triggers a store refresh → host re-renders.
     void writeSceneMeta(this.app, file, patch);
   }

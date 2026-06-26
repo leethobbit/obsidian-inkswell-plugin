@@ -35,6 +35,15 @@ reference/
 examples/sample-vault/.obsidian/plugins/inkswell/styles.css
 examples/sample-vault/.obsidian/plugins/inkswell/manifest.json
 
+# Obsidian UI-layout state churns on every open — keep it out of the committed
+# sample vault (the file stays on disk so the vault still opens fine locally).
+examples/sample-vault/.obsidian/workspace.json
+
+# Dev scratch vault: a local, throwaway copy of the sample vault for day-to-day
+# testing. `npm run dev` deploys here; `npm run dev-vault:reset` re-seeds it from
+# the pristine sample vault. Never committed — the committed sample stays clean.
+examples/dev-vault/
+
 # internal QA checklists — dev collateral, kept locally, never shipped in the demo
 examples/sample-vault/QA.md
 examples/sample-vault/QA-lite.md

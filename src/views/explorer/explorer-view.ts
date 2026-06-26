@@ -85,6 +85,30 @@ export class ExplorerPanel {
     }
 
     const { series, standalone } = groupIntoSeries(projects);
+
+    // Project focus: with a project selected (shared activeProject — also the
+    // header dropdown), Home narrows to just that project, or its whole series if
+    // it belongs to one. With nothing selected, list everything.
+    const activePath = this.plugin.activeProject.get();
+    const focused = activePath
+      ? projects.find((p) => p.vaultPath === activePath) ?? null
+      : null;
+
+    if (focused) {
+      const bar = container.createDiv({ cls: "inkswell-explorer__focus" });
+      const back = bar.createEl("button", {
+        cls: "inkswell-explorer__showall",
+        text: "← All projects",
+      });
+      back.onclick = () => this.plugin.activeProject.set(null);
+
+      const info = projectSeries(focused);
+      const owningSeries = info ? series.find((s) => s.name === info.name) : null;
+      if (owningSeries) this.renderSeries(container, owningSeries);
+      else this.renderProject(container, focused);
+      return;
+    }
+
     for (const s of series) this.renderSeries(container, s);
     for (const project of standalone) this.renderProject(container, project);
   }
@@ -154,7 +178,11 @@ export class ExplorerPanel {
     const header = section.createDiv({ cls: "inkswell-project__header" });
     const info = projectSeries(project);
     const title = info?.order != null ? `${info.order}. ${project.draft.title}` : project.draft.title;
-    header.createSpan({ text: title });
+    // Clicking the title focuses Home on this project (and its series). It's the
+    // same selection the header dropdown drives, so the two stay in lockstep.
+    const titleEl = header.createSpan({ cls: "inkswell-project__title", text: title });
+    titleEl.setAttribute("aria-label", "Focus on this project");
+    titleEl.onclick = () => this.plugin.activeProject.set(project.vaultPath);
     header.oncontextmenu = (e) => {
       e.preventDefault();
       this.projectMenu(project).showAtMouseEvent(e);
@@ -173,10 +201,11 @@ export class ExplorerPanel {
         text: "+ scene",
       });
       add.setAttribute("aria-label", "Create a new scene in this project");
-      add.onclick = async (e) => {
+      add.onclick = (e) => {
         e.stopPropagation();
-        const file = await promptNewScene(this.app, this.store, project);
-        if (file) this.onSelectScene(file);
+        promptNewScene(this.app, this.store, project, {
+          onCreated: (file) => this.onSelectScene(file),
+        });
       };
     }
 

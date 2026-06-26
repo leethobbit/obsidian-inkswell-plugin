@@ -15,7 +15,6 @@ import { AnalysisPanel } from "../insight/analysis-panel";
 import { BeatPanel } from "../outliner/beat-panel";
 import { BoardPanel } from "../outliner/board-panel";
 import { OverviewPanel } from "../plan/overview-panel";
-import { resolveActive } from "../projects/active-project";
 import { ProjectStats } from "../projects/project-stats";
 import { ProjectStore } from "../projects/project-store";
 import { ChecklistPanel } from "./publish/checklist-panel";
@@ -254,13 +253,16 @@ export class InkswellView extends ItemView {
     }
     this.header.createSpan({ cls: "inkswell-host__headerlabel", text: "Project" });
     const sel = this.header.createEl("select", { cls: "dropdown" });
-    const active = resolveActive(projects, this.plugin.activeProject.get());
+    const activePath = this.plugin.activeProject.get();
+    // "All projects" (empty value) is the unfocused default: Home lists every
+    // project. Project-scoped tabs fall back to the first project when nothing
+    // specific is selected (see resolveActive).
+    sel.createEl("option", { text: "All projects", value: "" });
     for (const p of projects) {
-      const o = sel.createEl("option", { text: p.draft.title, value: p.vaultPath });
-      if (p.vaultPath === active?.vaultPath) o.selected = true;
+      sel.createEl("option", { text: p.draft.title, value: p.vaultPath });
     }
-    sel.value = active?.vaultPath ?? "";
-    sel.onchange = () => this.plugin.activeProject.set(sel.value);
+    sel.value = activePath ?? "";
+    sel.onchange = () => this.plugin.activeProject.set(sel.value || null);
   }
 
   async onClose(): Promise<void> {

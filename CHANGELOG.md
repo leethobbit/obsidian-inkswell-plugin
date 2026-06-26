@@ -10,11 +10,23 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-06-26
+
+### Added
+- Plan → Board: a **Chapter** grouping view, alongside Status / Act / POV.
+- Plan → Board: scene **status badges** now show on each card when grouping by Act, Chapter, or POV (so you can read a scene's status without switching to the Status view).
+
+### Fixed
+- Write → Insert marker buttons (TODO / Research / Note / Dialogue / Scene) now insert reliably at the caret on every click. Previously the second click did nothing and the third inserted at the start of the document, because clicking a button blurred the editor → triggered a save → store refresh → the host rebuilt and destroyed the live editor. The buttons no longer steal focus from the editor.
+
 ### Changed
+- The **New scene** dialog now closes after creating a scene. A new **Create another** button creates the scene and keeps the dialog open (cleared and refocused) for back-to-back entry.
+- "Open in tab" / "Open" actions now **focus the note's existing tab if it's already open**, otherwise open it in a new, focused tab (like Ctrl/Cmd-clicking a wikilink) — instead of reusing and overwriting an unrelated background tab.
+- Home now **focuses on a single project** (and its series, if it belongs to one) once one is selected — via the header dropdown or by clicking a project title. Pick **All projects** (or the "← All projects" link) to return to the full list.
 - Replaced the README hero gif with a larger, clearer capture, and re-shot the surface screenshots at the matching zoom.
 - Corrected the documented Obsidian requirement to 1.7.2 (matching the manifest) and tightened README copy.
 - Fixed stale README references: placeholder tokens are now `[TODO]` / `[RESEARCH]` (not `[TK]`), the sweep is **Revise → Todos** (renamed from Gaps), and the removed `%%` / `@@` "Comments" extraction feature is no longer listed.
-- The delete-scene confirmation button now uses Obsidian's `setDestructive()` styling, replacing the deprecated `setWarning()`.
+- The delete-scene confirmation button uses Obsidian's `setDestructive()` styling where available, falling back to `setWarning()` on the 1.7.2 floor (where `setDestructive` doesn't exist yet).
 - Build: dropped the `builtin-modules` dev dependency in favor of Node's native `module.builtinModules` (build tooling only, no runtime change).
 
 ## [1.0.1] - 2026-06-25
@@ -47,6 +59,7 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.1...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.2...HEAD
+[1.0.2]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.1...1.0.2
 [1.0.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.0...1.0.1
 [1.0.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/releases/tag/1.0.0

@@ -1,6 +1,6 @@
 {
   "name": "obsidian-inkswell-plugin",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Inkswell — a full writer's suite for Obsidian: projects, compile, goals, sprints, and an invisible-revision decision log.",
   "main": "main.js",
   "type": "module",
@@ -8,6 +8,7 @@
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "build:sample": "npm run build && node scripts/build-sample.mjs",
+    "dev-vault:reset": "node scripts/reset-dev-vault.mjs",
     "gen:sample-data": "node scripts/gen-sample-data.mjs",
     "typecheck": "tsc -noEmit -skipLibCheck",
     "lint": "eslint src main.ts",
