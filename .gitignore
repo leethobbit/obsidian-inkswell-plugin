@@ -48,5 +48,7 @@ examples/dev-vault/
 examples/sample-vault/QA.md
 examples/sample-vault/QA-lite.md
 
-# internal feature doc (competitor comparisons / feature pick list) — local only
+# internal planning docs (competitor comparisons, feature pick list, roadmap /
+# status / QA-gate notes) — kept on disk locally but never committed
 FEATURES.md
+ROADMAP.md
