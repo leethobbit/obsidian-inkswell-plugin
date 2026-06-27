@@ -1,6 +1,6 @@
 # Inkswell Roadmap
 
-Phase-centric information architecture (one tab, left icon rail): **Home · Plan · Write · Track · Revise · Publish**. Each destination does one job; depth lives behind sub-tabs or the Scene Inspector. See `FEATURES.md` for the full pick list and the plan file for IA rationale.
+Phase-centric information architecture (one tab, left icon rail): **Home · Plan · Write · Track · Revise · Publish**. Each destination does one job; depth lives behind sub-tabs or the Scene Inspector.
 
 **Current status: v0.17.0** — phases 5–13 shipped + a QA-fix batch (v0.14.0) + writing-aids & export-readiness (v0.15.0) + the writing-method feature set (v0.16.0) + the Plan-reorg / Todos / navigation pass (v0.17.0). Next: the deep end-to-end live QA pass (the 1.0 gate) — v0.15.0–v0.17.0 surfaces are unit/build-verified only. Drive it from [QA.md](examples/sample-vault/QA.md) (full, ~280 checks) or the curated [QA-lite.md](examples/sample-vault/QA-lite.md) (top-50 smoke pass).
 

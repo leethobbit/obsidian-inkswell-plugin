@@ -47,3 +47,6 @@ examples/dev-vault/
 # internal QA checklists — dev collateral, kept locally, never shipped in the demo
 examples/sample-vault/QA.md
 examples/sample-vault/QA-lite.md
+
+# internal feature doc (competitor comparisons / feature pick list) — local only
+FEATURES.md
