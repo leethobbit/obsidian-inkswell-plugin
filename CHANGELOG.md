@@ -10,6 +10,8 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-06-27
+
 ### Added
 - **In-app guidance.** A one-time welcome orients you to the phases on first launch; each non-obvious panel (beat sheet, board, codex, revision log, to-do sweep, audit, compile, drafting markers) carries a dismissible "How this works" tip; and a new **Help** tab in the rail holds the full guide. Tips and the welcome can be reset from Settings → Help.
 - **Mobile support (iPad / tablet first).** Inkswell now installs on Obsidian mobile (`isDesktopOnly` is off). On tablets and iPad the full suite is available with a responsive layout; the multi-pane columns (Write, Codex, Home inspector) flex to fit portrait. Pandoc export remains desktop-only and disables itself gracefully.
@@ -86,7 +88,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.4...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.1.0...HEAD
+[1.1.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.4...1.1.0
 [1.0.4]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.3...1.0.4
 [1.0.3]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.2...1.0.3
 [1.0.2]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.1...1.0.2
