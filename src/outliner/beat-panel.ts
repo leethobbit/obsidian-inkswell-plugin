@@ -8,6 +8,7 @@
  */
 
 import { App, Menu, Notice, TFile } from "obsidian";
+import { attachRowMenu } from "../lib/row-menu";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { persistInkswellData } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
@@ -139,7 +140,7 @@ export class BeatPanel {
       label.setAttribute("aria-label", `Open ${t} metadata`);
       label.onclick = () => this.openSceneMeta(project, t);
 
-      // Status badge + right-click menu, for parity with the Board's scene cards.
+      // Status badge for the linked scene.
       const file = this.sceneFile(project, t);
       if (file) {
         const status = readSceneMeta(this.app, file).status;
@@ -149,21 +150,25 @@ export class BeatPanel {
             text: statusLabel(status),
           });
         }
-        chip.oncontextmenu = (e) => {
-          e.preventDefault();
-          const menu = new Menu();
-          addSceneMenuItems(menu, this.app, project, t, file, {
-            includeOpen: true,
-            plugin: this.plugin,
-          });
-          menu.showAtMouseEvent(e);
-        };
       }
 
       const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
       x.setAttribute("aria-label", `Remove ${t}`);
       x.onclick = () =>
         this.update(project, beat.id, { scenes: attached.filter((s) => s !== t) });
+
+      // Scene menu — right-click on desktop, "⋯" tap on touch — for parity with
+      // the Board's scene cards. Appended last so "⋯" sits after the × remove.
+      if (file) {
+        attachRowMenu(chip, chip, () => {
+          const menu = new Menu();
+          addSceneMenuItems(menu, this.app, project, t, file, {
+            includeOpen: true,
+            plugin: this.plugin,
+          });
+          return menu;
+        });
+      }
     }
     const remaining = sceneTitles.filter((t) => !attached.includes(t));
     if (remaining.length > 0) {

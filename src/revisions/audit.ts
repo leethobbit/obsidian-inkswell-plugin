@@ -1,12 +1,13 @@
 /**
  * Pure revision-checkpoint definitions and progress math (no Obsidian imports —
- * unit-testable). Implements a three-tier revision method: Story → Scene →
- * Page, each tier a master checklist.
+ * unit-testable). Implements a three-tier revision method, macro→micro: Story →
+ * Scene → Prose, each tier a master checklist.
  *
  * - SCENE checkpoints are per-scene state (stored in scene frontmatter; see
  *   `audit-meta.ts`). The 14 checks below are the scene-level pass.
- * - STORY (18) and PAGE (5 grouped categories) checkpoints are project-level state
- *   (stored under `inkswell.revisionChecklist`; see `checklist.ts`).
+ * - STORY (18) and PROSE (5 grouped categories) checkpoints are project-level state
+ *   (stored under `inkswell.revisionChecklist`; see `checklist.ts`). The prose tier
+ *   keeps the internal id/const name "page" for back-compat — only its label changed.
  *
  * IDs are stable string constants: stored data keys off them, so labels can be
  * reworded without migrating frontmatter.
@@ -83,12 +84,13 @@ export const STORY_CHECKPOINTS: Checkpoint[] = [
   { id: "consistent", label: "Is consistent" },
 ];
 
-// --- Page-level (5 grouped categories): project checklist ------------------
+// --- Prose-level (5 grouped categories): project checklist -----------------
+// (Const names stay PAGE_* and the stored tier id stays "page" for back-compat.)
 
 export const PAGE_GROUPS: CheckpointGroup[] = [
   {
     id: "necessity",
-    label: "Is everything on the page necessary?",
+    label: "Is everything necessary?",
     items: [
       { id: "telling", label: "Telling (vs showing)" },
       { id: "overDescribing", label: "Over-describing" },
@@ -139,7 +141,7 @@ export const PAGE_GROUPS: CheckpointGroup[] = [
   },
   {
     id: "consistency",
-    label: "Are my pages consistent?",
+    label: "Is the prose consistent?",
     items: [
       { id: "namesConsistent", label: "Names" },
       { id: "descriptionsConsistent", label: "Descriptions" },

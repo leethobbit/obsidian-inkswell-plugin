@@ -8,6 +8,7 @@
  */
 
 import { App, Menu, TFile, normalizePath, setIcon } from "obsidian";
+import { attachRowMenu } from "../lib/row-menu";
 import {
   confirmDelete,
   openScene,
@@ -184,8 +185,7 @@ export class CodexPanel {
       this.renderList();
       this.renderDetail();
     };
-    row.oncontextmenu = (e) => {
-      e.preventDefault();
+    attachRowMenu(row, row, () => {
       const menu = new Menu();
       menu.addItem((i) =>
         i.setTitle("Open note").setIcon("file-text").onClick(() => openScene(this.app, file))
@@ -197,8 +197,8 @@ export class CodexPanel {
       menu.addItem((i) =>
         i.setTitle("Delete").setIcon("trash").onClick(() => this.remove(file, entity.name))
       );
-      menu.showAtMouseEvent(e);
-    };
+      return menu;
+    });
   }
 
   /** Render the profile editor for the selected entity (or a placeholder). */

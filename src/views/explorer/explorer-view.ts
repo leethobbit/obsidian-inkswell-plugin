@@ -8,6 +8,7 @@
  */
 
 import { App, Menu, TFile } from "obsidian";
+import { attachRowMenu } from "../../lib/row-menu";
 import { updateScenes, writeSeries } from "../../projects/index-writer";
 import { ProjectStats } from "../../projects/project-stats";
 import { ProjectStore } from "../../projects/project-store";
@@ -183,11 +184,6 @@ export class ExplorerPanel {
     const titleEl = header.createSpan({ cls: "inkswell-project__title", text: title });
     titleEl.setAttribute("aria-label", "Focus on this project");
     titleEl.onclick = () => this.plugin.activeProject.set(project.vaultPath);
-    header.oncontextmenu = (e) => {
-      e.preventDefault();
-      this.projectMenu(project).showAtMouseEvent(e);
-    };
-
     const right = header.createDiv({ cls: "inkswell-project__right" });
     const count = right.createSpan({ cls: "inkswell-project__count" });
     if (this.plugin.settings.showWordCounts) {
@@ -208,6 +204,9 @@ export class ExplorerPanel {
         });
       };
     }
+
+    // Right-click (desktop) / "⋯" tap (touch) → project menu.
+    attachRowMenu(header, right, () => this.projectMenu(project));
 
     if (isMultiScene(project.draft)) {
       const list = section.createDiv();
@@ -342,10 +341,13 @@ export class ExplorerPanel {
       if (file instanceof TFile) this.onSelectScene(file);
     };
 
-    row.oncontextmenu = (e) => {
-      e.preventDefault();
-      this.sceneMenu(project, index).showAtMouseEvent(e);
-    };
+    // Right-click (desktop) / "⋯" tap (touch) → scene menu. On touch the menu
+    // also carries Move up / Move down (drag-drop doesn't fire on touch).
+    attachRowMenu(row, row, () => {
+      const menu = this.sceneMenu(project, index);
+      this.addReorderItems(menu, project, index);
+      return menu;
+    });
 
     this.wireDrag(row, project, index);
   }
@@ -449,6 +451,39 @@ export class ExplorerPanel {
         moveScene(s, payload.index, index)
       );
     });
+  }
+
+  /**
+   * Touch fallback for drag-reorder (drag events don't fire on touch): Move up /
+   * Move down, routed through the same `moveScene`/`updateScenes` write path the
+   * drop handler uses, so behavior (and nesting) stays identical.
+   */
+  private addReorderItems(menu: Menu, project: Project, index: number): void {
+    const file = this.indexFile(project);
+    if (!file) return;
+    const last = project.scenes.length - 1;
+    if (index <= 0 && index >= last) return; // nothing to move
+    menu.addSeparator();
+    if (index > 0) {
+      menu.addItem((i) =>
+        i
+          .setTitle("Move up")
+          .setIcon("arrow-up")
+          .onClick(() =>
+            void updateScenes(this.app, file, project.draft, (s) => moveScene(s, index, index - 1))
+          )
+      );
+    }
+    if (index < last) {
+      menu.addItem((i) =>
+        i
+          .setTitle("Move down")
+          .setIcon("arrow-down")
+          .onClick(() =>
+            void updateScenes(this.app, file, project.draft, (s) => moveScene(s, index, index + 1))
+          )
+      );
+    }
   }
 
   private indexFile(project: Project): TFile | null {

@@ -1992,3 +1992,313 @@
 .inkswell-board__card:hover {
   border-color: var(--interactive-accent);
 }
+
+/* ===================================================================
+   Responsive / mobile adaptations
+   -------------------------------------------------------------------
+   Layout keys off the body classes Obsidian adds: `is-mobile` (phone OR
+   tablet) and `is-phone` (narrow screens only). Desktop keeps the base
+   fixed-width layout untouched. Form factor here is a screen-WIDTH heuristic,
+   not device identity — there is no iPad-vs-iPhone or e-ink signal to key on.
+   Phone-only single-column + drawer rules live further down.
+   =================================================================== */
+
+/* --- Tablets + phones: shrink the multi-pane chrome so three columns still
+       fit a portrait tablet without crushing the editor. The editor column is
+       flex:1 / min-width:0, so the saved width flows back to it. --- */
+body.is-mobile .inkswell-write__nav {
+  width: clamp(132px, 20vw, 200px);
+}
+body.is-mobile .inkswell-write__inspector {
+  width: clamp(196px, 26vw, 260px);
+}
+body.is-mobile .inkswell-inspector-col {
+  width: clamp(208px, 28vw, 280px);
+}
+body.is-mobile .inkswell-codex__detail {
+  width: clamp(220px, 30vw, 300px);
+}
+
+/* --- Touch targets: primary tappable rows/controls get a ~44px hit area on
+       any touch build (Apple HIG 44pt / Material 48dp / WCAG 2.5.8 24px). --- */
+body.is-mobile .inkswell-rail__item {
+  min-height: 48px;
+  justify-content: center;
+}
+body.is-mobile .inkswell-subtab,
+body.is-mobile .inkswell-write__scene,
+body.is-mobile .inkswell-codex__row {
+  min-height: 44px;
+}
+body.is-mobile .inkswell-chip {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* --- Touch row-action affordance ("⋯"): a visible button that opens the same
+       Obsidian Menu used by right-click on desktop. Hidden on desktop (hover +
+       right-click suffice); shown as a 44px tap target on touch builds. --- */
+.inkswell-rowmenu {
+  display: none;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  margin-left: auto;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+body.is-mobile .inkswell-rowmenu {
+  display: inline-flex;
+}
+.inkswell-rowmenu .svg-icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* --- Phone "use a larger screen" placeholder (redirected destinations). --- */
+.inkswell-phone-redirect {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--size-4-2);
+  text-align: center;
+  height: 100%;
+  padding: var(--size-4-6) var(--size-4-4);
+  color: var(--text-muted);
+}
+.inkswell-phone-redirect__icon .svg-icon {
+  width: 40px;
+  height: 40px;
+  color: var(--text-faint);
+}
+.inkswell-phone-redirect__title {
+  font-size: var(--font-ui-large);
+  font-weight: var(--font-semibold);
+  color: var(--text-normal);
+}
+.inkswell-phone-redirect__body {
+  max-width: 32ch;
+  font-size: var(--font-ui-small);
+  line-height: var(--line-height-normal);
+}
+
+/* --- Phone: Write collapses to a single column. The scene navigator slides in
+       as a drawer (toggled from the topbar); the inspector is hidden (its data
+       lives in the scene's metadata / the Home inspector). --- */
+.inkswell-write__navtoggle {
+  display: none;
+}
+.inkswell-write__backdrop {
+  display: none;
+}
+body.is-phone .inkswell-write__navtoggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  margin-right: auto;
+}
+body.is-phone .inkswell-write__inspector {
+  display: none;
+}
+body.is-phone .inkswell-write__main {
+  position: relative;
+  overflow: hidden;
+}
+body.is-phone .inkswell-write__nav {
+  position: absolute;
+  z-index: 20;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: min(80vw, 320px);
+  background: var(--background-primary);
+  transform: translateX(-100%);
+  transition: transform 0.18s ease;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.3);
+}
+body.is-phone .inkswell-write.nav-open .inkswell-write__nav {
+  transform: translateX(0);
+}
+body.is-phone .inkswell-write.nav-open .inkswell-write__backdrop {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* ---- Contextual "How this works" tips ---- */
+/* The tip lives in its own host above the panel; the panel keeps its prior
+   parent (.inkswell-content), so panel layout is unchanged. */
+.inkswell-hint {
+  margin: var(--size-4-3) var(--size-4-4) 0;
+  border: 1px solid var(--background-modifier-border);
+  border-left: 3px solid var(--interactive-accent);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+
+.inkswell-hint__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-3);
+  cursor: pointer;
+  list-style: none;
+  color: var(--text-normal);
+  font-weight: var(--font-semibold);
+}
+.inkswell-hint__summary::-webkit-details-marker {
+  display: none;
+}
+
+.inkswell-hint__icon {
+  display: inline-flex;
+  color: var(--interactive-accent);
+}
+
+.inkswell-hint__title {
+  flex: 1;
+  min-width: 0;
+}
+
+.inkswell-hint__dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--size-4-1);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-s);
+}
+.inkswell-hint__dismiss:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.inkswell-hint__body {
+  padding: 0 var(--size-4-3) var(--size-4-2);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+.inkswell-hint__body p {
+  margin: 0 0 var(--size-4-2);
+}
+.inkswell-hint__body ul {
+  margin: 0 0 var(--size-4-2);
+  padding-left: var(--size-4-4);
+}
+
+.inkswell-hint__examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-1);
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-hint__examples code,
+.inkswell-help__body code {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  padding: 0 var(--size-4-1);
+  font-size: var(--font-ui-smaller);
+}
+
+/* ---- Help index destination ---- */
+.inkswell-help {
+  padding: var(--size-4-3) var(--size-4-4);
+  max-width: 760px;
+}
+.inkswell-help__title {
+  margin: 0 0 var(--size-4-1);
+}
+.inkswell-help__section {
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-help__summary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-2);
+  cursor: pointer;
+  list-style: none;
+}
+.inkswell-help__summary::-webkit-details-marker {
+  display: none;
+}
+.inkswell-help__icon {
+  display: inline-flex;
+  align-self: center;
+  color: var(--interactive-accent);
+}
+.inkswell-help__phase {
+  font-weight: var(--font-semibold);
+  color: var(--text-normal);
+}
+.inkswell-help__body {
+  margin-top: var(--size-4-2);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+.inkswell-help__body h4 {
+  margin: var(--size-4-3) 0 var(--size-4-1);
+  color: var(--text-normal);
+}
+.inkswell-help__body p {
+  margin: 0 0 var(--size-4-2);
+}
+.inkswell-help__body ul {
+  margin: 0 0 var(--size-4-2);
+  padding-left: var(--size-4-4);
+}
+.inkswell-help__footer {
+  margin-top: var(--size-4-4);
+}
+
+/* ---- First-run welcome modal ---- */
+.inkswell-welcome__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--size-4-2);
+  margin: var(--size-4-3) 0;
+}
+.inkswell-welcome__card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--size-4-2);
+  padding: var(--size-4-2);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+.inkswell-welcome__icon {
+  display: inline-flex;
+  color: var(--interactive-accent);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.inkswell-welcome__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.inkswell-welcome__name {
+  font-weight: var(--font-semibold);
+}
+.inkswell-welcome__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--size-4-3);
+}

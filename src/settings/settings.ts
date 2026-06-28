@@ -6,9 +6,11 @@
  * it belongs in the project index's `inkswell` frontmatter.
  */
 
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import type InkswellPlugin from "../../main";
 import { OutputFormat } from "../compile/types";
+import { resetHelpState } from "../help/hint";
+import { WelcomeModal } from "../help/welcome-modal";
 
 export interface InkswellSettings {
   /** Default output format offered in the compile dialog. */
@@ -39,6 +41,12 @@ export interface InkswellSettings {
   codexFolder: string;
   /** When true, book-scoped codex co-locates in its project folder; series/global go shared. */
   coLocateCodex: boolean;
+  /** The one-time welcome modal has been shown (set after first launch). */
+  welcomeSeen: boolean;
+  /** Show the dismissible "How this works" tips at the top of panels. */
+  showHelpHints: boolean;
+  /** Hint keys the user has dismissed (e.g. "plan/beats", "codex"). */
+  dismissedHints: string[];
 }
 
 export const DEFAULT_SETTINGS: InkswellSettings = {
@@ -56,6 +64,9 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   baseFolder: "",
   codexFolder: "Codex",
   coLocateCodex: true,
+  welcomeSeen: false,
+  showHelpHints: true,
+  dismissedHints: [],
 };
 
 export class InkswellSettingTab extends PluginSettingTab {
@@ -244,6 +255,34 @@ export class InkswellSettingTab extends PluginSettingTab {
         t.setValue(this.plugin.settings.coLocateCodex).onChange(async (v) => {
           this.plugin.settings.coLocateCodex = v;
           await this.plugin.saveSettings();
+        })
+      );
+
+    new Setting(containerEl).setName("Help").setHeading();
+
+    new Setting(containerEl)
+      .setName("Show contextual tips")
+      .setDesc(
+        'Show the dismissible "How this works" callouts at the top of panels. ' +
+          "Tips you dismiss stay hidden until you reset them below."
+      )
+      .addToggle((t) =>
+        t.setValue(this.plugin.settings.showHelpHints).onChange(async (v) => {
+          this.plugin.settings.showHelpHints = v;
+          await this.plugin.saveSettings();
+          this.plugin.refreshExplorer();
+        })
+      );
+
+    new Setting(containerEl)
+      .setName("Reset tips & replay welcome")
+      .setDesc("Re-enable every dismissed tip and show the welcome screen again.")
+      .addButton((b) =>
+        b.setButtonText("Reset").onClick(async () => {
+          await resetHelpState(this.plugin);
+          this.plugin.refreshExplorer();
+          new Notice("Tips reset.");
+          new WelcomeModal(this.app, this.plugin).open();
         })
       );
   }

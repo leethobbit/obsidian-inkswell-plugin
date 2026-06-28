@@ -10,6 +10,20 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Added
+- **In-app guidance.** A one-time welcome orients you to the phases on first launch; each non-obvious panel (beat sheet, board, codex, revision log, to-do sweep, audit, compile, drafting markers) carries a dismissible "How this works" tip; and a new **Help** tab in the rail holds the full guide. Tips and the welcome can be reset from Settings → Help.
+- **Mobile support (iPad / tablet first).** Inkswell now installs on Obsidian mobile (`isDesktopOnly` is off). On tablets and iPad the full suite is available with a responsive layout; the multi-pane columns (Write, Codex, Home inspector) flex to fit portrait. Pandoc export remains desktop-only and disables itself gracefully.
+- **Touch row actions.** Every right-click menu (Home scenes & projects, Board cards, Codex entries, Revision log, Plan → Beats scene chips) now also shows a "⋯" button on touch that opens the same menu — long-press isn't required.
+- **Touch reorder fallbacks.** Where desktop uses drag-drop, touch gets menu actions instead: **Move up / Move down** for the Home scene list and **Move to <column>** for the Plan → Board.
+- **Phone layout.** On phones, Inkswell focuses on drafting: the Write editor is a single column with the scene list as a slide-in drawer, and the planning/reference/publish surfaces show a "use a larger screen" notice (they remain available on iPad/desktop).
+
+### Changed
+- Renamed the revision audit's "Page-level" tier to **"Prose-level"** — it's a line/word-level craft pass (show-vs-tell, passive voice, filter words, echoes), and Inkswell has no page concept. Existing checklist data is unaffected.
+
+### Fixed
+- Two lookbehind regular expressions (codex mention detection, scene-opening classification) were rewritten without lookbehind, which crashes plugin load on iOS before 16.4.
+- Plan → Board columns (Chapter / Act / POV) now follow **manuscript order** (the order scenes appear in the book) instead of sorting alphabetically — so spelled-out chapters read "One, Two, Three…" rather than "Five, Four, One…". The Track → Structure "By act" breakdown uses the same order. Matches how the compile/export already groups chapters.
+
 ## [1.0.4] - 2026-06-26
 
 ### Fixed

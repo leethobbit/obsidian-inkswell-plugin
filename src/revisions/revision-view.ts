@@ -6,6 +6,7 @@
  */
 
 import { App, Menu, setIcon } from "obsidian";
+import { attachRowMenu } from "../lib/row-menu";
 import { resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
@@ -175,8 +176,7 @@ export class RevisionPanel {
     }
     meta.createSpan({ text: d.scene ? `↳ ${d.scene}` : "project-wide" });
 
-    row.oncontextmenu = (e) => {
-      e.preventDefault();
+    attachRowMenu(row, row, () => {
       const menu = new Menu();
       menu.addItem((i) =>
         i
@@ -191,8 +191,8 @@ export class RevisionPanel {
           .setIcon("trash")
           .onClick(() => this.persist(project, removeDecision(decisionsOf(project), d.id)))
       );
-      menu.showAtMouseEvent(e);
-    };
+      return menu;
+    });
   }
 
   /** Open the modal pre-filled to edit a decision in place (preserves id/status). */

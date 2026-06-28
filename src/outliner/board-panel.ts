@@ -8,6 +8,7 @@
  */
 
 import { App, Menu, TFile } from "obsidian";
+import { attachRowMenu } from "../lib/row-menu";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
@@ -32,6 +33,8 @@ export class BoardPanel {
   private active: ActiveProject;
   private container: HTMLElement | null = null;
   private field: GroupField = "status";
+  /** Columns from the most recent render — reused by the touch "Move to…" menu. */
+  private columns: BoardColumn[] = [];
 
   constructor(app: App, plugin: InkswellPlugin, store: ProjectStore, active: ActiveProject) {
     this.app = app;
@@ -82,6 +85,7 @@ export class BoardPanel {
     }
 
     const cols = buildColumns(items, this.field);
+    this.columns = cols;
     const board = container.createDiv({ cls: "inkswell-board__cols" });
     for (const col of cols) this.renderColumn(board, col, project);
   }
@@ -156,14 +160,52 @@ export class BoardPanel {
       // modal carries "Open in tab" / "Open in Write" for explicit navigation.
       if (file instanceof TFile) new EditSceneModal(this.app, file, project, this.plugin).open();
     };
-    card.oncontextmenu = (e) => {
-      e.preventDefault();
-      const file = this.app.vault.getAbstractFileByPath(it.path);
-      if (!(file instanceof TFile)) return;
-      const menu = new Menu();
-      addSceneMenuItems(menu, this.app, project, it.title, file, { includeOpen: true, plugin: this.plugin });
-      menu.showAtMouseEvent(e);
-    };
+    const file = this.app.vault.getAbstractFileByPath(it.path);
+    if (file instanceof TFile) {
+      attachRowMenu(card, head, () => {
+        const menu = new Menu();
+        addSceneMenuItems(menu, this.app, project, it.title, file, {
+          includeOpen: true,
+          plugin: this.plugin,
+        });
+        // Touch fallback for drag-drop: move this card to another column.
+        this.addMoveToColumnItems(menu, it);
+        return menu;
+      });
+    }
+  }
+
+  /** The key of the column a card currently sits in (for the current grouping). */
+  private currentColumnKey(it: BoardItem): string {
+    const v =
+      this.field === "status"
+        ? it.status
+        : this.field === "act"
+          ? it.act
+          : this.field === "chapter"
+            ? it.chapter
+            : it.pov;
+    return v ?? "";
+  }
+
+  /**
+   * Touch fallback for drag-drop (drag events don't fire on touch): append a
+   * "Move to <other column>" item for each column other than the card's own,
+   * reusing the exact columns the user sees and the same `assign` write path.
+   */
+  private addMoveToColumnItems(menu: Menu, it: BoardItem): void {
+    if (this.columns.length <= 1) return;
+    const currentKey = this.currentColumnKey(it);
+    menu.addSeparator();
+    for (const col of this.columns) {
+      if (col.key === currentKey) continue;
+      menu.addItem((i) =>
+        i
+          .setTitle(`Move to: ${col.label}`)
+          .setIcon("corner-up-right")
+          .onClick(() => this.assign(it.path, col.key))
+      );
+    }
   }
 
   private assign(path: string, key: string): void {

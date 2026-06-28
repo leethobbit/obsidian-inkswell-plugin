@@ -10,6 +10,7 @@
  */
 
 import { ItemView, TFile, WorkspaceLeaf, setIcon } from "obsidian";
+import { isPhone, renderPhoneRedirect } from "../lib/platform";
 import { CodexPanel } from "../codex/codex-panel";
 import { AnalysisPanel } from "../insight/analysis-panel";
 import { BeatPanel } from "../outliner/beat-panel";
@@ -28,12 +29,23 @@ import { ExplorerPanel } from "./explorer/explorer-view";
 import { CompilePanel } from "./compile-panel";
 import { WritePanel } from "./write-panel";
 import { SceneInspector } from "../scenes/scene-inspector";
+import { HelpPanel } from "../help/help-panel";
+import { renderHint } from "../help/hint";
+import { hintKey } from "../help/help-content";
 import type InkswellPlugin from "../../main";
 
 export const VIEW_TYPE_INKSWELL = "inkswell";
 
 /** Top-level phase destinations. */
-export type InkswellMode = "home" | "plan" | "write" | "track" | "revise" | "publish" | "codex";
+export type InkswellMode =
+  | "home"
+  | "plan"
+  | "write"
+  | "track"
+  | "revise"
+  | "publish"
+  | "codex"
+  | "help";
 
 interface SubTab {
   id: string;
@@ -86,7 +98,20 @@ const DESTINATIONS: Destination[] = [
   // Codex is reference material used across Plan/Write/Revise, so it sits here.
   { id: "codex", label: "Codex", icon: "book-marked", meta: true },
   { id: "track", label: "Track", icon: "bar-chart-3", meta: true },
+  { id: "help", label: "Help", icon: "help-circle", meta: true },
 ];
+
+/**
+ * Destinations redirected to a "use a larger screen" placeholder on phones
+ * (the "Write + read core" mobile scope). Home, Write, and Track stay usable on
+ * a phone; these multi-pane planning/reference surfaces need tablet width.
+ */
+const PHONE_REDIRECTED: ReadonlySet<InkswellMode> = new Set<InkswellMode>([
+  "plan",
+  "revise",
+  "publish",
+  "codex",
+]);
 
 export class InkswellView extends ItemView {
   private plugin: InkswellPlugin;
@@ -104,6 +129,7 @@ export class InkswellView extends ItemView {
   private compile: CompilePanel;
   private checklist: ChecklistPanel;
   private launch: LaunchPanel;
+  private help: HelpPanel;
   private inspector: SceneInspector;
 
   private mode: InkswellMode = "home";
@@ -152,6 +178,7 @@ export class InkswellView extends ItemView {
     this.compile = new CompilePanel(this.app, plugin, store);
     this.checklist = new ChecklistPanel(this.app, plugin, store);
     this.launch = new LaunchPanel(this.app, plugin, store);
+    this.help = new HelpPanel(this.app, plugin);
     this.inspector = new SceneInspector(this.app, store);
 
     // Re-render the active destination whenever projects, the log, or the active
@@ -348,9 +375,11 @@ export class InkswellView extends ItemView {
     this.body.empty();
     this.inspectorEl = null;
     const dest = DESTINATIONS.find((d) => d.id === this.mode);
+    const redirected = isPhone() && PHONE_REDIRECTED.has(this.mode);
 
-    // Optional sub-tab bar.
-    if (dest?.subtabs && dest.subtabs.length > 0) {
+    // Optional sub-tab bar (suppressed when the whole destination is redirected
+    // on a phone — sub-tabs over a placeholder would be noise).
+    if (dest?.subtabs && dest.subtabs.length > 0 && !redirected) {
       const active = this.subtab[this.mode] ?? dest.subtabs[0].id;
       const bar = this.body.createDiv({ cls: "inkswell-subtabs" });
       for (const st of dest.subtabs) {
@@ -382,41 +411,58 @@ export class InkswellView extends ItemView {
   }
 
   private renderContent(content: HTMLElement): void {
+    // On a phone, heavy multi-pane destinations show a "larger screen" notice
+    // instead of a cramped, unusable layout (the "Write + read core" scope).
+    if (isPhone() && PHONE_REDIRECTED.has(this.mode)) {
+      const label = DESTINATIONS.find((d) => d.id === this.mode)?.label ?? "This view";
+      renderPhoneRedirect(content, label);
+      return;
+    }
+
+    // Contextual tip above the panel. It gets its own host (cleared by renderHint)
+    // so the panel — which empties its own container on every self-rerender —
+    // never wipes it. The panel always renders into the separate panelHost below.
+    renderHint(content, this.plugin, hintKey(this.mode, this.subtab[this.mode]));
+    const panel = content.createDiv({ cls: "inkswell-panelhost" });
+
     switch (this.mode) {
       case "home":
-        this.explorer.render(content);
+        this.explorer.render(panel);
         break;
       case "plan": {
         const sub = this.subtab["plan"] ?? "overview";
-        if (sub === "board") this.board.render(content);
-        else if (sub === "beats") this.beats.render(content);
-        else this.overview.render(content);
+        if (sub === "board") this.board.render(panel);
+        else if (sub === "beats") this.beats.render(panel);
+        else this.overview.render(panel);
         break;
       }
       case "codex":
-        this.codex.render(content);
+        this.codex.render(panel);
         break;
       case "write":
-        this.write.render(content);
+        this.write.render(panel);
         break;
       case "track":
-        this.stats.render(content);
+        this.stats.render(panel);
         break;
       case "revise": {
         const sub = this.subtab["revise"] ?? "audit";
-        if (sub === "analysis") this.analysis.render(content);
-        else if (sub === "todos") this.todos.render(content);
-        else if (sub === "log") this.revisions.render(content);
-        else this.audit.render(content);
+        if (sub === "analysis") this.analysis.render(panel);
+        else if (sub === "todos") this.todos.render(panel);
+        else if (sub === "log") this.revisions.render(panel);
+        else this.audit.render(panel);
         break;
       }
       case "publish": {
         const sub = this.subtab["publish"] ?? "compile";
-        if (sub === "checklist") this.checklist.render(content);
-        else if (sub === "launch") this.launch.render(content);
-        else this.compile.render(content);
+        if (sub === "checklist") this.checklist.render(panel);
+        else if (sub === "launch") this.launch.render(panel);
+        else this.compile.render(panel);
         break;
       }
+      case "help":
+        this.help.render(panel);
+        break;
     }
   }
 }

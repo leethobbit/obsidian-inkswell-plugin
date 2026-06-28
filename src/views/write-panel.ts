@@ -12,7 +12,7 @@
  */
 
 import { EditorView } from "@codemirror/view";
-import { App, FuzzySuggestModal, TFile } from "obsidian";
+import { App, FuzzySuggestModal, TFile, setIcon } from "obsidian";
 import { PromptModal } from "../ideation/prompt-modal";
 import { RevisionModal } from "../revisions/revision-modal";
 import { createSceneEditor, flashRange, insertPlaceholder } from "./scene-editor";
@@ -167,6 +167,10 @@ export class WritePanel {
     this.renderNextUp(container);
 
     const main = container.createDiv({ cls: "inkswell-write__main" });
+    // Tap-to-dismiss backdrop for the phone navigator drawer (CSS-hidden until
+    // the drawer is open on a phone).
+    const backdrop = main.createDiv({ cls: "inkswell-write__backdrop" });
+    backdrop.onclick = () => container.removeClass("nav-open");
     this.renderNavigator(main, project);
     this.renderEditor(main);
     const insp = main.createDiv({ cls: "inkswell-write__inspector" });
@@ -178,6 +182,16 @@ export class WritePanel {
     let bar = this.container.querySelector<HTMLElement>(".inkswell-write__topbar");
     if (!bar) bar = this.container.createDiv({ cls: "inkswell-write__topbar" });
     bar.empty();
+
+    // Phone-only: toggle the scene-navigator drawer (hidden via CSS on wider
+    // screens, where the navigator is a permanent column).
+    const navToggle = bar.createEl("button", { cls: "inkswell-write__navtoggle" });
+    setIcon(navToggle, "panel-left");
+    navToggle.setAttribute("aria-label", "Toggle scene list");
+    navToggle.onclick = () => {
+      const c = this.container;
+      if (c) c.toggleClass("nav-open", !c.hasClass("nav-open"));
+    };
 
     // Sprint group.
     const sprintGroup = bar.createDiv({ cls: "inkswell-write__group" });
@@ -256,6 +270,8 @@ export class WritePanel {
       row.onclick = () => {
         if (!scene.path) return;
         this.selectedScene = scene.path;
+        // Close the phone drawer on selection (no-op when it's a static column).
+        this.container?.removeClass("nav-open");
         this.rerender();
       };
     }

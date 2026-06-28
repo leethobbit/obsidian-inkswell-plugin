@@ -46,6 +46,41 @@ describe("buildColumns by chapter", () => {
   });
 });
 
+describe("buildColumns orders columns by manuscript order, not alphabetically", () => {
+  // Scenes in reading order whose values would sort the OTHER way alphabetically.
+  const ordered: BoardItem[] = [
+    { title: "S1", path: "a", chapter: "Two", act: "Beta", pov: "Zara" },
+    { title: "S2", path: "b", chapter: "One", act: "Alpha", pov: "Adam" },
+    { title: "S3", path: "c" }, // no fields
+  ];
+
+  it("chapter columns follow first appearance in scene order", () => {
+    const cols = buildColumns(ordered, "chapter");
+    expect(cols.map((c) => c.key)).toEqual(["Two", "One", ""]);
+  });
+
+  it("act columns follow first appearance in scene order", () => {
+    const cols = buildColumns(ordered, "act");
+    expect(cols.map((c) => c.key)).toEqual(["Beta", "Alpha", ""]);
+  });
+
+  it("pov columns follow first appearance in scene order", () => {
+    const cols = buildColumns(ordered, "pov");
+    expect(cols.map((c) => c.key)).toEqual(["Zara", "Adam", ""]);
+  });
+
+  it("dedupes on first appearance (a value seen again keeps its first slot)", () => {
+    const items: BoardItem[] = [
+      { title: "S1", path: "a", chapter: "Two" },
+      { title: "S2", path: "b", chapter: "One" },
+      { title: "S3", path: "c", chapter: "Two" }, // Two reappears
+    ];
+    const cols = buildColumns(items, "chapter");
+    expect(cols.map((c) => c.key)).toEqual(["Two", "One", ""]);
+    expect(cols.find((c) => c.key === "Two")!.items.map((i) => i.title)).toEqual(["S1", "S3"]);
+  });
+});
+
 describe("buildColumns by pov", () => {
   const cols = buildColumns(items, "pov");
   it("groups by POV with a No-POV column", () => {

@@ -63,7 +63,11 @@ export function classifyOpening(body: string): OpeningType {
   if (/^["“”'‘’«»]/.test(line)) return "dialogue";
   // Leading italics (single * or _, not a bullet, not bold) reads as interiority.
   if (/^_(?!_)\S/.test(line) || /^\*(?!\*)(?!\s)/.test(line)) return "thought";
-  const firstSentence = line.split(/(?<=[.!?])\s/)[0];
+  // First sentence = text up to a terminal punctuation that is followed by
+  // whitespace. Uses a lookahead (universally supported) instead of a
+  // lookbehind, which throws at parse time on iOS < 16.4.
+  const sentenceMatch = line.match(/^.*?[.!?](?=\s)/);
+  const firstSentence = sentenceMatch ? sentenceMatch[0] : line;
   if (ACTION_RE.test(firstSentence)) return "action";
   return "reflection";
 }

@@ -112,7 +112,7 @@ export interface InkswellProjectData {
   compile?: CompileConfig;
   goals?: ProjectGoals;
   revisions?: RevisionDecision[];
-  /** Story- and Page-level revision checklists (Revise → Audit). */
+  /** Story- and Prose-level revision checklists (Revise → Audit). */
   revisionChecklist?: RevisionChecklistData;
   /** Characters whose arc is tracked in the Audit grid, stored as wikilinks (rename-safe). */
   arcTracked?: string[];

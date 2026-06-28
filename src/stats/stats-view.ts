@@ -315,7 +315,12 @@ export class StatsPanel {
       SCENE_STATUSES.includes(k as never) ? statusLabel(k as never) : k
     );
     body.createDiv({ cls: "inkswell-stats__muted", text: "By act" });
-    this.tallyBars(body, tallyBy(metas.map((m) => m.act)));
+    // Order acts by first appearance in manuscript order (metas is in scene
+    // order), matching the Board and the compile group-by-chapter step — not
+    // alphabetically, which mis-sorts spelled-out acts.
+    const acts = metas.map((m) => m.act);
+    const actOrder = [...new Set(acts.filter((a): a is string => !!a))];
+    this.tallyBars(body, tallyBy(acts, actOrder));
   }
 
   private renderTargets(body: HTMLElement, daily: Record<string, number>): void {

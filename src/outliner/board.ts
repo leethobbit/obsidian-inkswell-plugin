@@ -58,9 +58,14 @@ export function buildColumns(items: BoardItem[], field: GroupField): BoardColumn
 
   const get = (it: BoardItem) =>
     field === "act" ? it.act : field === "chapter" ? it.chapter : it.pov;
+  // Order columns by first appearance in manuscript (scene) order, NOT
+  // alphabetically — `items` arrives in scene order and a Set preserves
+  // insertion order, so the distinct values are already in reading order.
+  // This matches the compile group-by-chapter step and keeps spelled-out
+  // chapters/acts ("One, Two, Three") in narrative sequence.
   const values = Array.from(
     new Set(items.map(get).filter((v): v is string => !!v))
-  ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  );
   // Display the clean name (e.g. "Anna" not "[[Anna]]") while keeping the raw
   // value as the key so drag-drop writes back exactly what's already stored.
   const cols: BoardColumn[] = values.map((v) => ({ key: v, label: linkTarget(v), items: [] }));

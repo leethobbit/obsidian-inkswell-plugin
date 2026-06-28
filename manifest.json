@@ -6,5 +6,6 @@
   "description": "A complete workbench for novelists. Plan with beat sheets and a story bible, draft with sprints and goals, revise with an audit toolkit, and prepare to publish.",
   "author": "Dan King",
   "authorUrl": "https://github.com/leethobbit",
-  "isDesktopOnly": true
+  "fundingUrl": "https://github.com/sponsors/leethobbit",
+  "isDesktopOnly": false
 }

@@ -36,7 +36,11 @@ export function detectMentions(text: string, entities: CodexEntity[]): Mention[]
   for (const e of entities) {
     const needles = [e.name, ...e.aliases].map((s) => s.trim()).filter(Boolean);
     const hit = needles.some((n) => {
-      const re = new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegex(n)}(?![\\p{L}\\p{N}])`, "iu");
+      // Whole-word (Unicode) match. The leading group consumes one preceding
+      // non-word char (or start-of-string) in place of a lookbehind, which
+      // throws at parse time on iOS < 16.4. Safe here because we only need a
+      // boolean existence test, not the match position.
+      const re = new RegExp(`(?:^|[^\\p{L}\\p{N}])${escapeRegex(n)}(?![\\p{L}\\p{N}])`, "iu");
       return re.test(text);
     });
     if (hit) found.push({ path: e.path, name: e.name, category: e.category });

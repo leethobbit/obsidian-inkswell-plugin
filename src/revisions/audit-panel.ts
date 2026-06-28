@@ -2,9 +2,10 @@
  * Audit panel (Revise → Audit): the hub for the three-tier
  * revision method.
  *
- *  - Story-level (18) and Page-level (32, grouped) checklists are project state
+ *  - Story-level (18) and Prose-level (32, grouped) checklists are project state
  *    under `inkswell.revisionChecklist`, edited here and persisted via
- *    `persistInkswellData`.
+ *    `persistInkswellData`. (The prose tier's stored key is "page" for back-compat;
+ *    only the display label changed.)
  *  - The per-scene 14-point checklist (scene frontmatter) is summarised as rows,
  *    each expandable to edit inline via the shared `renderSceneAuditFields`.
  *
@@ -98,13 +99,13 @@ export class AuditPanel {
     const summary = container.createDiv({ cls: "inkswell-audit__summary" });
     summary.createSpan({
       cls: "inkswell-stats__muted",
-      text: `Scenes audited ${rollup.complete}/${rollup.rows.length} · Story ${story.done}/${story.total} · Page ${page.done}/${page.total}`,
+      text: `Scenes audited ${rollup.complete}/${rollup.rows.length} · Story ${story.done}/${story.total} · Prose ${page.done}/${page.total}`,
     });
 
     this.section(container, "audit-story", `Story-level (${story.done}/${story.total})`, (host) =>
       this.renderTier(host, project, "story", STORY_CHECKPOINTS)
     );
-    this.section(container, "audit-page", `Page-level (${page.done}/${page.total})`, (host) =>
+    this.section(container, "audit-page", `Prose-level (${page.done}/${page.total})`, (host) =>
       this.renderPageTier(host, project)
     );
     this.section(

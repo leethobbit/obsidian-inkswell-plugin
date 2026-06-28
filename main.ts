@@ -25,6 +25,7 @@ import {
   InkswellSettings,
   InkswellSettingTab,
 } from "./src/settings/settings";
+import { WelcomeModal } from "./src/help/welcome-modal";
 import { SprintController } from "./src/sprints/sprint-controller";
 import { SprintModal } from "./src/sprints/sprint-modal";
 import { WritingLogData, emptyLog } from "./src/tracking/types";
@@ -83,6 +84,12 @@ export default class InkswellPlugin extends Plugin {
 
     this.registerCommands();
     this.addSettingTab(new InkswellSettingTab(this.app, this));
+
+    // One-time welcome, once the workspace is ready (so the modal isn't fighting
+    // Obsidian's own startup UI). The modal sets `welcomeSeen` on close.
+    this.app.workspace.onLayoutReady(() => {
+      if (!this.settings.welcomeSeen) new WelcomeModal(this.app, this).open();
+    });
   }
 
   private registerCommands(): void {
@@ -202,6 +209,11 @@ export default class InkswellPlugin extends Plugin {
       callback: () => this.openAnalysis(),
     });
     this.addCommand({
+      id: "open-help",
+      name: "Open help",
+      callback: () => this.openHelp(),
+    });
+    this.addCommand({
       id: "quick-capture",
       name: "Quick capture an idea",
       callback: async () => {
@@ -316,6 +328,10 @@ export default class InkswellPlugin extends Plugin {
 
   openCompile(): Promise<void> {
     return this.openInkswell("publish");
+  }
+
+  openHelp(): Promise<void> {
+    return this.openInkswell("help");
   }
 
   /** Open the Todos sweep (all bracketed to-do markers across the project). */
