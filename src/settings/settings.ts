@@ -9,6 +9,8 @@
 import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import type InkswellPlugin from "../../main";
 import { OutputFormat } from "../compile/types";
+import { generateCodexTemplates } from "../codex/codex-store";
+import { resolveTemplateFolder } from "./folders";
 import { resetHelpState } from "../help/hint";
 import { WelcomeModal } from "../help/welcome-modal";
 
@@ -255,6 +257,29 @@ export class InkswellSettingTab extends PluginSettingTab {
         t.setValue(this.plugin.settings.coLocateCodex).onChange(async (v) => {
           this.plugin.settings.coLocateCodex = v;
           await this.plugin.saveSettings();
+        })
+      );
+
+    new Setting(containerEl).setName("Codex templates").setHeading();
+
+    const templateFolder = resolveTemplateFolder(this.plugin.settings) || "(vault root)";
+    new Setting(containerEl)
+      .setName("Generate starter templates")
+      .setDesc(
+        `Create an editable note for each codex type in "${templateFolder}". New entries ` +
+          "are scaffolded from the matching note's frontmatter and body — add your own " +
+          "tags, fields, or sections (use {{title}} for the entry name). Inkswell still " +
+          "sets codex: and scope automatically; don't add a codex: key. Delete a template " +
+          "to return to the default."
+      )
+      .addButton((b) =>
+        b.setButtonText("Generate starter templates").onClick(async () => {
+          const created = await generateCodexTemplates(this.app, this.plugin.settings);
+          new Notice(
+            created.length > 0
+              ? `Created ${created.length} template${created.length === 1 ? "" : "s"} in "${templateFolder}".`
+              : "Templates already exist — nothing to create."
+          );
         })
       );
 

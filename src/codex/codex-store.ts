@@ -6,12 +6,17 @@
 
 import { App, TFile, normalizePath } from "obsidian";
 import { linkTarget } from "./codex";
+import { starterCodexTemplate, codexTemplatesReadme } from "./codex-template";
+import { applyTemplateVars } from "../lib/template";
+import { FolderSettings, resolveTemplateFolder } from "../settings/folders";
 import {
+  CODEX_CATEGORIES,
   CodexCategory,
   CodexEntity,
   EntityScope,
   SCOPE_PROJECT_KEY,
   SCOPE_SERIES_KEY,
+  categoryLabel,
   isCodexCategory,
 } from "./types";
 
@@ -104,7 +109,8 @@ export async function createEntity(
   category: CodexCategory,
   name: string,
   folder: string,
-  scope: EntityScope = {}
+  scope: EntityScope = {},
+  templateFile?: TFile | null
 ): Promise<TFile | null> {
   const safe = name.trim().replace(/[\\/:*?"<>|]/g, "-");
   if (!safe) return null;
@@ -120,12 +126,76 @@ export async function createEntity(
   const existing = app.vault.getAbstractFileByPath(path);
   if (existing instanceof TFile) return existing;
 
+  // Template path: scaffold from the user's template note, then force the
+  // app-managed keys on top so Inkswell's contract always wins (and YAML stays
+  // valid). Falls through to the default scaffold when no template is given.
+  if (templateFile instanceof TFile) {
+    const raw = applyTemplateVars(await app.vault.cachedRead(templateFile), { title: safe });
+    const file = await app.vault.create(path, raw);
+    await app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+      fm["codex"] = category; // app marker always wins
+      if (!Array.isArray(fm["aliases"])) fm["aliases"] = [];
+      // Series wins over project; force exactly one (or neither) scope key.
+      delete fm[SCOPE_SERIES_KEY];
+      delete fm[SCOPE_PROJECT_KEY];
+      if (scope.series) fm[SCOPE_SERIES_KEY] = scope.series;
+      else if (scope.project) fm[SCOPE_PROJECT_KEY] = `[[${scope.project}]]`;
+    });
+    return file;
+  }
+
   const lines = [`codex: ${category}`, "aliases: []"];
   // Series wins over project (mirrors writeEntityScope / isEntityVisible).
   if (scope.series) lines.push(`${SCOPE_SERIES_KEY}: ${yamlScalar(scope.series)}`);
   else if (scope.project) lines.push(`${SCOPE_PROJECT_KEY}: "[[${scope.project}]]"`);
   const fm = `---\n${lines.join("\n")}\n---\n\n# ${safe}\n`;
   return app.vault.create(path, fm);
+}
+
+/**
+ * Resolve the template note for a category — `<baseFolder>/Templates/<Label>.md`
+ * — or null when it doesn't exist (→ caller uses the default scaffold).
+ */
+export function resolveCodexTemplate(
+  app: App,
+  settings: FolderSettings,
+  category: CodexCategory
+): TFile | null {
+  const folder = resolveTemplateFolder(settings);
+  const path = normalizePath(
+    folder ? `${folder}/${categoryLabel(category)}.md` : `${categoryLabel(category)}.md`
+  );
+  const f = app.vault.getAbstractFileByPath(path);
+  return f instanceof TFile ? f : null;
+}
+
+/**
+ * Scaffold a starter template note for every codex category (plus a README) into
+ * `<baseFolder>/Templates/`. Idempotent: only writes files that don't yet exist,
+ * so it never clobbers a user's edits. Returns the paths actually created.
+ */
+export async function generateCodexTemplates(
+  app: App,
+  settings: FolderSettings
+): Promise<string[]> {
+  const folder = resolveTemplateFolder(settings);
+  if (folder && !app.vault.getAbstractFileByPath(folder)) {
+    try {
+      await app.vault.createFolder(folder);
+    } catch {
+      /* exists / race */
+    }
+  }
+  const created: string[] = [];
+  const write = async (basename: string, content: string): Promise<void> => {
+    const p = normalizePath(folder ? `${folder}/${basename}.md` : `${basename}.md`);
+    if (app.vault.getAbstractFileByPath(p)) return; // never clobber
+    await app.vault.create(p, content);
+    created.push(p);
+  };
+  for (const cat of CODEX_CATEGORIES) await write(cat.label, starterCodexTemplate(cat.id));
+  await write("_Inkswell Templates", codexTemplatesReadme());
+  return created;
 }
 
 /** Quote a YAML scalar when it could otherwise be misparsed; bare-safe strings pass through. */

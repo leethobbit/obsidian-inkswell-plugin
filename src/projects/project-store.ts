@@ -13,12 +13,16 @@
 import {
   App,
   Component,
+  TAbstractFile,
   TFile,
   TFolder,
   normalizePath,
   parseYaml,
 } from "obsidian";
+import { renameSceneInBeats } from "../outliner/beats";
 import { parseDraft } from "./draft-serialization";
+import { persistInkswellData, updateScenes } from "./index-writer";
+import { consumeExpectedRename, planSceneRename } from "./rename-heal";
 import {
   Draft,
   Project,
@@ -48,7 +52,12 @@ export class ProjectStore extends Component {
     const vault = this.app.vault;
     this.registerEvent(mc.on("changed", () => this.queueRefresh()));
     this.registerEvent(mc.on("resolved", () => this.queueRefresh()));
-    this.registerEvent(vault.on("rename", () => this.queueRefresh()));
+    this.registerEvent(
+      vault.on("rename", (file, oldPath) => {
+        void this.healRename(file, oldPath);
+        this.queueRefresh();
+      })
+    );
     this.registerEvent(vault.on("delete", () => this.queueRefresh()));
     this.registerEvent(vault.on("create", () => this.queueRefresh()));
     this.refresh();
@@ -95,6 +104,30 @@ export class ProjectStore extends Component {
   /** Trigger a rebuild of the project list (runs asynchronously). */
   refresh(): void {
     void this.doRefresh();
+  }
+
+  /**
+   * Tier 1 self-heal: when a scene file is renamed in place (e.g. via Obsidian's
+   * file explorer), rewrite its title in the index so the scene doesn't drop out
+   * of the project. App-initiated renames are skipped — `renameScene` already
+   * updates the index and pre-registers the new path. All matching/guards live
+   * in the pure `planSceneRename`; this only does the I/O.
+   */
+  private async healRename(file: TAbstractFile, oldPath: string): Promise<void> {
+    if (!(file instanceof TFile) || file.extension !== "md") return;
+    if (consumeExpectedRename(file.path)) return;
+    const plan = planSceneRename(this.projects, oldPath, file.path);
+    if (!plan) return;
+    const indexFile = this.app.vault.getAbstractFileByPath(plan.indexPath);
+    const project = this.getProject(plan.indexPath);
+    if (indexFile instanceof TFile && project) {
+      await updateScenes(this.app, indexFile, project.draft, (scenes) =>
+        scenes.map((s) => (s.title === plan.oldTitle ? { ...s, title: plan.newTitle } : s))
+      );
+      // Keep beat→scene links (stored by title) in sync with the healed rename.
+      const beats = renameSceneInBeats(project.inkswell?.beats, plan.oldTitle, plan.newTitle);
+      if (beats) await persistInkswellData(this.app, indexFile, { beats });
+    }
   }
 
   /**

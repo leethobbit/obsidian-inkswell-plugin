@@ -52,6 +52,43 @@ export function beatProgress(beats: MergedBeat[]): BeatProgress {
   return { done, total: beats.length, started };
 }
 
+/**
+ * Rewrite beat→scene links after a scene rename. Beats store their scene links
+ * by title in `inkswell.beats`, a structure independent of the index scene list,
+ * so a rename would otherwise leave a beat pointing at the dead old title (an
+ * orphaned chip). Returns a new sheet, or null when nothing referenced
+ * `oldTitle` (so callers can skip a redundant write). Also folds any legacy
+ * single-`scene` link into `scenes` while it's rewriting that assignment.
+ */
+export function renameSceneInBeats(
+  sheet: BeatSheet | undefined,
+  oldTitle: string,
+  newTitle: string
+): BeatSheet | null {
+  if (!sheet || oldTitle === newTitle) return null;
+  let changed = false;
+  const assignments: Record<string, BeatAssignment> = {};
+  for (const [id, raw] of Object.entries(sheet.assignments)) {
+    const legacy = raw as BeatAssignment & { scene?: string };
+    const scenes = legacy.scenes ?? (legacy.scene ? [legacy.scene] : undefined);
+    if (scenes && scenes.includes(oldTitle)) {
+      changed = true;
+      const next: string[] = [];
+      for (const t of scenes) {
+        const mapped = t === oldTitle ? newTitle : t;
+        if (!next.includes(mapped)) next.push(mapped); // dedupe if newTitle already linked
+      }
+      const updated: BeatAssignment & { scene?: string } = { ...legacy, scenes: next };
+      delete updated.scene; // drop the legacy single-scene field if present
+      assignments[id] = updated;
+    } else {
+      assignments[id] = raw;
+    }
+  }
+  if (!changed) return null;
+  return { template: sheet.template ?? DEFAULT_TEMPLATE, assignments };
+}
+
 /** Immutably update one beat's assignment, returning a new sheet. */
 export function setAssignment(
   sheet: BeatSheet | undefined,

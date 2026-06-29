@@ -10,6 +10,17 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-06-29
+
+### Added
+- **Customizable codex templates.** Settings → Codex templates → **Generate starter templates** creates an editable note for each codex type (Character, Location, …) in `<base folder>/Templates`. New entries are scaffolded from the matching note's frontmatter and body, so you can add your own tags, fields, or sections — the generated Character template already includes `tags: [character]`. Use `{{title}}` for the entry name; Inkswell still sets `codex:` and scope automatically. Delete a template to return to the default. (No template = unchanged behavior.)
+- **Scenes survive a manual file rename.** If you rename a scene file in Obsidian's file explorer (or anywhere) while Inkswell is open, the project index now updates automatically so the scene no longer disappears. For renames made while Inkswell was closed, Home shows a "Scene files out of sync" banner on the affected project with one-click **Relink** (plus Remove / Add as scene / Ignore) so nothing is silently lost.
+- **Rename scenes from the Write module.** Right-click a scene in the Write navigator (or tap "⋯" on touch) for the same actions already available on Home, Board, and Beats — Open, Edit scene, Edit synopsis, Rename, Delete. Renaming the scene you're currently editing keeps the editor pinned to it.
+- **Plot groundwork starter prompt.** The Plan → Overview "Plot groundwork" box now shows an example question ("e.g. What are 5 key moments, scenes, or events you know will happen?") to get you started, instead of echoing the field name. It's only a placeholder — it disappears as soon as you type and is never written to your planning note.
+
+### Fixed
+- **Renaming a scene no longer orphans its beat link.** Plan → Beats links scenes by title, so a rename used to leave the beat pointing at the old name — the scene chip went dead and the renamed scene reappeared in the "add scene" dropdown. Beat links now follow the rename automatically, whether it comes from the in-app menu, a self-healed manual file rename, or a Relink.
+
 ## [1.1.0] - 2026-06-27
 
 ### Added
@@ -88,7 +99,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.1.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.2.0...HEAD
+[1.2.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.1.0...1.2.0
 [1.1.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.4...1.1.0
 [1.0.4]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.3...1.0.4
 [1.0.3]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.2...1.0.3

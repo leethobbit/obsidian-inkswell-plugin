@@ -129,6 +129,8 @@ Source: `src/codex/codex-store.ts`, `src/codex/profile-schema.ts`, `src/codex/co
 
 **Scope** (`codex-series` / `codex-project`): at most one is set. Neither = **global** (shared across every project — the default and back-compatible state). An entity is visible from a book when it is global, its `codex-project` is that book, or its `codex-series` is that book's series. New entries inherit the active project's scope (its series if any, else the book itself). Resolution + visibility logic: `src/codex/codex-scope.ts`.
 
+**Template-introduced keys.** When a codex template note (`<baseFolder>/Templates/<Label>.md`) is present, new entries are scaffolded from it, so a note may carry additional **user-authored** frontmatter — most commonly Obsidian-native `tags` — that Inkswell preserves but does not manage or read. On creation Inkswell force-sets `codex` and scope over whatever the template declared; everything else is the user's. Source: `src/codex/codex-template.ts`, `createEntity` in `src/codex/codex-store.ts`.
+
 Per-category profile fields are flat top-level keys, written by the profile editor. **Character:** `role` `function` `memorableTrait` `age` `gender` `occupation` `traits` `motivation` `flaw` `appearance` `backstory` `arc` `relationships[]`. **Location:** `type` `parent` `region` `climate` `population` `atmosphere` `significance` `history`. **World:** `geography` `culture` `politics` `magicTech` `religion` `economy` `history`. **Faction:** `type` `leadership[]` `size` `territory[]` `goal` `allies[]` `enemies[]`. **Item:** `type` `owner` `significance`. **Event:** `date` `participants[]` `outcome`. **Concept:** `type` `rules` `limitations` `significance`. (Fields ending `[]` are wikilink arrays; the rest are strings.)
 
 ---

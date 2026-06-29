@@ -31,6 +31,16 @@ const FIELDS: { key: keyof ProjectOverview; label: string; placeholder: string }
   { key: "audience", label: "Audience", placeholder: "e.g. Adult, YA…" },
 ];
 
+/**
+ * Per-section get-started prompts shown as textarea placeholders. Kept
+ * method-agnostic on purpose — a single open question, not a plot theory the
+ * writer has to delete. Sections without an entry fall back to "<heading>…".
+ */
+const SECTION_PROMPTS: Partial<Record<PlanSection, string>> = {
+  "Plot groundwork":
+    "e.g. What are 5 key moments, scenes, or events you know will happen? (They don't need to be in order or connected yet.)",
+};
+
 export class OverviewPanel {
   private app: App;
   private plugin: InkswellPlugin;
@@ -96,7 +106,7 @@ export class OverviewPanel {
       block.createDiv({ cls: "inkswell-overview__label", text: heading });
       const ta = block.createEl("textarea", { cls: "inkswell-overview__textarea" });
       ta.rows = heading === "Synopsis" || heading === "Plot groundwork" ? 5 : 3;
-      ta.placeholder = `${heading}…`;
+      ta.placeholder = SECTION_PROMPTS[heading] ?? `${heading}…`;
       ta.onchange = () => void this.saveSection(project, heading, ta.value);
       editors.set(heading, ta);
     }

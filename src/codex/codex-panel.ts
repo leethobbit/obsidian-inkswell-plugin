@@ -14,7 +14,13 @@ import {
   openScene,
   promptText,
 } from "../scenes/scene-actions";
-import { createEntity, getCodexEntities, scenesReferencing, writeEntityScope } from "./codex-store";
+import {
+  createEntity,
+  getCodexEntities,
+  resolveCodexTemplate,
+  scenesReferencing,
+  writeEntityScope,
+} from "./codex-store";
 import { linkTarget, toLink } from "./codex";
 import {
   defaultScopeForProject,
@@ -103,7 +109,8 @@ export class CodexPanel {
         category,
         name,
         resolveCodexFolder(this.plugin.settings, createScope, active?.vaultPath),
-        createScope
+        createScope,
+        resolveCodexTemplate(this.app, this.plugin.settings, category)
       );
       if (file) {
         this.selectedPath = file.path;

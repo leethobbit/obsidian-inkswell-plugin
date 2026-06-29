@@ -40,6 +40,11 @@ export function projectFolder(baseFolder: string, title: string): string {
   return joinPath(baseFolder, sanitizeSegment(title));
 }
 
+/** The folder Inkswell scaffolds content templates into: `<base>/Templates`. */
+export function resolveTemplateFolder(settings: FolderSettings): string {
+  return joinPath(settings.baseFolder, "Templates");
+}
+
 /**
  * Resolve the folder a new codex entity should be created in, given its scope and
  * (when known) the active project's index-note path. Book-scoped entries co-locate

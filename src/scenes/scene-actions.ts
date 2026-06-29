@@ -6,7 +6,9 @@
  */
 
 import { App, MarkdownView, Menu, Modal, Setting, TFile, normalizePath } from "obsidian";
-import { updateScenes } from "../projects/index-writer";
+import { persistInkswellData, updateScenes } from "../projects/index-writer";
+import { expectInAppRename } from "../projects/rename-heal";
+import { renameSceneInBeats } from "../outliner/beats";
 import { removeScene } from "../projects/scene-tree";
 import { Project } from "../projects/types";
 import { EditSceneModal } from "./edit-scene-modal";
@@ -130,33 +132,46 @@ export async function editSynopsis(app: App, file: TFile): Promise<void> {
   if (value !== null) await writeSceneMeta(app, file, { synopsis: value });
 }
 
+/**
+ * Rename a scene (prompt → file rename + index/beat title rewrite). Returns the
+ * new vault path on success, or null if cancelled / unchanged / name-taken — so
+ * a caller keyed on the scene's path (e.g. the Write editor) can re-point itself.
+ */
 export async function renameScene(
   app: App,
   project: Project,
   oldTitle: string,
   file: TFile
-): Promise<void> {
+): Promise<string | null> {
   const input = await promptText(app, {
     title: "Rename scene",
     value: oldTitle,
     multiline: false,
     cta: "Rename",
   });
-  if (input === null) return;
+  if (input === null) return null;
   const next = input.trim().replace(/[\\/:*?"<>|]/g, "-");
-  if (!next || next === oldTitle) return;
+  if (!next || next === oldTitle) return null;
 
   const folder = file.parent ? file.parent.path : "";
   const newPath = normalizePath(folder ? `${folder}/${next}.md` : `${next}.md`);
-  if (app.vault.getAbstractFileByPath(newPath)) return; // name taken
+  if (app.vault.getAbstractFileByPath(newPath)) return null; // name taken
 
+  // Tell the store's rename-heal this rename is app-initiated — we update the
+  // index below, so the heal must not also fire (a redundant/racing write).
+  expectInAppRename(newPath);
   await app.fileManager.renameFile(file, newPath);
   const indexFile = app.vault.getAbstractFileByPath(project.vaultPath);
   if (indexFile instanceof TFile) {
     await updateScenes(app, indexFile, project.draft, (scenes) =>
       scenes.map((s) => (s.title === oldTitle ? { ...s, title: next } : s))
     );
+    // Beats link scenes by title in a separate frontmatter structure, so rewrite
+    // those links too — otherwise the rename orphans the beat's scene chip.
+    const beats = renameSceneInBeats(project.inkswell?.beats, oldTitle, next);
+    if (beats) await persistInkswellData(app, indexFile, { beats });
   }
+  return newPath;
 }
 
 export async function deleteScene(
@@ -184,7 +199,13 @@ export function addSceneMenuItems(
   project: Project,
   title: string,
   file: TFile,
-  opts: { includeOpen?: boolean; plugin?: InkswellPlugin } = {}
+  opts: {
+    includeOpen?: boolean;
+    plugin?: InkswellPlugin;
+    /** Called with the new vault path after a successful rename (e.g. so a
+     *  path-keyed caller can keep its selection pinned to the renamed scene). */
+    onRenamed?: (newPath: string) => void;
+  } = {}
 ): void {
   if (opts.includeOpen) {
     menu.addItem((i) =>
@@ -198,7 +219,10 @@ export function addSceneMenuItems(
     i.setTitle("Edit synopsis…").setIcon("text").onClick(() => void editSynopsis(app, file))
   );
   menu.addItem((i) =>
-    i.setTitle("Rename…").setIcon("pencil").onClick(() => void renameScene(app, project, title, file))
+    i.setTitle("Rename…").setIcon("pencil").onClick(async () => {
+      const newPath = await renameScene(app, project, title, file);
+      if (newPath) opts.onRenamed?.(newPath);
+    })
   );
   menu.addSeparator();
   menu.addItem((i) =>

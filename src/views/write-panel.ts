@@ -12,7 +12,9 @@
  */
 
 import { EditorView } from "@codemirror/view";
-import { App, FuzzySuggestModal, TFile, setIcon } from "obsidian";
+import { App, FuzzySuggestModal, Menu, TFile, setIcon } from "obsidian";
+import { attachRowMenu } from "../lib/row-menu";
+import { addSceneMenuItems } from "../scenes/scene-actions";
 import { PromptModal } from "../ideation/prompt-modal";
 import { RevisionModal } from "../revisions/revision-modal";
 import { createSceneEditor, flashRange, insertPlaceholder } from "./scene-editor";
@@ -262,10 +264,27 @@ export class WritePanel {
       row.createSpan({ cls: "inkswell-scene__title", text: scene.title });
       const sceneFile = scene.path && this.app.vault.getAbstractFileByPath(scene.path);
       if (sceneFile instanceof TFile) {
-        const meta = readSceneMeta(this.app, sceneFile);
+        const file = sceneFile; // narrowed; safe to capture in the deferred menu builder
+        const meta = readSceneMeta(this.app, file);
         if (meta.status) {
           row.createSpan({ cls: `inkswell-status inkswell-status--${meta.status}`, text: meta.status[0].toUpperCase() });
         }
+        // Same scene context menu as Board/Beats/Home — right-click on desktop,
+        // "⋯" on touch. Appended last so the menu button sits after the status.
+        attachRowMenu(row, row, () => {
+          const menu = new Menu();
+          addSceneMenuItems(menu, this.app, project, scene.title, file, {
+            includeOpen: true,
+            plugin: this.plugin,
+            // Rename changes the file path; selectedScene is path-keyed, so re-pin
+            // it to keep the editor on this scene (else we'd drop to the empty
+            // state). The store-driven re-render then shows the new title.
+            onRenamed: (newPath) => {
+              if (this.selectedScene === scene.path) this.selectedScene = newPath;
+            },
+          });
+          return menu;
+        });
       }
       row.onclick = () => {
         if (!scene.path) return;

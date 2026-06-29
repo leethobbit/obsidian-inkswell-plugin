@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { SAVE_THE_CAT } from "../src/outliner/beat-templates";
-import { beatProgress, mergeBeats, setAssignment } from "../src/outliner/beats";
+import {
+  beatProgress,
+  mergeBeats,
+  renameSceneInBeats,
+  setAssignment,
+} from "../src/outliner/beats";
 
 describe("mergeBeats", () => {
   it("returns the full template in order with empty assignments by default", () => {
@@ -71,5 +76,56 @@ describe("setAssignment", () => {
       assignments: { catalyst: { scene: "Ch 1" } as never },
     });
     expect(beats.find((b) => b.id === "catalyst")!.assignment.scenes).toEqual(["Ch 1"]);
+  });
+});
+
+describe("renameSceneInBeats", () => {
+  it("rewrites the renamed title across every beat that links it", () => {
+    const sheet = {
+      template: "save-the-cat",
+      assignments: {
+        catalyst: { scenes: ["02 - Blackout"], note: "the call" },
+        midpoint: { scenes: ["02 - Blackout", "08 - Pivot"] },
+      },
+    };
+    const next = renameSceneInBeats(sheet, "02 - Blackout", "02 - The Blackout")!;
+    expect(next.assignments.catalyst).toEqual({
+      scenes: ["02 - The Blackout"],
+      note: "the call",
+    });
+    expect(next.assignments.midpoint.scenes).toEqual(["02 - The Blackout", "08 - Pivot"]);
+  });
+
+  it("returns null when no beat references the old title (skips a redundant write)", () => {
+    const sheet = {
+      template: "save-the-cat",
+      assignments: { midpoint: { scenes: ["08 - Pivot"] } },
+    };
+    expect(renameSceneInBeats(sheet, "02 - Blackout", "02 - New")).toBeNull();
+  });
+
+  it("returns null for an undefined sheet or a no-op rename", () => {
+    expect(renameSceneInBeats(undefined, "a", "b")).toBeNull();
+    const sheet = { template: "save-the-cat", assignments: { catalyst: { scenes: ["a"] } } };
+    expect(renameSceneInBeats(sheet, "a", "a")).toBeNull();
+  });
+
+  it("dedupes when the new title is already linked to the same beat", () => {
+    const sheet = {
+      template: "save-the-cat",
+      assignments: { midpoint: { scenes: ["A", "B"] } },
+    };
+    const next = renameSceneInBeats(sheet, "A", "B")!;
+    expect(next.assignments.midpoint.scenes).toEqual(["B"]);
+  });
+
+  it("folds a legacy single `scene` link into `scenes` while rewriting", () => {
+    const sheet = {
+      template: "save-the-cat",
+      assignments: { catalyst: { scene: "Old" } as never },
+    };
+    const next = renameSceneInBeats(sheet, "Old", "New")!;
+    expect(next.assignments.catalyst).toEqual({ scenes: ["New"] });
+    expect((next.assignments.catalyst as { scene?: string }).scene).toBeUndefined();
   });
 });
