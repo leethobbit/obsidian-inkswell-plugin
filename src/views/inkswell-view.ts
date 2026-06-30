@@ -500,7 +500,7 @@ export class InkswellView extends ItemView {
     const phone = isPhone();
     const homeFile =
       phone && this.mode === "home" && this.detail["home"]
-        ? this.fileAt(this.detail["home"]!)
+        ? this.fileAt(this.detail["home"])
         : null;
     if (phone && this.mode === "home" && this.detail["home"] && !homeFile) {
       this.detail["home"] = null;

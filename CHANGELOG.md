@@ -10,6 +10,11 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-06-30
+
+### Fixed
+- **Delete-scene button no longer uses a deprecated API.** The delete-scene confirmation's red "Delete" button now takes its destructive styling from the `mod-warning` CSS class directly, instead of the deprecated `ButtonComponent.setWarning()` call. `setWarning()` is deprecated in favor of `setDestructive()`, but `setDestructive()` requires Obsidian 1.13 — which is still early-access-only, so it can't be the floor yet. The button looks and behaves exactly as before; this only unblocks the community-store review (which rejects the deprecated call).
+
 ## [1.3.0] - 2026-06-30
 
 ### Added
@@ -107,7 +112,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.3.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.3.1...HEAD
+[1.3.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.3.0...1.3.1
 [1.3.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.2.0...1.3.0
 [1.2.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.1.0...1.2.0
 [1.1.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.4...1.1.0

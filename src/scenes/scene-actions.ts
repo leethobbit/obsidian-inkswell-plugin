@@ -73,19 +73,21 @@ class ConfirmModal extends Modal {
   onOpen(): void {
     this.contentEl.createEl("p", { text: this.message });
     new Setting(this.contentEl)
-      // Deliberate API tension: `setWarning()` is deprecated in favor of
-      // `setDestructive()`, but `setDestructive()` was added in Obsidian 1.13.0 —
-      // newer than our `minAppVersion` (1.7.4), so adopting it would trip
-      // obsidianmd/no-unsupported-api AND throw at runtime on the floor. We keep
-      // the deprecated-but-floor-safe call and silence only the deprecation here;
-      // revisit if/when minAppVersion rises to ≥1.13.0.
-      .addButton((b) =>
-        // eslint-disable-next-line @typescript-eslint/no-deprecated -- setWarning required by minAppVersion floor; see comment above
-        b.setButtonText("Delete").setWarning().onClick(() => {
+      // Destructive styling without the API tension: `setWarning()` is deprecated
+      // in favor of `setDestructive()`, but `setDestructive()` needs Obsidian
+      // 1.13.0 — newer than our `minAppVersion` (1.7.4), so it would trip
+      // obsidianmd/no-unsupported-api AND throw at runtime on the floor. We can't
+      // silence the deprecation either (the community-store review forbids disabling
+      // no-deprecated). So we apply the `mod-warning` class `setWarning()` would add
+      // ourselves — floor-safe, no deprecated API. Switch to `setDestructive()` if
+      // minAppVersion ever rises to ≥1.13.0.
+      .addButton((b) => {
+        b.setButtonText("Delete").onClick(() => {
           this.ok = true;
           this.close();
-        })
-      )
+        });
+        b.buttonEl.addClass("mod-warning");
+      })
       .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()));
   }
   onClose(): void {
