@@ -216,18 +216,7 @@ export default class InkswellPlugin extends Plugin {
     this.addCommand({
       id: "quick-capture",
       name: "Quick capture an idea",
-      callback: async () => {
-        const text = await promptText(this.app, {
-          title: "Quick capture",
-          value: "",
-          multiline: true,
-          cta: "Capture",
-        });
-        if (text) {
-          this.addIdea(text);
-          new Notice("Idea captured.");
-        }
-      },
+      callback: () => void this.quickCaptureIdea(),
     });
   }
 
@@ -264,6 +253,21 @@ export default class InkswellPlugin extends Plugin {
   }
 
   // --- Story ideas inbox ---
+
+  /** Prompt for an idea and add it to the inbox. Shared by the command and the
+   *  phone Capture FAB. */
+  async quickCaptureIdea(): Promise<void> {
+    const text = await promptText(this.app, {
+      title: "Quick capture",
+      value: "",
+      multiline: true,
+      cta: "Capture",
+    });
+    if (text) {
+      this.addIdea(text);
+      new Notice("Idea captured.");
+    }
+  }
 
   addIdea(text: string): void {
     const t = text.trim();

@@ -2168,6 +2168,144 @@ body.is-phone .inkswell-write.nav-open .inkswell-write__backdrop {
   background: rgba(0, 0, 0, 0.4);
 }
 
+/* ===== Phone frontend: bottom tab bar replaces the icon rail ===== */
+/* Hidden by default (desktop/tablet keep the rail). */
+.inkswell-bottombar {
+  display: none;
+}
+body.is-phone .inkswell-rail {
+  display: none;
+}
+body.is-phone .inkswell-bottombar {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  border-top: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  padding-bottom: env(safe-area-inset-bottom);
+  /* Lifted at runtime to sit flush above Obsidian's global mobile navbar
+     (PhoneShell.alignAboveNavbar measures the overlap). */
+  margin-bottom: var(--inkswell-navbar-lift, 0px);
+}
+.inkswell-bottombar__tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 44px;
+  min-height: 56px;
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-bottombar__tab.is-active {
+  color: var(--text-accent);
+}
+.inkswell-bottombar__tab .svg-icon {
+  width: 20px;
+  height: 20px;
+}
+.inkswell-bottombar__label {
+  line-height: 1;
+}
+.inkswell-bottombar__fab {
+  flex: 0 0 auto;
+  align-self: center;
+  margin: 0 var(--size-4-1);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transform: translateY(-8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.inkswell-bottombar__fab .svg-icon {
+  width: 24px;
+  height: 24px;
+}
+
+/* Single-column surfaces on phones */
+body.is-phone .inkswell-main {
+  flex-direction: column;
+}
+body.is-phone .inkswell-inspector-col {
+  width: 100%;
+}
+
+/* Codex master-detail → single-column drill-down. List screen hides the (empty)
+   detail pane; the detail screen (.is-codex-detail) hides the list + toolbar and
+   shows the detail full-width. */
+body.is-phone .inkswell-codex__body {
+  flex-direction: column;
+}
+body.is-phone .inkswell-codex__list,
+body.is-phone .inkswell-codex__detail {
+  width: 100%;
+}
+body.is-phone .inkswell-codex__detail {
+  display: none;
+}
+body.is-phone .inkswell-codex.is-codex-detail .inkswell-codex__list,
+body.is-phone .inkswell-codex.is-codex-detail .inkswell-codex__toolbar {
+  display: none;
+}
+body.is-phone .inkswell-codex.is-codex-detail .inkswell-codex__detail {
+  display: block;
+}
+
+/* Phone drill-down back header (above a detail screen) */
+.inkswell-phonehdr {
+  display: none;
+}
+body.is-phone .inkswell-phonehdr {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-1) var(--size-4-3);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.inkswell-phonehdr__back {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-normal);
+}
+.inkswell-phonehdr__title {
+  font-weight: var(--font-semibold);
+}
+
+/* Write: phone "Scene details" disclosure (the Inspector lives here when the
+   side column is hidden). */
+body.is-phone .inkswell-write__scenemeta {
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding: 0 var(--size-4-3);
+}
+body.is-phone .inkswell-write__scenemeta > summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
 /* ---- Contextual "How this works" tips ---- */
 /* The tip lives in its own host above the panel; the panel keeps its prior
    parent (.inkswell-content), so panel layout is unchanged. */

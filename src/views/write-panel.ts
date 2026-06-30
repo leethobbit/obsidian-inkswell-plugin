@@ -13,6 +13,7 @@
 
 import { EditorView } from "@codemirror/view";
 import { App, FuzzySuggestModal, Menu, TFile, setIcon } from "obsidian";
+import { isPhone } from "../lib/platform";
 import { attachRowMenu } from "../lib/row-menu";
 import { addSceneMenuItems } from "../scenes/scene-actions";
 import { PromptModal } from "../ideation/prompt-modal";
@@ -311,6 +312,14 @@ export class WritePanel {
 
     const head = wrap.createDiv({ cls: "inkswell-write__editorhead" });
     head.createSpan({ cls: "inkswell-write__editortitle", text: file.basename });
+
+    // On phones the Inspector column is hidden, so surface the scene's metadata in
+    // a collapsed disclosure above the editor (reusing the same Inspector renderer).
+    if (isPhone()) {
+      const details = wrap.createEl("details", { cls: "inkswell-write__scenemeta" });
+      details.createEl("summary", { text: "Scene details" });
+      this.inspector.render(details.createDiv(), file);
+    }
 
     // Read async, then build the editor seeded with the body. Seeding the initial
     // state (vs. dispatching after) keeps the undo history clean and avoids a

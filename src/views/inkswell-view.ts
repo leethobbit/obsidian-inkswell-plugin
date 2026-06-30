@@ -32,6 +32,8 @@ import { SceneInspector } from "../scenes/scene-inspector";
 import { HelpPanel } from "../help/help-panel";
 import { renderHint } from "../help/hint";
 import { hintKey } from "../help/help-content";
+import { PhoneShell } from "./phone/phone-shell";
+import { openMoreSheet } from "./phone/more-sheet";
 import type InkswellPlugin from "../../main";
 
 export const VIEW_TYPE_INKSWELL = "inkswell";
@@ -102,15 +104,14 @@ const DESTINATIONS: Destination[] = [
 ];
 
 /**
- * Destinations redirected to a "use a larger screen" placeholder on phones
- * (the "Write + read core" mobile scope). Home, Write, and Track stay usable on
- * a phone; these multi-pane planning/reference surfaces need tablet width.
+ * Destinations always redirected to a "use a larger screen" placeholder on phones
+ * — their multi-pane planning/publishing layouts need tablet width. Home, Write,
+ * Track, Codex (read-only drill-down), and Revise→Todos stay usable on a phone;
+ * Revise's other tabs redirect (handled in `isRedirected`).
  */
 const PHONE_REDIRECTED: ReadonlySet<InkswellMode> = new Set<InkswellMode>([
   "plan",
-  "revise",
   "publish",
-  "codex",
 ]);
 
 export class InkswellView extends ItemView {
@@ -135,9 +136,13 @@ export class InkswellView extends ItemView {
   private mode: InkswellMode = "home";
   /** Remembered sub-tab per destination. */
   private subtab: Partial<Record<InkswellMode, string>> = {};
+  /** Phone-only single-column drill-down target per destination (null = list). */
+  private detail: Partial<Record<InkswellMode, string | null>> = {};
   private rail!: HTMLElement;
   private header!: HTMLElement;
   private body!: HTMLElement;
+  /** Phone bottom-bar chrome (built once, hidden on wider screens via CSS). */
+  private phone = new PhoneShell();
   private inspectorEl: HTMLElement | null = null;
   /** Scene the Home inspector tracks. Driven by file-open (authoritative). */
   private activeFile: TFile | null = null;
@@ -161,12 +166,21 @@ export class InkswellView extends ItemView {
       // Clicking a Home scene drives the Inspector directly — no note is opened,
       // so we set the tracked file ourselves rather than waiting on file-open.
       this.activeFile = file;
-      this.updateInspector();
+      // Phone: the inspector is a drill-down screen, not a side column.
+      if (isPhone()) this.pushDetail("home", file.path);
+      else this.updateInspector();
     });
     this.overview = new OverviewPanel(this.app, plugin, store, plugin.activeProject);
     this.beats = new BeatPanel(this.app, plugin, store, plugin.activeProject);
     this.board = new BoardPanel(this.app, plugin, store, plugin.activeProject);
     this.codex = new CodexPanel(this.app, plugin);
+    // On phones a codex row tap drills into a single-column detail screen; on
+    // wider screens it falls through to the panel's own two-pane update.
+    this.codex.onSelect = (path) => {
+      if (!isPhone()) return false;
+      this.pushDetail("codex", path);
+      return true;
+    };
     this.write = new WritePanel(this.app, plugin, store, plugin.sprints);
     this.stats = new StatsPanel(this.app, plugin, tracker, store, stats);
     this.revisions = new RevisionPanel(this.app, plugin, store);
@@ -233,6 +247,19 @@ export class InkswellView extends ItemView {
     const main = root.createDiv({ cls: "inkswell-host__main" });
     this.header = main.createDiv({ cls: "inkswell-host__header" });
     this.body = main.createDiv({ cls: "inkswell-host__body" });
+    // Phone bottom bar: a sibling AFTER the body (last child of main), so the
+    // body's per-render empty() can't tear it down. CSS pins it bottom on phones
+    // and hides it (and the rail shows instead) on wider screens.
+    this.phone.mount(main, {
+      onTab: (mode, subtab) => this.setMode(mode, subtab),
+      onCapture: () => this.openCapture(),
+      onMore: (e) => openMoreSheet(e, (mode, subtab) => this.setMode(mode, subtab)),
+    });
+    // Keep the bar flush above Obsidian's mobile navbar across orientation /
+    // keyboard / safe-area changes.
+    this.registerDomEvent(window, "resize", () => {
+      if (isPhone()) this.phone.alignAboveNavbar();
+    });
     // Clicking a Home scene drives the Inspector directly (see the ExplorerPanel
     // callback above). These workspace events keep the Home inspector following
     // the active scene file when you navigate notes *outside* the host: file-open
@@ -305,6 +332,47 @@ export class InkswellView extends ItemView {
     this.renderActive();
   }
 
+  /** Phone Capture FAB → the shared quick-capture flow. */
+  openCapture(): void {
+    void this.plugin.quickCaptureIdea();
+  }
+
+  /** Phone drill-down: open a single-column detail screen for `mode`. */
+  pushDetail(mode: InkswellMode, id: string): void {
+    this.detail[mode] = id;
+    this.renderActive();
+  }
+
+  /** Phone drill-down: return from a detail screen to its list. */
+  popDetail(mode: InkswellMode): void {
+    this.detail[mode] = null;
+    this.renderActive();
+  }
+
+  /** Whether a destination shows the "use a larger screen" notice on phones.
+   *  Revise is enabled only for its Todos slice; its other tabs redirect. */
+  private isRedirected(mode: InkswellMode): boolean {
+    if (PHONE_REDIRECTED.has(mode)) return true;
+    if (mode === "revise") return (this.subtab["revise"] ?? "audit") !== "todos";
+    return false;
+  }
+
+  private fileAt(path: string): TFile | null {
+    const f = this.app.vault.getAbstractFileByPath(path);
+    return f instanceof TFile ? f : null;
+  }
+
+  /** A phone drill-down header: a back button + title above the detail screen. */
+  private renderPhoneBack(parent: HTMLElement, title: string, onBack: () => void): void {
+    const hdr = parent.createDiv({ cls: "inkswell-phonehdr" });
+    const back = hdr.createEl("button", { cls: "inkswell-phonehdr__back" });
+    back.type = "button";
+    setIcon(back, "arrow-left");
+    back.setAttribute("aria-label", "Back");
+    back.onclick = onBack;
+    hdr.createSpan({ cls: "inkswell-phonehdr__title", text: title });
+  }
+
   /** Select a scene in the Write panel and switch to it (cross-panel navigation). */
   openSceneInWrite(path: string, highlight?: { from: number; to: number }): void {
     this.write.selectScene(path, highlight);
@@ -367,19 +435,22 @@ export class InkswellView extends ItemView {
       return;
     }
 
-    // Rail highlight.
+    // Rail highlight (desktop/tablet) + bottom-bar highlight (phone).
     this.rail.querySelectorAll<HTMLElement>(".inkswell-rail__item").forEach((b) => {
       b.toggleClass("is-active", b.dataset.dest === this.mode);
     });
+    if (isPhone()) {
+      this.phone.setActive(this.mode);
+      this.phone.alignAboveNavbar();
+    }
 
     this.body.empty();
     this.inspectorEl = null;
     const dest = DESTINATIONS.find((d) => d.id === this.mode);
-    const redirected = isPhone() && PHONE_REDIRECTED.has(this.mode);
 
-    // Optional sub-tab bar (suppressed when the whole destination is redirected
-    // on a phone — sub-tabs over a placeholder would be noise).
-    if (dest?.subtabs && dest.subtabs.length > 0 && !redirected) {
+    // Optional sub-tab bar — suppressed entirely on phones (the bottom bar / More
+    // sheet drive navigation; sub-tabs would offer tabs that just redirect).
+    if (dest?.subtabs && dest.subtabs.length > 0 && !isPhone()) {
       const active = this.subtab[this.mode] ?? dest.subtabs[0].id;
       const bar = this.body.createDiv({ cls: "inkswell-subtabs" });
       for (const st of dest.subtabs) {
@@ -394,9 +465,9 @@ export class InkswellView extends ItemView {
     const content = main.createDiv({ cls: "inkswell-content" });
     this.renderContent(content);
 
-    // Home shows the host's active-file Inspector; Write renders its own
-    // inspector for the scene it's editing.
-    if (this.mode === "home") {
+    // Home shows the host's active-file Inspector as a second column — wide
+    // screens only. On phones the inspector is a drill-down screen (renderContent).
+    if (this.mode === "home" && !isPhone()) {
       this.inspectorEl = main.createDiv({ cls: "inkswell-inspector-col" });
       this.updateInspector();
     }
@@ -412,22 +483,42 @@ export class InkswellView extends ItemView {
 
   private renderContent(content: HTMLElement): void {
     // On a phone, heavy multi-pane destinations show a "larger screen" notice
-    // instead of a cramped, unusable layout (the "Write + read core" scope).
-    if (isPhone() && PHONE_REDIRECTED.has(this.mode)) {
+    // instead of a cramped, unusable layout (the "writing companion" scope).
+    if (isPhone() && this.isRedirected(this.mode)) {
       const label = DESTINATIONS.find((d) => d.id === this.mode)?.label ?? "This view";
       renderPhoneRedirect(content, label);
       return;
     }
 
-    // Contextual tip above the panel. It gets its own host (cleared by renderHint)
-    // so the panel — which empties its own container on every self-rerender —
-    // never wipes it. The panel always renders into the separate panelHost below.
-    renderHint(content, this.plugin, hintKey(this.mode, this.subtab[this.mode]));
+    // Phone single-column drill-down (master→detail) for Home and Codex. Validate
+    // the stored target (it may have been renamed/deleted) and fall back to the
+    // list if it no longer resolves.
+    const phone = isPhone();
+    const homeFile =
+      phone && this.mode === "home" && this.detail["home"]
+        ? this.fileAt(this.detail["home"]!)
+        : null;
+    if (phone && this.mode === "home" && this.detail["home"] && !homeFile) {
+      this.detail["home"] = null;
+    }
+    let codexDetail = phone && this.mode === "codex" ? this.detail["codex"] ?? null : null;
+    if (codexDetail && !this.fileAt(codexDetail)) {
+      this.detail["codex"] = null;
+      codexDetail = null;
+    }
+
+    // A detail screen gets a back header; the list screen gets the contextual tip.
+    // (renderHint owns its host so the panel's self-rerender never wipes it.)
+    if (homeFile) this.renderPhoneBack(content, "Scene", () => this.popDetail("home"));
+    else if (codexDetail) this.renderPhoneBack(content, "Codex", () => this.popDetail("codex"));
+    else renderHint(content, this.plugin, hintKey(this.mode, this.subtab[this.mode]));
+
     const panel = content.createDiv({ cls: "inkswell-panelhost" });
 
     switch (this.mode) {
       case "home":
-        this.explorer.render(panel);
+        if (homeFile) this.inspector.render(panel, homeFile);
+        else this.explorer.render(panel);
         break;
       case "plan": {
         const sub = this.subtab["plan"] ?? "overview";
@@ -437,7 +528,10 @@ export class InkswellView extends ItemView {
         break;
       }
       case "codex":
+        if (phone) this.codex.setSelected(codexDetail);
         this.codex.render(panel);
+        // Phone: drilled into an entry → CSS hides the list, shows the detail.
+        if (codexDetail) panel.addClass("is-codex-detail");
         break;
       case "write":
         this.write.render(panel);

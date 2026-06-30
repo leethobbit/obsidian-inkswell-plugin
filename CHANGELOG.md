@@ -10,6 +10,9 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Added
+- **Phone layout.** On phones Inkswell now has a dedicated frontend instead of the cramped desktop layout: a bottom tab bar (Write · Scenes · ＋ Capture · Track · More) replaces the icon rail, surfaces are single-column with tap-to-drill-down for the scene inspector and Codex entries, and the center ＋ quick-captures an idea from anywhere. Codex lookup and Revise → To-dos are now reachable on a phone; planning and publishing still open on a larger screen. The bar sits flush above Obsidian's own mobile toolbar. (Tablet and desktop layouts are unchanged.)
+
 ## [1.2.0] - 2026-06-29
 
 ### Added

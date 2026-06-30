@@ -45,6 +45,13 @@ export class CodexPanel {
   private selectedPath: string | null = null;
   /** When false, the list is filtered to the active project's scope (default). */
   private showAll = false;
+  /**
+   * Optional intercept for a row tap. When it returns true the tap is considered
+   * handled (the phone shell drills into a single-column detail screen) and the
+   * panel's own inline master-detail update is skipped. Unset / returns false on
+   * desktop, where the two-pane layout updates in place.
+   */
+  onSelect?: (path: string) => boolean;
 
   constructor(app: App, plugin: InkswellPlugin) {
     this.app = app;
@@ -55,6 +62,12 @@ export class CodexPanel {
   private activeProject(): Project | null {
     const path = this.plugin.activeProject.get();
     return path ? this.plugin.store.getProject(path) ?? null : null;
+  }
+
+  /** Set which entry the detail pane shows (the phone shell drives this from its
+   *  drill-down state; pass null for the list screen). */
+  setSelected(path: string | null): void {
+    this.selectedPath = path;
   }
 
   render(container: HTMLElement): void {
@@ -188,6 +201,7 @@ export class CodexPanel {
     if (!(file instanceof TFile)) return;
 
     row.onclick = () => {
+      if (this.onSelect?.(entity.path)) return; // phone: drilled into a detail screen
       this.selectedPath = entity.path;
       this.renderList();
       this.renderDetail();
