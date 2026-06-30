@@ -10,6 +10,8 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-06-30
+
 ### Added
 - **Phone layout.** On phones Inkswell now has a dedicated frontend instead of the cramped desktop layout: a bottom tab bar (Write · Scenes · Codex · More) replaces the icon rail, surfaces are single-column with tap-to-drill-down for the scene inspector and Codex entries, and **More** holds Capture, Track, To-dos, and Help (plus the larger-screen-only Plan and Publish). Codex lookup and Revise → To-dos are reachable on a phone; planning and publishing still open on a larger screen. The bar sits flush above Obsidian's own mobile toolbar. (Tablet and desktop layouts are unchanged.)
 
@@ -105,7 +107,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.2.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.3.0...HEAD
+[1.3.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.2.0...1.3.0
 [1.2.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.1.0...1.2.0
 [1.1.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.4...1.1.0
 [1.0.4]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.0.3...1.0.4
