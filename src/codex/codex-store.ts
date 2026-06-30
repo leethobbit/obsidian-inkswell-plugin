@@ -26,6 +26,7 @@ export function getCodexEntities(app: App): CodexEntity[] {
   // can't scope this. It's cache-only (no vault.read), so the cost is the file
   // list + frontmatter cache lookups — don't "optimize" it into a folder filter.
   for (const file of app.vault.getMarkdownFiles()) {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- cast tames Obsidian's `any`-typed frontmatter; without it the downstream reads trip no-unsafe-assignment
     const fm = app.metadataCache.getFileCache(file)?.frontmatter as
       | Record<string, unknown>
       | undefined;
@@ -84,6 +85,7 @@ export function scenesReferencing(app: App, entityName: string): TFile[] {
   // Intentional whole-vault scan (cache-only): scenes referencing an entity can
   // live in any folder, so this can't be scoped to a directory.
   for (const file of app.vault.getMarkdownFiles()) {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- cast tames Obsidian's `any`-typed frontmatter; without it the downstream reads trip no-unsafe-assignment
     const fm = app.metadataCache.getFileCache(file)?.frontmatter as
       | Record<string, unknown>
       | undefined;

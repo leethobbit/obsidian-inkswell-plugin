@@ -38,7 +38,7 @@ function buildDecorations(view: EditorView): { all: DecorationSet; hidden: Decor
       all.push(d.range(it.from, it.to));
       hidden.push(d.range(it.from, it.to));
     } else {
-      all.push(Decoration.mark({ class: it.cls as string }).range(it.from, it.to));
+      all.push(Decoration.mark({ class: it.cls }).range(it.from, it.to));
     }
   }
   return { all: Decoration.set(all, true), hidden: Decoration.set(hidden, true) };

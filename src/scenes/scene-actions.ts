@@ -73,11 +73,14 @@ class ConfirmModal extends Modal {
   onOpen(): void {
     this.contentEl.createEl("p", { text: this.message });
     new Setting(this.contentEl)
-      // `setWarning()` (red destructive styling) has been in the API since long
-      // before our minAppVersion. Do NOT use `setDestructive()` — it was added
-      // after 1.7.4, so it trips obsidianmd/no-unsupported-api (and throws at
-      // runtime on the floor). See the no-unsupported-api lint rule.
+      // Deliberate API tension: `setWarning()` is deprecated in favor of
+      // `setDestructive()`, but `setDestructive()` was added in Obsidian 1.13.0 —
+      // newer than our `minAppVersion` (1.7.4), so adopting it would trip
+      // obsidianmd/no-unsupported-api AND throw at runtime on the floor. We keep
+      // the deprecated-but-floor-safe call and silence only the deprecation here;
+      // revisit if/when minAppVersion rises to ≥1.13.0.
       .addButton((b) =>
+        // eslint-disable-next-line @typescript-eslint/no-deprecated -- setWarning required by minAppVersion floor; see comment above
         b.setButtonText("Delete").setWarning().onClick(() => {
           this.ok = true;
           this.close();

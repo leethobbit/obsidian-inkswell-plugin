@@ -305,9 +305,9 @@ export class StatsPanel {
     }
 
     const metas = project.scenes.map((s) => {
-      if (!s.path) return {} as ReturnType<typeof readSceneMeta>;
+      if (!s.path) return {};
       const f = this.app.vault.getAbstractFileByPath(s.path);
-      return f instanceof TFile ? readSceneMeta(this.app, f) : ({} as ReturnType<typeof readSceneMeta>);
+      return f instanceof TFile ? readSceneMeta(this.app, f) : ({});
     });
 
     body.createDiv({ cls: "inkswell-stats__muted", text: "By status" });

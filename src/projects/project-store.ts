@@ -149,6 +149,7 @@ export class ProjectStore extends Component {
       // be scoped. Detection is cache-only — full frontmatter is read only for the
       // handful of candidates that carry a `longform` key (see the guard below).
       for (const file of this.app.vault.getMarkdownFiles()) {
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- cast tames Obsidian's `any`-typed frontmatter; without it the reads below trip no-unsafe-assignment
         const fm = this.app.metadataCache.getFileCache(file)?.frontmatter as
           | Record<string, unknown>
           | undefined;
@@ -281,7 +282,7 @@ export function parseInkswellBlock(source: string): InkswellProjectData | null {
     const fm = parseYaml(match[1]) as Record<string, unknown>;
     const inkswell = fm?.["inkswell"];
     return inkswell && typeof inkswell === "object"
-      ? (inkswell as InkswellProjectData)
+      ? inkswell
       : null;
   } catch {
     return null;

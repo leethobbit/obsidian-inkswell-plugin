@@ -298,7 +298,7 @@ export const HELP_SECTIONS: HelpSection[] = [
     body: (el) => {
       el.createEl("h4", { text: HINTS["publish/compile"].title });
       HINTS["publish/compile"].body(el);
-      el.createEl("h4", { text: "Checklist & Launch" });
+      el.createEl("h4", { text: "Checklist & launch" });
       p(
         el,
         "Checklist tracks ~50 self-publishing tasks plus a per-format metadata worksheet " +

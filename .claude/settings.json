@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/check-changelog.mjs",
+            "if": "Bash(git*)",
+            "statusMessage": "Checking CHANGELOG…"
+          }
+        ]
+      }
+    ]
+  }
+}

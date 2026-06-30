@@ -63,11 +63,12 @@ export class WelcomeModal extends Modal {
     start.onclick = () => this.close();
   }
 
-  async onClose(): Promise<void> {
+  onClose(): void {
     this.contentEl.empty();
     if (!this.plugin.settings.welcomeSeen) {
       this.plugin.settings.welcomeSeen = true;
-      await this.plugin.saveSettings();
+      // Modal.onClose is void; persist without awaiting (fire-and-forget).
+      void this.plugin.saveSettings();
     }
   }
 }

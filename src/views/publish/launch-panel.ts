@@ -266,6 +266,6 @@ export class LaunchPanel {
   }
 
   private saveSub(file: TFile, mutator: (pub: PublishingData) => void): void {
-    void persistPublishing(this.app, file, (raw) => mutator(raw as PublishingData));
+    void persistPublishing(this.app, file, (raw) => mutator(raw));
   }
 }

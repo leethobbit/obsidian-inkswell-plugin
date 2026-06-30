@@ -85,8 +85,9 @@ const expectedRenames = new Set<string>();
 export function expectInAppRename(newPath: string): void {
   expectedRenames.add(newPath);
   // Defensive: if the rename event never arrives, don't suppress a later manual
-  // rename to the same path forever.
-  setTimeout(() => expectedRenames.delete(newPath), 2000);
+  // rename to the same path forever. window.setTimeout (not bare setTimeout) for
+  // popout-window compatibility, per obsidianmd/prefer-window-timers.
+  window.setTimeout(() => expectedRenames.delete(newPath), 2000);
 }
 
 /** Returns true (and clears) if `newPath` was an app-initiated rename. */

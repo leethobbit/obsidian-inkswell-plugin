@@ -109,7 +109,7 @@ Daily / weekly / monthly word goals, habit streaks, a GitHub-style heatmap, life
 - **Local-first.** No network calls, no telemetry, no account. Everything is stored in your vault's frontmatter and the plugin's local `data.json`.
 - **No AI.** By design — Inkswell is tooling around your writing. It cannot generate any text.
 - **Optional pandoc.** Exporting to `.docx` / `.pdf` / `.epub` shells out to a [pandoc](https://pandoc.org/) binary on your machine. It's feature-detected and disabled gracefully when pandoc isn't present; Markdown and HTML export need nothing extra.
-- **Desktop-only** for now (`isDesktopOnly`). A focused mobile view (idea capture + read-only review) is planned for a future release.
+- **Runs on mobile.** Inkswell installs on Obsidian mobile. On tablets and iPad the full suite is available with a responsive layout; on phones it focuses on drafting (a single-column editor with a slide-in scene list), while the planning/reference/publish surfaces point you to a larger screen. The only desktop-only piece is pandoc-based `.docx` / `.pdf` / `.epub` export, which disables itself gracefully elsewhere.
 
 ## Install
 

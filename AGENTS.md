@@ -12,7 +12,7 @@ Single Obsidian plugin (TypeScript + esbuild) that bundles a longform writer's s
 | Refresh demo binaries | `npm run build:sample` (deploys into the committed `examples/sample-vault/` for packaging) |
 | Deploy target | `examples/dev-vault/.obsidian/plugins/inkswell` (git-ignored) — override with `INKSWELL_VAULT`. Test here, NOT in the committed sample vault, and never in a real user vault (DKB runs the published store build). |
 | Typecheck only | `npm run typecheck` |
-| Lint | `npm run lint` (ESLint 9 flat config; runs `obsidianmd/no-unsupported-api` — flags any Obsidian API newer than `minAppVersion`. The release CI gates on this.) |
+| Lint | `npm run lint` (ESLint 9 flat config running **eslint-plugin-obsidianmd's `recommended` set** — the published encoding of the community-store automated review: all `obsidianmd/*` rules plus the type-aware checks the bot reports, e.g. `no-unsupported-api`, `no-deprecated`, `no-misused-promises`, `prefer-window-timers`. Run it before every release to mirror the review locally. The release CI gates on it. Errors block; a few non-blocking rules are tuned in `eslint.config.mjs` with rationale.) |
 | Tests | `npm test` (vitest) |
 | Reload plugin in vault | use the `obsidian-cli` skill, not a manual restart |
 
@@ -75,6 +75,8 @@ Pre-1.0 the leading `0` means "unstable": data-format/compat breaks are allowed 
 Cut `1.0.0` only once the Longform-compatible frontmatter format is stable enough to promise compatibility. `minAppVersion` rises only when adopting a newer Obsidian API — record the mapping in `versions.json`.
 
 **Release notes are mandatory.** Every change toward a release — feature, fix, or user-facing behavior change — adds a line under the `## [Unreleased]` section of [CHANGELOG.md](CHANGELOG.md) **in the same commit/PR that makes the change** (Keep a Changelog format: Added / Changed / Fixed / Removed). Don't defer it to release time; the changelog is how we always have a current description of what's shipping (store listing, GitHub release, Discord post).
+
+**This is enforced**, not just expected: a pre-commit hook (`scripts/check-changelog.mjs`, wired as a `PreToolUse` hook in `.claude/settings.json`) **blocks any commit that stages source (`src/`, `main.ts`, `styles.css`) without a CHANGELOG.md change.** For a genuinely non-user-facing commit (pure refactor, internal tooling, chore), append `[skip changelog]` to the commit message to bypass it deliberately.
 
 ### Bumping a version (in order)
 1. **Promote the changelog** — in [CHANGELOG.md](CHANGELOG.md), rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, add a fresh empty `## [Unreleased]` above it, and update the link refs at the bottom. The release workflow injects this section as the GitHub release body, so it must be accurate before you tag.
