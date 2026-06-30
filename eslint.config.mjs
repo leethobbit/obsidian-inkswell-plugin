@@ -2,6 +2,51 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 import obsidianmd from "eslint-plugin-obsidianmd";
 
+// Rules the community-store review BLOCKS on AND refuses to let you disable.
+// `npm run lint` is our local mirror of that review — but an inline
+// `eslint-disable` silences OUR gate while the store bot still rejects the code
+// (it forbids disabling no-deprecated outright). That false green already cost
+// us a bounced 1.3.0. The local rule below makes disabling these fail here, so
+// the only ways out are the right ones: fix the code, or raise minAppVersion.
+// (Other rules — e.g. no-unnecessary-type-assertion — may still be disabled with
+// a `-- reason`; only these two are off-limits.)
+const STORE_BLOCKING_RULES = new Set([
+  "@typescript-eslint/no-deprecated",
+  "obsidianmd/no-unsupported-api",
+]);
+
+const localPlugin = {
+  rules: {
+    "no-disable-store-rules": {
+      meta: {
+        type: "problem",
+        docs: { description: "Disallow inline-disabling lint rules the Obsidian store review blocks on." },
+        schema: [],
+      },
+      create(context) {
+        const source = context.sourceCode ?? context.getSourceCode();
+        return {
+          Program() {
+            for (const comment of source.getAllComments()) {
+              // Match a disable directive and capture its rule list (before any `-- reason`).
+              const match = /^\s*eslint-disable(?:-next-line|-line)?\s+([\s\S]*?)(?:\s*--\s[\s\S]*)?$/.exec(comment.value);
+              if (!match) continue;
+              for (const name of match[1].split(",").map((s) => s.trim()).filter(Boolean)) {
+                if (STORE_BLOCKING_RULES.has(name)) {
+                  context.report({
+                    loc: comment.loc,
+                    message: `Disabling '${name}' is not allowed — the Obsidian community-store review rejects it. Fix the underlying issue (use a floor-safe API, or raise minAppVersion deliberately) instead of silencing the rule.`,
+                  });
+                }
+              }
+            }
+          },
+        };
+      },
+    },
+  },
+};
+
 // Flat config (ESLint 9). We run eslint-plugin-obsidianmd's **recommended** set —
 // this is the published encoding of the community-store automated review (all the
 // obsidianmd/* rules plus the type-aware @typescript-eslint rules that the review
@@ -17,11 +62,15 @@ export default tseslint.config(
   ...obsidianmd.configs.recommended,
   {
     files: ["src/**/*.ts", "main.ts"],
+    plugins: { local: localPlugin },
     languageOptions: {
       parserOptions: {
         projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
+    },
+    rules: {
+      "local/no-disable-store-rules": "error",
     },
   },
   {
