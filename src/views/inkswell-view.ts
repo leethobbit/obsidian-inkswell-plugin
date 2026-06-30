@@ -252,8 +252,12 @@ export class InkswellView extends ItemView {
     // and hides it (and the rail shows instead) on wider screens.
     this.phone.mount(main, {
       onTab: (mode, subtab) => this.setMode(mode, subtab),
-      onCapture: () => this.openCapture(),
-      onMore: (e) => openMoreSheet(e, (mode, subtab) => this.setMode(mode, subtab)),
+      onMore: (e) =>
+        openMoreSheet(
+          e,
+          (mode, subtab) => this.setMode(mode, subtab),
+          () => this.openCapture()
+        ),
     });
     // Keep the bar flush above Obsidian's mobile navbar across orientation /
     // keyboard / safe-area changes.
@@ -332,7 +336,7 @@ export class InkswellView extends ItemView {
     this.renderActive();
   }
 
-  /** Phone Capture FAB → the shared quick-capture flow. */
+  /** Phone "More → Capture idea" → the shared quick-capture flow. */
   openCapture(): void {
     void this.plugin.quickCaptureIdea();
   }

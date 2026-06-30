@@ -1,6 +1,6 @@
 /**
- * Phone chrome: the bottom tab bar + Capture FAB that replace the desktop icon
- * rail on phones. Mounted once as a sibling of the host body (OUTSIDE it), so the
+ * Phone chrome: the bottom tab bar that replaces the desktop icon rail on
+ * phones. Mounted once as a sibling of the host body (OUTSIDE it), so the
  * body's per-render empty() never tears the bar down and a tab tap can't be
  * swallowed by an in-flight rebuild. It owns only the bar; the drill-down back
  * header and all content live in the view's normal render path.

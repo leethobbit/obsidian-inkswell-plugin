@@ -37,13 +37,15 @@ interface TodoType {
   kind: PlaceholderKind;
   label: string;
   desc: string;
+  /** Lucide icon, used in the collapsed Insert dropdown menu. */
+  icon: string;
 }
 const TODO_TYPES: TodoType[] = [
-  { kind: "todo", label: "TODO", desc: "A generic to-do" },
-  { kind: "research", label: "Research", desc: "A fact or detail to look up / verify" },
-  { kind: "note", label: "Note", desc: "A note or reminder to yourself" },
-  { kind: "dialogue", label: "Dialogue", desc: "Dialogue to write later" },
-  { kind: "scene", label: "Scene", desc: "A scene to write or expand" },
+  { kind: "todo", label: "TODO", desc: "A generic to-do", icon: "list-todo" },
+  { kind: "research", label: "Research", desc: "A fact or detail to look up / verify", icon: "search" },
+  { kind: "note", label: "Note", desc: "A note or reminder to yourself", icon: "sticky-note" },
+  { kind: "dialogue", label: "Dialogue", desc: "Dialogue to write later", icon: "message-square" },
+  { kind: "scene", label: "Scene", desc: "A scene to write or expand", icon: "clapperboard" },
 ];
 
 /** Quick picker for "Insert a to-do marker…" (command palette + toolbar). */
@@ -85,6 +87,11 @@ export class WritePanel {
   private loadedFrontmatter = "";
   private countEl: HTMLElement | null = null;
   private unsub: (() => void) | null = null;
+  /** While true, an editor blur does NOT trigger a save. Set when the Insert
+   *  dropdown menu is open so opening it (which blurs the editor) can't kick off
+   *  a save → store-refresh → panel rebuild that destroys the editor mid-insert.
+   *  See {@link openInsertMenu}. */
+  private suppressBlurSave = false;
   /** A token to scroll-to + flash once the editor finishes loading (from Todos). */
   private pendingHighlight: { from: number; to: number } | null = null;
 
@@ -119,6 +126,49 @@ export class WritePanel {
   /** Whether a live scene editor is currently mounted (for command availability). */
   hasEditor(): boolean {
     return !!this.editor;
+  }
+
+  /**
+   * Collapsed-topbar Insert control: an Obsidian menu with the same actions as the
+   * inline insert row (the five marker types + Find to-dos + Log issue).
+   *
+   * Opening a menu blurs the editor, which would normally fire saveBody → store
+   * refresh → panel rebuild and destroy the live editor mid-insert. We suppress
+   * that one save for the life of the menu; CodeMirror keeps its selection across
+   * the blur, so insertPlaceholder still lands the marker at the real caret. The
+   * flag clears on hide, after any blur the open caused has already passed.
+   */
+  private openInsertMenu(e: MouseEvent): void {
+    if (!this.editor) return;
+    const menu = new Menu();
+    for (const { kind, label, icon } of TODO_TYPES) {
+      menu.addItem((item) =>
+        item
+          .setTitle(`Insert ${label}`)
+          .setIcon(icon)
+          .onClick(() => {
+            if (this.editor) insertPlaceholder(this.editor, kind);
+          })
+      );
+    }
+    menu.addSeparator();
+    menu.addItem((item) =>
+      item
+        .setTitle("Find to-dos")
+        .setIcon("list-checks")
+        .onClick(() => void this.plugin.openTodos())
+    );
+    menu.addItem((item) =>
+      item
+        .setTitle("Log issue")
+        .setIcon("flag")
+        .onClick(() => this.logIssue())
+    );
+    this.suppressBlurSave = true;
+    menu.onHide(() => {
+      this.suppressBlurSave = false;
+    });
+    menu.showAtMouseEvent(e);
   }
 
   /** Open the to-do picker and insert the chosen marker into the live editor. */
@@ -224,8 +274,11 @@ export class WritePanel {
     });
     if (this.promptText) promptEl.onclick = () => this.openPromptModal();
 
-    // To-do-insert group — only useful with a scene open. Lets you drop a
+    // To-do-insert controls — only useful with a scene open. Lets you drop a
     // [TODO:…]/[RESEARCH:…]/[NOTE:…]/[DIALOGUE:…]/[SCENE:…] marker and keep drafting.
+    // Two presentations, toggled purely by CSS container-query on the topbar width:
+    // a full inline button row when there's room, and a single "Insert" dropdown
+    // once the bar gets too narrow for the row (tablet/phone, or a narrow pane).
     if (this.selectedScene) {
       const insertGroup = bar.createDiv({
         cls: "inkswell-write__group inkswell-write__group--insert",
@@ -249,6 +302,15 @@ export class WritePanel {
       const issue = insertGroup.createEl("button", { text: "Log issue" });
       issue.setAttribute("aria-label", "Log a revision issue for this scene (Mod-Shift-L)");
       issue.onclick = () => this.logIssue();
+
+      // Collapsed form: a single dropdown holding the same actions. Hidden by CSS
+      // on a wide bar, shown when the container query collapses the inline row.
+      const menuBtn = bar.createEl("button", { cls: "inkswell-write__insertmenu" });
+      menuBtn.createSpan({ text: "Insert" });
+      setIcon(menuBtn.createSpan({ cls: "inkswell-write__caret" }), "chevron-down");
+      menuBtn.setAttribute("aria-label", "Insert a to-do marker or revision action");
+      menuBtn.onmousedown = (e) => e.preventDefault();
+      menuBtn.onclick = (e) => this.openInsertMenu(e);
     }
 
     this.countEl = bar.createSpan({ cls: "inkswell-write__count" });
@@ -336,7 +398,10 @@ export class WritePanel {
         parent: host,
         doc: body,
         onChange: () => this.onEditorChange(),
-        onBlur: () => void this.saveBody(),
+        onBlur: () => {
+          // The Insert dropdown suppresses this save while open (see openInsertMenu).
+          if (!this.suppressBlurSave) void this.saveBody();
+        },
         onLogIssue: () => this.logIssue(),
       });
       this.updateCount();

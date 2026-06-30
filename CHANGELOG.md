@@ -11,7 +11,10 @@ time the version bump renames that section to the new version and date.
 ## [Unreleased]
 
 ### Added
-- **Phone layout.** On phones Inkswell now has a dedicated frontend instead of the cramped desktop layout: a bottom tab bar (Write · Scenes · ＋ Capture · Track · More) replaces the icon rail, surfaces are single-column with tap-to-drill-down for the scene inspector and Codex entries, and the center ＋ quick-captures an idea from anywhere. Codex lookup and Revise → To-dos are now reachable on a phone; planning and publishing still open on a larger screen. The bar sits flush above Obsidian's own mobile toolbar. (Tablet and desktop layouts are unchanged.)
+- **Phone layout.** On phones Inkswell now has a dedicated frontend instead of the cramped desktop layout: a bottom tab bar (Write · Scenes · Codex · More) replaces the icon rail, surfaces are single-column with tap-to-drill-down for the scene inspector and Codex entries, and **More** holds Capture, Track, To-dos, and Help (plus the larger-screen-only Plan and Publish). Codex lookup and Revise → To-dos are reachable on a phone; planning and publishing still open on a larger screen. The bar sits flush above Obsidian's own mobile toolbar. (Tablet and desktop layouts are unchanged.)
+
+### Fixed
+- **Write toolbar no longer overlaps on narrow widths.** As the Write pane shrank (tablet, phone, or a narrow split), the "Prompt" control collided with the Insert buttons. The insert row now collapses into a single **Insert** dropdown — holding the same five marker types plus Find to-dos and Log issue — once the bar gets too narrow for the full row, keeping the toolbar on one clean line down to phone widths. The full inline row still shows on a wide bar. On phones the writing-prompt control is hidden entirely (prompts remain on tablet/desktop).
 
 ## [1.2.0] - 2026-06-29
 

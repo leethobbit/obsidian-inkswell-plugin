@@ -1000,6 +1000,11 @@
 .inkswell-write__topbar {
   display: flex;
   align-items: center;
+  /* The bar's own width drives whether the Insert row collapses to a dropdown. */
+  container: inkswell-topbar / inline-size;
+  /* Wrap is a safety net: if the inline row ever can't fit (e.g. a runtime without
+     container-query support) items drop to a second line instead of overlapping. */
+  flex-wrap: wrap;
   gap: var(--size-4-3);
   padding: var(--size-4-2) var(--size-4-3);
   border-bottom: 1px solid var(--background-modifier-border);
@@ -1021,6 +1026,29 @@
   font-size: var(--font-ui-smaller);
   margin-left: auto;
   font-variant-numeric: tabular-nums;
+}
+/* Collapsed Insert control: hidden while the inline row is shown (wide bar). */
+.inkswell-write__insertmenu {
+  display: none;
+  align-items: center;
+  gap: var(--size-4-1);
+}
+.inkswell-write__insertmenu .inkswell-write__caret {
+  display: inline-flex;
+}
+.inkswell-write__insertmenu .inkswell-write__caret svg {
+  width: var(--icon-s);
+  height: var(--icon-s);
+}
+/* Once the bar is too narrow for the full insert row, swap it for the dropdown.
+   Keeps the topbar on a single line down to phone widths. */
+@container inkswell-topbar (max-width: 800px) {
+  .inkswell-write__group--insert {
+    display: none;
+  }
+  .inkswell-write__insertmenu {
+    display: inline-flex;
+  }
 }
 .inkswell-write__main {
   flex: 1;
@@ -2141,6 +2169,11 @@ body.is-phone .inkswell-write__navtoggle {
 body.is-phone .inkswell-write__inspector {
   display: none;
 }
+/* The writing-prompt control doesn't earn its width on a phone (and crowded the
+   Insert control); drop it. Prompts remain available on tablet/desktop. */
+body.is-phone .inkswell-write__group--prompt {
+  display: none;
+}
 body.is-phone .inkswell-write__main {
   position: relative;
   overflow: hidden;
@@ -2197,15 +2230,29 @@ body.is-phone .inkswell-bottombar {
   min-width: 44px;
   min-height: 56px;
   padding: 0;
-  background: none;
-  border: none;
-  box-shadow: none;
   cursor: pointer;
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
 }
-.inkswell-bottombar__tab.is-active {
+/* Obsidian's mobile theme styles bare <button>s as rounded, filled capsules
+   (`.is-mobile button` out-specifies a plain class). Override under body.is-phone
+   so the tabs read as one flat bar, not pills floating on a rectangle. */
+body.is-phone .inkswell-bottombar__tab,
+body.is-phone .inkswell-bottombar__tab:hover,
+body.is-phone .inkswell-bottombar__tab:focus {
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+/* Touch press feedback: a brief, full-cell tint (no pill). */
+body.is-phone .inkswell-bottombar__tab:active {
+  background-color: var(--background-modifier-hover);
+}
+/* Selected tab: accent color + a top indicator line, the standard bottom-nav cue. */
+body.is-phone .inkswell-bottombar__tab.is-active {
   color: var(--text-accent);
+  box-shadow: inset 0 2px 0 0 var(--interactive-accent);
 }
 .inkswell-bottombar__tab .svg-icon {
   width: 20px;
@@ -2213,27 +2260,6 @@ body.is-phone .inkswell-bottombar {
 }
 .inkswell-bottombar__label {
   line-height: 1;
-}
-.inkswell-bottombar__fab {
-  flex: 0 0 auto;
-  align-self: center;
-  margin: 0 var(--size-4-1);
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: var(--interactive-accent);
-  color: var(--text-on-accent);
-  border: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transform: translateY(-8px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-.inkswell-bottombar__fab .svg-icon {
-  width: 24px;
-  height: 24px;
 }
 
 /* Single-column surfaces on phones */

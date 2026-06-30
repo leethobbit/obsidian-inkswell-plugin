@@ -255,7 +255,7 @@ export default class InkswellPlugin extends Plugin {
   // --- Story ideas inbox ---
 
   /** Prompt for an idea and add it to the inbox. Shared by the command and the
-   *  phone Capture FAB. */
+   *  phone "More → Capture idea" action. */
   async quickCaptureIdea(): Promise<void> {
     const text = await promptText(this.app, {
       title: "Quick capture",
