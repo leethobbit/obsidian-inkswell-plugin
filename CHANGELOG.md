@@ -10,6 +10,8 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-07-01
+
 ### Added
 - **Cover art and overview on Home.** Selecting a project on Home now opens a hero card above the scene list. Attach **cover art** — upload an image (copied into the project's folder) or pick one already in your vault — and see the **logline**, **theme**, and **word-count target** at a glance, with a progress bar tracking words toward the target. Logline, theme, and target are editable inline and share the same data as Plan → Overview, so there's no second copy to keep in sync.
 
@@ -125,7 +127,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.4.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.5.0...HEAD
+[1.5.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.4.0...1.5.0
 [1.4.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.3.1...1.4.0
 [1.3.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.3.0...1.3.1
 [1.3.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.2.0...1.3.0
