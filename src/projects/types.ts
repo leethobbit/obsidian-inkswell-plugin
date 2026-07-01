@@ -124,6 +124,8 @@ export interface InkswellProjectData {
   series?: SeriesInfo;
   /** Novel-level planning (logline/theme/genre/audience + planning-note pointer). */
   overview?: ProjectOverview;
+  /** ISO 8601 timestamp stamped when this draft was created (own ctime is unreliable). Absent = pre-existing/unknown. */
+  draftCreated?: string;
 }
 
 export function isMultiScene(draft: Draft): draft is MultipleSceneDraft {

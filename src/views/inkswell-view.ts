@@ -9,8 +9,13 @@
  * change; panels are created once and keep their own state across switches.
  */
 
-import { ItemView, TFile, WorkspaceLeaf, setIcon } from "obsidian";
+import { ItemView, Menu, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 import { isPhone, renderPhoneRedirect } from "../lib/platform";
+import { createDraft, deleteDraft, renameDraft } from "../projects/draft-actions";
+import { draftLabel, groupIntoStories, Story, storyOf } from "../projects/stories";
+import { promptText } from "../scenes/scene-actions";
+import { Project } from "../projects/types";
+import { NewDraftModal } from "./drafts-modal";
 import { CodexPanel } from "../codex/codex-panel";
 import { AnalysisPanel } from "../insight/analysis-panel";
 import { BeatPanel } from "../outliner/beat-panel";
@@ -300,7 +305,12 @@ export class InkswellView extends ItemView {
     this.renderActive();
   }
 
-  /** Persistent project selector, visible across all destinations. */
+  /**
+   * Persistent project selector, visible across all destinations. Drafts of one
+   * story share a `longform.title`, so the first selector picks the *story*; a
+   * second selector appears only when the active story has more than one draft
+   * (single-draft stories look exactly as before). A `⋯` menu manages drafts.
+   */
   private renderHeader(): void {
     if (!this.header) return;
     this.header.empty();
@@ -309,18 +319,98 @@ export class InkswellView extends ItemView {
       this.header.createSpan({ cls: "inkswell-stats__muted", text: "No project yet" });
       return;
     }
+    const stories = groupIntoStories(projects);
+    const activePath = this.plugin.activeProject.get();
+    const activeStory = storyOf(stories, activePath);
+
     this.header.createSpan({ cls: "inkswell-host__headerlabel", text: "Project" });
     const sel = this.header.createEl("select", { cls: "dropdown" });
-    const activePath = this.plugin.activeProject.get();
     // "All projects" (empty value) is the unfocused default: Home lists every
     // project. Project-scoped tabs fall back to the first project when nothing
     // specific is selected (see resolveActive).
     sel.createEl("option", { text: "All projects", value: "" });
-    for (const p of projects) {
-      sel.createEl("option", { text: p.draft.title, value: p.vaultPath });
+    for (const s of stories) {
+      sel.createEl("option", { text: s.title, value: s.title });
     }
-    sel.value = activePath ?? "";
-    sel.onchange = () => this.plugin.activeProject.set(sel.value || null);
+    sel.value = activeStory?.title ?? "";
+    sel.onchange = () => {
+      const story = stories.find((s) => s.title === sel.value);
+      // Switching story selects its first draft (or "All projects" → null).
+      this.plugin.activeProject.set(story ? story.drafts[0].vaultPath : null);
+    };
+
+    // Draft controls only make sense once a specific story is in focus.
+    if (!activeStory) return;
+    const activeDraft =
+      activeStory.drafts.find((d) => d.vaultPath === activePath) ?? activeStory.drafts[0];
+
+    if (activeStory.drafts.length > 1) {
+      this.header.createSpan({ cls: "inkswell-host__headerlabel", text: "Draft" });
+      const dsel = this.header.createEl("select", { cls: "dropdown" });
+      activeStory.drafts.forEach((d, i) => {
+        dsel.createEl("option", { text: draftLabel(d, i), value: d.vaultPath });
+      });
+      dsel.value = activeDraft.vaultPath;
+      dsel.onchange = () => this.plugin.activeProject.set(dsel.value);
+    }
+
+    const menuBtn = this.header.createEl("button", {
+      cls: "inkswell-host__draftsmenu",
+      attr: { "aria-label": "Drafts" },
+    });
+    menuBtn.type = "button";
+    setIcon(menuBtn, "ellipsis");
+    menuBtn.onclick = (e) => this.openDraftsMenu(e, activeStory, activeDraft);
+  }
+
+  /** Drafts management menu (New / Rename / Delete) for the active story. */
+  private openDraftsMenu(e: MouseEvent, story: Story, active: Project): void {
+    const menu = new Menu();
+    menu.addItem((i) =>
+      i.setTitle("New draft").setIcon("copy-plus").onClick(() => this.newDraftAction(active))
+    );
+    menu.addItem((i) =>
+      i.setTitle("Rename draft").setIcon("pencil").onClick(() => this.renameDraftAction(active))
+    );
+    menu.addItem((i) =>
+      i
+        .setTitle("Delete draft")
+        .setIcon("trash-2")
+        .onClick(() => void this.deleteDraftAction(story, active))
+    );
+    menu.showAtMouseEvent(e);
+  }
+
+  private newDraftAction(source: Project): void {
+    new NewDraftModal(
+      this.app,
+      { title: source.draft.title, isFirstSplit: source.draft.draftTitle == null },
+      (res) => {
+        if (!res) return;
+        void createDraft(this.app, source, res.newName, res.originalName).then((file) => {
+          if (file) this.plugin.activeProject.set(file.path);
+        });
+      }
+    ).open();
+  }
+
+  private renameDraftAction(project: Project): void {
+    void promptText(this.app, {
+      title: "Rename draft",
+      value: project.draft.draftTitle ?? "",
+      multiline: false,
+      cta: "Rename",
+    }).then((name) => {
+      if (name == null || !name.trim()) return;
+      void renameDraft(this.app, project, name);
+    });
+  }
+
+  private async deleteDraftAction(story: Story, project: Project): Promise<void> {
+    const deleted = await deleteDraft(this.app, project, story.drafts.length <= 1);
+    if (!deleted) return;
+    const sibling = story.drafts.find((d) => d.vaultPath !== project.vaultPath);
+    this.plugin.activeProject.set(sibling ? sibling.vaultPath : null);
   }
 
   async onClose(): Promise<void> {

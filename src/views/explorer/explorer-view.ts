@@ -22,6 +22,7 @@ import {
   unindentScene,
 } from "../../projects/scene-tree";
 import { Project, isMultiScene } from "../../projects/types";
+import { groupIntoStories } from "../../projects/stories";
 import { Series, groupIntoSeries, projectSeries } from "../../series/series";
 import { deleteScene, editSynopsis, promptText, renameScene } from "../../scenes/scene-actions";
 import { promptNewScene } from "../../outliner/create-scene";
@@ -45,6 +46,8 @@ export class ExplorerPanel {
   private container: HTMLElement | null = null;
   /** Path of the currently selected/active scene, for the row highlight. */
   private activeScenePath: string | null = null;
+  /** Draft count per story title (>1 → show a badge); rebuilt each render. */
+  private storyCounts = new Map<string, number>();
 
   constructor(
     app: App,
@@ -93,14 +96,23 @@ export class ExplorerPanel {
       return;
     }
 
-    const { series, standalone } = groupIntoSeries(projects);
+    // Collapse drafts: a story (projects sharing a `longform.title`) lists once,
+    // represented by the active draft when one is in focus, else its first draft.
+    // The `⋯` drafts menu + draft dropdown in the header switch between drafts.
+    const activePath = this.plugin.activeProject.get();
+    const stories = groupIntoStories(projects);
+    this.storyCounts = new Map(stories.map((s) => [s.title, s.drafts.length]));
+    const representatives = stories.map(
+      (s) => s.drafts.find((d) => d.vaultPath === activePath) ?? s.drafts[0]
+    );
+
+    const { series, standalone } = groupIntoSeries(representatives);
 
     // Project focus: with a project selected (shared activeProject — also the
     // header dropdown), Home narrows to just that project, or its whole series if
     // it belongs to one. With nothing selected, list everything.
-    const activePath = this.plugin.activeProject.get();
     const focused = activePath
-      ? projects.find((p) => p.vaultPath === activePath) ?? null
+      ? representatives.find((p) => p.vaultPath === activePath) ?? null
       : null;
 
     if (focused) {
@@ -193,6 +205,14 @@ export class ExplorerPanel {
     titleEl.setAttribute("aria-label", "Focus on this project");
     titleEl.onclick = () => this.plugin.activeProject.set(project.vaultPath);
     const right = header.createDiv({ cls: "inkswell-project__right" });
+    const draftCount = this.storyCounts.get(project.draft.title) ?? 1;
+    if (draftCount > 1) {
+      const badge = right.createSpan({
+        cls: "inkswell-project__drafts",
+        text: `${draftCount} drafts`,
+      });
+      badge.setAttribute("aria-label", "This story has multiple drafts — switch in the header");
+    }
     const count = right.createSpan({ cls: "inkswell-project__count" });
     if (this.plugin.settings.showWordCounts) {
       void this.stats.projectWords(project).then((w) => {

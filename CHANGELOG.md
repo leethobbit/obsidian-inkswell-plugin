@@ -10,6 +10,10 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Added
+- **Multiple drafts of a story.** A story can now hold more than one draft — e.g. a "First Draft" and an "Editor Pass" — switchable from a new **Draft** dropdown in the header (it appears only once a story has a second draft, so single-draft projects look exactly as before). The header's `⋯` menu offers **New draft**, **Rename draft**, and **Delete draft**. *New draft* makes a full, independent copy: every scene's prose and all planning (goals, beats, overview, compile config, revision log, checklists) are duplicated into a `Drafts/<name>/` folder, so you can revise the copy freely while the original manuscript stays untouched. Deleting a draft moves its index note and scene files to trash (recoverable) and is blocked for a story's last remaining draft. Home lists each story once with a "N drafts" badge. Drafts are Longform-compatible (grouped by a shared `longform.title`, distinguished by `draftTitle`).
+- **Draft comparison on Track.** When the active story has more than one draft, Track shows a new **Drafts** section comparing them side by side: word count and delta vs the first draft, scene count, a status-mix bar (revision progress at a glance), and each draft's age. Single-draft projects don't see the section. New drafts are stamped with a creation date so age can be shown.
+
 ## [1.3.1] - 2026-06-30
 
 ### Fixed

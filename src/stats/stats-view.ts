@@ -27,6 +27,8 @@ import { formatReadTime, heatLevel } from "./format";
 import { resolveActive } from "../projects/active-project";
 import { ProjectStats } from "../projects/project-stats";
 import { ProjectStore } from "../projects/project-store";
+import { draftLabel, groupIntoStories, storyOf } from "../projects/stories";
+import { Project, isMultiScene } from "../projects/types";
 import { SCENE_STATUSES, readSceneMeta, statusLabel } from "../scenes/scene-meta";
 import { sprintSeconds, sprintStats, sprintWpm } from "../sprints/sprint-stats";
 import { WritingTracker } from "../tracking/writing-tracker";
@@ -79,6 +81,9 @@ export class StatsPanel {
     const s = this.plugin.settings;
 
     this.renderOverview(container);
+
+    // Draft comparison: only when the active story has more than one draft.
+    this.renderDrafts(container);
 
     // Activity: a full-width card on top (its own block, not in the card grid).
     this.section(container, "activity", "Activity", (body) => {
@@ -321,6 +326,128 @@ export class StatsPanel {
     const acts = metas.map((m) => m.act);
     const actOrder = [...new Set(acts.filter((a): a is string => !!a))];
     this.tallyBars(body, tallyBy(acts, actOrder));
+  }
+
+  /**
+   * Compare the drafts of the active story: words + delta vs the first draft,
+   * scene count, a status-mix bar (revision progress), and draft age. Renders
+   * nothing unless the active draft belongs to a story with more than one draft —
+   * single-draft projects see no section at all.
+   */
+  private renderDrafts(container: HTMLElement): void {
+    const stories = groupIntoStories(this.store.getProjects());
+    const story = storyOf(stories, this.plugin.activeProject.get());
+    if (!story || story.drafts.length <= 1) return;
+    const activePath = this.plugin.activeProject.get();
+
+    // Order chronologically by creation stamp so "the first draft" (the delta
+    // baseline) is genuinely the earliest, not whatever the store happened to list
+    // first. Undated drafts (created before the stamp existed) sort as oldest.
+    // Labels keep each draft's story-order index so unnamed "Draft N" labels still
+    // match the header switcher.
+    const ordered = story.drafts
+      .map((d, storyIndex) => ({ d, storyIndex, t: this.createdMs(d) }))
+      .sort((a, b) => a.t - b.t);
+
+    this.section(container, "drafts", "Drafts", (body) => {
+      body.createDiv({
+        cls: "inkswell-stats__muted",
+        text: `Comparing ${story.drafts.length} drafts of "${story.title}" (Δ vs the first draft).`,
+      });
+
+      const table = body.createDiv({ cls: "inkswell-drafttable" });
+      const head = table.createDiv({ cls: "inkswell-draft-row inkswell-draft-row--head" });
+      head.createSpan({ cls: "inkswell-draft__label", text: "Draft" });
+      head.createSpan({ cls: "inkswell-draft__num", text: "Words" });
+      head.createSpan({ cls: "inkswell-draft__num", text: "Δ" });
+      head.createSpan({ cls: "inkswell-draft__num", text: "Scenes" });
+      head.createSpan({ cls: "inkswell-draft__mix", text: "Status mix" });
+      head.createSpan({ cls: "inkswell-draft__num", text: "Age" });
+
+      const wordCells: HTMLElement[] = [];
+      const deltaCells: HTMLElement[] = [];
+      ordered.forEach(({ d, storyIndex }) => {
+        const row = table.createDiv({ cls: "inkswell-draft-row" });
+        if (d.vaultPath === activePath) row.addClass("is-active");
+        row.createSpan({ cls: "inkswell-draft__label", text: draftLabel(d, storyIndex) });
+        wordCells.push(row.createSpan({ cls: "inkswell-draft__num", text: "…" }));
+        deltaCells.push(row.createSpan({ cls: "inkswell-draft__num inkswell-draft__delta" }));
+        const scenes = isMultiScene(d.draft) ? d.scenes.length : 1;
+        row.createSpan({ cls: "inkswell-draft__num", text: `${scenes}` });
+        this.statusMix(row.createSpan({ cls: "inkswell-draft__mix" }), d);
+        row.createSpan({ cls: "inkswell-draft__num", text: this.draftAge(d) });
+      });
+
+      // Word counts are async (mtime-cached); fill once all resolve so the delta
+      // can reference the first (earliest) draft's total.
+      void Promise.all(ordered.map(({ d }) => this.stats.projectWords(d))).then((counts) => {
+        const base = counts[0];
+        counts.forEach((w, i) => {
+          wordCells[i].setText(w.toLocaleString());
+          if (i === 0) {
+            deltaCells[i].setText("—");
+            return;
+          }
+          const delta = w - base;
+          deltaCells[i].setText(
+            delta === 0 ? "±0" : `${delta > 0 ? "+" : "−"}${Math.abs(delta).toLocaleString()}`
+          );
+          deltaCells[i].toggleClass("is-up", delta > 0);
+          deltaCells[i].toggleClass("is-down", delta < 0);
+        });
+      });
+    });
+  }
+
+  /** A compact stacked bar of a draft's scene statuses (revision progress at a glance). */
+  private statusMix(host: HTMLElement, project: Project): void {
+    if (!isMultiScene(project.draft)) {
+      host.createSpan({ cls: "inkswell-stats__muted", text: "single note" });
+      return;
+    }
+    const statuses = project.scenes.map((s) => {
+      if (!s.path) return undefined;
+      const f = this.app.vault.getAbstractFileByPath(s.path);
+      return f instanceof TFile ? readSceneMeta(this.app, f).status : undefined;
+    });
+    const tallies = tallyBy(statuses, SCENE_STATUSES);
+    if (tallies.length === 0) {
+      host.createSpan({ cls: "inkswell-stats__muted", text: "—" });
+      return;
+    }
+    const bar = host.createDiv({ cls: "inkswell-mixbar" });
+    for (const t of tallies) {
+      const isStatus = SCENE_STATUSES.includes(t.key as never);
+      const seg = bar.createDiv({
+        cls: isStatus
+          ? `inkswell-mixbar__seg inkswell-status--${t.key}`
+          : "inkswell-mixbar__seg inkswell-mixbar__seg--none",
+      });
+      seg.style.flexGrow = `${t.count}`;
+      const label = isStatus ? statusLabel(t.key as never) : t.key;
+      seg.setAttribute("aria-label", `${t.count} ${label}`);
+    }
+  }
+
+  /** Creation time in ms for ordering; undated drafts sort oldest (−Infinity). */
+  private createdMs(project: Project): number {
+    const created = project.inkswell?.draftCreated;
+    const ms = created ? new Date(created).getTime() : NaN;
+    return Number.isNaN(ms) ? -Infinity : ms;
+  }
+
+  /** Human "age" of a draft from its `draftCreated` stamp, or "—" when absent. */
+  private draftAge(project: Project): string {
+    const created = project.inkswell?.draftCreated;
+    if (!created) return "—";
+    const ms = new Date(created).getTime();
+    if (Number.isNaN(ms)) return "—";
+    const days = Math.floor((Date.now() - ms) / 86_400_000);
+    if (days <= 0) return "today";
+    if (days === 1) return "1 day";
+    if (days < 30) return `${days} days`;
+    const months = Math.floor(days / 30);
+    return months === 1 ? "1 mo" : `${months} mo`;
   }
 
   private renderTargets(body: HTMLElement, daily: Record<string, number>): void {
