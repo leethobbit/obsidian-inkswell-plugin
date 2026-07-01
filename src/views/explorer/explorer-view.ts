@@ -7,10 +7,12 @@
  * note's frontmatter — never a scene body.
  */
 
-import { App, Menu, TFile } from "obsidian";
+import { App, Menu, Notice, TFile } from "obsidian";
 import { attachRowMenu } from "../../lib/row-menu";
 import { renameSceneInBeats } from "../../outliner/beats";
-import { persistDraft, persistInkswellData, updateScenes, writeSeries } from "../../projects/index-writer";
+import { cleanupOwnedCover, pickVaultImage, resolveCoverSrc, setCoverFromUpload } from "../../projects/cover";
+import { persistDraft, persistInkswellData, persistOverview, updateScenes, writeSeries } from "../../projects/index-writer";
+import { TargetModal } from "../../goals/target-modal";
 import { ProjectStats } from "../../projects/project-stats";
 import { ProjectStore } from "../../projects/project-store";
 import { reconcileSuggestions } from "../../projects/rename-heal";
@@ -22,7 +24,7 @@ import {
   unindentScene,
 } from "../../projects/scene-tree";
 import { Project, isMultiScene } from "../../projects/types";
-import { groupIntoStories } from "../../projects/stories";
+import { baseDraftFor, groupIntoStories } from "../../projects/stories";
 import { Series, groupIntoSeries, projectSeries } from "../../series/series";
 import { deleteScene, editSynopsis, promptText, renameScene } from "../../scenes/scene-actions";
 import { promptNewScene } from "../../outliner/create-scene";
@@ -85,10 +87,10 @@ export class ExplorerPanel {
     const newBtn = toolbar.createEl("button", { cls: "mod-cta", text: "New project" });
     newBtn.onclick = () => this.plugin.newProject();
 
-    this.renderIdeas(container);
-
     const projects = this.store.getProjects();
     if (projects.length === 0) {
+      // No projects yet — this is the global Home, so the idea inbox belongs here.
+      this.renderIdeas(container);
       container.createDiv({
         cls: "inkswell-explorer__empty",
         text: 'No writing projects yet. Click "New project" above to create one (or add a `longform` key to a note\'s frontmatter).',
@@ -116,6 +118,7 @@ export class ExplorerPanel {
       : null;
 
     if (focused) {
+      this.renderProjectHero(container, focused);
       const bar = container.createDiv({ cls: "inkswell-explorer__focus" });
       const back = bar.createEl("button", {
         cls: "inkswell-explorer__showall",
@@ -130,6 +133,9 @@ export class ExplorerPanel {
       return;
     }
 
+    // Unfocused = the global "all projects" dashboard: the idea inbox (a store of
+    // cross-project story seeds) lives here, not inside a focused project's view.
+    this.renderIdeas(container);
     for (const s of series) this.renderSeries(container, s);
     for (const project of standalone) this.renderProject(container, project);
   }
@@ -150,9 +156,11 @@ export class ExplorerPanel {
   private async renderSeriesTotals(el: HTMLElement, series: Series): Promise<void> {
     let words = 0;
     let target = 0;
+    const all = this.store.getProjects();
     for (const book of series.books) {
       words += await this.stats.projectWords(book);
-      const t = book.inkswell?.goals?.target;
+      // Target is story-level — read it off the book's base draft.
+      const t = baseDraftFor(all, book).inkswell?.goals?.target;
       if (typeof t === "number" && t > 0) target += t;
     }
     const books = series.books.length;
@@ -192,6 +200,153 @@ export class ExplorerPanel {
       del.setAttribute("aria-label", "Delete idea");
       del.onclick = () => this.plugin.removeIdea(idea.id);
     }
+  }
+
+  /**
+   * Focused-view hero card: cover art + at-a-glance logline / theme / target.
+   * Only rendered for the single focused project (never in the multi-project
+   * list). Fields autosave on `change` (blur) — the host's focus-guard prevents a
+   * mid-keystroke rebuild, matching the Plan → Overview convention.
+   */
+  private renderProjectHero(parent: HTMLElement, focused: Project): void {
+    // Story-level metadata (cover, overview, goals) lives on the story's base
+    // draft, so every draft shares one cover/logline/theme/target. Word-count
+    // progress, though, is the *focused* draft's own (each draft has its scenes).
+    const base = baseDraftFor(this.store.getProjects(), focused);
+    const hero = parent.createDiv({ cls: "inkswell-hero" });
+    const overview = base.inkswell?.overview ?? {};
+    const indexFile = this.indexFile(base);
+    const saveOverview = (patch: Partial<typeof overview>) => {
+      if (indexFile) void persistOverview(this.app, indexFile, patch);
+    };
+
+    // Cover: image when set, else a dashed placeholder. Both open the same menu.
+    const cover = hero.createDiv({ cls: "inkswell-hero__cover" });
+    const src = resolveCoverSrc(this.app, overview.cover);
+    if (src) {
+      const img = cover.createEl("img", { cls: "inkswell-hero__img" });
+      img.src = src;
+      img.alt = `${focused.draft.title} cover`;
+    } else {
+      cover.addClass("is-empty");
+      cover.createSpan({ cls: "inkswell-hero__placeholder", text: "+ Add cover" });
+    }
+    cover.setAttribute("aria-label", "Set cover image");
+    cover.onclick = (e) => this.coverMenu(base, !!src).showAtMouseEvent(e);
+
+    // Meta column: title, logline, theme, target/progress.
+    const meta = hero.createDiv({ cls: "inkswell-hero__meta" });
+    meta.createDiv({ cls: "inkswell-hero__title", text: focused.draft.title });
+
+    const field = (label: string, value: string | undefined, placeholder: string, save: (v: string) => void) => {
+      const row = meta.createDiv({ cls: "inkswell-hero__field" });
+      row.createDiv({ cls: "inkswell-hero__label", text: label });
+      const input = row.createEl("input", { type: "text", cls: "inkswell-hero__input" });
+      input.value = value ?? "";
+      input.placeholder = placeholder;
+      input.onchange = () => save(input.value.trim());
+    };
+    field("Logline", overview.logline, "One sentence: who wants what, against what odds…", (v) =>
+      saveOverview({ logline: v })
+    );
+    field("Theme", overview.theme, "The deeper meaning / life lesson…", (v) => saveOverview({ theme: v }));
+
+    this.renderHeroTarget(meta, focused, base);
+  }
+
+  /**
+   * Inline word target + progress bar; `⋯` opens the full target modal
+   * (deadline/pace). The target is story-level (read/written on `base`); the
+   * progress words are the focused draft's own.
+   */
+  private renderHeroTarget(meta: HTMLElement, focused: Project, base: Project): void {
+    const goals = base.inkswell?.goals;
+    const target = typeof goals?.target === "number" && goals.target > 0 ? goals.target : 0;
+    const indexFile = this.indexFile(base);
+
+    const row = meta.createDiv({ cls: "inkswell-hero__field" });
+    row.createDiv({ cls: "inkswell-hero__label", text: "Target" });
+    const control = row.createDiv({ cls: "inkswell-hero__targetrow" });
+    const input = control.createEl("input", { type: "number", cls: "inkswell-hero__input inkswell-hero__targetinput" });
+    input.value = target ? String(target) : "";
+    input.placeholder = "e.g. 80000";
+    input.min = "0";
+    input.onchange = () => {
+      if (!indexFile) return;
+      const n = Math.floor(Number(input.value));
+      const val = Number.isFinite(n) && n > 0 ? n : undefined;
+      void persistInkswellData(this.app, indexFile, { goals: { ...base.inkswell?.goals, target: val } });
+    };
+    control.createSpan({ cls: "inkswell-hero__unit", text: "words" });
+    const more = control.createEl("button", { cls: "inkswell-hero__more", text: "⋯" });
+    more.setAttribute("aria-label", "Deadline & pace");
+    more.onclick = () => new TargetModal(this.app, base).open();
+
+    if (!this.plugin.settings.showWordCounts) return;
+    const bar = meta.createDiv({ cls: "inkswell-progress inkswell-hero__bar" });
+    const fill = bar.createDiv({ cls: "inkswell-progress__fill" });
+    const stat = meta.createDiv({ cls: "inkswell-hero__stat" });
+    void this.stats.projectWords(focused).then((w) => {
+      if (target > 0) {
+        const pct = Math.min(100, Math.round((w / target) * 100));
+        fill.style.width = `${pct}%`;
+        stat.setText(`${w.toLocaleString()} / ${target.toLocaleString()} words · ${pct}%`);
+      } else {
+        bar.hide();
+        stat.setText(`${w.toLocaleString()} words`);
+      }
+    });
+  }
+
+  /** Cover action menu: upload, pick from vault, and (when set) remove. */
+  private coverMenu(project: Project, hasCover: boolean): Menu {
+    const menu = new Menu();
+    menu.addItem((i) =>
+      i.setTitle("Upload…").setIcon("upload").onClick(() => this.uploadCover(project))
+    );
+    menu.addItem((i) =>
+      i.setTitle("Choose from vault…").setIcon("image").onClick(() => void this.chooseCover(project))
+    );
+    if (hasCover) {
+      menu.addSeparator();
+      menu.addItem((i) =>
+        i.setTitle("Remove cover").setIcon("trash").onClick(() => void this.removeCover(project))
+      );
+    }
+    return menu;
+  }
+
+  /** Open an OS file picker, copy the chosen image into the project folder, persist its path. */
+  private uploadCover(project: Project): void {
+    const input = createEl("input", { type: "file" });
+    input.accept = "image/*";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const indexFile = this.indexFile(project);
+      if (!indexFile) return;
+      try {
+        const path = await setCoverFromUpload(this.app, project, file);
+        await persistOverview(this.app, indexFile, { cover: path });
+      } catch (e) {
+        console.error(e);
+        new Notice("Couldn't set the cover image.");
+      }
+    };
+    input.click();
+  }
+
+  private async chooseCover(project: Project): Promise<void> {
+    const file = await pickVaultImage(this.app);
+    if (!file) return;
+    const indexFile = this.indexFile(project);
+    if (indexFile) await persistOverview(this.app, indexFile, { cover: file.path });
+  }
+
+  private async removeCover(project: Project): Promise<void> {
+    await cleanupOwnedCover(this.app, project);
+    const indexFile = this.indexFile(project);
+    if (indexFile) await persistOverview(this.app, indexFile, { cover: "" });
   }
 
   private renderProject(parent: HTMLElement, project: Project): void {

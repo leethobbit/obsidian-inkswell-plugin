@@ -27,7 +27,7 @@ import { formatReadTime, heatLevel } from "./format";
 import { resolveActive } from "../projects/active-project";
 import { ProjectStats } from "../projects/project-stats";
 import { ProjectStore } from "../projects/project-store";
-import { draftLabel, groupIntoStories, storyOf } from "../projects/stories";
+import { baseDraft, draftLabel, groupIntoStories, storyOf } from "../projects/stories";
 import { Project, isMultiScene } from "../projects/types";
 import { SCENE_STATUSES, readSceneMeta, statusLabel } from "../scenes/scene-meta";
 import { sprintSeconds, sprintStats, sprintWpm } from "../sprints/sprint-stats";
@@ -451,8 +451,10 @@ export class StatsPanel {
   }
 
   private renderTargets(body: HTMLElement, daily: Record<string, number>): void {
-    const withTargets = this.store
-      .getProjects()
+    // Targets are story-level: one row per story, read off its base draft (not
+    // one row per draft, which would duplicate the shared goal).
+    const withTargets = groupIntoStories(this.store.getProjects())
+      .map((s) => baseDraft(s))
       .filter((p) => p.inkswell?.goals?.target && p.inkswell.goals.target > 0);
     if (withTargets.length === 0) {
       body.createDiv({

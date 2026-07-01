@@ -10,6 +10,13 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Added
+- **Cover art and overview on Home.** Selecting a project on Home now opens a hero card above the scene list. Attach **cover art** — upload an image (copied into the project's folder) or pick one already in your vault — and see the **logline**, **theme**, and **word-count target** at a glance, with a progress bar tracking words toward the target. Logline, theme, and target are editable inline and share the same data as Plan → Overview, so there's no second copy to keep in sync.
+
+### Changed
+- **The idea inbox now appears only on the all-projects view.** The quick-capture idea inbox used to sit at the top of Home even after you'd drilled into a single project, mixing a global list with project-scoped content. It now shows only on the all-projects Home (and when you have no projects yet); the focused-project view shows just that project. Story ideas are cross-project seeds, so they're captured from the top-level view.
+- **Overview and goals are shared across a story's drafts.** Cover art, logline, theme, genre, audience, and the word target describe the *book*, not one draft — so they're now stored once per story and shared by every draft instead of drifting per-draft. Edit them from any draft (the Home hero or Plan → Overview) and every draft reflects the change. Track → Targets now lists each story once instead of once per draft.
+
 ## [1.4.0] - 2026-07-01
 
 ### Added

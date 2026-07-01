@@ -13,6 +13,7 @@ import { App, TFile } from "obsidian";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { persistOverview } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
+import { baseDraftFor } from "../projects/stories";
 import { Project, ProjectOverview } from "../projects/types";
 import { openScene } from "../scenes/scene-actions";
 import {
@@ -60,11 +61,14 @@ export class OverviewPanel {
     container.empty();
     container.addClass("inkswell-overview");
 
-    const project = resolveActive(this.store.getProjects(), this.active.get());
-    if (!project) {
+    const active = resolveActive(this.store.getProjects(), this.active.get());
+    if (!active) {
       container.createDiv({ cls: "inkswell-stats__muted", text: "No projects found." });
       return;
     }
+    // Overview + planning note are story-level — always read/write the base draft
+    // so all drafts of a story share them (matches the Home hero card).
+    const project = baseDraftFor(this.store.getProjects(), active);
 
     this.renderFields(container, project);
     this.renderProse(container, project);
