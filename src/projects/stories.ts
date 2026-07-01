@@ -49,3 +49,37 @@ export function storyOf(stories: Story[], activePath: string | null): Story | nu
   if (!activePath) return null;
   return stories.find((s) => s.drafts.some((d) => d.vaultPath === activePath)) ?? null;
 }
+
+/** Dirname of a draft's index path ("" for vault root). */
+function draftFolder(p: Project): string {
+  const i = p.vaultPath.lastIndexOf("/");
+  return i === -1 ? "" : p.vaultPath.slice(0, i);
+}
+
+/** True if folder `a` is an ancestor of (or equal to) folder `b`. */
+function isAncestorFolder(a: string, b: string): boolean {
+  return a === "" || a === b || b.startsWith(`${a}/`);
+}
+
+/**
+ * A story's *base draft* — the single source of truth for story-level metadata
+ * (cover, overview, goals) that every draft should share. New drafts are copied
+ * into a `Drafts/` subfolder of their source, so the original draft's folder is
+ * an ancestor of every sibling; that draft is the base. Falls back to the first
+ * draft when no single ancestor exists (e.g. drafts manually moved apart).
+ */
+export function baseDraft(story: Story): Project {
+  for (const cand of story.drafts) {
+    const cf = draftFolder(cand);
+    if (story.drafts.every((d) => isAncestorFolder(cf, draftFolder(d)))) return cand;
+  }
+  return story.drafts[0];
+}
+
+/** The base draft of the story containing `project` (or `project` itself if ungrouped). */
+export function baseDraftFor(projects: Project[], project: Project): Project {
+  const story = groupIntoStories(projects).find((s) =>
+    s.drafts.some((d) => d.vaultPath === project.vaultPath)
+  );
+  return story ? baseDraft(story) : project;
+}

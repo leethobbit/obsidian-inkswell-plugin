@@ -1266,6 +1266,93 @@
   text-align: center;
 }
 
+/* Focused-project hero card (Home): cover art + logline / theme / target */
+.inkswell-hero {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-4);
+  padding: var(--size-4-2) 0 var(--size-4-4);
+  margin-bottom: var(--size-4-2);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.inkswell-hero__cover {
+  flex: 0 0 auto;
+  width: 120px;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-m);
+  overflow: hidden;
+  cursor: pointer;
+  background-color: var(--background-secondary);
+}
+.inkswell-hero__cover.is-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--background-modifier-border);
+}
+.inkswell-hero__cover.is-empty:hover {
+  border-color: var(--interactive-accent);
+}
+.inkswell-hero__placeholder {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+.inkswell-hero__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.inkswell-hero__meta {
+  flex: 1 1 260px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+}
+.inkswell-hero__title {
+  font-weight: var(--font-bold);
+  font-size: var(--font-ui-large);
+}
+.inkswell-hero__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-1);
+}
+.inkswell-hero__label {
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+}
+.inkswell-hero__input {
+  width: 100%;
+}
+.inkswell-hero__targetrow {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+.inkswell-hero__targetinput {
+  width: 12ch;
+  flex: 0 0 auto;
+}
+.inkswell-hero__unit {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-hero__more {
+  margin-left: auto;
+  padding: 0 var(--size-4-2);
+}
+.inkswell-hero__bar {
+  margin-top: var(--size-4-1);
+}
+.inkswell-hero__stat {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Series grouping (Home): header + nested book projects */
 .inkswell-series {
   margin-bottom: var(--size-4-4);

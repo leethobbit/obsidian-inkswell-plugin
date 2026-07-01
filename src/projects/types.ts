@@ -98,6 +98,8 @@ export interface ProjectOverview {
   audience?: string;
   /** Vault path of the project's planning note, set lazily on first prose save. */
   planningNote?: string;
+  /** Vault path of the cover image. Uploads copy into the project folder; picked images are referenced in place. */
+  cover?: string;
 }
 
 /** Series membership for a book (project). A series is the set of books sharing a `name`. */

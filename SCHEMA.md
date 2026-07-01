@@ -80,10 +80,12 @@ A single nested object under `inkswell`. All sub-keys optional. Source: `src/pro
 `sceneSteps` / `manuscriptSteps` (ordered `{id, options}` step lists) · `separator` (string) · `targetBasename` (string, default `manuscript`) · `format` (`md` · `html` · `pandoc`) · `pandoc` (`{to, extension, extraArgs}`, when `format: pandoc`).
 
 ### `inkswell.goals` — targets & pace
-`target` (number) · `deadline` (string `YYYY-MM-DD`) · `daysPerWeek` (number 1–7, default 7).
+`target` (number) · `deadline` (string `YYYY-MM-DD`) · `daysPerWeek` (number 1–7, default 7). **Story-level** — see the note under `overview`.
 
 ### `inkswell.overview` — novel-level planning (Plan → Overview)
-Short, single-line planning fields: `logline` · `theme` · `genre` · `audience` (all strings) · `planningNote` (string, vault path). Long-form planning prose does **not** live in frontmatter — it lives in the **planning note** (see below), and `planningNote` records that note's path once created.
+Short, single-line planning fields: `logline` · `theme` · `genre` · `audience` (all strings) · `planningNote` (string, vault path) · `cover` (string, vault path to the cover image). Long-form planning prose does **not** live in frontmatter — it lives in the **planning note** (see below), and `planningNote` records that note's path once created. `cover` is shown on the Home focused-project hero card; an uploaded cover is copied into the project folder as `cover.<ext>`, a picked image is referenced in place.
+
+**Story-level, not per-draft:** `overview` and `goals` describe the *book*, so they're shared across all drafts of a story. They are read from and written to the story's **base draft** (the draft whose folder is an ancestor of its siblings — the copy origin), regardless of which draft is focused. A byte-copied new draft may carry an inherited stale copy in its own frontmatter; it's inert (never read) unless the base draft is deleted, in which case the next base's copy is used.
 
 **The planning note** is an ordinary vault note (default `"<Title> — Plan.md"`, sibling of the index) holding the synopsis and outline prose under stable app-managed H2 sections: `## Synopsis` · `## Plot groundwork` · `## Act I` · `## Act II` · `## Act III`. It carries **no** `longform` key (so the store never mistakes it for a project) and is prose-only — outside this frontmatter contract, but listed here because `overview.planningNote` points at it. Source: `src/plan/planning-note.ts`, `src/plan/overview-panel.ts`.
 
