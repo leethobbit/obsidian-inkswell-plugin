@@ -27,6 +27,14 @@ Mirrors Longform's `Draft` shape. Inkswell reads and writes these so projects ro
 | `longform.ignoredFiles` | string[] | Files in the scene folder to ignore |
 | `longform.sceneTemplate` | string \| null | Template note applied to new scenes (parsed; apply-UI deferred) |
 
+**Multiple drafts (non-normative).** Drafts of one story are separate index notes
+that share the same `longform.title` and are distinguished by `draftTitle`; the
+store groups them by `title` at runtime (`src/projects/stories.ts`). No new key is
+involved — `title` + `draftTitle` already encode it (this is Longform's model).
+"New draft" scaffolds the copy under `<storyFolder>/Drafts/<name>/` with its own
+index note and `Scenes/` folder, but grouping is by frontmatter `title`, never by
+folder, so any layout (including imported Longform drafts) groups correctly.
+
 ---
 
 ## B. Scene note — top-level scene metadata
@@ -78,6 +86,9 @@ A single nested object under `inkswell`. All sub-keys optional. Source: `src/pro
 Short, single-line planning fields: `logline` · `theme` · `genre` · `audience` (all strings) · `planningNote` (string, vault path). Long-form planning prose does **not** live in frontmatter — it lives in the **planning note** (see below), and `planningNote` records that note's path once created.
 
 **The planning note** is an ordinary vault note (default `"<Title> — Plan.md"`, sibling of the index) holding the synopsis and outline prose under stable app-managed H2 sections: `## Synopsis` · `## Plot groundwork` · `## Act I` · `## Act II` · `## Act III`. It carries **no** `longform` key (so the store never mistakes it for a project) and is prose-only — outside this frontmatter contract, but listed here because `overview.planningNote` points at it. Source: `src/plan/planning-note.ts`, `src/plan/overview-panel.ts`.
+
+### `inkswell.draftCreated` — draft creation timestamp
+ISO 8601 string, stamped when a draft is created via **New draft** (a draft's own file ctime is unreliable). Absent on drafts that predate this field or were imported — treat absence as "unknown", not "day zero". Used for the draft-age column in the Track → Drafts comparison.
 
 ### `inkswell.series` — series membership
 `name` (string; books sharing a name form one series) · `order` (number, 1-based).
