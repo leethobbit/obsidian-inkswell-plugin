@@ -269,22 +269,3 @@ export class ProjectStore extends Component {
     return file instanceof TFile ? file.path : null;
   }
 }
-
-/**
- * Read the raw `inkswell` frontmatter block from a note's source as a fallback
- * (e.g. when only the file text is available). Most callers should use the
- * already-parsed value from the metadata cache instead.
- */
-export function parseInkswellBlock(source: string): InkswellProjectData | null {
-  const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!match) return null;
-  try {
-    const fm = parseYaml(match[1]) as Record<string, unknown>;
-    const inkswell = fm?.["inkswell"];
-    return inkswell && typeof inkswell === "object"
-      ? inkswell
-      : null;
-  } catch {
-    return null;
-  }
-}

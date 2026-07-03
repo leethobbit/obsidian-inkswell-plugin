@@ -10,6 +10,7 @@
 
 import { App, TFile, normalizePath } from "obsidian";
 import { Project } from "../projects/types";
+import { sanitizeSegment } from "../settings/folders";
 
 /** Ordered H2 sections the Overview panel manages. Heading text is the key. */
 export const PLAN_SECTIONS = [
@@ -21,16 +22,12 @@ export const PLAN_SECTIONS = [
 ] as const;
 export type PlanSection = (typeof PLAN_SECTIONS)[number];
 
-function sanitizeTitle(name: string): string {
-  return name.replace(/[\\/:*?"<>|]/g, "-").trim();
-}
-
 /** Default planning-note path: sibling of the index note, "<Title> — Plan.md". */
 export function planningNotePath(project: Project): string {
   const indexBase = project.vaultPath.replace(/\.md$/i, "");
   const slash = indexBase.lastIndexOf("/");
   const folder = slash >= 0 ? indexBase.slice(0, slash) : "";
-  const name = sanitizeTitle(project.draft.title) || "Project";
+  const name = sanitizeSegment(project.draft.title) || "Project";
   const file = `${name} — Plan.md`;
   return normalizePath(folder ? `${folder}/${file}` : file);
 }

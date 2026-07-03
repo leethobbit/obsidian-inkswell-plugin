@@ -44,7 +44,7 @@ Five pipeline phases — **Home · Plan · Write · Revise · Publish** — plus
 
 | Surface | What it's for |
 |---------|---------------|
-| **Home** | Projects, a nestable scene tree, ideas inbox + quick capture, and series grouping for multi-book worlds. |
+| **Home** | Projects, a nestable scene tree, a cover-art hero card (logline / theme / word-target progress), multiple drafts per story, ideas inbox + quick capture, and series grouping for multi-book worlds. |
 | **Plan** | Beat sheets (7 outline templates incl. Save the Cat!) and a Kanban Board (by status / act / POV). |
 | **Write** | A distraction-light Live-Preview editor, writing prompts, fast-drafting placeholder tokens, and timed sprints. |
 | **Revise** | An Audit toolkit, the invisible-revision Log, a Todos sweep for placeholder markers, and manuscript Analysis. |
@@ -54,7 +54,7 @@ Five pipeline phases — **Home · Plan · Write · Revise · Publish** — plus
 
 ### Home — organize the whole world
 
-Projects and a nestable scene tree, an ideas inbox with quick capture, and series grouping for multi-book worlds, all behind a global project switcher.
+Projects and a nestable scene tree, an ideas inbox with quick capture, and series grouping for multi-book worlds, all behind a global project switcher. Select a project to open a **hero card** — attach cover art and see the logline, theme, and a progress bar tracking words toward the target. A story can hold **multiple drafts** (a first draft, an editor pass…), switchable from the header, each a full independent copy of the manuscript and its planning.
 
 <!-- HOME -->
 ![Home: project list, nestable scene tree, and project switcher](assets/home.png)
@@ -113,7 +113,7 @@ Daily / weekly / monthly word goals, habit streaks, a GitHub-style heatmap, life
 
 ## Install
 
-**Requirements:** Obsidian 1.7.2+ (pandoc optional, for `.docx` / `.pdf` / `.epub`).
+**Requirements:** Obsidian 1.7.4+ (pandoc optional, for `.docx` / `.pdf` / `.epub`).
 
 - **Community plugins:** Settings → *Community plugins* → *Browse* → search **Inkswell** → Install → Enable.
 - **Manual:** download `main.js`, `manifest.json`, and `styles.css` from the latest [release](https://github.com/leethobbit/obsidian-inkswell-plugin/releases) into `<vault>/.obsidian/plugins/inkswell/`, then enable Inkswell in *Community plugins*.

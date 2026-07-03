@@ -19,7 +19,9 @@ export interface FolderSettings {
   coLocateCodex: boolean;
 }
 
-const sanitizeSegment = (s: string): string => s.trim().replace(/[\\/:*?"<>|]/g, "-");
+/** Make a string safe as a single filename/path segment: strip the characters
+ *  illegal in file names and trim. Shared by the scene/note scaffolders. */
+export const sanitizeSegment = (s: string): string => s.trim().replace(/[\\/:*?"<>|]/g, "-");
 
 /** Join non-empty, slash-trimmed segments into a vault path ("" when all empty). */
 export function joinPath(...parts: Array<string | undefined | null>): string {

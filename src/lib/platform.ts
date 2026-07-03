@@ -1,14 +1,19 @@
 /**
- * Single source of truth for platform/form-factor decisions.
+ * Single source of truth for phone/form-factor layout decisions.
  *
  * Layout adapts via CSS (Obsidian adds `is-mobile` / `is-phone` / `is-ios` /
- * `is-android` to <body>); this module is only for the handful of *behavioral*
- * branches CSS can't express — gating which panels mount on a phone, choosing a
- * modal vs. an inline panel, and guarding Node/Electron access.
+ * `is-android` to <body>); this module is only for the *behavioral* branches
+ * CSS can't express — gating which panels mount on a phone (redirecting heavy
+ * multi-pane surfaces to a "use a larger screen" placeholder).
  *
  * Form factor is a screen-WIDTH heuristic, not device identity: Obsidian gives
  * us `isPhone` / `isTablet` (≈600dp split), with no iPad-vs-iPhone or e-ink
  * signal. Treat `isPhone()` as "very limited width", not "is an iPhone".
+ *
+ * Node/Electron access is NOT gated here — use a `FileSystemAdapter instanceof`
+ * check (see `src/compile/pandoc.ts`, `engine.ts`), never a `Platform` flag:
+ * `isMobileApp`/`isDesktopApp` flip under the desktop "emulate mobile" toggle
+ * while Node is still present.
  */
 
 import { Platform, setIcon } from "obsidian";
@@ -17,24 +22,6 @@ import { Platform, setIcon } from "obsidian";
  *  surfaces (Board, the Write inspector, Codex master-detail) redirect here. */
 export function isPhone(): boolean {
   return Platform.isPhone;
-}
-
-/** True when there's room for the full multi-pane layout: tablets + desktop.
- *  The inverse of {@link isPhone}. */
-export function isWide(): boolean {
-  return !Platform.isPhone;
-}
-
-/** True on any mobile app build (phone OR tablet, iOS OR Android). */
-export function isMobile(): boolean {
-  return Platform.isMobileApp;
-}
-
-/** True only in the Electron desktop app — the ONLY safe gate for Node/Electron
- *  APIs. Never gate Node access on `isMobile`/`isDesktop` (those flip under the
- *  desktop "emulate mobile" toggle while Node is still present). */
-export function isDesktopApp(): boolean {
-  return Platform.isDesktopApp;
 }
 
 /**

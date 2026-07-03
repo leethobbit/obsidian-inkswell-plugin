@@ -47,16 +47,3 @@ export function detectMentions(text: string, entities: CodexEntity[]): Mention[]
   }
   return found;
 }
-
-/** Group entities by category, preserving input order within each group. */
-export function groupByCategory(
-  entities: CodexEntity[]
-): Map<CodexCategory, CodexEntity[]> {
-  const map = new Map<CodexCategory, CodexEntity[]>();
-  for (const e of entities) {
-    const list = map.get(e.category) ?? [];
-    list.push(e);
-    map.set(e.category, list);
-  }
-  return map;
-}
