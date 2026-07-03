@@ -12,7 +12,7 @@
  */
 
 import { EditorView } from "@codemirror/view";
-import { App, FuzzySuggestModal, Menu, TFile, setIcon } from "obsidian";
+import { App, FuzzySuggestModal, Menu, Notice, TFile, setIcon } from "obsidian";
 import { isPhone } from "../lib/platform";
 import { attachRowMenu } from "../lib/row-menu";
 import { addSceneMenuItems } from "../scenes/scene-actions";
@@ -454,11 +454,21 @@ export class WritePanel {
     if (!file || !ed) return;
     const body = ed.state.doc.toString();
     if (body === this.loadedBody) return;
-    const cur = await this.app.vault.read(file);
-    const m = cur.match(FRONTMATTER_RE);
-    const fm = m ? m[1] : "";
-    await this.app.vault.modify(file, fm + body);
-    this.loadedBody = body;
+    try {
+      const cur = await this.app.vault.read(file);
+      const m = cur.match(FRONTMATTER_RE);
+      const fm = m ? m[1] : "";
+      await this.app.vault.modify(file, fm + body);
+      this.loadedBody = body;
+    } catch (e) {
+      // Never advance loadedBody on failure, so the next blur/save retries. The
+      // editor still holds the text — say so, since a torn-down editor could
+      // otherwise lose it silently.
+      console.error("[Inkswell] Failed to save scene body", e);
+      new Notice(
+        `Inkswell couldn't save "${file.basename}". Your text is still in the editor — copy it out if this keeps happening.`
+      );
+    }
   }
 
   private emptyState(parent: HTMLElement, text: string): void {

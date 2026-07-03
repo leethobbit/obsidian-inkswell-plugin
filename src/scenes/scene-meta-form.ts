@@ -5,6 +5,7 @@
  */
 
 import { App, TFile } from "obsidian";
+import { tryFileOp } from "../lib/notify";
 import { detectMentions, linkTarget, toLink } from "../codex/codex";
 import { getCodexEntities } from "../codex/codex-store";
 import { filterToScope, scopeContextForProject } from "../codex/codex-scope";
@@ -44,7 +45,8 @@ export function renderSceneMetaFields(
   project: Project | null = null
 ): void {
   const meta = readSceneMeta(app, file);
-  const save = (patch: Partial<SceneMeta>) => void writeSceneMeta(app, file, patch);
+  const save = (patch: Partial<SceneMeta>) =>
+    void tryFileOp(() => writeSceneMeta(app, file, patch), "Couldn't save the scene change.");
   const entities = filterToScope(getCodexEntities(app), scopeContextForProject(project));
 
   // Status
@@ -150,7 +152,7 @@ export function renderSceneMetaFields(
       const patch: Partial<SceneMeta> = { characters: chars };
       const loc = mentions.find((m) => m.category === "location");
       if (loc && !fresh.location) patch.location = toLink(loc.name);
-      await writeSceneMeta(app, file, patch);
+      await tryFileOp(() => writeSceneMeta(app, file, patch), "Couldn't save detected mentions.");
     };
   });
 
@@ -215,13 +217,15 @@ export function renderSceneAuditFields(
   onChange?: () => void
 ): void {
   const audit = readSceneAudit(app, file);
+  const saveAudit = (patch: Parameters<typeof writeSceneAudit>[2]) =>
+    void tryFileOp(() => writeSceneAudit(app, file, patch), "Couldn't save the audit change.");
   const list = container.createDiv({ cls: "inkswell-audit__checks" });
   for (const cp of SCENE_CHECKPOINTS) {
     const label = list.createEl("label", { cls: "inkswell-audit__check" });
     const cb = label.createEl("input", { type: "checkbox" });
     cb.checked = !!audit.checks[cp.id];
     cb.onchange = () => {
-      void writeSceneAudit(app, file, { checks: { [cp.id]: cb.checked } });
+      saveAudit({ checks: { [cp.id]: cb.checked } });
       onChange?.();
     };
     label.createSpan({ text: cp.label });
@@ -236,14 +240,14 @@ export function renderSceneAuditFields(
       if (audit.verdict === v) o.selected = true;
     }
     sel.value = audit.verdict ?? "";
-    sel.onchange = () => void writeSceneAudit(app, file, { verdict: sel.value as "" | "keep" });
+    sel.onchange = () => saveAudit({ verdict: sel.value as "" | "keep" });
   });
   field(container, "If removed…", (host) => {
     const ta = host.createEl("textarea", { cls: "inkswell-inspector__textarea" });
     ta.rows = 2;
     ta.value = audit.purpose ?? "";
     ta.placeholder = "What later scenes break if this one is cut?";
-    ta.onchange = () => void writeSceneAudit(app, file, { purpose: ta.value });
+    ta.onchange = () => saveAudit({ purpose: ta.value });
   });
 
   // Opening type — override the heuristic when it's wrong.
@@ -256,7 +260,7 @@ export function renderSceneAuditFields(
       if (audit.opening === t) o.selected = true;
     }
     sel.value = audit.opening ?? "";
-    sel.onchange = () => void writeSceneAudit(app, file, { opening: sel.value as "" | OpeningType });
+    sel.onchange = () => saveAudit({ opening: sel.value as "" | OpeningType });
   });
 
   // Character arc snapshots — internal (flaw) + external (problem) state for each
@@ -275,9 +279,7 @@ export function renderSceneAuditFields(
         external.value = snap.external ?? "";
         external.placeholder = "external / problem";
         const save = () =>
-          void writeSceneAudit(app, file, {
-            arc: { [name]: { internal: internal.value, external: external.value } },
-          });
+          saveAudit({ arc: { [name]: { internal: internal.value, external: external.value } } });
         internal.onchange = save;
         external.onchange = save;
       }
@@ -292,5 +294,5 @@ export function renderSceneAuditFields(
   ta.rows = 2;
   ta.value = audit.note ?? "";
   ta.placeholder = "What this scene needs in revision…";
-  ta.onchange = () => void writeSceneAudit(app, file, { note: ta.value });
+  ta.onchange = () => saveAudit({ note: ta.value });
 }

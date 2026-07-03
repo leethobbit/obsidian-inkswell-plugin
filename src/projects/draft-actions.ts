@@ -8,6 +8,7 @@
  */
 
 import { App, Notice, TFile, normalizePath } from "obsidian";
+import { tryFileOp } from "../lib/notify";
 import { confirmDelete } from "../scenes/scene-actions";
 import { planDraftCopy } from "./draft-plan";
 import { persistDraft, persistInkswellData } from "./index-writer";
@@ -54,34 +55,38 @@ export async function createDraft(
 
   for (const folder of plan.folders) await ensureFolderDeep(app, folder);
 
-  // Copy the index note first: this brings its `inkswell` planning block and body
-  // with it. persistDraft then overwrites only the `longform` block for the copy.
-  // (read+create rather than Vault.copy, which needs Obsidian 1.8.7 > our floor.)
-  const newIndex = await app.vault.create(plan.indexPath, await app.vault.read(sourceIndex));
-  await persistDraft(app, newIndex, plan.newDraft);
-  // The copy inherited the source's `inkswell` block (byte copy above), so overwrite
-  // draftCreated with *now* — otherwise the new draft would carry the source's stamp.
-  await persistInkswellData(app, newIndex, { draftCreated: new Date().toISOString() });
+  const newIndex = await tryFileOp(async () => {
+    // Copy the index note first: this brings its `inkswell` planning block and body
+    // with it. persistDraft then overwrites only the `longform` block for the copy.
+    // (read+create rather than Vault.copy, which needs Obsidian 1.8.7 > our floor.)
+    const index = await app.vault.create(plan.indexPath, await app.vault.read(sourceIndex));
+    await persistDraft(app, index, plan.newDraft);
+    // The copy inherited the source's `inkswell` block (byte copy above), so overwrite
+    // draftCreated with *now* — otherwise the new draft would carry the source's stamp.
+    await persistInkswellData(app, index, { draftCreated: new Date().toISOString() });
 
-  // Copy each scene file (prose + scene frontmatter preserved verbatim).
-  for (const c of plan.sceneCopies) {
-    const f = app.vault.getAbstractFileByPath(c.from);
-    if (f instanceof TFile) await app.vault.create(c.to, await app.vault.read(f));
-  }
-
-  // First split: give the original a name so both drafts read clearly in the switcher.
-  if (plan.renameOriginalTo) {
-    await persistDraft(app, sourceIndex, {
-      ...source.draft,
-      draftTitle: plan.renameOriginalTo,
-      titleInFrontmatter: true,
-    });
-    // Backfill the original's creation stamp only if it never had one — never
-    // clobber a real earlier value. Absent stays absent (pre-existing/unknown).
-    if (!source.inkswell?.draftCreated) {
-      await persistInkswellData(app, sourceIndex, { draftCreated: new Date().toISOString() });
+    // Copy each scene file (prose + scene frontmatter preserved verbatim).
+    for (const c of plan.sceneCopies) {
+      const f = app.vault.getAbstractFileByPath(c.from);
+      if (f instanceof TFile) await app.vault.create(c.to, await app.vault.read(f));
     }
-  }
+
+    // First split: give the original a name so both drafts read clearly in the switcher.
+    if (plan.renameOriginalTo) {
+      await persistDraft(app, sourceIndex, {
+        ...source.draft,
+        draftTitle: plan.renameOriginalTo,
+        titleInFrontmatter: true,
+      });
+      // Backfill the original's creation stamp only if it never had one — never
+      // clobber a real earlier value. Absent stays absent (pre-existing/unknown).
+      if (!source.inkswell?.draftCreated) {
+        await persistInkswellData(app, sourceIndex, { draftCreated: new Date().toISOString() });
+      }
+    }
+    return index;
+  }, `Couldn't create draft "${newName.trim()}" — some files may have been partly written; check the "${plan.indexPath}" folder.`);
+  if (!newIndex) return null;
 
   new Notice(`Created draft "${newName.trim()}".`);
   return newIndex;
@@ -91,11 +96,15 @@ export async function createDraft(
 export async function renameDraft(app: App, project: Project, newName: string): Promise<void> {
   const index = app.vault.getAbstractFileByPath(project.vaultPath);
   if (!(index instanceof TFile)) return;
-  await persistDraft(app, index, {
-    ...project.draft,
-    draftTitle: newName.trim(),
-    titleInFrontmatter: true,
-  });
+  await tryFileOp(
+    () =>
+      persistDraft(app, index, {
+        ...project.draft,
+        draftTitle: newName.trim(),
+        titleInFrontmatter: true,
+      }),
+    "Couldn't rename the draft."
+  );
 }
 
 /**
@@ -120,12 +129,14 @@ export async function deleteDraft(
   );
   if (!ok) return false;
 
-  const index = app.vault.getAbstractFileByPath(project.vaultPath);
-  if (index instanceof TFile) await app.fileManager.trashFile(index);
-  for (const s of project.scenes) {
-    if (!s.path) continue;
-    const f = app.vault.getAbstractFileByPath(s.path);
-    if (f instanceof TFile) await app.fileManager.trashFile(f);
-  }
-  return true;
+  const done = await tryFileOp(async () => {
+    const index = app.vault.getAbstractFileByPath(project.vaultPath);
+    if (index instanceof TFile) await app.fileManager.trashFile(index);
+    for (const s of project.scenes) {
+      if (!s.path) continue;
+      const f = app.vault.getAbstractFileByPath(s.path);
+      if (f instanceof TFile) await app.fileManager.trashFile(f);
+    }
+  }, `Couldn't delete draft "${label}".`);
+  return done !== null;
 }

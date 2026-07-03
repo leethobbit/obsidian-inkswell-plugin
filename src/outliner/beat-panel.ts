@@ -11,6 +11,7 @@ import { App, Menu, Notice, TFile } from "obsidian";
 import { attachRowMenu } from "../lib/row-menu";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { persistInkswellData } from "../projects/index-writer";
+import { tryFileOp } from "../lib/notify";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
 import { EditSceneModal } from "../scenes/edit-scene-modal";
@@ -86,10 +87,12 @@ export class BeatPanel {
     const scaffold = bar.createEl("button", { text: "Scaffold scenes" });
     scaffold.setAttribute("aria-label", "Create a placeholder scene for each beat");
     scaffold.onclick = async () => {
-      const n = await scaffoldFromTemplate(this.app, this.store, project, current);
-      new Notice(
-        n > 0 ? `Created ${n} placeholder scene(s).` : "No new scenes to create."
+      const n = await tryFileOp(
+        () => scaffoldFromTemplate(this.app, this.store, project, current),
+        "Couldn't scaffold scenes."
       );
+      if (n === null) return;
+      new Notice(n > 0 ? `Created ${n} placeholder scene(s).` : "No new scenes to create.");
     };
   }
 
@@ -100,7 +103,9 @@ export class BeatPanel {
       assignments: sheet?.assignments ?? {},
     };
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
-    if (file instanceof TFile) void persistInkswellData(this.app, file, { beats: next });
+    if (file instanceof TFile) {
+      void tryFileOp(() => persistInkswellData(this.app, file, { beats: next }), "Couldn't switch the beat template.");
+    }
   }
 
   private renderBeat(
@@ -232,7 +237,7 @@ export class BeatPanel {
       // The frontmatter write triggers a store refresh, which re-renders this
       // panel via the host's subscription — no immediate rerender (avoids a
       // flicker from the stale snapshot and preserves textarea focus).
-      void persistInkswellData(this.app, file, { beats: next });
+      void tryFileOp(() => persistInkswellData(this.app, file, { beats: next }), "Couldn't save the beat change.");
     }
   }
 }

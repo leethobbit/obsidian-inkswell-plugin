@@ -11,6 +11,8 @@ import { updateScenes } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project, isMultiScene } from "../projects/types";
 import { SceneMeta, writeSceneMeta } from "../scenes/scene-meta";
+import { sanitizeSegment } from "../settings/folders";
+import { tryFileOp } from "../lib/notify";
 
 export interface CreateSceneOptions {
   title: string;
@@ -22,10 +24,6 @@ export interface CreateSceneOptions {
   meta?: Partial<SceneMeta>;
   /** Indent for the new entry when not derived from afterTitle. */
   indent?: number;
-}
-
-function sanitizeTitle(name: string): string {
-  return name.replace(/[\\/:*?"<>|]/g, "-").trim();
 }
 
 /**
@@ -43,7 +41,7 @@ export async function createScene(
   const indexFile = app.vault.getAbstractFileByPath(project.vaultPath);
   if (!(indexFile instanceof TFile)) return null;
 
-  const title = sanitizeTitle(opts.title);
+  const title = sanitizeSegment(opts.title);
   if (!title) return null;
 
   const folder = opts.folder ?? store.resolveSceneFolder(indexFile, project.draft.sceneFolder);
@@ -56,26 +54,31 @@ export async function createScene(
   }
 
   const path = normalizePath(folder === "/" ? `${title}.md` : `${folder}/${title}.md`);
-  if (app.vault.getAbstractFileByPath(path)) return null; // name taken
+  if (app.vault.getAbstractFileByPath(path)) {
+    new Notice(`A scene named "${title}" already exists.`);
+    return null; // name taken
+  }
 
-  const file = await app.vault.create(path, "");
-  await writeSceneMeta(app, file, { status: "idea", ...opts.meta });
+  return tryFileOp(async () => {
+    const file = await app.vault.create(path, "");
+    await writeSceneMeta(app, file, { status: "idea", ...opts.meta });
 
-  await updateScenes(app, indexFile, project.draft, (scenes) => {
-    if (scenes.some((s) => s.title === title)) return scenes;
-    if (opts.afterTitle) {
-      const at = scenes.findIndex((s) => s.title === opts.afterTitle);
-      if (at >= 0) {
-        const indent = opts.indent ?? scenes[at].indent;
-        const next = scenes.slice();
-        next.splice(at + 1, 0, { title, indent });
-        return next;
+    await updateScenes(app, indexFile, project.draft, (scenes) => {
+      if (scenes.some((s) => s.title === title)) return scenes;
+      if (opts.afterTitle) {
+        const at = scenes.findIndex((s) => s.title === opts.afterTitle);
+        if (at >= 0) {
+          const indent = opts.indent ?? scenes[at].indent;
+          const next = scenes.slice();
+          next.splice(at + 1, 0, { title, indent });
+          return next;
+        }
       }
-    }
-    return [...scenes, { title, indent: opts.indent ?? 0 }];
-  });
+      return [...scenes, { title, indent: opts.indent ?? 0 }];
+    });
 
-  return file;
+    return file;
+  }, `Couldn't create the scene "${title}".`);
 }
 
 export interface NewSceneOptions {
@@ -126,7 +129,7 @@ class NewSceneModal extends Modal {
 
   /** Create the scene; dismiss the modal when `close`, else reset for another. */
   private async create(close: boolean): Promise<void> {
-    const title = sanitizeTitle(this.input.value);
+    const title = sanitizeSegment(this.input.value);
     if (!title) {
       new Notice("Enter a scene title.");
       this.input.focus();
@@ -138,8 +141,10 @@ class NewSceneModal extends Modal {
       meta: this.opts.meta,
     });
     if (!file) {
-      // Keep the dialog open so the user can fix the name instead of losing it.
-      new Notice(`Couldn't create "${title}" — a scene with that name may already exist.`);
+      // createScene surfaced the reason (name taken / write failure). Keep the
+      // dialog open so the user can adjust and retry instead of losing the title.
+      this.input.focus();
+      this.input.select();
       return;
     }
     this.opts.onCreated?.(file);

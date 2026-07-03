@@ -12,6 +12,7 @@ import { attachRowMenu } from "../lib/row-menu";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
+import { tryFileOp } from "../lib/notify";
 import { addSceneMenuItems } from "../scenes/scene-actions";
 import { promptNewScene } from "./create-scene";
 import { EditSceneModal } from "../scenes/edit-scene-modal";
@@ -221,6 +222,6 @@ export class BoardPanel {
             ? { chapter: value }
             : { pov: value };
     // Writing the scene frontmatter triggers a store refresh → host re-renders.
-    void writeSceneMeta(this.app, file, patch);
+    void tryFileOp(() => writeSceneMeta(this.app, file, patch), "Couldn't move the card.");
   }
 }

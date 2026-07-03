@@ -29,6 +29,7 @@ import {
   scopeContextForProject,
 } from "./codex-scope";
 import { resolveCodexFolder } from "../settings/folders";
+import { tryFileOp } from "../lib/notify";
 import { readProfile, writeProfile } from "./codex-profile";
 import { Profile, ProfileField, profileFields } from "./profile-schema";
 import { CODEX_CATEGORIES, CodexCategory, CodexEntity, EntityScope, categoryLabel } from "./types";
@@ -117,13 +118,17 @@ export class CodexPanel {
         cta: "Create",
       });
       if (!name) return;
-      const file = await createEntity(
-        this.app,
-        category,
-        name,
-        resolveCodexFolder(this.plugin.settings, createScope, active?.vaultPath),
-        createScope,
-        resolveCodexTemplate(this.app, this.plugin.settings, category)
+      const file = await tryFileOp(
+        () =>
+          createEntity(
+            this.app,
+            category,
+            name,
+            resolveCodexFolder(this.plugin.settings, createScope, active?.vaultPath),
+            createScope,
+            resolveCodexTemplate(this.app, this.plugin.settings, category)
+          ),
+        `Couldn't create the ${categoryLabel(category)}.`
       );
       if (file) {
         this.selectedPath = file.path;
@@ -281,7 +286,10 @@ export class CodexPanel {
     entities: CodexEntity[]
   ): void {
     const save = async (value: Profile[string]) => {
-      await writeProfile(this.app, file, entity.category, { [field.key]: value });
+      await tryFileOp(
+        () => writeProfile(this.app, file, entity.category, { [field.key]: value }),
+        "Couldn't save the profile field."
+      );
     };
     // Re-render the detail after structural edits (chips, alias/parent changes
     // that the list also shows).
@@ -452,7 +460,11 @@ export class CodexPanel {
     const folder = file.parent ? file.parent.path : "";
     const path = normalizePath(folder ? `${folder}/${safe}.md` : `${safe}.md`);
     if (this.app.vault.getAbstractFileByPath(path)) return;
-    await this.app.fileManager.renameFile(file, path);
+    const ok = await tryFileOp(
+      () => this.app.fileManager.renameFile(file, path),
+      `Couldn't rename "${file.basename}".`
+    );
+    if (ok === null) return;
     if (this.selectedPath === file.path) this.selectedPath = path;
     this.renderList();
     this.renderDetail();
@@ -461,7 +473,8 @@ export class CodexPanel {
   private async remove(file: TFile, name: string): Promise<void> {
     const ok = await confirmDelete(this.app, `Delete codex entry "${name}"? It will be moved to trash.`);
     if (!ok) return;
-    await this.app.fileManager.trashFile(file);
+    const done = await tryFileOp(() => this.app.fileManager.trashFile(file), `Couldn't delete "${name}".`);
+    if (done === null) return;
     if (this.selectedPath === file.path) this.selectedPath = null;
     this.renderList();
     this.renderDetail();

@@ -4,6 +4,7 @@
  */
 
 import { App, Modal, Notice, Setting, TFile } from "obsidian";
+import { tryFileOp } from "../lib/notify";
 import { persistInkswellData } from "../projects/index-writer";
 import { Project } from "../projects/types";
 
@@ -68,14 +69,19 @@ export class TargetModal extends Modal {
       new Notice("Project index not found.");
       return;
     }
-    await persistInkswellData(this.app, file, {
-      goals: {
-        ...this.project.inkswell?.goals,
-        target: this.value || undefined,
-        deadline: this.deadline || undefined,
-        daysPerWeek: this.daysPerWeek === 7 ? undefined : this.daysPerWeek,
-      },
-    });
+    const ok = await tryFileOp(
+      () =>
+        persistInkswellData(this.app, file, {
+          goals: {
+            ...this.project.inkswell?.goals,
+            target: this.value || undefined,
+            deadline: this.deadline || undefined,
+            daysPerWeek: this.daysPerWeek === 7 ? undefined : this.daysPerWeek,
+          },
+        }),
+      "Couldn't save the word target."
+    );
+    if (ok === null) return;
     new Notice(this.value ? `Target set to ${this.value} words.` : "Target cleared.");
     this.close();
   }

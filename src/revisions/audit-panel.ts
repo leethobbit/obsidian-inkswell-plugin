@@ -15,6 +15,7 @@
  */
 
 import { App, TFile } from "obsidian";
+import { tryFileOp } from "../lib/notify";
 import { linkTarget } from "../codex/codex";
 import { getCodexEntities } from "../codex/codex-store";
 import { filterToScope, scopeContextForProject } from "../codex/codex-scope";
@@ -201,7 +202,12 @@ export class AuditPanel {
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
     // Persist only — the index-frontmatter write triggers a store refresh, which
     // re-renders this panel (open sections are restored from `this.open`).
-    if (file instanceof TFile) void persistInkswellData(this.app, file, { revisionChecklist: next });
+    if (file instanceof TFile) {
+      void tryFileOp(
+        () => persistInkswellData(this.app, file, { revisionChecklist: next }),
+        "Couldn't save the checklist change."
+      );
+    }
   }
 
   private renderScenes(host: HTMLElement, project: Project): void {
@@ -424,7 +430,10 @@ export class AuditPanel {
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
     // Store as wikilinks so renames follow; `next` holds plain names from the picker.
     if (file instanceof TFile) {
-      void persistInkswellData(this.app, file, { arcTracked: serializeTracked(next) });
+      void tryFileOp(
+        () => persistInkswellData(this.app, file, { arcTracked: serializeTracked(next) }),
+        "Couldn't save the tracked characters."
+      );
     }
   }
 
@@ -611,7 +620,10 @@ export class AuditPanel {
   private saveStyle(project: Project, entries: StyleEntry[]): void {
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
     if (file instanceof TFile) {
-      void persistInkswellData(this.app, file, { styleSheet: { entries } });
+      void tryFileOp(
+        () => persistInkswellData(this.app, file, { styleSheet: { entries } }),
+        "Couldn't save the style sheet."
+      );
     }
   }
 }

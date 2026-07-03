@@ -11,6 +11,7 @@ import { expectInAppRename } from "../projects/rename-heal";
 import { renameSceneInBeats } from "../outliner/beats";
 import { removeScene } from "../projects/scene-tree";
 import { Project } from "../projects/types";
+import { tryFileOp } from "../lib/notify";
 import { EditSceneModal } from "./edit-scene-modal";
 import { readSceneMeta, writeSceneMeta } from "./scene-meta";
 import type InkswellPlugin from "../../main";
@@ -134,7 +135,9 @@ export async function editSynopsis(app: App, file: TFile): Promise<void> {
     multiline: true,
     cta: "Save",
   });
-  if (value !== null) await writeSceneMeta(app, file, { synopsis: value });
+  if (value !== null) {
+    await tryFileOp(() => writeSceneMeta(app, file, { synopsis: value }), "Couldn't save the synopsis.");
+  }
 }
 
 /**
@@ -165,17 +168,20 @@ export async function renameScene(
   // Tell the store's rename-heal this rename is app-initiated — we update the
   // index below, so the heal must not also fire (a redundant/racing write).
   expectInAppRename(newPath);
-  await app.fileManager.renameFile(file, newPath);
-  const indexFile = app.vault.getAbstractFileByPath(project.vaultPath);
-  if (indexFile instanceof TFile) {
-    await updateScenes(app, indexFile, project.draft, (scenes) =>
-      scenes.map((s) => (s.title === oldTitle ? { ...s, title: next } : s))
-    );
-    // Beats link scenes by title in a separate frontmatter structure, so rewrite
-    // those links too — otherwise the rename orphans the beat's scene chip.
-    const beats = renameSceneInBeats(project.inkswell?.beats, oldTitle, next);
-    if (beats) await persistInkswellData(app, indexFile, { beats });
-  }
+  const ok = await tryFileOp(async () => {
+    await app.fileManager.renameFile(file, newPath);
+    const indexFile = app.vault.getAbstractFileByPath(project.vaultPath);
+    if (indexFile instanceof TFile) {
+      await updateScenes(app, indexFile, project.draft, (scenes) =>
+        scenes.map((s) => (s.title === oldTitle ? { ...s, title: next } : s))
+      );
+      // Beats link scenes by title in a separate frontmatter structure, so rewrite
+      // those links too — otherwise the rename orphans the beat's scene chip.
+      const beats = renameSceneInBeats(project.inkswell?.beats, oldTitle, next);
+      if (beats) await persistInkswellData(app, indexFile, { beats });
+    }
+  }, `Couldn't rename "${oldTitle}".`);
+  if (ok === null) return null;
   return newPath;
 }
 
@@ -190,11 +196,13 @@ export async function deleteScene(
     `Delete scene "${title}"? It will be moved to trash and removed from the project.`
   );
   if (!ok) return;
-  const indexFile = app.vault.getAbstractFileByPath(project.vaultPath);
-  if (indexFile instanceof TFile) {
-    await updateScenes(app, indexFile, project.draft, (scenes) => removeScene(scenes, title));
-  }
-  await app.fileManager.trashFile(file);
+  await tryFileOp(async () => {
+    const indexFile = app.vault.getAbstractFileByPath(project.vaultPath);
+    if (indexFile instanceof TFile) {
+      await updateScenes(app, indexFile, project.draft, (scenes) => removeScene(scenes, title));
+    }
+    await app.fileManager.trashFile(file);
+  }, `Couldn't delete "${title}".`);
 }
 
 /** Add the common scene items (Open / Edit synopsis / Rename / Delete) to a menu. */

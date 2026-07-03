@@ -5,6 +5,7 @@
  */
 
 import { App, Notice, TFile } from "obsidian";
+import { tryFileOp } from "../lib/notify";
 import { runCompile, vaultHasFilesystem } from "../compile/engine";
 import { generateReferenceDoc } from "../compile/pandoc";
 import { preflight, SceneText } from "../compile/preflight";
@@ -296,6 +297,11 @@ export class CompilePanel {
     // Persisting rewrites the index frontmatter → store refresh re-renders this
     // panel from the saved config (no immediate rerender — avoids stale flicker).
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
-    if (file instanceof TFile) void persistInkswellData(this.app, file, { compile: config });
+    if (file instanceof TFile) {
+      void tryFileOp(
+        () => persistInkswellData(this.app, file, { compile: config }),
+        "Couldn't save the compile settings."
+      );
+    }
   }
 }

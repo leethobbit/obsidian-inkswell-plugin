@@ -6,6 +6,7 @@
  */
 
 import { App, Menu, setIcon } from "obsidian";
+import { tryFileOp } from "../lib/notify";
 import { attachRowMenu } from "../lib/row-menu";
 import { resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
@@ -201,6 +202,6 @@ export class RevisionPanel {
   }
 
   private persist(project: Project, list: RevisionDecision[]): void {
-    void persistRevisions(this.app, project, list);
+    void tryFileOp(() => persistRevisions(this.app, project, list), "Couldn't save the revision log.");
   }
 }

@@ -10,6 +10,9 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Changed
+- **File operations that fail now tell you.** Every action that writes to your vault — saving a scene in the Write editor, renaming/deleting scenes and codex entries, creating a project or draft, setting a cover image, and every inspector/board/beat/audit/publish/planning field — now surfaces a notice when the write fails (disk full, permission denied, a sync lock) instead of silently doing nothing. The manuscript editor is the most protected: if a save fails it says so and keeps your text in the editor rather than marking it saved. No change when things work normally.
+
 ## [1.5.0] - 2026-07-01
 
 ### Added

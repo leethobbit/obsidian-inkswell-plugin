@@ -9,6 +9,7 @@
 
 import { App, Menu, Notice, TFile } from "obsidian";
 import { attachRowMenu } from "../../lib/row-menu";
+import { tryFileOp } from "../../lib/notify";
 import { renameSceneInBeats } from "../../outliner/beats";
 import { cleanupOwnedCover, pickVaultImage, resolveCoverSrc, setCoverFromUpload } from "../../projects/cover";
 import { persistDraft, persistInkswellData, persistOverview, updateScenes, writeSeries } from "../../projects/index-writer";
@@ -217,7 +218,9 @@ export class ExplorerPanel {
     const overview = base.inkswell?.overview ?? {};
     const indexFile = this.indexFile(base);
     const saveOverview = (patch: Partial<typeof overview>) => {
-      if (indexFile) void persistOverview(this.app, indexFile, patch);
+      if (indexFile) {
+        void tryFileOp(() => persistOverview(this.app, indexFile, patch), "Couldn't save the change.");
+      }
     };
 
     // Cover: image when set, else a dashed placeholder. Both open the same menu.
@@ -275,7 +278,10 @@ export class ExplorerPanel {
       if (!indexFile) return;
       const n = Math.floor(Number(input.value));
       const val = Number.isFinite(n) && n > 0 ? n : undefined;
-      void persistInkswellData(this.app, indexFile, { goals: { ...base.inkswell?.goals, target: val } });
+      void tryFileOp(
+        () => persistInkswellData(this.app, indexFile, { goals: { ...base.inkswell?.goals, target: val } }),
+        "Couldn't save the word target."
+      );
     };
     control.createSpan({ cls: "inkswell-hero__unit", text: "words" });
     const more = control.createEl("button", { cls: "inkswell-hero__more", text: "⋯" });
@@ -340,13 +346,17 @@ export class ExplorerPanel {
     const file = await pickVaultImage(this.app);
     if (!file) return;
     const indexFile = this.indexFile(project);
-    if (indexFile) await persistOverview(this.app, indexFile, { cover: file.path });
+    if (indexFile) {
+      await tryFileOp(() => persistOverview(this.app, indexFile, { cover: file.path }), "Couldn't set the cover image.");
+    }
   }
 
   private async removeCover(project: Project): Promise<void> {
-    await cleanupOwnedCover(this.app, project);
-    const indexFile = this.indexFile(project);
-    if (indexFile) await persistOverview(this.app, indexFile, { cover: "" });
+    await tryFileOp(async () => {
+      await cleanupOwnedCover(this.app, project);
+      const indexFile = this.indexFile(project);
+      if (indexFile) await persistOverview(this.app, indexFile, { cover: "" });
+    }, "Couldn't remove the cover image.");
   }
 
   private renderProject(parent: HTMLElement, project: Project): void {
@@ -463,34 +473,45 @@ export class ExplorerPanel {
   private async relink(project: Project, oldTitle: string, newBasename: string): Promise<void> {
     const file = this.indexFile(project);
     if (!file) return;
-    await updateScenes(this.app, file, project.draft, (scenes) =>
-      scenes.map((s) => (s.title === oldTitle ? { ...s, title: newBasename } : s))
-    );
-    // Beats link scenes by title; keep them pointing at the relinked scene.
-    const beats = renameSceneInBeats(project.inkswell?.beats, oldTitle, newBasename);
-    if (beats) await persistInkswellData(this.app, file, { beats });
+    await tryFileOp(async () => {
+      await updateScenes(this.app, file, project.draft, (scenes) =>
+        scenes.map((s) => (s.title === oldTitle ? { ...s, title: newBasename } : s))
+      );
+      // Beats link scenes by title; keep them pointing at the relinked scene.
+      const beats = renameSceneInBeats(project.inkswell?.beats, oldTitle, newBasename);
+      if (beats) await persistInkswellData(this.app, file, { beats });
+    }, "Couldn't relink the scene.");
   }
 
   private async removeFromProject(project: Project, title: string): Promise<void> {
     const file = this.indexFile(project);
     if (!file) return;
-    await updateScenes(this.app, file, project.draft, (scenes) => removeScene(scenes, title));
+    await tryFileOp(
+      () => updateScenes(this.app, file, project.draft, (scenes) => removeScene(scenes, title)),
+      "Couldn't remove the scene from the project."
+    );
   }
 
   private async addAsScene(project: Project, basename: string): Promise<void> {
     const file = this.indexFile(project);
     if (!file) return;
-    await updateScenes(this.app, file, project.draft, (scenes) => addScene(scenes, basename));
+    await tryFileOp(
+      () => updateScenes(this.app, file, project.draft, (scenes) => addScene(scenes, basename)),
+      "Couldn't add the scene."
+    );
   }
 
   /** Add an orphan file to the project's `ignoredFiles` so it stops being flagged. */
   private async ignoreFile(project: Project, basename: string): Promise<void> {
     const file = this.indexFile(project);
     if (!file || !isMultiScene(project.draft)) return;
-    await persistDraft(this.app, file, {
-      ...project.draft,
-      ignoredFiles: [...project.draft.ignoredFiles, basename],
-    });
+    // Capture the narrowed draft: inside the closure TS would re-widen
+    // `project.draft` to the Draft union and lose `ignoredFiles`.
+    const draft = project.draft;
+    await tryFileOp(
+      () => persistDraft(this.app, file, { ...draft, ignoredFiles: [...draft.ignoredFiles, basename] }),
+      "Couldn't ignore the file."
+    );
   }
 
   /** Right-click menu on a project header: series membership. */
@@ -517,7 +538,7 @@ export class ExplorerPanel {
         i
           .setTitle("Remove from series")
           .setIcon("link-2-off")
-          .onClick(() => void writeSeries(this.app, file, null))
+          .onClick(() => void tryFileOp(() => writeSeries(this.app, file, null), "Couldn't remove the book from the series."))
       );
     }
     return menu;
@@ -534,7 +555,7 @@ export class ExplorerPanel {
     if (name === null) return;
     const trimmed = name.trim();
     if (!trimmed) {
-      await writeSeries(this.app, file, null);
+      await tryFileOp(() => writeSeries(this.app, file, null), "Couldn't update the series.");
       return;
     }
     // A book that's alone in its series is Book 1 by default; joining a series
@@ -543,7 +564,7 @@ export class ExplorerPanel {
       .getProjects()
       .filter((p) => p.vaultPath !== project.vaultPath && projectSeries(p)?.name === trimmed);
     const order = others.length === 0 ? 1 : cur?.order;
-    await writeSeries(this.app, file, { name: trimmed, order });
+    await tryFileOp(() => writeSeries(this.app, file, { name: trimmed, order }), "Couldn't update the series.");
   }
 
   private async setBookNumber(project: Project, file: TFile): Promise<void> {
@@ -557,10 +578,10 @@ export class ExplorerPanel {
     });
     if (raw === null) return;
     const n = Math.floor(Number(raw));
-    await writeSeries(this.app, file, {
-      name: cur.name,
-      order: Number.isFinite(n) && n > 0 ? n : undefined,
-    });
+    await tryFileOp(
+      () => writeSeries(this.app, file, { name: cur.name, order: Number.isFinite(n) && n > 0 ? n : undefined }),
+      "Couldn't set the book number."
+    );
   }
 
   private renderScene(
@@ -633,7 +654,10 @@ export class ExplorerPanel {
         .setTitle("Indent (nest)")
         .setIcon("indent")
         .onClick(() =>
-          updateScenes(this.app, file, project.draft, (s) => indentScene(s, index))
+          void tryFileOp(
+            () => updateScenes(this.app, file, project.draft, (s) => indentScene(s, index)),
+            "Couldn't indent the scene."
+          )
         )
     );
     menu.addItem((i) =>
@@ -641,7 +665,10 @@ export class ExplorerPanel {
         .setTitle("Unindent")
         .setIcon("outdent")
         .onClick(() =>
-          updateScenes(this.app, file, project.draft, (s) => unindentScene(s, index))
+          void tryFileOp(
+            () => updateScenes(this.app, file, project.draft, (s) => unindentScene(s, index)),
+            "Couldn't unindent the scene."
+          )
         )
     );
     // Scene-content actions (edit synopsis, rename, delete) when the file exists.
@@ -678,8 +705,9 @@ export class ExplorerPanel {
         .setIcon("link-2-off")
         .onClick(() => {
           if (scene?.title) {
-            void updateScenes(this.app, file, project.draft, (s) =>
-              removeScene(s, scene.title)
+            void tryFileOp(
+              () => updateScenes(this.app, file, project.draft, (s) => removeScene(s, scene.title)),
+              "Couldn't remove the scene from the project."
             );
           }
         })
@@ -718,8 +746,9 @@ export class ExplorerPanel {
       if (payload.project !== project.vaultPath) return; // only within a project
       const file = this.indexFile(project);
       if (!file) return;
-      void updateScenes(this.app, file, project.draft, (s) =>
-        moveScene(s, payload.index, index)
+      void tryFileOp(
+        () => updateScenes(this.app, file, project.draft, (s) => moveScene(s, payload.index, index)),
+        "Couldn't reorder the scene."
       );
     });
   }
@@ -741,7 +770,10 @@ export class ExplorerPanel {
           .setTitle("Move up")
           .setIcon("arrow-up")
           .onClick(() =>
-            void updateScenes(this.app, file, project.draft, (s) => moveScene(s, index, index - 1))
+            void tryFileOp(
+              () => updateScenes(this.app, file, project.draft, (s) => moveScene(s, index, index - 1)),
+              "Couldn't move the scene."
+            )
           )
       );
     }
@@ -751,7 +783,10 @@ export class ExplorerPanel {
           .setTitle("Move down")
           .setIcon("arrow-down")
           .onClick(() =>
-            void updateScenes(this.app, file, project.draft, (s) => moveScene(s, index, index + 1))
+            void tryFileOp(
+              () => updateScenes(this.app, file, project.draft, (s) => moveScene(s, index, index + 1)),
+              "Couldn't move the scene."
+            )
           )
       );
     }

@@ -5,6 +5,7 @@
  */
 
 import { App, TFile } from "obsidian";
+import { tryFileOp } from "../../lib/notify";
 import { resolveActive } from "../../projects/active-project";
 import { persistPublishing } from "../../projects/index-writer";
 import { ProjectStore } from "../../projects/project-store";
@@ -266,6 +267,9 @@ export class LaunchPanel {
   }
 
   private saveSub(file: TFile, mutator: (pub: PublishingData) => void): void {
-    void persistPublishing(this.app, file, (raw) => mutator(raw));
+    void tryFileOp(
+      () => persistPublishing(this.app, file, (raw) => mutator(raw)),
+      "Couldn't save the launch plan."
+    );
   }
 }
