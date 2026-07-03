@@ -1873,8 +1873,58 @@
   background-color: var(--interactive-accent);
   transition: width 0.2s ease;
 }
+.inkswell-progress.is-empty .inkswell-progress__fill {
+  width: 0;
+}
+.inkswell-progress.is-done .inkswell-progress__fill {
+  background-color: var(--color-green);
+}
 
-/* 30-day bar chart */
+/* Plan → Structure (chapters & acts) */
+.inkswell-structure {
+  padding: var(--size-4-3);
+}
+.inkswell-structure__section {
+  margin-bottom: var(--size-4-4);
+}
+.inkswell-structure__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-structure__title {
+  font-weight: var(--font-semibold);
+}
+.inkswell-structure__subhead {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  margin: var(--size-4-3) 0 var(--size-4-1);
+}
+.inkswell-structure__row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-1) 0;
+}
+.inkswell-structure__name {
+  display: flex;
+  flex-direction: column;
+  min-width: 9em;
+  flex: 1 1 auto;
+}
+.inkswell-structure__meta {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-structure__bar {
+  flex: 1 1 6em;
+  min-width: 4em;
+}
+.inkswell-structure__target {
+  width: 6em;
+  flex: 0 0 auto;
+}
 .inkswell-chart {
   display: flex;
   align-items: flex-end;

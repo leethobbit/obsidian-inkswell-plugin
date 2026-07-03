@@ -9,6 +9,7 @@
 
 import type { CompileConfig } from "../compile/types";
 import type { BeatSheet } from "../outliner/beat-templates";
+import type { StructureGroup } from "../outliner/structure";
 import type { PublishingData } from "../publishing/publishing-data";
 import type { RevisionChecklistData } from "../revisions/checklist";
 import type { StyleSheetData } from "../revisions/stylesheet";
@@ -123,6 +124,10 @@ export interface InkswellProjectData {
   /** Self-publishing checklist, metadata, launch plan & trackers. */
   publishing?: PublishingData;
   beats?: BeatSheet;
+  /** Chapter config objects (per-chapter word target + planned/empty chapters). Membership derives from scene `chapter` strings; order of populated chapters derives from manuscript. */
+  chapters?: StructureGroup[];
+  /** Act config objects (same model as chapters). */
+  acts?: StructureGroup[];
   series?: SeriesInfo;
   /** Novel-level planning (logline/theme/genre/audience + planning-note pointer). */
   overview?: ProjectOverview;

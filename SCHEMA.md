@@ -98,6 +98,9 @@ ISO 8601 string, stamped when a draft is created via **New draft** (a draft's ow
 ### `inkswell.beats` — beat sheet
 `template` (enum: `save-the-cat` · `three-act` · `heros-journey` · `seven-point` · `story-circle` · `romancing-the-beat` · `twenty-seven-chapter`) · `assignments` (map of `beatId → {scenes?: string[], note?: string, done?: boolean}`).
 
+### `inkswell.chapters` / `inkswell.acts` — chapter/act config objects
+Array of `{id, title, targetWords?}` (Plan → Structure). A **config layer** over the frozen scene `chapter`/`act` strings — the strings remain the source of truth for **membership** (a scene belongs to the group whose `title` equals its string) and for the **order** of populated groups (derived from manuscript/scene order). An entry persists only when a group has a `targetWords` **or** is *planned* — a group created ahead of writing, whose `title` matches no scene yet (it auto-activates once a scene takes that title). `id` is a stable string minted at creation so a target survives a rename. Managed per **draft** (each draft owns its own structure), unlike story-level `overview`/`goals`.
+
 ### `inkswell.revisions` — invisible-revision decision log
 Array of `{id, text, scene: string|null, status, created, type?, priority?}`.
 - `status`: `pending` · `applied`

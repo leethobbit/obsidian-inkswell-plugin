@@ -11,6 +11,7 @@ import { App, TFile } from "obsidian";
 import { asRecord } from "../lib/frontmatter";
 import { writeDraftToFrontmatter } from "./draft-serialization";
 import { Draft, IndentedScene, MultipleSceneDraft, InkswellProjectData, ProjectOverview, SeriesInfo } from "./types";
+import type { StructureGroup, StructureKind } from "../outliner/structure";
 
 /** Write a full draft object to the index note's `longform` frontmatter. */
 export async function persistDraft(
@@ -97,6 +98,27 @@ export async function persistOverview(
     }
     if (Object.keys(overview).length === 0) delete inkswell["overview"];
     else inkswell["overview"] = overview;
+    if (Object.keys(inkswell).length === 0) delete fm["inkswell"];
+    else fm["inkswell"] = inkswell;
+  });
+}
+
+/**
+ * Write the chapter/act config array to `inkswell.chapters` / `inkswell.acts`
+ * (read-merge-write, like `persistPublishing`). An empty array deletes the key,
+ * and an emptied `inkswell` object is pruned. `kind` picks the target key.
+ */
+export async function persistStructure(
+  app: App,
+  indexFile: TFile,
+  kind: StructureKind,
+  groups: StructureGroup[]
+): Promise<void> {
+  const key = kind === "act" ? "acts" : "chapters";
+  await app.fileManager.processFrontMatter(indexFile, (fm: Record<string, unknown>) => {
+    const inkswell = { ...asRecord(fm["inkswell"]) };
+    if (groups.length === 0) delete inkswell[key];
+    else inkswell[key] = groups;
     if (Object.keys(inkswell).length === 0) delete fm["inkswell"];
     else fm["inkswell"] = inkswell;
   });

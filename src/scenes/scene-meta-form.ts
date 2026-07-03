@@ -13,6 +13,7 @@ import { Project } from "../projects/types";
 import { SCENE_CHECKPOINTS } from "../revisions/audit";
 import { readSceneAudit, writeSceneAudit } from "../revisions/audit-meta";
 import { OPENING_LABEL, OPENING_TYPES, OpeningType } from "../revisions/openings";
+import { distinctInOrder } from "../outliner/structure";
 import {
   SCENE_STATUSES,
   SceneMeta,
@@ -23,14 +24,27 @@ import {
 
 const COLORS = ["#e06c75", "#e5c07b", "#98c379", "#56b6c2", "#61afef", "#c678dd"];
 
-// Unique <datalist> id per POV field instance (Inspector + Edit modal can coexist).
+// Unique <datalist> id per field instance (Inspector + Edit modal can coexist).
 let povListSeq = 0;
+let structureListSeq = 0;
 
 /** One labelled field row (label optional). */
 function field(parent: HTMLElement, label: string, build: (host: HTMLElement) => void): void {
   const f = parent.createDiv({ cls: "inkswell-inspector__field" });
   if (label) f.createDiv({ cls: "inkswell-inspector__label", text: label });
   build(f.createDiv({ cls: "inkswell-inspector__control" }));
+}
+
+/** Existing act/chapter labels across the book's scenes + any planned groups. */
+function structureLabels(app: App, project: Project | null, kind: "act" | "chapter"): string[] {
+  if (!project || project.draft.format !== "scenes") return [];
+  const sceneLabels = project.scenes.map((s) => {
+    if (!s.path) return undefined;
+    const f = app.vault.getAbstractFileByPath(s.path);
+    return f instanceof TFile ? readSceneMeta(app, f)[kind] : undefined;
+  });
+  const configured = (kind === "act" ? project.inkswell?.acts : project.inkswell?.chapters) ?? [];
+  return distinctInOrder([...sceneLabels, ...configured.map((g) => g.title)]);
 }
 
 /**
@@ -156,16 +170,28 @@ export function renderSceneMetaFields(
     };
   });
 
-  // Act + Chapter
+  // Act + Chapter — free text, but suggest existing labels (and planned groups)
+  // so users reuse chapters/acts instead of creating typo'd phantom ones.
   field(container, "Act / Chapter", (host) => {
     const row = host.createDiv({ cls: "inkswell-inspector__pair" });
+    const suggest = (input: HTMLInputElement, kind: "act" | "chapter") => {
+      const labels = structureLabels(app, project, kind);
+      if (labels.length === 0) return;
+      const listId = `inkswell-${kind}-${structureListSeq++}`;
+      const list = host.createEl("datalist");
+      list.id = listId;
+      for (const l of labels) list.createEl("option", { value: l });
+      input.setAttribute("list", listId);
+    };
     const act = row.createEl("input", { type: "text" });
     act.value = meta.act ?? "";
     act.placeholder = "Act";
+    suggest(act, "act");
     act.onchange = () => save({ act: act.value });
     const ch = row.createEl("input", { type: "text" });
     ch.value = meta.chapter ?? "";
     ch.placeholder = "Chapter";
+    suggest(ch, "chapter");
     ch.onchange = () => save({ chapter: ch.value });
   });
 
