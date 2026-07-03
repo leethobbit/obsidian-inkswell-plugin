@@ -1880,52 +1880,87 @@
   background-color: var(--color-green);
 }
 
-/* Plan → Structure (chapters & acts) */
-.inkswell-structure {
+/* Plan → Outline (Act › Chapter › Scene tree) */
+.inkswell-outline {
   padding: var(--size-4-3);
 }
-.inkswell-structure__section {
-  margin-bottom: var(--size-4-4);
+.inkswell-outline__bar {
+  display: flex;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-3);
 }
-.inkswell-structure__head {
+.inkswell-outline__act {
+  margin-bottom: var(--size-4-3);
+}
+.inkswell-outline__children {
+  margin-left: var(--size-4-4);
+  border-left: 1px solid var(--background-modifier-border);
+  padding-left: var(--size-4-2);
+}
+.inkswell-outline__row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--size-4-2);
+  gap: var(--size-4-2);
+  padding: var(--size-4-1) var(--size-4-2);
+  border-radius: var(--radius-s);
 }
-.inkswell-structure__title {
+.inkswell-outline__row.is-act {
   font-weight: var(--font-semibold);
+  background-color: var(--background-secondary);
 }
-.inkswell-structure__subhead {
+.inkswell-outline__row.is-chapter {
+  font-weight: var(--font-medium);
+}
+.inkswell-outline__row.is-dragging {
+  opacity: 0.4;
+}
+.inkswell-outline__row.is-drop-target,
+.inkswell-outline__children.is-drop-target {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+}
+.inkswell-outline__grip {
+  color: var(--text-faint);
+  cursor: grab;
+  display: inline-flex;
+}
+.inkswell-outline__name {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.inkswell-outline__name.is-link,
+.inkswell-outline__scene.is-link {
+  cursor: pointer;
+}
+.inkswell-outline__name.is-link:hover {
+  color: var(--text-accent);
+}
+.inkswell-outline__meta {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-outline__progress {
+  flex: 0 0 8em;
+}
+.inkswell-outline__target {
+  width: 5.5em;
+  flex: 0 0 auto;
+}
+.inkswell-outline__mini {
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-outline__subhead {
   color: var(--text-muted);
   font-size: var(--font-ui-small);
   margin: var(--size-4-3) 0 var(--size-4-1);
 }
-.inkswell-structure__row {
-  display: flex;
-  align-items: center;
-  gap: var(--size-4-2);
-  padding: var(--size-4-1) 0;
-}
-.inkswell-structure__name {
-  display: flex;
-  flex-direction: column;
-  /* Fixed width so the progress bars line up regardless of the word-count
-     label's length (a longer count must not push the bar rightward). */
-  flex: 0 0 14em;
-  min-width: 0;
-}
-.inkswell-structure__meta {
-  color: var(--text-muted);
+.inkswell-outline__empty {
+  color: var(--text-faint);
   font-size: var(--font-ui-smaller);
-}
-.inkswell-structure__bar {
-  flex: 1 1 6em;
-  min-width: 4em;
-}
-.inkswell-structure__target {
-  width: 6em;
-  flex: 0 0 auto;
+  font-style: italic;
+  padding: var(--size-4-1) var(--size-4-2);
 }
 .inkswell-chart {
   display: flex;

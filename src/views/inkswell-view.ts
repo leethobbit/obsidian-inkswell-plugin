@@ -78,7 +78,7 @@ const DESTINATIONS: Destination[] = [
       { id: "overview", label: "Overview" },
       { id: "beats", label: "Beats" },
       { id: "board", label: "Board" },
-      { id: "structure", label: "Structure" },
+      { id: "outline", label: "Outline" },
     ],
   },
   { id: "write", label: "Write", icon: "pencil" },
@@ -622,7 +622,7 @@ export class InkswellView extends ItemView {
         const sub = this.subtab["plan"] ?? "overview";
         if (sub === "board") this.board.render(panel);
         else if (sub === "beats") this.beats.render(panel);
-        else if (sub === "structure") this.structure.render(panel);
+        else if (sub === "outline") this.structure.render(panel);
         else this.overview.render(panel);
         break;
       }

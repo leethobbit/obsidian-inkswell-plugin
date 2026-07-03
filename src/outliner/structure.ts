@@ -18,12 +18,15 @@
 export type StructureKind = "act" | "chapter";
 
 export interface StructureGroup {
-  /** Stable id, minted once; lets a target survive a rename. */
+  /** Stable id, minted once; lets config survive a rename. */
   id: string;
   /** Label matching scene `act`/`chapter` strings (membership + display key). */
   title: string;
   /** Optional per-group word-count target. */
   targetWords?: number;
+  /** Chapters only: the id of the act this chapter belongs to (the explicit
+   *  chapter→act link). Absent = not in any act. Ignored on act entries. */
+  actId?: string;
 }
 
 /** Split of a kind's groups into manuscript-ordered active vs array-ordered planned. */
@@ -93,16 +96,22 @@ export function mergeGroups(
  */
 export function upsertGroup(
   configured: StructureGroup[] | undefined,
-  group: { id?: string; title: string; targetWords?: number }
+  group: { id?: string; title: string; targetWords?: number; actId?: string }
 ): StructureGroup[] {
   const list = [...(configured ?? [])];
   const idx = list.findIndex(
     (g) => (group.id && g.id === group.id) || g.title === group.title
   );
+  const existing = idx >= 0 ? list[idx] : undefined;
+  // Preserve fields the caller didn't specify (e.g. setting a target must not
+  // drop an existing chapter's actId, and vice-versa).
+  const targetWords = group.targetWords ?? existing?.targetWords;
+  const actId = group.actId ?? existing?.actId;
   const next: StructureGroup = {
-    id: group.id ?? (idx >= 0 ? list[idx].id : newStructureId()),
+    id: group.id ?? existing?.id ?? newStructureId(),
     title: group.title,
-    ...(group.targetWords ? { targetWords: group.targetWords } : {}),
+    ...(targetWords ? { targetWords } : {}),
+    ...(actId ? { actId } : {}),
   };
   if (idx >= 0) list[idx] = next;
   else list.push(next);

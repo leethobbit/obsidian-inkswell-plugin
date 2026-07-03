@@ -98,8 +98,10 @@ ISO 8601 string, stamped when a draft is created via **New draft** (a draft's ow
 ### `inkswell.beats` — beat sheet
 `template` (enum: `save-the-cat` · `three-act` · `heros-journey` · `seven-point` · `story-circle` · `romancing-the-beat` · `twenty-seven-chapter`) · `assignments` (map of `beatId → {scenes?: string[], note?: string, done?: boolean}`).
 
-### `inkswell.chapters` / `inkswell.acts` — chapter/act config objects
-Array of `{id, title, targetWords?}` (Plan → Structure). A **config layer** over the frozen scene `chapter`/`act` strings — the strings remain the source of truth for **membership** (a scene belongs to the group whose `title` equals its string) and for the **order** of populated groups (derived from manuscript/scene order). An entry persists only when a group has a `targetWords` **or** is *planned* — a group created ahead of writing, whose `title` matches no scene yet (it auto-activates once a scene takes that title). `id` is a stable string minted at creation so a target survives a rename. Managed per **draft** (each draft owns its own structure), unlike story-level `overview`/`goals`.
+### `inkswell.acts` / `inkswell.chapters` — the Act › Chapter › Scene outline
+`inkswell.acts`: ordered `[{id, title}]`. `inkswell.chapters`: ordered `[{id, title, actId?, targetWords?}]`, where `actId` links a chapter to its act (the explicit chapter→act relationship; absent = act-less).
+
+These arrays are the **authoritative structure** (edited in Plan → **Outline**). The scene `act`/`chapter` strings and the `longform.scenes` order are **derived output Inkswell writes** from the tree: a scene's `chapter` = its chapter's title, its `act` = that chapter's act title (blank when loose/unassigned), and the manuscript is reordered to flatten(act → chapter → scene). This keeps chapters contiguous and Longform/StoryLine compatible (the scene strings still exist; the flat indented scene list is still valid). `id` is a stable string minted at creation so config/`actId` survive a rename. **Backward-compatible:** if the arrays are absent/partial, the outline is reconstructed from the scene strings (chapters adopted, a chapter's act inferred from its scenes' `act`), so pre-existing projects open with their current structure intact. Managed per **draft**, unlike story-level `overview`/`goals`.
 
 ### `inkswell.revisions` — invisible-revision decision log
 Array of `{id, text, scene: string|null, status, created, type?, priority?}`.
