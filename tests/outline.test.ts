@@ -127,9 +127,22 @@ describe("move helpers", () => {
     expect(out.sceneAct.get("s3")).toBe("");
   });
 
-  it("moveAct reorders acts", () => {
-    const t = moveAct(tree(), "a:2", "a:1"); // move act 2 before act 1
-    expect(t.acts.map((a) => a.title)).toEqual(["2", "1"]);
+  it("moveScene after=true places below the anchor", () => {
+    // Move s2 to be directly after s1 in chapter One (no-op ordering here, but
+    // exercises the after path); then move s1 after s2 to reverse them.
+    const t = moveScene(tree(), "s1", "c:One", "s2", true);
+    const one = t.acts[0].chapters.find((c) => c.title === "One")!;
+    expect(one.scenes.map((s) => s.title)).toEqual(["s2", "s1"]);
+  });
+
+  it("moveChapter after=true places below the anchor within an act", () => {
+    const t = moveChapter(tree(), "c:One", "a:1", "c:Two", true); // One after Two
+    expect(t.acts[0].chapters.map((c) => c.title)).toEqual(["Two", "One"]);
+  });
+
+  it("moveAct reorders acts (before and after)", () => {
+    expect(moveAct(tree(), "a:2", "a:1").acts.map((a) => a.title)).toEqual(["2", "1"]); // before
+    expect(moveAct(tree(), "a:1", "a:2", true).acts.map((a) => a.title)).toEqual(["2", "1"]); // 1 after 2
   });
 
   it("returns the same tree reference for a no-op move (unknown id)", () => {

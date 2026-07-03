@@ -228,13 +228,15 @@ function detachScene(tree: OutlineTree, title: string): SceneRef | null {
 
 /**
  * Move a scene into a chapter (`targetChapterId`) or the unassigned bucket
- * (null), inserting before `beforeTitle` (or appended when null/not found).
+ * (null), placing it relative to `anchorTitle` — before it, or after it when
+ * `after` is true. Appended when the anchor is null/absent.
  */
 export function moveScene(
   tree: OutlineTree,
   sceneTitle: string,
   targetChapterId: string | null,
-  beforeTitle: string | null = null
+  anchorTitle: string | null = null,
+  after = false
 ): OutlineTree {
   const next = clone(tree);
   const ref = detachScene(next, sceneTitle);
@@ -244,7 +246,7 @@ export function moveScene(
       ? next.unassignedScenes
       : allChapters(next).find((c) => c.id === targetChapterId)?.scenes;
   if (!dest) return tree;
-  insertBefore(dest, ref, (s) => s.title === beforeTitle);
+  insertRelative(dest, ref, (s) => s.title === anchorTitle, after);
   return next;
 }
 
@@ -253,7 +255,8 @@ export function moveChapter(
   tree: OutlineTree,
   chapterId: string,
   targetActId: string | null,
-  beforeChapterId: string | null = null
+  anchorChapterId: string | null = null,
+  after = false
 ): OutlineTree {
   const next = clone(tree);
   let moved: ChapterNode | null = null;
@@ -270,24 +273,30 @@ export function moveChapter(
   const dest =
     targetActId === null ? next.looseChapters : next.acts.find((a) => a.id === targetActId)?.chapters;
   if (!dest) return tree;
-  insertBefore(dest, moved, (c) => c.id === beforeChapterId);
+  insertRelative(dest, moved, (c) => c.id === anchorChapterId, after);
   return next;
 }
 
-/** Reorder an act before `beforeActId` (or append when null). */
-export function moveAct(tree: OutlineTree, actId: string, beforeActId: string | null = null): OutlineTree {
+/** Reorder an act relative to `anchorActId` (before, or after when `after`). */
+export function moveAct(
+  tree: OutlineTree,
+  actId: string,
+  anchorActId: string | null = null,
+  after = false
+): OutlineTree {
   const next = clone(tree);
   const i = next.acts.findIndex((a) => a.id === actId);
   if (i < 0) return tree;
   const [moved] = next.acts.splice(i, 1);
-  insertBefore(next.acts, moved, (a) => a.id === beforeActId);
+  insertRelative(next.acts, moved, (a) => a.id === anchorActId, after);
   return next;
 }
 
-function insertBefore<T>(list: T[], item: T, isBefore: (x: T) => boolean): void {
-  const i = list.findIndex(isBefore);
+/** Insert `item` before (or after) the first anchor match; append if no match. */
+function insertRelative<T>(list: T[], item: T, isAnchor: (x: T) => boolean, after: boolean): void {
+  const i = list.findIndex(isAnchor);
   if (i < 0) list.push(item);
-  else list.splice(i, 0, item);
+  else list.splice(after ? i + 1 : i, 0, item);
 }
 
 /** A fresh empty chapter node (for "+ Add chapter"). */

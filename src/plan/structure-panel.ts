@@ -130,11 +130,15 @@ export class StructurePanel {
     addCh.onclick = () => void this.addChapter(act.id);
 
     this.draggable(row, "act", act.id);
-    // Act row accepts act-reorder (drop before) and chapter drops (into this act).
-    this.dropZone(row, (kind, id) => {
-      if (kind === "act") return this.commit(moveAct(this.tree, id, act.id));
-      if (kind === "chapter") return this.commit(moveChapter(this.tree, id, act.id, null));
-    });
+    // Act row accepts act-reorder (above/below this one) and chapter drops (appended into this act).
+    this.dropZone(
+      row,
+      (kind, id, after) => {
+        if (kind === "act") this.commit(moveAct(this.tree, id, act.id, after));
+        else if (kind === "chapter") this.commit(moveChapter(this.tree, id, act.id, null));
+      },
+      true
+    );
     attachRowMenu(row, row, () => this.actMenu(act));
 
     const body = box.createDiv({ cls: "inkswell-outline__children" });
@@ -175,11 +179,16 @@ export class StructurePanel {
     };
 
     this.draggable(row, "chapter", chapter.id);
-    // Chapter row accepts chapter-reorder (before this one, same act) and scene drops (into this chapter).
-    this.dropZone(row, (kind, id) => {
-      if (kind === "chapter") return this.commit(moveChapter(this.tree, id, actId, chapter.id));
-      if (kind === "scene") return this.commit(moveScene(this.tree, id, chapter.id, null));
-    });
+    // Chapter row accepts chapter-reorder (above/below this one, same act) and
+    // scene drops (appended into this chapter).
+    this.dropZone(
+      row,
+      (kind, id, after) => {
+        if (kind === "chapter") this.commit(moveChapter(this.tree, id, actId, chapter.id, after));
+        else if (kind === "scene") this.commit(moveScene(this.tree, id, chapter.id, null));
+      },
+      true
+    );
     attachRowMenu(row, row, () => this.chapterMenu(chapter, actId));
 
     const body = box.createDiv({ cls: "inkswell-outline__children" });
@@ -212,16 +221,19 @@ export class StructurePanel {
     const name = row.createSpan({ cls: "inkswell-outline__name inkswell-outline__scene", text: scene.title });
     if (scene.path) {
       name.addClass("is-link");
-      name.onclick = () => {
-        const f = this.app.vault.getAbstractFileByPath(scene.path!);
-        if (f instanceof TFile) openScene(this.app, f);
-      };
+      // Open the scene in the Write editor (not a plain note tab).
+      name.onclick = () => this.plugin.openSceneInWrite(scene.path!);
     }
     this.draggable(row, "scene", scene.title);
-    // Scene row accepts scene-reorder (drop before this one, into the same chapter).
-    this.dropZone(row, (kind, id) => {
-      if (kind === "scene") this.commit(moveScene(this.tree, id, chapterId, scene.title));
-    });
+    // Scene row accepts scene-reorder — placed above or below this one (by drop
+    // position), into the same chapter.
+    this.dropZone(
+      row,
+      (kind, id, after) => {
+        if (kind === "scene") this.commit(moveScene(this.tree, id, chapterId, scene.title, after));
+      },
+      true
+    );
     attachRowMenu(row, row, () => this.sceneMenu(scene));
   }
 
@@ -254,25 +266,39 @@ export class StructurePanel {
     el.addEventListener("dragend", () => el.removeClass("is-dragging"));
   }
 
-  private dropZone(el: HTMLElement, onDrop: (kind: DragKind, id: string) => void): void {
+  private dropZone(
+    el: HTMLElement,
+    onDrop: (kind: DragKind, id: string, after: boolean) => void,
+    positional = false
+  ): void {
+    // On a positional row, the pointer's vertical position within the row picks
+    // above (top half) vs below (bottom half). Non-positional zones just append.
+    const isAfter = (e: DragEvent): boolean => {
+      if (!positional) return false;
+      const r = el.getBoundingClientRect();
+      return e.clientY > r.top + r.height / 2;
+    };
+    const clearHints = () =>
+      el.removeClasses(["is-drop-target", "is-drop-above", "is-drop-below"]);
     el.addEventListener("dragover", (e) => {
-      if (!e.dataTransfer) return;
       const kind = this.draggedKind(e);
-      if (!kind) return;
+      if (!kind || !e.dataTransfer) return;
       e.preventDefault();
       e.stopPropagation();
-      el.addClass("is-drop-target");
+      clearHints();
+      if (positional) el.addClass(isAfter(e) ? "is-drop-below" : "is-drop-above");
+      else el.addClass("is-drop-target");
     });
-    el.addEventListener("dragleave", () => el.removeClass("is-drop-target"));
+    el.addEventListener("dragleave", clearHints);
     el.addEventListener("drop", (e) => {
-      el.removeClass("is-drop-target");
+      clearHints();
       const kind = this.draggedKind(e);
       if (!kind || !e.dataTransfer) return;
       const id = e.dataTransfer.getData(`inkswell/outline-${kind}`);
       if (!id) return;
       e.preventDefault();
       e.stopPropagation();
-      onDrop(kind, id);
+      onDrop(kind, id, isAfter(e));
     });
   }
 
@@ -297,8 +323,9 @@ export class StructurePanel {
   private sceneMenu(scene: SceneRef): Menu {
     const menu = new Menu();
     if (scene.path) {
+      // The row click already opens the scene in Write; offer the plain note here.
       menu.addItem((i) =>
-        i.setTitle("Open").setIcon("file-text").onClick(() => {
+        i.setTitle("Open note").setIcon("file-text").onClick(() => {
           const f = this.app.vault.getAbstractFileByPath(scene.path!);
           if (f instanceof TFile) openScene(this.app, f);
         })
