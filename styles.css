@@ -1910,8 +1910,10 @@
 .inkswell-structure__name {
   display: flex;
   flex-direction: column;
-  min-width: 9em;
-  flex: 1 1 auto;
+  /* Fixed width so the progress bars line up regardless of the word-count
+     label's length (a longer count must not push the bar rightward). */
+  flex: 0 0 14em;
+  min-width: 0;
 }
 .inkswell-structure__meta {
   color: var(--text-muted);
