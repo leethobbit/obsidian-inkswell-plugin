@@ -13,6 +13,9 @@ time the version bump renames that section to the new version and date.
 ### Added
 - **Chapters & acts are now manageable, with word targets.** A new **Plan → Structure** tab lists your chapters (and acts, when you use them) in manuscript order, each showing its scene count and word total. Give any chapter a **word target** and a progress bar tracks the words in its scenes toward it; the same targets are mirrored read-only on **Track**, which also gains a **"By chapter"** breakdown. **Rename** a chapter in one place — every scene in it updates automatically. And you can add **planned chapters/acts ahead of writing** (no scenes yet); a planned chapter activates the moment you tag a scene with its name. Chapters/acts still derive from the same scene fields as before, so nothing changes in existing projects until you set a target or add one; the scene-inspector Act/Chapter boxes now suggest your existing names to avoid typos. (Chapter structure is per-draft.)
 
+### Fixed
+- **Pressing Enter in a rename/prompt dialog now closes it.** Confirming a rename, synopsis, or codex-entry prompt with the Enter key performed the action but could leave the dialog open (only the button closed it); Enter now behaves exactly like clicking the confirm button.
+
 ### Changed
 - **File operations that fail now tell you.** Every action that writes to your vault — saving a scene in the Write editor, renaming/deleting scenes and codex entries, creating a project or draft, setting a cover image, and every inspector/board/beat/audit/publish/planning field — now surfaces a notice when the write fails (disk full, permission denied, a sync lock) instead of silently doing nothing. The manuscript editor is the most protected: if a save fails it says so and keeps your text in the editor rather than marking it saved. No change when things work normally.
 

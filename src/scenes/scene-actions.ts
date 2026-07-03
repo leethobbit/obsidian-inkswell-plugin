@@ -18,6 +18,7 @@ import type InkswellPlugin from "../../main";
 
 class PromptModal extends Modal {
   private result: string | null = null;
+  private submitted = false;
   constructor(
     app: App,
     private opts: { title: string; value: string; multiline: boolean; cta: string },
@@ -42,7 +43,14 @@ class PromptModal extends Modal {
       inp.value = this.opts.value;
       getValue = () => inp.value;
       inp.onkeydown = (e) => {
-        if (e.key === "Enter") this.submit(getValue());
+        if (e.key === "Enter") {
+          // Fully consume the Enter so it can't reach Obsidian's modal scope /
+          // the trigger button and fire a second submit (which left the dialog
+          // open after the action had already run).
+          e.preventDefault();
+          e.stopPropagation();
+          this.submit(getValue());
+        }
       };
       window.setTimeout(() => {
         inp.focus();
@@ -56,6 +64,8 @@ class PromptModal extends Modal {
   }
 
   private submit(value: string): void {
+    if (this.submitted) return; // idempotent — a double Enter/click can't reopen
+    this.submitted = true;
     this.result = value;
     this.close();
   }
