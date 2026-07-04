@@ -32,6 +32,13 @@ import type InkswellPlugin from "../../main";
 const SCENE_STEPS = BUILTIN_STEPS.filter((s) => s.kind === "scene");
 const MANUSCRIPT_STEPS = BUILTIN_STEPS.filter((s) => s.kind === "manuscript");
 
+/**
+ * Scene steps that each emit a heading per scene/chapter. Enabling both stacks
+ * two headings (e.g. "# One" then "# 01 - Scene title"), so they're mutually
+ * exclusive — turning one on turns the others off.
+ */
+const EXCLUSIVE_HEADING_STEPS = ["prepend-title", "group-by-chapter"];
+
 export class CompilePanel {
   private app: App;
   private plugin: InkswellPlugin;
@@ -315,8 +322,16 @@ export class CompilePanel {
       cb.checked = included.has(step.id);
       row.createSpan({ text: step.description });
       cb.onchange = () => {
-        if (cb.checked) included.add(step.id);
-        else included.delete(step.id);
+        if (cb.checked) {
+          included.add(step.id);
+          // Heading steps are mutually exclusive — enabling one turns the others
+          // off, so we never stack two headings (chapter + scene title).
+          if (EXCLUSIVE_HEADING_STEPS.includes(step.id)) {
+            for (const other of EXCLUSIVE_HEADING_STEPS) {
+              if (other !== step.id) included.delete(other);
+            }
+          }
+        } else included.delete(step.id);
         // Rebuild in registry order, preserving any options.
         config[key] = steps
           .filter((s) => included.has(s.id))
@@ -335,6 +350,12 @@ export class CompilePanel {
           });
         this.save(project, config);
       };
+    }
+    if (EXCLUSIVE_HEADING_STEPS.every((id) => steps.some((s) => s.id === id))) {
+      group.createDiv({
+        cls: "inkswell-stats__muted",
+        text: "“Prepend the scene title” and “Group scenes into chapters” both add headings — pick one.",
+      });
     }
   }
 
