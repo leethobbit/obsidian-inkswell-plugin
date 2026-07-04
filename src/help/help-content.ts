@@ -106,6 +106,29 @@ export const HINTS: Record<string, HintEntry> = {
       );
     },
   },
+  "plan/outline": {
+    title: "How the outline works",
+    body: (el) => {
+      p(
+        el,
+        "Organise your book as a tree: acts hold chapters, chapters hold scenes. Drag a " +
+          "scene into a chapter (or a chapter into an act), and drop above or below a row " +
+          "to reorder. This tree is the source of truth — arranging it also sets the " +
+          "manuscript's reading order, so each chapter's scenes stay together."
+      );
+      p(
+        el,
+        "It comes last in Plan on purpose. The usual flow is to sketch your Beats first, " +
+          "spin scenes off those beats, and draft them in Write — structure can wait. " +
+          "Once you have real scenes, come back here to group them into acts and chapters."
+      );
+      steps(el, [
+        "Nesting is optional — a scene can sit outside any chapter and a chapter outside any act (the “Chapters with no act” / “Unassigned scenes” buckets).",
+        "Give a chapter a word target to track its progress; the same targets show on Track.",
+        "Click a scene to open it in Write; use the ⋯ menu (or right-click) to rename, move, or delete.",
+      ]);
+    },
+  },
   codex: {
     title: "How the codex works",
     body: (el) => {
@@ -229,17 +252,19 @@ export const HELP_SECTIONS: HelpSection[] = [
   {
     phase: "Plan",
     icon: "compass",
-    summary: "Overview fields, the beat sheet, and the status board.",
+    summary: "Overview fields, the beat sheet, the status board, and the story outline.",
     body: (el) => {
       p(
         el,
         "Overview holds novel-level fields (logline, theme, genre) and long-form prose " +
-          "(synopsis, three-act sketch). Beats and Board are detailed below."
+          "(synopsis, three-act sketch). Beats, Board, and Outline are detailed below."
       );
       el.createEl("h4", { text: HINTS["plan/beats"].title });
       HINTS["plan/beats"].body(el);
       el.createEl("h4", { text: HINTS["plan/board"].title });
       HINTS["plan/board"].body(el);
+      el.createEl("h4", { text: HINTS["plan/outline"].title });
+      HINTS["plan/outline"].body(el);
     },
   },
   {
