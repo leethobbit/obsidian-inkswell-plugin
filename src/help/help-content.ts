@@ -79,14 +79,29 @@ export const HINTS: Record<string, HintEntry> = {
     body: (el) => {
       p(
         el,
-        "A Save-the-Cat–style 15-beat outline for the active project. Each beat carries " +
-          "its purpose, a planning note, an optional linked scene, and a done toggle; the " +
-          "bar across the top tracks how many are complete."
+        "A structural outline for the active project, built from a beat template you pick " +
+          "from the Template dropdown. Seven are included:"
+      );
+      steps(el, [
+        "Save the Cat (15 beats)",
+        "Three-Act (7)",
+        "Hero's Journey (12)",
+        "Seven-Point (7)",
+        "Story Circle (8)",
+        "Romancing the Beat (14)",
+        "27-Chapter (27)",
+      ]);
+      p(
+        el,
+        "Each beat carries its purpose, a planning note, an optional linked scene, and a " +
+          "done toggle; the bar across the top tracks how many are complete. Switch " +
+          "templates anytime — each keeps its own notes and links, so nothing is lost if " +
+          "you switch back."
       );
       steps(el, [
         "Type directly into a beat's planning note — it's inline, not a separate file.",
         "Link a beat to the scene that delivers it so Plan and Write stay in sync.",
-        'Scaffold generates scene stubs for any unlinked beats in one step.',
+        "Scaffold generates scene stubs for any unlinked beats in one step.",
       ]);
     },
   },
