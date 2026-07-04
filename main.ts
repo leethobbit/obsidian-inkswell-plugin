@@ -10,11 +10,13 @@
  */
 
 import { Notice, Plugin, WorkspaceLeaf } from "obsidian";
-import { CompileModal } from "./src/compile/compile-modal";
+import { runCompile } from "./src/compile/engine";
+import { resolveCompileConfig } from "./src/compile/config";
 import { TargetModal } from "./src/goals/target-modal";
 import { Idea, newIdeaId } from "./src/ideation/types";
+import { countWords } from "./src/lib/wordcount";
 import { openScene, promptText } from "./src/scenes/scene-actions";
-import { ActiveProject } from "./src/projects/active-project";
+import { ActiveProject, resolveActive } from "./src/projects/active-project";
 import { NewProjectModal } from "./src/projects/new-project-modal";
 import { ProjectStats } from "./src/projects/project-stats";
 import { ProjectStore } from "./src/projects/project-store";
@@ -136,9 +138,7 @@ export default class InkswellPlugin extends Plugin {
     this.addCommand({
       id: "compile-active-project",
       name: "Compile the active project",
-      callback: () => this.withActiveProject((p) =>
-        new CompileModal(this.app, p, this.settings).open()
-      ),
+      callback: () => void this.compileActiveProject(),
     });
     this.addCommand({
       id: "open-todos",
@@ -332,6 +332,29 @@ export default class InkswellPlugin extends Plugin {
 
   openCompile(): Promise<void> {
     return this.openInkswell("publish");
+  }
+
+  /**
+   * One-shot compile of the active project using its SAVED compile config — the
+   * same config, output name, and steps the Publish → Compile panel uses (via the
+   * shared {@link resolveCompileConfig}), so the command and the panel can't
+   * diverge. Resolves the active project the way every panel does (the header's
+   * selection), not the open markdown file.
+   */
+  private async compileActiveProject(): Promise<void> {
+    const project = resolveActive(this.store.getProjects(), this.activeProject.get());
+    if (!project) {
+      new Notice("No active project to compile. Open one in Inkswell first.");
+      return;
+    }
+    try {
+      const config = resolveCompileConfig(project, this.settings.defaultCompileFormat);
+      const result = await runCompile(this.app, project, config);
+      const words = countWords(result.wordCountSource);
+      new Notice(`Compiled ${words.toLocaleString()} words to ${result.outputPath}`);
+    } catch (e) {
+      new Notice(`Compile failed: ${(e as Error).message}`, 8000);
+    }
   }
 
   openHelp(): Promise<void> {
