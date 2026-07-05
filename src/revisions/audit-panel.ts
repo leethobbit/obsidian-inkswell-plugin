@@ -16,6 +16,7 @@
 
 import { App, TFile } from "obsidian";
 import { tryFileOp } from "../lib/notify";
+import { SectionState } from "../views/panel-kit";
 import { linkTarget } from "../codex/codex";
 import { getCodexEntities } from "../codex/codex-store";
 import { filterToScope, scopeContextForProject } from "../codex/codex-scope";
@@ -66,7 +67,7 @@ export class AuditPanel {
   private active: ActiveProject;
   private container: HTMLElement | null = null;
   /** Open <details> ids, preserved across re-renders. */
-  private open = new Set<string>(["audit-scenes"]);
+  private sections = new SectionState(["audit-scenes"]);
 
   constructor(app: App, store: ProjectStore, active: ActiveProject) {
     this.app = app;
@@ -127,27 +128,24 @@ export class AuditPanel {
     );
   }
 
-  /** Synchronous read of a scene's ticked checks from the metadata cache. */
-  private checksFor(path: string): Record<string, boolean> {
-    const file = this.app.vault.getAbstractFileByPath(path);
-    if (!(file instanceof TFile)) return {};
-    return readSceneAudit(this.app, file).checks;
-  }
-
+  /** Thin wrapper over `SectionState.section()` fixing this panel's section classes. */
   private section(
     parent: HTMLElement,
     id: string,
     title: string,
     build: (host: HTMLElement) => void
   ): void {
-    const details = parent.createEl("details", { cls: "inkswell-audit__section" });
-    details.open = this.open.has(id);
-    details.createEl("summary", { text: title });
-    details.addEventListener("toggle", () => {
-      if (details.open) this.open.add(id);
-      else this.open.delete(id);
+    this.sections.section(parent, id, title, build, {
+      detailsCls: "inkswell-audit__section",
+      bodyCls: "inkswell-audit__body",
     });
-    build(details.createDiv({ cls: "inkswell-audit__body" }));
+  }
+
+  /** Synchronous read of a scene's ticked checks from the metadata cache. */
+  private checksFor(path: string): Record<string, boolean> {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof TFile)) return {};
+    return readSceneAudit(this.app, file).checks;
   }
 
   private renderTier(
@@ -201,7 +199,7 @@ export class AuditPanel {
     const next = setChecklistItem(project.inkswell?.revisionChecklist, tier, id, patch);
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
     // Persist only — the index-frontmatter write triggers a store refresh, which
-    // re-renders this panel (open sections are restored from `this.open`).
+    // re-renders this panel (open sections are restored from `this.sections`).
     if (file instanceof TFile) {
       void tryFileOp(
         () => persistInkswellData(this.app, file, { revisionChecklist: next }),
@@ -229,7 +227,7 @@ export class AuditPanel {
 
     const row = host.createEl("details", { cls: "inkswell-audit__scene" });
     const id = `scene:${file.path}`;
-    row.open = this.open.has(id);
+    row.open = this.sections.isOpen(id);
     const summary = row.createEl("summary");
     const badge = summary.createSpan({
       cls: "inkswell-audit__badge",
@@ -259,12 +257,8 @@ export class AuditPanel {
     };
     if (row.open) build();
     row.addEventListener("toggle", () => {
-      if (row.open) {
-        this.open.add(id);
-        build();
-      } else {
-        this.open.delete(id);
-      }
+      this.sections.setOpen(id, row.open);
+      if (row.open) build();
     });
   }
 

@@ -17,6 +17,7 @@ import { addSceneMenuItems } from "../scenes/scene-actions";
 import { promptNewScene } from "./create-scene";
 import { EditSceneModal } from "../scenes/edit-scene-modal";
 import { readSceneMeta, statusLabel, writeSceneMeta } from "../scenes/scene-meta";
+import { renderEmptyState } from "../views/panel-kit";
 import { BoardColumn, BoardItem, GroupField, buildColumns } from "./board";
 import type InkswellPlugin from "../../main";
 
@@ -58,10 +59,7 @@ export class BoardPanel {
       .filter((p) => p.draft.format === "scenes");
     const project = resolveActive(projects, this.active.get());
     if (!project) {
-      container.createDiv({
-        cls: "inkswell-stats__muted",
-        text: "No multi-scene projects to board.",
-      });
+      renderEmptyState(container, "No multi-scene projects to board.");
       return;
     }
 

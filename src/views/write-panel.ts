@@ -18,6 +18,7 @@ import { attachRowMenu } from "../lib/row-menu";
 import { addSceneMenuItems } from "../scenes/scene-actions";
 import { PromptModal } from "../ideation/prompt-modal";
 import { RevisionModal } from "../revisions/revision-modal";
+import { renderEmptyState } from "./panel-kit";
 import { createSceneEditor, flashRange, insertPlaceholder } from "./scene-editor";
 import { PlaceholderKind, scanPlaceholders } from "../lib/placeholders";
 import { PromptCategory, PromptPhase } from "../ideation/prompts";
@@ -518,7 +519,7 @@ export class WritePanel {
 
   private emptyState(parent: HTMLElement, text: string): void {
     const wrap = parent.createDiv({ cls: "inkswell-write__empty" });
-    wrap.createDiv({ cls: "inkswell-stats__muted", text });
+    renderEmptyState(wrap, text);
   }
 
   /**

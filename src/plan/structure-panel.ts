@@ -19,6 +19,7 @@ import { ProjectStore } from "../projects/project-store";
 import { Project, isMultiScene } from "../projects/types";
 import { confirmDelete, openScene, promptText } from "../scenes/scene-actions";
 import { readSceneMeta } from "../scenes/scene-meta";
+import { renderEmptyState } from "../views/panel-kit";
 import { applyOutline } from "../outliner/apply-outline";
 import {
   ActNode,
@@ -57,10 +58,10 @@ export class StructurePanel {
 
     const project = resolveActive(this.store.getProjects(), this.active.get());
     if (!project || !isMultiScene(project.draft)) {
-      container.createDiv({
-        cls: "inkswell-stats__muted",
-        text: project ? "The outline applies to multi-scene projects." : "No projects found.",
-      });
+      renderEmptyState(
+        container,
+        project ? "The outline applies to multi-scene projects." : "No projects found."
+      );
       return;
     }
     this.project = project;

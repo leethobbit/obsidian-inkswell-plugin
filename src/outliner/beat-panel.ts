@@ -17,6 +17,7 @@ import { Project } from "../projects/types";
 import { EditSceneModal } from "../scenes/edit-scene-modal";
 import { addSceneMenuItems } from "../scenes/scene-actions";
 import { readSceneMeta, statusLabel } from "../scenes/scene-meta";
+import { renderEmptyState } from "../views/panel-kit";
 import { BeatSheet, DEFAULT_TEMPLATE, TEMPLATE_META } from "./beat-templates";
 import { beatProgress, mergeBeats, setAssignment } from "./beats";
 import { promptNewScene } from "./create-scene";
@@ -48,7 +49,7 @@ export class BeatPanel {
 
     const project = resolveActive(this.store.getProjects(), this.active.get());
     if (!project) {
-      container.createDiv({ cls: "inkswell-stats__muted", text: "No projects found." });
+      renderEmptyState(container, "No projects found.");
       return;
     }
 
