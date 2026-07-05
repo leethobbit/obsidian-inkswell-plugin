@@ -40,86 +40,14 @@ import { renderHint } from "../help/hint";
 import { hintKey } from "../help/help-content";
 import { PhoneShell } from "./phone/phone-shell";
 import { openMoreSheet } from "./phone/more-sheet";
+import { DESTINATIONS, InkswellMode, PHONE_REDIRECTED } from "./nav-model";
 import type InkswellPlugin from "../../main";
 
 export const VIEW_TYPE_INKSWELL = "inkswell";
 
-/** Top-level phase destinations. */
-export type InkswellMode =
-  | "home"
-  | "plan"
-  | "write"
-  | "track"
-  | "revise"
-  | "publish"
-  | "codex"
-  | "help";
-
-interface SubTab {
-  id: string;
-  label: string;
-}
-interface Destination {
-  id: InkswellMode;
-  label: string;
-  icon: string;
-  subtabs?: SubTab[];
-  /** Meta cluster (cross-cutting views/tools), rendered after a separator. */
-  meta?: boolean;
-}
-
-const DESTINATIONS: Destination[] = [
-  { id: "home", label: "Home", icon: "home" },
-  {
-    id: "plan",
-    label: "Plan",
-    icon: "compass",
-    subtabs: [
-      { id: "overview", label: "Overview" },
-      { id: "beats", label: "Beats" },
-      { id: "board", label: "Board" },
-      { id: "outline", label: "Outline" },
-    ],
-  },
-  { id: "write", label: "Write", icon: "pencil" },
-  {
-    id: "revise",
-    label: "Revise",
-    icon: "git-compare",
-    subtabs: [
-      { id: "audit", label: "Audit" },
-      { id: "log", label: "Log" },
-      { id: "todos", label: "Todos" },
-      { id: "analysis", label: "Analysis" },
-    ],
-  },
-  {
-    id: "publish",
-    label: "Publish",
-    icon: "upload",
-    subtabs: [
-      { id: "compile", label: "Compile" },
-      { id: "checklist", label: "Checklist" },
-      { id: "launch", label: "Launch" },
-    ],
-  },
-  // Meta cluster (after a separator): cross-cutting tools, not pipeline phases.
-  // Codex is reference material used across Plan/Write/Revise, so it sits here.
-  { id: "codex", label: "Codex", icon: "book-marked", meta: true },
-  { id: "track", label: "Track", icon: "bar-chart-3", meta: true },
-  { id: "help", label: "Help", icon: "help-circle", meta: true },
-];
-
-/**
- * Destinations always redirected to a "use a larger screen" placeholder on phones
- * — their multi-pane planning/publishing layouts need tablet width. Home, Write,
- * Track, Codex (read-only drill-down), and Revise→Todos stay usable on a phone;
- * Revise's other tabs redirect (handled in `isRedirected`).
- */
-const PHONE_REDIRECTED: ReadonlySet<InkswellMode> = new Set<InkswellMode>([
-  "plan",
-  "publish",
-]);
+// The nav model (destinations, sub-tabs, phone placement/redirects) lives in
+// nav-model.ts — ONE declaration drives the rail, bottom bar, and More sheet.
+export type { InkswellMode } from "../views/nav-model";
 
 export class InkswellView extends ItemView {
   private plugin: InkswellPlugin;
