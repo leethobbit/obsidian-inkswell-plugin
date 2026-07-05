@@ -76,6 +76,9 @@ export class WritePanel {
   /** Tracks the project the editor is currently bound to, to reset on change. */
   private lastProject: string | null = null;
   private selectedScene: string | null = null;
+  /** Stable hosts inside the panel, re-rendered in place by {@link update}. */
+  private navEl: HTMLElement | null = null;
+  private inspectorHost: HTMLElement | null = null;
 
   private editor: EditorView | null = null;
   /** Bumped each render; a stale async scene-load checks it and bails. */
@@ -226,8 +229,43 @@ export class WritePanel {
     backdrop.onclick = () => container.removeClass("nav-open");
     this.renderNavigator(main, project);
     this.renderEditor(main);
-    const insp = main.createDiv({ cls: "inkswell-write__inspector" });
-    this.inspector.render(insp, this.currentFile);
+    this.inspectorHost = main.createDiv({ cls: "inkswell-write__inspector" });
+    this.inspector.render(this.inspectorHost, this.currentFile);
+  }
+
+  /**
+   * Absorb a store/tracker refresh WITHOUT tearing down the live editor —
+   * re-renders the topbar, scene navigator, and inspector in place so the CM6
+   * editor keeps its undo history, scroll position, and cursor. Returns false
+   * when the refresh can't be absorbed (project switched, the selected scene
+   * changed or no longer resolves, or the panel isn't mounted) — the host then
+   * falls back to a full render.
+   */
+  update(): boolean {
+    if (!this.container || !this.container.isConnected) return false;
+    if (!this.editor || !this.currentFile) return false;
+    // A pending scene switch (selectScene / nav click) needs the full path so
+    // the new scene loads into the editor.
+    if (this.currentFile.path !== this.selectedScene) return false;
+
+    const projects = this.store.getProjects().filter((p) => p.draft.format === "scenes");
+    const project = resolveActive(projects, this.plugin.activeProject.get());
+    if (!project || project.vaultPath !== this.lastProject) return false;
+    // The scene must still be part of the project at the same path (a rename or
+    // removal invalidates the editor binding — rebuild).
+    if (!project.scenes.some((s) => s.path === this.selectedScene)) return false;
+
+    this.renderTopbar();
+    if (this.navEl) {
+      this.navEl.empty();
+      this.renderNavRows(this.navEl, project);
+    }
+    if (this.inspectorHost) this.inspector.render(this.inspectorHost, this.currentFile);
+    // A highlight requested for the already-open scene (Todos → same scene).
+    if (this.pendingHighlight) {
+      this.applyPendingHighlight(this.editor.state.doc.toString());
+    }
+    return true;
   }
 
   private renderTopbar(): void {
@@ -320,7 +358,11 @@ export class WritePanel {
   }
 
   private renderNavigator(parent: HTMLElement, project: Project): void {
-    const nav = parent.createDiv({ cls: "inkswell-write__nav" });
+    this.navEl = parent.createDiv({ cls: "inkswell-write__nav" });
+    this.renderNavRows(this.navEl, project);
+  }
+
+  private renderNavRows(nav: HTMLElement, project: Project): void {
     for (const scene of project.scenes) {
       const row = nav.createDiv({ cls: "inkswell-write__scene" });
       if (scene.path === this.selectedScene) row.addClass("is-active");

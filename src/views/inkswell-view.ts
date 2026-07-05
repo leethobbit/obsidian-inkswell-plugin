@@ -157,6 +157,8 @@ export class InkswellView extends ItemView {
   private unsubs: Array<() => void> = [];
   /** Set while a body rebuild is deferred because an input is focused. */
   private pendingRender = false;
+  /** Destination the body was last FULLY built for (gates the Write fast path). */
+  private renderedMode: InkswellMode | null = null;
   /** True between pointerdown and pointerup — a deferred rebuild must not fire
    *  mid-gesture or it tears down the element a click is landing on. */
   private pointerDown = false;
@@ -542,6 +544,20 @@ export class InkswellView extends ItemView {
       this.phone.alignAboveNavbar();
     }
 
+    // Write fast path: when Write is already built and the refresh doesn't
+    // change what the editor is bound to, let the panel absorb it in place —
+    // a body teardown here would destroy the live CM6 editor (undo history,
+    // scroll, cursor) for a background metadata change.
+    if (
+      this.mode === "write" &&
+      this.renderedMode === "write" &&
+      !(isPhone() && this.isRedirected("write")) &&
+      this.write.update()
+    ) {
+      return;
+    }
+
+    this.renderedMode = this.mode;
     this.body.empty();
     this.inspectorEl = null;
     const dest = DESTINATIONS.find((d) => d.id === this.mode);

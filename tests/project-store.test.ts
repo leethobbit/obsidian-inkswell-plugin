@@ -95,13 +95,40 @@ describe("ProjectStore", () => {
     ]);
   });
 
-  it("notifies subscribers on refresh", async () => {
+  it("skips notify for edits to notes no panel renders, notifies for scene changes", async () => {
     let calls = 0;
     const unsub = store.subscribe(() => calls++);
     expect(calls).toBe(1); // fires immediately with the current snapshot
+
+    // Unrelated note: refresh runs but the fingerprint is unchanged → no notify.
     await app.vault.modify(app.file("Diary.md") as never, "Edited diary.\n");
     await flushAsync();
-    expect(calls).toBeGreaterThan(1);
+    expect(calls).toBe(1);
+
+    // Scene frontmatter drives badges → must notify.
+    await app.fileManager.processFrontMatter(
+      app.file("Books/Alpha/Scenes/First.md") as never,
+      (fm) => {
+        fm["status"] = "written";
+      }
+    );
+    await flushAsync();
+    expect(calls).toBe(2);
+
+    // A note GAINING a codex key enters the watched set → notify.
+    await app.fileManager.processFrontMatter(app.file("Diary.md") as never, (fm) => {
+      fm["codex"] = "character";
+    });
+    await flushAsync();
+    expect(calls).toBe(3);
+
+    // …and editing that codex note keeps notifying (codex panel renders it).
+    await app.vault.modify(
+      app.file("Diary.md") as never,
+      "---\ncodex: character\n---\nBio.\n"
+    );
+    await flushAsync();
+    expect(calls).toBe(4);
     unsub();
   });
 

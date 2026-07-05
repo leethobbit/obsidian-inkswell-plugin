@@ -46,6 +46,8 @@ export class FakeVault extends Emitter {
   private contents = new Map<string, string>();
   private nodes = new Map<string, TAbstractFile>();
   private root: TFolder;
+  /** Monotonic clock for stat.mtime — every write bumps it (mtime caches rely on it). */
+  private tick = 1;
 
   /** Not a FileSystemAdapter instance → pandoc/vaultHasFilesystem stay false. */
   adapter = {};
@@ -79,6 +81,7 @@ export class FakeVault extends Emitter {
     const parent = this.folderAt(parentOf(path));
     const file = new TFile();
     setFileFields(file, path);
+    file.stat.ctime = file.stat.mtime = this.tick++;
     file.parent = parent;
     parent.children.push(file);
     this.nodes.set(path, file);
@@ -140,6 +143,7 @@ export class FakeVault extends Emitter {
   async modify(file: TFile, content: string): Promise<void> {
     if (!this.contents.has(file.path)) throw new Error(`File not found: ${file.path}`);
     this.contents.set(file.path, content);
+    file.stat.mtime = this.tick++;
     this.trigger("modify", file);
   }
 
