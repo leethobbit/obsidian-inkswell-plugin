@@ -271,25 +271,32 @@
 .inkswell-scene.is-inactive {
   opacity: 0.5;
 }
+/* Each status maps to a theme accent via --inkswell-status-rgb (Obsidian's
+   --color-*-rgb variables), so badges and the Track status mix-bar follow the
+   active theme instead of a hardcoded palette. Badges render a tint of the
+   accent; the mix-bar (below) uses it solid. */
 .inkswell-status--outlined {
-  background: #6b7280;
-  color: #fff;
+  --inkswell-status-rgb: var(--mono-rgb-100);
 }
 .inkswell-status--draft {
-  background: #b45309;
-  color: #fff;
+  --inkswell-status-rgb: var(--color-orange-rgb);
 }
 .inkswell-status--written {
-  background: #2563eb;
-  color: #fff;
+  --inkswell-status-rgb: var(--color-blue-rgb);
 }
 .inkswell-status--revised {
-  background: #7c3aed;
-  color: #fff;
+  --inkswell-status-rgb: var(--color-purple-rgb);
 }
 .inkswell-status--final {
-  background: #16a34a;
-  color: #fff;
+  --inkswell-status-rgb: var(--color-green-rgb);
+}
+.inkswell-status--outlined,
+.inkswell-status--draft,
+.inkswell-status--written,
+.inkswell-status--revised,
+.inkswell-status--final {
+  background: rgba(var(--inkswell-status-rgb), 0.18);
+  color: rgb(var(--inkswell-status-rgb));
 }
 
 /* --- Codex --- */
@@ -1718,6 +1725,9 @@
 }
 .inkswell-mixbar__seg {
   min-width: 2px;
+  /* Solid form of the status accent (badges use the 18% tint). Source order
+     matters: this rule sits after the badge tints, so it wins on segments. */
+  background: rgb(var(--inkswell-status-rgb, var(--mono-rgb-100)));
 }
 .inkswell-mixbar__seg--none {
   background: var(--background-modifier-border);

@@ -1,66 +1,64 @@
 import { describe, expect, it } from "vitest";
-import {
-  habitDaysMet,
-  heatmapWeeks,
-  lifetimeRecords,
-  monthToDateWords,
-  nextMilestone,
-  weekToDateWords,
-} from "../src/goals/goals";
+import { WritingLogData, applyCountToLog, emptyLog } from "../src/tracking/types";
 
-// Wed 2026-06-17 (Mon=15, so week-to-date covers 15,16,17)
-const WED = new Date(2026, 5, 17);
-const daily = {
-  "2026-06-15": 100, // Mon
-  "2026-06-16": 200, // Tue
-  "2026-06-17": 50, // Wed (today)
-  "2026-06-10": 999,
-  "2026-05-31": 300, // last month
-};
+const NOW = new Date(2026, 6, 4); // 2026-07-04
+const TODAY = "2026-07-04";
 
-describe("weekToDateWords", () => {
-  it("sums Monday through today", () => {
-    expect(weekToDateWords(daily, WED)).toBe(350);
-  });
+const log = (over: Partial<WritingLogData> = {}): WritingLogData => ({
+  ...emptyLog(),
+  ...over,
 });
 
-describe("monthToDateWords", () => {
-  it("sums the 1st through today (excludes last month)", () => {
-    expect(monthToDateWords(daily, WED)).toBe(100 + 200 + 50 + 999);
+describe("applyCountToLog", () => {
+  it("first sighting sets the baseline only — no phantom words (gotcha #5)", () => {
+    const l = log();
+    const delta = applyCountToLog(l, "Book/Scene 1.md", 12_000, NOW);
+    expect(delta).toBeNull();
+    expect(l.baselines["Book/Scene 1.md"]).toBe(12_000);
+    expect(l.daily).toEqual({}); // nothing attributed to today
   });
-});
 
-describe("habitDaysMet", () => {
-  it("counts week days meeting the minimum", () => {
-    expect(habitDaysMet(daily, 100, WED)).toBe(2); // Mon 100, Tue 200; Wed 50 < 100
-    expect(habitDaysMet(daily, 50, WED)).toBe(3);
+  it("attributes the net positive delta to today once a baseline exists", () => {
+    const l = log({ baselines: { "s.md": 100 } });
+    expect(applyCountToLog(l, "s.md", 150, NOW)).toBe(50);
+    expect(l.daily[TODAY]).toBe(50);
+    expect(l.baselines["s.md"]).toBe(150);
   });
-});
 
-describe("lifetimeRecords", () => {
-  it("totals words, counts days, finds best day", () => {
-    const r = lifetimeRecords(daily);
-    expect(r.totalWords).toBe(100 + 200 + 50 + 999 + 300);
-    expect(r.daysWritten).toBe(5);
-    expect(r.bestDay).toEqual({ date: "2026-06-10", words: 999 });
+  it("attributes negative deltas (deleting words counts down)", () => {
+    const l = log({ baselines: { "s.md": 100 }, daily: { [TODAY]: 80 } });
+    expect(applyCountToLog(l, "s.md", 70, NOW)).toBe(-30);
+    expect(l.daily[TODAY]).toBe(50);
   });
-});
 
-describe("nextMilestone", () => {
-  it("returns the next unreached threshold", () => {
-    expect(nextMilestone(0)).toBe(10000);
-    expect(nextMilestone(12000)).toBe(25000);
-    expect(nextMilestone(200000)).toBeNull();
+  it("returns 0 and changes nothing when the count is unchanged", () => {
+    const l = log({ baselines: { "s.md": 100 }, daily: { [TODAY]: 5 } });
+    expect(applyCountToLog(l, "s.md", 100, NOW)).toBe(0);
+    expect(l.daily[TODAY]).toBe(5);
   });
-});
 
-describe("heatmapWeeks", () => {
-  it("builds N week-columns of 7 days ending this week", () => {
-    const cols = heatmapWeeks(daily, 4, WED);
-    expect(cols).toHaveLength(4);
-    expect(cols.every((c) => c.length === 7)).toBe(true);
-    // last column is the current week; Monday cell is 2026-06-15
-    expect(cols[3][0].key).toBe("2026-06-15");
-    expect(cols[3][0].words).toBe(100);
+  it("accumulates repeated edits into one daily total", () => {
+    const l = log({ baselines: { "s.md": 0 } });
+    applyCountToLog(l, "s.md", 10, NOW);
+    applyCountToLog(l, "s.md", 25, NOW);
+    applyCountToLog(l, "s.md", 20, NOW); // trimmed 5 back out
+    expect(l.daily[TODAY]).toBe(20);
+    expect(l.baselines["s.md"]).toBe(20);
+  });
+
+  it("does not double-count a live edit followed by its disk save (same funnel)", () => {
+    // Live keystroke path reports 120; the later disk `modify` re-reports 120.
+    const l = log({ baselines: { "s.md": 100 } });
+    expect(applyCountToLog(l, "s.md", 120, NOW)).toBe(20);
+    expect(applyCountToLog(l, "s.md", 120, NOW)).toBe(0); // disk pass is a no-op
+    expect(l.daily[TODAY]).toBe(20);
+  });
+
+  it("tracks files independently and dates by the supplied clock", () => {
+    const l = log({ baselines: { "a.md": 10 } });
+    applyCountToLog(l, "a.md", 15, new Date(2026, 6, 3)); // 2026-07-03
+    applyCountToLog(l, "b.md", 999, NOW); // first sight, no attribution
+    applyCountToLog(l, "b.md", 1_009, NOW);
+    expect(l.daily).toEqual({ "2026-07-03": 5, [TODAY]: 10 });
   });
 });

@@ -242,14 +242,25 @@ export default class InkswellPlugin extends Plugin {
     );
   }
 
-  /** Persist settings, the writing log, ideas, and the active project to data.json. */
-  async persist(): Promise<void> {
-    await this.saveData({
-      settings: this.settings,
-      writingLog: this.writingLog,
-      ideas: this.ideas,
-      activeProject: this.activeProject.get(),
-    });
+  /** Serializes data.json writes so overlapping persist() calls can't interleave. */
+  private persistChain: Promise<void> = Promise.resolve();
+
+  /** Persist settings, the writing log, ideas, and the active project to data.json.
+   *  Calls are serialized: a call queues behind any in-flight save and snapshots
+   *  state only when it runs, so the last write always carries current state and
+   *  two saveData writes never overlap on the file. */
+  persist(): Promise<void> {
+    this.persistChain = this.persistChain
+      .then(() =>
+        this.saveData({
+          settings: this.settings,
+          writingLog: this.writingLog,
+          ideas: this.ideas,
+          activeProject: this.activeProject.get(),
+        })
+      )
+      .catch((e) => console.error("[Inkswell] Failed to save data.json", e));
+    return this.persistChain;
   }
 
   // --- Story ideas inbox ---
@@ -436,15 +447,21 @@ export default class InkswellPlugin extends Plugin {
     void this.openInkswell("write", (view) => view.openSceneInWrite(path));
   }
 
+  /**
+   * Resolve the project a project-scoped command acts on, the same way the
+   * panels do: the header's explicit selection first, then the active file's
+   * project, then the first project. (Editor-scoped commands like log-revision
+   * intentionally stay file-scoped — they act on the scene being edited.)
+   */
   private withActiveProject(fn: (p: Project) => void): void {
-    const active = this.app.workspace.getActiveFile();
-    if (!active) {
-      new Notice("No active file.");
-      return;
-    }
-    const project = this.projectForPath(active.path);
+    const activeFile = this.app.workspace.getActiveFile();
+    const selected = this.store.getProject(this.activeProject.get() ?? "");
+    const project =
+      selected ??
+      (activeFile ? this.projectForPath(activeFile.path) : undefined) ??
+      resolveActive(this.store.getProjects(), null);
     if (!project) {
-      new Notice("The active file isn't part of an Inkswell project.");
+      new Notice("No Inkswell project found. Create one with the New project command.");
       return;
     }
     fn(project);

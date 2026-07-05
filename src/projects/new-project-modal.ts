@@ -9,7 +9,7 @@
 import { App, Modal, Notice, Setting, TFile, normalizePath } from "obsidian";
 import { persistDraft } from "./index-writer";
 import { MultipleSceneDraft } from "./types";
-import { FolderSettings, joinPath, projectFolder } from "../settings/folders";
+import { FolderSettings, joinPath, projectFolder, sanitizeSegment } from "../settings/folders";
 import { tryFileOp } from "../lib/notify";
 
 export interface NewProjectOptions {
@@ -22,7 +22,6 @@ export interface NewProjectOptions {
   folders: FolderSettings;
 }
 
-const sanitize = (name: string): string => name.trim().replace(/[\\/:*?"<>|]/g, "-");
 const trimSlashes = (s: string): string => s.trim().replace(/^\/+|\/+$/g, "");
 
 /** Create a vault folder if it doesn't already exist (swallows exists/race). */
@@ -46,7 +45,7 @@ export async function createProject(
   app: App,
   opts: NewProjectOptions
 ): Promise<TFile | null> {
-  const safe = sanitize(opts.title);
+  const safe = sanitizeSegment(opts.title);
   if (!safe) {
     new Notice("Enter a project title.");
     return null;

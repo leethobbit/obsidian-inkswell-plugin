@@ -5,6 +5,7 @@ import {
   parentFolder,
   projectFolder,
   resolveCodexFolder,
+  sanitizeSegment,
 } from "../src/settings/folders";
 import { EntityScope } from "../src/codex/types";
 
@@ -25,6 +26,26 @@ describe("joinPath", () => {
     expect(joinPath("", "Codex")).toBe("Codex");
     expect(joinPath("", "", "")).toBe("");
     expect(joinPath(undefined, null, "Codex")).toBe("Codex");
+  });
+});
+
+describe("sanitizeSegment", () => {
+  it("strips characters illegal in file names", () => {
+    expect(sanitizeSegment('A/B\\C:D*E?F"G<H>I|J')).toBe("A-B-C-D-E-F-G-H-I-J");
+    expect(sanitizeSegment("  Plain Title  ")).toBe("Plain Title");
+  });
+
+  it("rejects path-traversal segments ('.' / '..') by sanitizing to ''", () => {
+    expect(sanitizeSegment(".")).toBe("");
+    expect(sanitizeSegment("..")).toBe("");
+    expect(sanitizeSegment(" .. ")).toBe("");
+    expect(sanitizeSegment("...")).toBe("");
+  });
+
+  it("strips leading/trailing dots (hidden files, Windows-invalid names)", () => {
+    expect(sanitizeSegment(".hidden")).toBe("hidden");
+    expect(sanitizeSegment("Chapter 1.")).toBe("Chapter 1");
+    expect(sanitizeSegment("Dr. Strange")).toBe("Dr. Strange");
   });
 });
 

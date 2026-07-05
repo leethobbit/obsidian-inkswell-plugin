@@ -6,9 +6,9 @@
  *
  * Saves happen on blur / scene-switch / unmount (NOT per keystroke) so a store
  * refresh never rebuilds the editor mid-type. Frontmatter is preserved: only the
- * body is rewritten, re-reading current frontmatter at save time so concurrent
- * Inspector edits aren't clobbered. (A future upgrade can embed Obsidian's Live
- * Preview editor per scene; this textarea editor is the robust v1.)
+ * body is rewritten, atomically via `vault.process` so concurrent Inspector
+ * edits aren't clobbered. The editor is a custom CM6 Live-Preview surface
+ * (see scene-editor.ts); embedding Obsidian's own editor remains deferred.
  */
 
 import { EditorView } from "@codemirror/view";
@@ -455,10 +455,13 @@ export class WritePanel {
     const body = ed.state.doc.toString();
     if (body === this.loadedBody) return;
     try {
-      const cur = await this.app.vault.read(file);
-      const m = cur.match(FRONTMATTER_RE);
-      const fm = m ? m[1] : "";
-      await this.app.vault.modify(file, fm + body);
+      // Atomic read-modify-write: the current frontmatter is re-read inside the
+      // transform, so a concurrent Inspector/processFrontMatter write can't land
+      // between a read and a modify and get clobbered.
+      await this.app.vault.process(file, (cur) => {
+        const m = cur.match(FRONTMATTER_RE);
+        return (m ? m[1] : "") + body;
+      });
       this.loadedBody = body;
     } catch (e) {
       // Never advance loadedBody on failure, so the next blur/save retries. The

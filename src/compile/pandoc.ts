@@ -129,10 +129,16 @@ export async function runPandoc(
   const { execFile } = nodeRequire("child_process") as { execFile: ExecFile };
   const fs = nodeRequire("fs") as typeof import("fs");
   const path = nodeRequire("path") as typeof import("path");
+  const os = nodeRequire("os") as typeof import("os");
 
   const root = basePath(app);
   const absBase = path.join(root, vaultRelativeBase);
-  const inputPath = `${absBase}.inkswell-input.md`;
+  // Temp input lives OUTSIDE the vault (so Obsidian never indexes a stray note)
+  // with a unique name (so two compiles running at once can't clobber each other).
+  const inputPath = path.join(
+    os.tmpdir(),
+    `inkswell-pandoc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.md`
+  );
   const outputPath = `${absBase}.${pandoc.extension}`;
 
   fs.writeFileSync(inputPath, manuscript, "utf8");
@@ -142,7 +148,7 @@ export async function runPandoc(
         "pandoc",
         [inputPath, "-f", "markdown", "-t", pandoc.to, "-o", outputPath, ...pandoc.extraArgs],
         // Run from the vault root so relative args (e.g. --reference-doc) resolve.
-        { cwd: root },
+        { cwd: root, maxBuffer: 16 * 1024 * 1024 },
         (err, _stdout, stderr) => {
           if (err) {
             reject(new Error(pandocErrorMessage(err, stderr)));
