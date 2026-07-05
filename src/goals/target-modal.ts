@@ -3,12 +3,13 @@
  * note's `inkswell.goals.target` frontmatter.
  */
 
-import { App, Modal, Notice, Setting, TFile } from "obsidian";
+import { App, Notice, Setting, TFile } from "obsidian";
+import { FormModal } from "../lib/form-modal";
 import { tryFileOp } from "../lib/notify";
 import { persistInkswellData } from "../projects/index-writer";
 import { Project } from "../projects/types";
 
-export class TargetModal extends Modal {
+export class TargetModal extends FormModal {
   private project: Project;
   private value: number;
   private deadline: string;
@@ -22,8 +23,7 @@ export class TargetModal extends Modal {
     this.daysPerWeek = project.inkswell?.goals?.daysPerWeek ?? 7;
   }
 
-  onOpen(): void {
-    const { contentEl } = this;
+  protected renderForm(contentEl: HTMLElement): void {
     contentEl.createEl("h3", { text: `Word target: ${this.project.draft.title}` });
 
     new Setting(contentEl)
@@ -54,20 +54,13 @@ export class TargetModal extends Modal {
           this.daysPerWeek = Number.isFinite(n) && n >= 1 && n <= 7 ? n : 7;
         });
       });
-
-    new Setting(contentEl).addButton((b) =>
-      b
-        .setButtonText("Save")
-        .setCta()
-        .onClick(() => this.save())
-    );
   }
 
-  private async save(): Promise<void> {
+  protected async submit(): Promise<boolean> {
     const file = this.app.vault.getAbstractFileByPath(this.project.vaultPath);
     if (!(file instanceof TFile)) {
       new Notice("Project index not found.");
-      return;
+      return false;
     }
     const ok = await tryFileOp(
       () =>
@@ -81,12 +74,8 @@ export class TargetModal extends Modal {
         }),
       "Couldn't save the word target."
     );
-    if (ok === null) return;
+    if (ok === null) return false; // failure already surfaced; keep the dialog open
     new Notice(this.value ? `Target set to ${this.value} words.` : "Target cleared.");
-    this.close();
-  }
-
-  onClose(): void {
-    this.contentEl.empty();
+    return true;
   }
 }

@@ -85,12 +85,21 @@ export class PromptModal extends Modal {
     const btns = contentEl.createDiv({ cls: "inkswell-prompt-modal__buttons" });
     const newBtn = btns.createEl("button", { text: "New prompt" });
     newBtn.onclick = () => this.repick();
-    const useBtn = btns.createEl("button", { text: "Use this prompt", cls: "mod-cta" });
-    useBtn.onclick = () => {
+    const use = () => {
       if (!this.text) return;
       this.onUse({ text: this.text, phase: this.phase, category: this.category });
       this.close();
     };
+    const useBtn = btns.createEl("button", { text: "Use this prompt", cls: "mod-cta" });
+    useBtn.onclick = use;
+    // Enter commits the shown prompt (house dialog behavior) — unless a button
+    // has focus, where Enter is that button's own click.
+    this.scope.register([], "Enter", (evt) => {
+      if (evt.target instanceof HTMLButtonElement) return;
+      evt.preventDefault();
+      use();
+      return false;
+    });
   }
 
   /** Re-pick a prompt for the current phase/category, avoiding an immediate repeat. */
