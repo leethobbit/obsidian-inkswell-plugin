@@ -3,6 +3,9 @@
 ## What this project is
 Single Obsidian plugin (TypeScript + esbuild) that bundles a longform writer's suite — projects/scenes, a compile pipeline, word goals, writing sprints, and an invisible-revision decision log — replacing the fragile Longform + Word Goals + Word Sprint stack. Inkswell owns the drafting surface: scenes are written in its own embedded Live-Preview editor (the Write panel), backed by a custom CodeMirror 6 `EditorView` — not Obsidian's Markdown editor. Single-user, local, no backend. Desktop + mobile (pandoc export is desktop-only and feature-detected).
 
+## Stack reference
+Obsidian plugin conventions (toolchain, Vault API rules, deferred views, mobile, release runbook, gotchas) → `~/.claude/docs/obsidian-plugin-dev.md`. This repo is the reference implementation of that doc; where they disagree, this file wins here and the doc should be fixed.
+
 ## Commands
 | Task | Command |
 |------|---------|
