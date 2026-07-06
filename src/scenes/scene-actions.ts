@@ -5,7 +5,7 @@
  * (synopsis) — never the prose body.
  */
 
-import { App, MarkdownView, Menu, Modal, Setting, TFile, normalizePath } from "obsidian";
+import { App, MarkdownView, Menu, Modal, Notice, Setting, TFile, normalizePath } from "obsidian";
 import { FormModal } from "../lib/form-modal";
 import { persistInkswellData, updateScenes } from "../projects/index-writer";
 import { expectInAppRename } from "../projects/rename-heal";
@@ -13,6 +13,7 @@ import { renameSceneInBeats } from "../outliner/beats";
 import { removeScene } from "../projects/scene-tree";
 import { Project } from "../projects/types";
 import { tryFileOp } from "../lib/notify";
+import { sanitizeSegment } from "../settings/folders";
 import { EditSceneModal } from "./edit-scene-modal";
 import { readSceneMeta, writeSceneMeta } from "./scene-meta";
 import type InkswellPlugin from "../../main";
@@ -151,8 +152,15 @@ export async function renameScene(
     cta: "Rename",
   });
   if (input === null) return null;
-  const next = input.trim().replace(/[\\/:*?"<>|]/g, "-");
-  if (!next || next === oldTitle) return null;
+  // Same sanitizer the create path uses: strips filename-illegal chars AND
+  // rejects dot-only / dot-edged names ("..", ".") that would create a hidden
+  // or folder-escaping file (which is how a scene renamed to ".." vanished).
+  const next = sanitizeSegment(input);
+  if (!next) {
+    if (input.trim()) new Notice("That name can't be used as a file name.");
+    return null;
+  }
+  if (next === oldTitle) return null;
 
   const folder = file.parent ? file.parent.path : "";
   const newPath = normalizePath(folder ? `${folder}/${next}.md` : `${next}.md`);

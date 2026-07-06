@@ -7,7 +7,7 @@
  * freeform; "Open note" jumps to Obsidian's editor for it.
  */
 
-import { App, Menu, TFile, normalizePath, setIcon } from "obsidian";
+import { App, Menu, Notice, TFile, normalizePath, setIcon } from "obsidian";
 import { attachRowMenu } from "../lib/row-menu";
 import {
   confirmDelete,
@@ -28,7 +28,7 @@ import {
   projectName,
   scopeContextForProject,
 } from "./codex-scope";
-import { resolveCodexFolder } from "../settings/folders";
+import { resolveCodexFolder, sanitizeSegment } from "../settings/folders";
 import { tryFileOp } from "../lib/notify";
 import { readProfile, writeProfile } from "./codex-profile";
 import { Profile, ProfileField, profileFields } from "./profile-schema";
@@ -455,8 +455,12 @@ export class CodexPanel {
       cta: "Rename",
     });
     if (next === null) return;
-    const safe = next.trim().replace(/[\\/:*?"<>|]/g, "-");
-    if (!safe || safe === file.basename) return;
+    const safe = sanitizeSegment(next);
+    if (!safe) {
+      if (next.trim()) new Notice("That name can't be used as a file name.");
+      return;
+    }
+    if (safe === file.basename) return;
     const folder = file.parent ? file.parent.path : "";
     const path = normalizePath(folder ? `${folder}/${safe}.md` : `${safe}.md`);
     if (this.app.vault.getAbstractFileByPath(path)) return;
