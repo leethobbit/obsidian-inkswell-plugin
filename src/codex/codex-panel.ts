@@ -26,6 +26,7 @@ import {
   defaultScopeForProject,
   filterToScope,
   projectName,
+  scopeContextForEntity,
   scopeContextForProject,
 } from "./codex-scope";
 import { resolveCodexFolder, sanitizeSegment } from "../settings/folders";
@@ -347,7 +348,13 @@ export class CodexPanel {
     self: CodexEntity,
     saveAndRefresh: (value: Profile[string]) => void
   ): void {
-    const candidates = entities.filter(
+    // Scope the candidates to what THIS entity can see: a series/project-scoped
+    // character only links entities in its own scope (+ globals); a global entity
+    // is unconstrained. Without this the picker listed every entity vault-wide,
+    // ignoring the character's scope.
+    const ctx = scopeContextForEntity(self, this.plugin.store.getProjects());
+    const inScope = ctx ? filterToScope(entities, ctx) : entities;
+    const candidates = inScope.filter(
       (e) =>
         e.path !== self.path &&
         (!field.linkCategory || e.category === field.linkCategory)

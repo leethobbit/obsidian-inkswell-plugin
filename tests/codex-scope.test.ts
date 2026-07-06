@@ -4,6 +4,7 @@ import {
   filterToScope,
   isEntityVisible,
   projectName,
+  scopeContextForEntity,
   scopeContextForProject,
 } from "../src/codex/codex-scope";
 import { CodexEntity, EntityScope } from "../src/codex/types";
@@ -116,5 +117,51 @@ describe("filterToScope", () => {
       (e) => e.name
     );
     expect(kept).toEqual(["Global", "SagaWide", "BookOnly"]);
+  });
+});
+
+describe("scopeContextForEntity", () => {
+  const projects = [project("Book One", { name: "Saga" }), project("Solo")];
+
+  it("returns null (no constraint) for a global entity", () => {
+    expect(scopeContextForEntity(entity("Narrator"), projects)).toBeNull();
+    expect(scopeContextForEntity(entity("Narrator", {}), projects)).toBeNull();
+  });
+
+  it("scopes a series entity to its series", () => {
+    expect(scopeContextForEntity(entity("Aragorn", { series: "Saga" }), projects)).toEqual({
+      projectName: null,
+      seriesName: "Saga",
+    });
+  });
+
+  it("scopes a project entity to its book AND resolves its series so series-mates stay linkable", () => {
+    expect(scopeContextForEntity(entity("Vance", { project: "Book One" }), projects)).toEqual({
+      projectName: "Book One",
+      seriesName: "Saga",
+    });
+  });
+
+  it("leaves series null for a standalone-project entity or an unknown project", () => {
+    expect(scopeContextForEntity(entity("X", { project: "Solo" }), projects)).toEqual({
+      projectName: "Solo",
+      seriesName: null,
+    });
+    expect(scopeContextForEntity(entity("X", { project: "Ghost" }), projects)).toEqual({
+      projectName: "Ghost",
+      seriesName: null,
+    });
+  });
+
+  it("a series entity's candidates exclude other series but include globals (integration)", () => {
+    const all = [
+      entity("Mina", { series: "Mina Mora" }),
+      entity("Zoie", { series: "Mina Mora" }),
+      entity("Mara", { series: "The Lattice Cycle" }),
+      entity("Narrator"),
+    ];
+    const ctx = scopeContextForEntity(entity("Mina", { series: "Mina Mora" }), projects);
+    const names = filterToScope(all, ctx!).map((e) => e.name);
+    expect(names).toEqual(["Mina", "Zoie", "Narrator"]); // no "Mara" (other series)
   });
 });
