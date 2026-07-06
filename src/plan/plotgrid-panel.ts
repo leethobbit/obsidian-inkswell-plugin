@@ -347,7 +347,8 @@ export class PlotGridPanel {
     const label = table.createDiv({ cls: "inkswell-plotgrid__rowlabel is-act" });
     const chev = label.createSpan({ cls: "inkswell-plotgrid__chev" });
     setIcon(chev, collapsed ? "chevron-right" : "chevron-down");
-    label.createSpan({ text: title });
+    // Same label convention as the Outline's act rows ("Act — One").
+    label.createSpan({ text: `Act — ${title}` });
     label.onclick = () => {
       if (this.collapsedActs.has(key)) this.collapsedActs.delete(key);
       else this.collapsedActs.add(key);
