@@ -21,6 +21,7 @@ import { AnalysisPanel } from "../insight/analysis-panel";
 import { BeatPanel } from "../outliner/beat-panel";
 import { BoardPanel } from "../outliner/board-panel";
 import { OverviewPanel } from "../plan/overview-panel";
+import { PlotGridPanel } from "../plan/plotgrid-panel";
 import { StructurePanel } from "../plan/structure-panel";
 import { ProjectStats } from "../projects/project-stats";
 import { ProjectStore } from "../projects/project-store";
@@ -55,6 +56,7 @@ export class InkswellView extends ItemView {
   private overview: OverviewPanel;
   private beats: BeatPanel;
   private board: BoardPanel;
+  private plotGrid: PlotGridPanel;
   private structure: StructurePanel;
   private codex: CodexPanel;
   private write: WritePanel;
@@ -111,6 +113,7 @@ export class InkswellView extends ItemView {
     this.overview = new OverviewPanel(this.app, plugin, store, plugin.activeProject);
     this.beats = new BeatPanel(this.app, plugin, store, plugin.activeProject);
     this.board = new BoardPanel(this.app, plugin, store, plugin.activeProject);
+    this.plotGrid = new PlotGridPanel(this.app, plugin, store, plugin.activeProject);
     this.structure = new StructurePanel(this.app, plugin, store, plugin.activeProject);
     this.codex = new CodexPanel(this.app, plugin);
     // On phones a codex row tap drills into a single-column detail screen; on
@@ -566,6 +569,7 @@ export class InkswellView extends ItemView {
         const sub = this.subtab["plan"] ?? "overview";
         if (sub === "board") this.board.render(panel);
         else if (sub === "beats") this.beats.render(panel);
+        else if (sub === "grid") this.plotGrid.render(panel);
         else if (sub === "outline") this.structure.render(panel);
         else this.overview.render(panel);
         break;

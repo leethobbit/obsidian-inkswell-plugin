@@ -11,6 +11,7 @@ import { App, TFile } from "obsidian";
 import { asRecord } from "../lib/frontmatter";
 import { writeDraftToFrontmatter } from "./draft-serialization";
 import { Draft, IndentedScene, MultipleSceneDraft, InkswellProjectData, ProjectOverview, SeriesInfo } from "./types";
+import type { Plotline } from "../outliner/plotgrid";
 import type { StructureGroup, StructureKind } from "../outliner/structure";
 
 /** Write a full draft object to the index note's `longform` frontmatter. */
@@ -119,6 +120,25 @@ export async function persistStructure(
     const inkswell = { ...asRecord(fm["inkswell"]) };
     if (groups.length === 0) delete inkswell[key];
     else inkswell[key] = groups;
+    if (Object.keys(inkswell).length === 0) delete fm["inkswell"];
+    else fm["inkswell"] = inkswell;
+  });
+}
+
+/**
+ * Write the plotline config array to `inkswell.plotlines` (read-merge-write,
+ * like `persistStructure`). An empty array deletes the key, and an emptied
+ * `inkswell` object is pruned.
+ */
+export async function persistPlotlines(
+  app: App,
+  indexFile: TFile,
+  plotlines: Plotline[]
+): Promise<void> {
+  await app.fileManager.processFrontMatter(indexFile, (fm: Record<string, unknown>) => {
+    const inkswell = { ...asRecord(fm["inkswell"]) };
+    if (plotlines.length === 0) delete inkswell["plotlines"];
+    else inkswell["plotlines"] = plotlines;
     if (Object.keys(inkswell).length === 0) delete fm["inkswell"];
     else fm["inkswell"] = inkswell;
   });

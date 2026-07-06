@@ -22,7 +22,8 @@ import {
   writeSceneMeta,
 } from "./scene-meta";
 
-const COLORS = ["#e06c75", "#e5c07b", "#98c379", "#56b6c2", "#61afef", "#c678dd"];
+/** Shared scene/plotline color swatches (also used by the Plot Grid column menu). */
+export const COLORS = ["#e06c75", "#e5c07b", "#98c379", "#56b6c2", "#61afef", "#c678dd"];
 
 // Unique <datalist> id per field instance (Inspector + Edit modal can coexist).
 let povListSeq = 0;
@@ -193,6 +194,34 @@ export function renderSceneMetaFields(
     ch.placeholder = "Chapter";
     suggest(ch, "chapter");
     ch.onchange = () => save({ chapter: ch.value });
+  });
+
+  // Plotlines — plain titles from the project's plotline list (Plan → Grid).
+  // Same chips pattern as Characters, but titles are strings, not wikilinks.
+  field(container, "Plotlines", (host) => {
+    const current = meta.plotlines ?? [];
+    const chips = host.createDiv({ cls: "inkswell-inspector__chips" });
+    for (const title of current) {
+      const chip = chips.createSpan({ cls: "inkswell-chip", text: title });
+      const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
+      x.onclick = () => save({ plotlines: current.filter((t) => t !== title) });
+    }
+    const configured = (project?.inkswell?.plotlines ?? []).map((p) => p.title);
+    const remaining = configured.filter((t) => !current.includes(t));
+    if (remaining.length > 0) {
+      const add = host.createEl("select", { cls: "dropdown" });
+      add.createEl("option", { text: "+ add plotline", value: "" });
+      for (const t of remaining) add.createEl("option", { text: t, value: t });
+      add.value = "";
+      add.onchange = () => {
+        if (add.value) save({ plotlines: [...current, add.value] });
+      };
+    } else if (configured.length === 0 && current.length === 0) {
+      host.createSpan({
+        cls: "inkswell-stats__muted",
+        text: "No plotlines yet — create them in Plan → Grid.",
+      });
+    }
   });
 
   // Target words

@@ -9,6 +9,7 @@ import {
   persistDraft,
   persistInkswellData,
   persistOverview,
+  persistPlotlines,
   persistPublishing,
   persistStructure,
   updateScenes,
@@ -202,6 +203,24 @@ describe("index-writer invariants", () => {
     await persistStructure(app.asApp(), app.file(INDEX_PATH), "chapter", []);
     inkswell = indexFm(app)["inkswell"] as Record<string, unknown>;
     expect("chapters" in inkswell).toBe(false);
+  });
+
+  it("persistPlotlines writes the list; an empty array deletes the key; siblings survive", async () => {
+    await persistPlotlines(app.asApp(), app.file(INDEX_PATH), [
+      { id: "pl-1", title: "Main", color: "#e05252" },
+      { id: "pl-2", title: "Romance" },
+    ]);
+    assertNothingElseChanged();
+    let inkswell = indexFm(app)["inkswell"] as Record<string, unknown>;
+    expect(inkswell["plotlines"]).toEqual([
+      { id: "pl-1", title: "Main", color: "#e05252" },
+      { id: "pl-2", title: "Romance" },
+    ]);
+    expect((inkswell["overview"] as Record<string, unknown>)["theme"]).toBe("Trust");
+
+    await persistPlotlines(app.asApp(), app.file(INDEX_PATH), []);
+    inkswell = indexFm(app)["inkswell"] as Record<string, unknown>;
+    expect("plotlines" in inkswell).toBe(false);
   });
 
   it("writeSeries sets and clears series membership", async () => {

@@ -61,6 +61,7 @@ export const DESTINATIONS: Destination[] = [
       { id: "overview", label: "Overview" },
       { id: "beats", label: "Beats" },
       { id: "board", label: "Board" },
+      { id: "grid", label: "Grid" },
       { id: "outline", label: "Outline" },
     ],
     phone: { slot: "more", order: 5 },

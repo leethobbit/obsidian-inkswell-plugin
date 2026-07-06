@@ -121,6 +121,32 @@ export const HINTS: Record<string, HintEntry> = {
       );
     },
   },
+  "plan/grid": {
+    title: "How the plot grid works",
+    body: (el) => {
+      p(
+        el,
+        "A plotline × chapter matrix for tracking subplots and arcs. Columns are your " +
+          "plotlines; rows are your chapters; each cell shows the scenes that advance that " +
+          "plotline there. Cells are your real scenes — the grid derives from scene " +
+          "frontmatter, so it always matches the manuscript, and an empty stretch in a " +
+          "column is a pacing signal, not a bookkeeping gap."
+      );
+      p(
+        el,
+        "Click a cell's + to tag an existing scene or create a stub scene (status Idea) " +
+          "right there — that's how you plan a beat you haven't written yet. Expand a " +
+          "chapter row to toggle every scene's membership without dragging. Drag a chip " +
+          "to another cell to move it between plotlines or chapters; a scene can belong " +
+          "to several plotlines at once."
+      );
+      steps(el, [
+        "Manage plotlines from the column headers: rename (updates every tagged scene), recolor, reorder, focus, or delete.",
+        "Big book? Compact mode shows cells as colored dots (automatic on large grids), and act rows collapse to per-column counts.",
+        "Tags that match no plotline appear as “untracked” columns — adopt them into your list or clear them from all scenes.",
+      ]);
+    },
+  },
   "plan/outline": {
     title: "How the outline works",
     body: (el) => {
@@ -267,17 +293,19 @@ export const HELP_SECTIONS: HelpSection[] = [
   {
     phase: "Plan",
     icon: "compass",
-    summary: "Overview fields, the beat sheet, the status board, and the story outline.",
+    summary: "Overview fields, the beat sheet, the status board, the plot grid, and the story outline.",
     body: (el) => {
       p(
         el,
         "Overview holds novel-level fields (logline, theme, genre) and long-form prose " +
-          "(synopsis, three-act sketch). Beats, Board, and Outline are detailed below."
+          "(synopsis, three-act sketch). Beats, Board, Grid, and Outline are detailed below."
       );
       el.createEl("h4", { text: HINTS["plan/beats"].title });
       HINTS["plan/beats"].body(el);
       el.createEl("h4", { text: HINTS["plan/board"].title });
       HINTS["plan/board"].body(el);
+      el.createEl("h4", { text: HINTS["plan/grid"].title });
+      HINTS["plan/grid"].body(el);
       el.createEl("h4", { text: HINTS["plan/outline"].title });
       HINTS["plan/outline"].body(el);
     },

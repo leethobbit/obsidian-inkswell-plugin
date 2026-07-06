@@ -1013,6 +1013,281 @@
   overflow: hidden;
 }
 
+/* --- Plot grid (Plan → Grid) --- */
+.inkswell-plotgrid {
+  padding: var(--size-4-3);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.inkswell-plotgrid__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-3);
+  flex-wrap: wrap;
+}
+
+.inkswell-plotgrid__onboard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--size-4-3);
+  max-width: 46ch;
+  margin: var(--size-4-6) auto;
+}
+
+.inkswell-plotgrid__scroll {
+  overflow: auto;
+  min-height: 0;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+}
+
+.inkswell-plotgrid__table {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) repeat(var(--plotgrid-cols), minmax(180px, 1fr));
+  align-items: stretch;
+}
+
+/* Sticky chrome: header row on top, row labels on the left, corner on both. */
+.inkswell-plotgrid__corner,
+.inkswell-plotgrid__colhead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--background-primary);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.inkswell-plotgrid__corner,
+.inkswell-plotgrid__rowlabel {
+  position: sticky;
+  left: 0;
+  background: var(--background-primary);
+  border-right: 1px solid var(--background-modifier-border);
+}
+
+.inkswell-plotgrid__corner {
+  z-index: 3;
+}
+
+.inkswell-plotgrid__rowlabel {
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  padding: var(--size-4-2);
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.inkswell-plotgrid__rowlabel.is-act {
+  background: var(--background-secondary);
+  text-transform: uppercase;
+  font-size: var(--font-ui-smaller);
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.inkswell-plotgrid__rowlabel.is-planned {
+  color: var(--text-muted);
+  font-weight: var(--font-normal);
+}
+
+.inkswell-plotgrid__rowlabel.is-scene {
+  font-weight: var(--font-normal);
+  padding-left: var(--size-4-6);
+  cursor: default;
+}
+
+.inkswell-plotgrid__rowlabel .is-link {
+  cursor: pointer;
+}
+
+.inkswell-plotgrid__rowlabel .is-link:hover {
+  color: var(--text-accent);
+  text-decoration: underline;
+}
+
+.inkswell-plotgrid__chev {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+}
+
+.inkswell-plotgrid__chev svg {
+  width: 14px;
+  height: 14px;
+}
+
+.inkswell-plotgrid__rowcount {
+  color: var(--text-faint);
+  font-weight: var(--font-normal);
+  font-size: var(--font-ui-smaller);
+}
+
+.inkswell-plotgrid__colhead {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  padding: var(--size-4-2);
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: grab;
+}
+
+.inkswell-plotgrid__colhead.is-orphan {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.inkswell-plotgrid__colhead.is-dragging {
+  opacity: 0.4;
+}
+
+.inkswell-plotgrid__colhead.is-drop-left {
+  box-shadow: inset 2px 0 0 var(--interactive-accent);
+}
+
+.inkswell-plotgrid__colhead.is-drop-right {
+  box-shadow: inset -2px 0 0 var(--interactive-accent);
+}
+
+.inkswell-plotgrid__coltitle {
+  cursor: pointer;
+}
+
+.inkswell-plotgrid__coltitle:hover {
+  color: var(--text-normal);
+}
+
+.inkswell-plotgrid__coldot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.inkswell-plotgrid__colcount {
+  color: var(--text-faint);
+  font-weight: var(--font-normal);
+}
+
+.inkswell-plotgrid__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--size-4-1);
+  padding: var(--size-4-1) var(--size-4-2);
+  border-bottom: 1px solid var(--background-modifier-border);
+  border-right: 1px solid var(--background-modifier-border-hover);
+  min-height: 34px;
+}
+
+.inkswell-plotgrid__cell.is-act {
+  background: var(--background-secondary);
+  flex-direction: row;
+  align-items: center;
+}
+
+.inkswell-plotgrid__cell.is-drop,
+.inkswell-plotgrid__rowlabel.is-drop,
+.inkswell-plotgrid__colhead.is-drop {
+  outline: 2px dashed var(--interactive-accent);
+  outline-offset: -2px;
+}
+
+.inkswell-plotgrid__chip {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  width: 100%;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  padding: 2px var(--size-4-1) 2px var(--size-4-2);
+  font-size: var(--font-ui-smaller);
+  cursor: pointer;
+}
+
+.inkswell-plotgrid__chip.is-dragging {
+  opacity: 0.4;
+}
+
+.inkswell-plotgrid__chip.is-inactive,
+.inkswell-plotgrid__dot.is-inactive {
+  opacity: 0.45;
+}
+
+.inkswell-plotgrid__chiptext {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inkswell-plotgrid__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--interactive-accent);
+  flex: 0 0 auto;
+}
+
+/* Compact + act-aggregate cells lay dots out in a wrapped row. */
+.inkswell-plotgrid__cell.is-compact {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  cursor: pointer;
+}
+
+.inkswell-plotgrid__aggcount {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  margin-left: var(--size-4-1);
+}
+
+.inkswell-plotgrid__add,
+.inkswell-plotgrid__toggle {
+  border: 1px dashed var(--background-modifier-border);
+  background: transparent;
+  color: var(--text-faint);
+  border-radius: var(--radius-s);
+  padding: 0 var(--size-4-2);
+  line-height: 1.4;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.inkswell-plotgrid__add {
+  opacity: 0;
+}
+
+.inkswell-plotgrid__cell:hover .inkswell-plotgrid__add,
+.inkswell-plotgrid__add:focus-visible {
+  opacity: 1;
+}
+
+.inkswell-plotgrid__add:hover,
+.inkswell-plotgrid__toggle:hover {
+  color: var(--text-normal);
+  border-color: var(--text-muted);
+}
+
+.inkswell-plotgrid__focuschip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-1);
+}
+
 /* Write — manuscript editor */
 .inkswell-write {
   display: flex;

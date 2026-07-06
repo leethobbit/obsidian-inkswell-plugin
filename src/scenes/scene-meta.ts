@@ -42,6 +42,9 @@ export interface SceneMeta {
   characters?: string[];
   /** Linked codex location, as a wikilink string. */
   location?: string;
+  /** Plotlines this scene advances — plain titles matching `inkswell.plotlines`
+   *  entries (like `act`/`chapter` strings, NOT wikilinks). */
+  plotlines?: string[];
   /** Per-scene word-count target. */
   targetWords?: number;
 }
@@ -57,6 +60,7 @@ const FIELD_KEYS: (keyof SceneMeta)[] = [
   "inactive",
   "characters",
   "location",
+  "plotlines",
   "targetWords",
 ];
 
@@ -92,6 +96,11 @@ export function readSceneMeta(app: App, file: TFile): SceneMeta {
         ? [fm["characters"]]
         : undefined,
     location: str(fm["location"]),
+    plotlines: Array.isArray(fm["plotlines"])
+      ? fm["plotlines"].filter((x: unknown): x is string => typeof x === "string")
+      : typeof fm["plotlines"] === "string"
+        ? [fm["plotlines"]]
+        : undefined,
     targetWords: typeof fm["targetWords"] === "number" ? fm["targetWords"] : undefined,
   };
 }

@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   SCENE_STATUSES,
   coerceStatus,
+  readSceneMeta,
   statusLabel,
 } from "../src/scenes/scene-meta";
+import { FakeApp } from "./fakes/fake-app";
 
 describe("coerceStatus", () => {
   it("accepts known statuses", () => {
@@ -21,5 +23,27 @@ describe("statusLabel", () => {
   it("title-cases", () => {
     expect(statusLabel("draft")).toBe("Draft");
     expect(statusLabel("final")).toBe("Final");
+  });
+});
+
+describe("readSceneMeta plotlines coercion", () => {
+  const read = (yaml: string) => {
+    const app = new FakeApp({ "Scenes/S.md": `---\n${yaml}\n---\nBody.\n` });
+    return readSceneMeta(app.asApp(), app.file("Scenes/S.md"));
+  };
+
+  it("reads a string array, dropping non-string entries", () => {
+    expect(read("plotlines:\n  - Main\n  - Romance").plotlines).toEqual([
+      "Main",
+      "Romance",
+    ]);
+  });
+
+  it("coerces a single string to a one-element array (like characters)", () => {
+    expect(read("plotlines: Main").plotlines).toEqual(["Main"]);
+  });
+
+  it("is undefined when absent", () => {
+    expect(read("status: draft").plotlines).toBeUndefined();
   });
 });

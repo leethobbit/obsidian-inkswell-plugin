@@ -116,6 +116,11 @@ export default class InkswellPlugin extends Plugin {
       callback: () => this.openBoard(),
     });
     this.addCommand({
+      id: "open-plot-grid",
+      name: "Open plot grid (Plan)",
+      callback: () => this.openPlotGrid(),
+    });
+    this.addCommand({
       id: "open-codex",
       name: "Open codex",
       callback: () => this.openCodex(),
@@ -327,6 +332,10 @@ export default class InkswellPlugin extends Plugin {
 
   openBoard(): Promise<void> {
     return this.openInkswell("plan", undefined, "board");
+  }
+
+  openPlotGrid(): Promise<void> {
+    return this.openInkswell("plan", undefined, "grid");
   }
 
   openCodex(): Promise<void> {
