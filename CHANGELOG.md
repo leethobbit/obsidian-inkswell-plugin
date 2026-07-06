@@ -10,6 +10,8 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-07-06
+
 ### Added
 - **A plot grid — track every subplot across your chapters at a glance.** The new **Plan → Grid** tab is a plotline × chapter matrix: columns are your plotlines (main plot, romance arc, mystery thread…), rows are your chapters, and each cell shows the real scenes that advance that plotline there — so an empty stretch is a visible pacing signal, and the grid can never drift from the manuscript. Tag scenes from the grid (click a cell's **+**, or expand a chapter and toggle per scene), drag a scene chip between cells to move it to another plotline or chapter, and create a **stub scene** (status "idea") directly in any cell to plan a beat you haven't written yet. Plotlines are created, renamed, recolored, reordered, and deleted right in the grid — renaming updates every tagged scene. Built for big books: **Compact** mode collapses cells to colored presence dots (automatic on large grids), a column can be **focused** to isolate one plotline, and act rows collapse to per-column counts. Scenes also get a **Plotlines** field in the scene inspector/editor, and tags that match no plotline show as adoptable "untracked" columns rather than being lost.
 - **A visual story outline — drag scenes into chapters, chapters into acts.** The new **Plan → Outline** tab is an Act › Chapter › Scene tree where you build your book's structure directly: drag a scene into a chapter (or a chapter into an act), reorder items **above or below** each other, add or rename acts/chapters, and set a **per-chapter word target** with a progress bar. Click a scene to open it straight in the **Write** editor. The outline is the source of truth — assigning a scene rearranges the manuscript so it reads in outline order and each chapter stays contiguous (which also makes compiled chapter headings correct). Nesting is optional: chapters can sit outside any act and scenes outside any chapter (shown in "Chapters with no act" / "Unassigned scenes"). Touch gets "Move to…" menus. **Track** gains a **"By chapter"** breakdown and mirrors chapter targets. Existing projects open with their current structure intact (chapters/acts are read from your scene tags the first time), and the scene-inspector Act/Chapter boxes suggest existing names. (Structure is per-draft.)
@@ -156,7 +158,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.5.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.6.0...HEAD
+[1.6.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.5.0...1.6.0
 [1.5.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.4.0...1.5.0
 [1.4.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.3.1...1.4.0
 [1.3.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.3.0...1.3.1
