@@ -5,6 +5,8 @@
 
 import { App, TFile } from "obsidian";
 import { countWords } from "../lib/wordcount";
+import { readSceneMeta } from "../scenes/scene-meta";
+import { StructureKind, sumGroupWords } from "../outliner/structure";
 import { Project, isMultiScene } from "./types";
 
 interface CacheEntry {
@@ -43,6 +45,28 @@ export class ProjectStats {
       total += await this.sceneWords(scene.path);
     }
     return total;
+  }
+
+  /**
+   * Sum word counts per act/chapter label across a project's scenes, keyed by the
+   * scene's `act`/`chapter` string (blank → the "" bucket). Reuses the mtime-cached
+   * `sceneWords`; membership is the frozen scene string, read from the metadata cache.
+   */
+  async groupWords(
+    project: Project,
+    kind: StructureKind
+  ): Promise<Map<string, { words: number; scenes: number }>> {
+    if (!isMultiScene(project.draft)) return new Map();
+    const entries: Array<{ label?: string; words: number }> = [];
+    for (const scene of project.scenes) {
+      if (!scene.path) continue;
+      const file = this.app.vault.getAbstractFileByPath(scene.path);
+      if (!(file instanceof TFile)) continue;
+      const label = readSceneMeta(this.app, file)[kind];
+      const words = await this.sceneWords(scene.path);
+      entries.push({ label, words });
+    }
+    return sumGroupWords(entries);
   }
 
   /** Drop a path from the cache (e.g. on delete). */

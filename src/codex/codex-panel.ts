@@ -7,7 +7,7 @@
  * freeform; "Open note" jumps to Obsidian's editor for it.
  */
 
-import { App, Menu, TFile, normalizePath, setIcon } from "obsidian";
+import { App, Menu, Notice, TFile, normalizePath, setIcon } from "obsidian";
 import { attachRowMenu } from "../lib/row-menu";
 import {
   confirmDelete,
@@ -26,9 +26,11 @@ import {
   defaultScopeForProject,
   filterToScope,
   projectName,
+  scopeContextForEntity,
   scopeContextForProject,
 } from "./codex-scope";
-import { resolveCodexFolder } from "../settings/folders";
+import { resolveCodexFolder, sanitizeSegment } from "../settings/folders";
+import { tryFileOp } from "../lib/notify";
 import { readProfile, writeProfile } from "./codex-profile";
 import { Profile, ProfileField, profileFields } from "./profile-schema";
 import { CODEX_CATEGORIES, CodexCategory, CodexEntity, EntityScope, categoryLabel } from "./types";
@@ -117,13 +119,17 @@ export class CodexPanel {
         cta: "Create",
       });
       if (!name) return;
-      const file = await createEntity(
-        this.app,
-        category,
-        name,
-        resolveCodexFolder(this.plugin.settings, createScope, active?.vaultPath),
-        createScope,
-        resolveCodexTemplate(this.app, this.plugin.settings, category)
+      const file = await tryFileOp(
+        () =>
+          createEntity(
+            this.app,
+            category,
+            name,
+            resolveCodexFolder(this.plugin.settings, createScope, active?.vaultPath),
+            createScope,
+            resolveCodexTemplate(this.app, this.plugin.settings, category)
+          ),
+        `Couldn't create the ${categoryLabel(category)}.`
       );
       if (file) {
         this.selectedPath = file.path;
@@ -281,7 +287,10 @@ export class CodexPanel {
     entities: CodexEntity[]
   ): void {
     const save = async (value: Profile[string]) => {
-      await writeProfile(this.app, file, entity.category, { [field.key]: value });
+      await tryFileOp(
+        () => writeProfile(this.app, file, entity.category, { [field.key]: value }),
+        "Couldn't save the profile field."
+      );
     };
     // Re-render the detail after structural edits (chips, alias/parent changes
     // that the list also shows).
@@ -339,7 +348,13 @@ export class CodexPanel {
     self: CodexEntity,
     saveAndRefresh: (value: Profile[string]) => void
   ): void {
-    const candidates = entities.filter(
+    // Scope the candidates to what THIS entity can see: a series/project-scoped
+    // character only links entities in its own scope (+ globals); a global entity
+    // is unconstrained. Without this the picker listed every entity vault-wide,
+    // ignoring the character's scope.
+    const ctx = scopeContextForEntity(self, this.plugin.store.getProjects());
+    const inScope = ctx ? filterToScope(entities, ctx) : entities;
+    const candidates = inScope.filter(
       (e) =>
         e.path !== self.path &&
         (!field.linkCategory || e.category === field.linkCategory)
@@ -447,12 +462,20 @@ export class CodexPanel {
       cta: "Rename",
     });
     if (next === null) return;
-    const safe = next.trim().replace(/[\\/:*?"<>|]/g, "-");
-    if (!safe || safe === file.basename) return;
+    const safe = sanitizeSegment(next);
+    if (!safe) {
+      if (next.trim()) new Notice("That name can't be used as a file name.");
+      return;
+    }
+    if (safe === file.basename) return;
     const folder = file.parent ? file.parent.path : "";
     const path = normalizePath(folder ? `${folder}/${safe}.md` : `${safe}.md`);
     if (this.app.vault.getAbstractFileByPath(path)) return;
-    await this.app.fileManager.renameFile(file, path);
+    const ok = await tryFileOp(
+      () => this.app.fileManager.renameFile(file, path),
+      `Couldn't rename "${file.basename}".`
+    );
+    if (ok === null) return;
     if (this.selectedPath === file.path) this.selectedPath = path;
     this.renderList();
     this.renderDetail();
@@ -461,7 +484,8 @@ export class CodexPanel {
   private async remove(file: TFile, name: string): Promise<void> {
     const ok = await confirmDelete(this.app, `Delete codex entry "${name}"? It will be moved to trash.`);
     if (!ok) return;
-    await this.app.fileManager.trashFile(file);
+    const done = await tryFileOp(() => this.app.fileManager.trashFile(file), `Couldn't delete "${name}".`);
+    if (done === null) return;
     if (this.selectedPath === file.path) this.selectedPath = null;
     this.renderList();
     this.renderDetail();

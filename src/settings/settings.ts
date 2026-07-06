@@ -7,6 +7,7 @@
  */
 
 import { App, Notice, PluginSettingTab, Setting } from "obsidian";
+import { tryFileOp } from "../lib/notify";
 import type InkswellPlugin from "../../main";
 import { OutputFormat } from "../compile/types";
 import { generateCodexTemplates } from "../codex/codex-store";
@@ -274,7 +275,11 @@ export class InkswellSettingTab extends PluginSettingTab {
       )
       .addButton((b) =>
         b.setButtonText("Generate starter templates").onClick(async () => {
-          const created = await generateCodexTemplates(this.app, this.plugin.settings);
+          const created = await tryFileOp(
+            () => generateCodexTemplates(this.app, this.plugin.settings),
+            "Couldn't generate the starter templates."
+          );
+          if (created === null) return;
           new Notice(
             created.length > 0
               ? `Created ${created.length} template${created.length === 1 ? "" : "s"} in "${templateFolder}".`

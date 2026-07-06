@@ -9,11 +9,8 @@ import { App, TFile, normalizePath } from "obsidian";
 import { updateScenes } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project, isMultiScene } from "../projects/types";
+import { sanitizeSegment } from "../settings/folders";
 import { getTemplate } from "./beat-templates";
-
-function sanitizeTitle(name: string): string {
-  return name.replace(/[\\/:*?"<>|]/g, "-").trim();
-}
 
 /** Returns the number of scenes created (or already present and newly indexed). */
 export async function scaffoldFromTemplate(
@@ -38,7 +35,7 @@ export async function scaffoldFromTemplate(
   const template = getTemplate(templateId);
   const added: string[] = [];
   for (const beat of template) {
-    const title = sanitizeTitle(beat.name);
+    const title = sanitizeSegment(beat.name);
     if (!title) continue;
     const path = normalizePath(folder === "/" ? `${title}.md` : `${folder}/${title}.md`);
     if (!app.vault.getAbstractFileByPath(path)) {

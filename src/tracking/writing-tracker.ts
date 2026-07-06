@@ -8,9 +8,9 @@
  * deltas; this is the single place word-change is measured.
  */
 
-import { App, Component, TAbstractFile, TFile, debounce } from "obsidian";
+import { App, Component, Debouncer, TAbstractFile, TFile, debounce } from "obsidian";
 import { countWords } from "../lib/wordcount";
-import { WritingLogData, dateKey } from "./types";
+import { WritingLogData, applyCountToLog, dateKey } from "./types";
 
 /** Notified with the net word delta (can be negative) and the file path. */
 export type DeltaListener = (delta: number, path: string) => void;
@@ -21,7 +21,7 @@ export class WritingTracker extends Component {
   private persist: () => void;
   private listeners = new Set<DeltaListener>();
   private changeListeners = new Set<() => void>();
-  private save: () => void;
+  private save: Debouncer<[], void>;
 
   constructor(app: App, log: WritingLogData, persist: () => void) {
     super();
@@ -30,6 +30,12 @@ export class WritingTracker extends Component {
     this.persist = persist;
     // Coalesce rapid edits into one save.
     this.save = debounce(() => this.persist(), 2000, false);
+  }
+
+  onunload(): void {
+    // Flush a pending debounced save so words counted in the final ~2s before
+    // the plugin unloads (or Obsidian quits) aren't dropped.
+    this.save.run();
   }
 
   onload(): void {
@@ -126,20 +132,13 @@ export class WritingTracker extends Component {
    * fires the change listeners once.
    */
   private applyCount(path: string, count: number, live = false): void {
-    const prev = this.log.baselines[path];
-    this.log.baselines[path] = count;
-
-    // First time we've seen this file (no persisted baseline): set baseline
-    // only, so pre-existing content isn't counted as "written now".
-    if (prev === undefined) {
+    const delta = applyCountToLog(this.log, path, count);
+    // First sighting (null): baseline set only — persist it, attribute nothing.
+    if (delta === null) {
       this.save();
       return;
     }
-    const delta = count - prev;
     if (delta === 0) return;
-
-    const key = dateKey(new Date());
-    this.log.daily[key] = (this.log.daily[key] ?? 0) + delta;
 
     for (const fn of this.listeners) fn(delta, path);
     if (!live) for (const fn of this.changeListeners) fn();

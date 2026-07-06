@@ -19,7 +19,17 @@ export interface FolderSettings {
   coLocateCodex: boolean;
 }
 
-const sanitizeSegment = (s: string): string => s.trim().replace(/[\\/:*?"<>|]/g, "-");
+/** Make a string safe as a single filename/path segment: strip the characters
+ *  illegal in file names and trim. Leading/trailing dots are also stripped —
+ *  a dots-only title ("." / "..") would otherwise survive as a path-traversal
+ *  segment, and leading dots create files Obsidian hides. Can return "" (a
+ *  title that sanitizes to nothing is invalid); callers must handle that.
+ *  Shared by the scene/note scaffolders. */
+export const sanitizeSegment = (s: string): string =>
+  s
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, "-")
+    .replace(/^[.\s]+|[.\s]+$/g, "");
 
 /** Join non-empty, slash-trimmed segments into a vault path ("" when all empty). */
 export function joinPath(...parts: Array<string | undefined | null>): string {

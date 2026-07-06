@@ -10,6 +10,7 @@
  */
 
 import { App, TFile } from "obsidian";
+import { tryFileOp } from "../lib/notify";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { persistOverview } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
@@ -86,7 +87,12 @@ export class OverviewPanel {
       input.placeholder = f.placeholder;
       input.value = (overview[f.key] as string) ?? "";
       input.onchange = () => {
-        if (indexFile) void persistOverview(this.app, indexFile, { [f.key]: input.value.trim() });
+        if (indexFile) {
+          void tryFileOp(
+            () => persistOverview(this.app, indexFile, { [f.key]: input.value.trim() }),
+            `Couldn't save the ${f.label.toLowerCase()}.`
+          );
+        }
       };
     }
   }
@@ -99,9 +105,12 @@ export class OverviewPanel {
     const open = head.createEl("button", { text: "Open planning note" });
     open.setAttribute("aria-label", "Open the planning note in an editor tab");
     open.onclick = async () => {
-      const file = await ensurePlanningNote(this.app, project);
-      await this.rememberNote(project, file);
-      openScene(this.app, file);
+      const file = await tryFileOp(async () => {
+        const f = await ensurePlanningNote(this.app, project);
+        await this.rememberNote(project, f);
+        return f;
+      }, "Couldn't open the planning note.");
+      if (file) openScene(this.app, file);
     };
 
     const editors = new Map<PlanSection, HTMLTextAreaElement>();
@@ -135,9 +144,11 @@ export class OverviewPanel {
   }
 
   private async saveSection(project: Project, heading: PlanSection, text: string): Promise<void> {
-    const file = await ensurePlanningNote(this.app, project);
-    await this.rememberNote(project, file);
-    await writeSection(this.app, file, heading, text);
+    await tryFileOp(async () => {
+      const file = await ensurePlanningNote(this.app, project);
+      await this.rememberNote(project, file);
+      await writeSection(this.app, file, heading, text);
+    }, "Couldn't save the planning note.");
   }
 
   /** Persist the planning-note path the first time we create/use it. */

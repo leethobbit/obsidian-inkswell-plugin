@@ -150,7 +150,3 @@ export const DEFAULT_TEMPLATE = "save-the-cat";
 export function getTemplate(id: string | undefined): BeatDef[] {
   return (id && BEAT_TEMPLATES[id]) || SAVE_THE_CAT;
 }
-
-export function templateLabel(id: string | undefined): string {
-  return TEMPLATE_META.find((t) => t.id === id)?.label ?? "Save the Cat (15)";
-}

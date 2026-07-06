@@ -5,15 +5,22 @@
  */
 
 import { App, Notice, TFile } from "obsidian";
+import { tryFileOp } from "../lib/notify";
 import { runCompile, vaultHasFilesystem } from "../compile/engine";
-import { generateReferenceDoc } from "../compile/pandoc";
+import {
+  PandocSupport,
+  generateReferenceDoc,
+  pandocAvailableCached,
+  probePandocSupport,
+} from "../compile/pandoc";
 import { preflight, SceneText } from "../compile/preflight";
 import { BUILTIN_STEPS } from "../compile/steps";
+import { resolveCompileConfig } from "../compile/config";
+import { countWords } from "../lib/wordcount";
 import { openScene } from "../scenes/scene-actions";
 import {
   CompileConfig,
   ConfiguredStep,
-  DEFAULT_COMPILE_CONFIG,
   OutputFormat,
 } from "../compile/types";
 import { resolveActive } from "../projects/active-project";
@@ -24,6 +31,13 @@ import type InkswellPlugin from "../../main";
 
 const SCENE_STEPS = BUILTIN_STEPS.filter((s) => s.kind === "scene");
 const MANUSCRIPT_STEPS = BUILTIN_STEPS.filter((s) => s.kind === "manuscript");
+
+/**
+ * Scene steps that each emit a heading per scene/chapter. Enabling both stacks
+ * two headings (e.g. "# One" then "# 01 - Scene title"), so they're mutually
+ * exclusive — turning one on turns the others off.
+ */
+const EXCLUSIVE_HEADING_STEPS = ["prepend-title", "group-by-chapter"];
 
 export class CompilePanel {
   private app: App;
@@ -55,22 +69,34 @@ export class CompilePanel {
 
     const config = this.configFor(project);
 
+    // Pandoc availability (cached probe; kick it off once and re-render on result).
+    const hasFs = vaultHasFilesystem(this.app);
+    const support = pandocAvailableCached();
+    if (support === undefined && hasFs) void probePandocSupport().then(() => this.rerender());
+    const pandocOk = !!support?.pandoc && hasFs;
+
     // Format
     const fmtField = container.createDiv({ cls: "inkswell-publish__field" });
     fmtField.createSpan({ cls: "inkswell-stats__muted", text: "Format" });
     const fmt = fmtField.createEl("select", { cls: "dropdown" });
     const fmtValue =
       config.format === "pandoc" ? `pandoc:${config.pandoc?.to ?? "docx"}` : config.format;
-    for (const [val, label] of [
-      ["md", "Markdown (.md)"],
-      ["html", "HTML (.html)"],
-      ["pandoc:docx", "Word (.docx)"],
-      ["pandoc:pdf", "PDF (.pdf)"],
-      ["pandoc:epub", "EPUB (.epub)"],
-    ]) {
-      const o = fmt.createEl("option", { text: label, value: val });
+    const formatOptions: [string, string, boolean][] = [
+      ["md", "Markdown (.md)", true],
+      ["html", "HTML (.html)", true],
+      ["pandoc:docx", "Word (.docx)", pandocOk],
+      ["pandoc:pdf", "PDF (.pdf)", pandocOk],
+      ["pandoc:epub", "EPUB (.epub)", pandocOk],
+    ];
+    for (const [val, label, enabled] of formatOptions) {
+      const o = fmt.createEl("option", {
+        text: enabled ? label : `${label} — needs pandoc`,
+        value: val,
+      });
+      o.disabled = !enabled;
       if (val === fmtValue) o.selected = true;
     }
+    this.renderFormatNote(fmtField, config, support, hasFs);
     fmt.onchange = () => {
       if (fmt.value.startsWith("pandoc:")) {
         const to = fmt.value.split(":")[1];
@@ -107,7 +133,8 @@ export class CompilePanel {
     run.onclick = async () => {
       try {
         const result = await runCompile(this.app, project, this.configFor(project));
-        new Notice(`Compiled to ${result.outputPath}`);
+        const words = countWords(result.wordCountSource);
+        new Notice(`Compiled ${words.toLocaleString()} words to ${result.outputPath}`);
       } catch (e) {
         new Notice(`Compile failed: ${(e as Error).message}`, 8000);
       }
@@ -115,6 +142,35 @@ export class CompilePanel {
 
     // Pre-export check.
     this.renderPreflight(container, project);
+  }
+
+  /**
+   * A muted line under the format dropdown explaining any export the machine
+   * can't do: pandoc missing (no Word/PDF/EPUB), or pandoc present but no PDF
+   * engine (PDF specifically will fail). Silent when everything selected works.
+   */
+  private renderFormatNote(
+    parent: HTMLElement,
+    config: CompileConfig,
+    support: PandocSupport | undefined,
+    hasFs: boolean
+  ): void {
+    const note = (text: string) => parent.createDiv({ cls: "inkswell-stats__muted", text });
+    if (!hasFs) {
+      note("Word / PDF / EPUB export is desktop-only (needs pandoc).");
+      return;
+    }
+    if (support === undefined) {
+      note("Checking for pandoc…");
+      return;
+    }
+    if (!support.pandoc) {
+      note("Word / PDF / EPUB export needs pandoc — install it from pandoc.org, then restart Obsidian.");
+      return;
+    }
+    if (config.format === "pandoc" && config.pandoc?.to === "pdf" && !support.pdfEngine) {
+      note("PDF export also needs a LaTeX engine (e.g. MiKTeX or TeX Live) on your PATH.");
+    }
   }
 
   private static readonly SEP_PRESETS: { label: string; value: string }[] = [
@@ -162,6 +218,10 @@ export class CompilePanel {
 
     if (!vaultHasFilesystem(this.app)) {
       field.createDiv({ cls: "inkswell-stats__muted", text: "Desktop only (needs pandoc)." });
+      return;
+    }
+    if (pandocAvailableCached()?.pandoc === false) {
+      field.createDiv({ cls: "inkswell-stats__muted", text: "Install pandoc to generate a reference doc." });
       return;
     }
     const gen = field.createEl("button", {
@@ -262,8 +322,16 @@ export class CompilePanel {
       cb.checked = included.has(step.id);
       row.createSpan({ text: step.description });
       cb.onchange = () => {
-        if (cb.checked) included.add(step.id);
-        else included.delete(step.id);
+        if (cb.checked) {
+          included.add(step.id);
+          // Heading steps are mutually exclusive — enabling one turns the others
+          // off, so we never stack two headings (chapter + scene title).
+          if (EXCLUSIVE_HEADING_STEPS.includes(step.id)) {
+            for (const other of EXCLUSIVE_HEADING_STEPS) {
+              if (other !== step.id) included.delete(other);
+            }
+          }
+        } else included.delete(step.id);
         // Rebuild in registry order, preserving any options.
         config[key] = steps
           .filter((s) => included.has(s.id))
@@ -283,19 +351,28 @@ export class CompilePanel {
         this.save(project, config);
       };
     }
+    if (EXCLUSIVE_HEADING_STEPS.every((id) => steps.some((s) => s.id === id))) {
+      group.createDiv({
+        cls: "inkswell-stats__muted",
+        text: "“Prepend the scene title” and “Group scenes into chapters” both add headings — pick one.",
+      });
+    }
   }
 
-  /** The project's saved compile config, or a sensible default. */
+  /** The project's saved compile config, or a sensible default (shared resolver). */
   private configFor(project: Project): CompileConfig {
-    const saved = project.inkswell?.compile;
-    if (saved && Array.isArray(saved.sceneSteps)) return saved;
-    return JSON.parse(JSON.stringify(DEFAULT_COMPILE_CONFIG)) as CompileConfig;
+    return resolveCompileConfig(project, this.plugin.settings.defaultCompileFormat);
   }
 
   private save(project: Project, config: CompileConfig): void {
     // Persisting rewrites the index frontmatter → store refresh re-renders this
     // panel from the saved config (no immediate rerender — avoids stale flicker).
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
-    if (file instanceof TFile) void persistInkswellData(this.app, file, { compile: config });
+    if (file instanceof TFile) {
+      void tryFileOp(
+        () => persistInkswellData(this.app, file, { compile: config }),
+        "Couldn't save the compile settings."
+      );
+    }
   }
 }

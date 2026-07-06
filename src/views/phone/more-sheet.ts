@@ -1,12 +1,12 @@
 /**
  * The phone "More" action sheet — an Obsidian Menu (renders as a native bottom
- * sheet on mobile, the same proven touch path as attachRowMenu). Surfaces quick
- * capture, the read-mostly phone slices (Track, To-dos) plus Help, and the
- * larger-screen-only destinations (which then show the "use a larger screen"
- * redirect). Codex lives on the bottom bar, so it's not repeated here.
+ * sheet on mobile, the same proven touch path as attachRowMenu). Rows derive
+ * from the single nav model: quick capture first, then the phone-usable slices,
+ * a separator, and the larger-screen-only destinations (which show the "use a
+ * larger screen" redirect when tapped). Bar destinations aren't repeated here.
  */
 import { Menu } from "obsidian";
-import type { InkswellMode } from "../inkswell-view";
+import { Destination, InkswellMode, phoneMoreDestinations } from "../nav-model";
 
 export function openMoreSheet(
   e: MouseEvent,
@@ -15,14 +15,16 @@ export function openMoreSheet(
 ): void {
   const menu = new Menu();
   menu.addItem((i) => i.setTitle("Capture idea").setIcon("plus").onClick(() => onCapture()));
-  menu.addItem((i) => i.setTitle("Track").setIcon("bar-chart-3").onClick(() => go("track")));
-  menu.addItem((i) =>
-    i.setTitle("To-dos").setIcon("list-checks").onClick(() => go("revise", "todos"))
-  );
-  menu.addItem((i) => i.setTitle("Help").setIcon("help-circle").onClick(() => go("help")));
+  const { usable, redirected } = phoneMoreDestinations();
+  const addRow = (d: Destination) =>
+    menu.addItem((i) =>
+      i
+        .setTitle(d.phone?.label ?? d.label)
+        .setIcon(d.icon)
+        .onClick(() => go(d.id, d.phone?.subtab))
+    );
+  usable.forEach(addRow);
   menu.addSeparator();
-  // Larger-screen destinations — tapping shows the "use a larger screen" notice.
-  menu.addItem((i) => i.setTitle("Plan").setIcon("compass").onClick(() => go("plan")));
-  menu.addItem((i) => i.setTitle("Publish").setIcon("upload").onClick(() => go("publish")));
+  redirected.forEach(addRow);
   menu.showAtMouseEvent(e);
 }

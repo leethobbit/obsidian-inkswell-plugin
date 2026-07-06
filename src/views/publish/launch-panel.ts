@@ -5,9 +5,11 @@
  */
 
 import { App, TFile } from "obsidian";
+import { tryFileOp } from "../../lib/notify";
 import { resolveActive } from "../../projects/active-project";
 import { persistPublishing } from "../../projects/index-writer";
 import { ProjectStore } from "../../projects/project-store";
+import { baseDraftFor } from "../../projects/stories";
 import {
   BudgetItem,
   PublishingData,
@@ -39,11 +41,14 @@ export class LaunchPanel {
     container.empty();
     container.addClass("inkswell-publishing");
 
-    const project = resolveActive(this.store.getProjects(), this.plugin.activeProject.get());
-    if (!project) {
+    const active = resolveActive(this.store.getProjects(), this.plugin.activeProject.get());
+    if (!active) {
       container.createDiv({ cls: "inkswell-stats__muted", text: "No project selected." });
       return;
     }
+    // Launch plan describes the BOOK, not one draft — read/write the story's base
+    // draft so every draft shares one copy (like overview and goals).
+    const project = baseDraftFor(this.store.getProjects(), active);
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
     if (!(file instanceof TFile)) return;
     const data = project.inkswell?.publishing;
@@ -266,6 +271,9 @@ export class LaunchPanel {
   }
 
   private saveSub(file: TFile, mutator: (pub: PublishingData) => void): void {
-    void persistPublishing(this.app, file, (raw) => mutator(raw));
+    void tryFileOp(
+      () => persistPublishing(this.app, file, (raw) => mutator(raw)),
+      "Couldn't save the launch plan."
+    );
   }
 }

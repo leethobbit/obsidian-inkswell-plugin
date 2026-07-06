@@ -5,6 +5,7 @@
  */
 
 import { App, TFile } from "obsidian";
+import { tryFileOp } from "../lib/notify";
 import { detectMentions, linkTarget, toLink } from "../codex/codex";
 import { getCodexEntities } from "../codex/codex-store";
 import { filterToScope, scopeContextForProject } from "../codex/codex-scope";
@@ -12,6 +13,7 @@ import { Project } from "../projects/types";
 import { SCENE_CHECKPOINTS } from "../revisions/audit";
 import { readSceneAudit, writeSceneAudit } from "../revisions/audit-meta";
 import { OPENING_LABEL, OPENING_TYPES, OpeningType } from "../revisions/openings";
+import { distinctInOrder } from "../outliner/structure";
 import {
   SCENE_STATUSES,
   SceneMeta,
@@ -20,16 +22,30 @@ import {
   writeSceneMeta,
 } from "./scene-meta";
 
-const COLORS = ["#e06c75", "#e5c07b", "#98c379", "#56b6c2", "#61afef", "#c678dd"];
+/** Shared scene/plotline color swatches (also used by the Plot Grid column menu). */
+export const COLORS = ["#e06c75", "#e5c07b", "#98c379", "#56b6c2", "#61afef", "#c678dd"];
 
-// Unique <datalist> id per POV field instance (Inspector + Edit modal can coexist).
+// Unique <datalist> id per field instance (Inspector + Edit modal can coexist).
 let povListSeq = 0;
+let structureListSeq = 0;
 
 /** One labelled field row (label optional). */
 function field(parent: HTMLElement, label: string, build: (host: HTMLElement) => void): void {
   const f = parent.createDiv({ cls: "inkswell-inspector__field" });
   if (label) f.createDiv({ cls: "inkswell-inspector__label", text: label });
   build(f.createDiv({ cls: "inkswell-inspector__control" }));
+}
+
+/** Existing act/chapter labels across the book's scenes + any planned groups. */
+function structureLabels(app: App, project: Project | null, kind: "act" | "chapter"): string[] {
+  if (!project || project.draft.format !== "scenes") return [];
+  const sceneLabels = project.scenes.map((s) => {
+    if (!s.path) return undefined;
+    const f = app.vault.getAbstractFileByPath(s.path);
+    return f instanceof TFile ? readSceneMeta(app, f)[kind] : undefined;
+  });
+  const configured = (kind === "act" ? project.inkswell?.acts : project.inkswell?.chapters) ?? [];
+  return distinctInOrder([...sceneLabels, ...configured.map((g) => g.title)]);
 }
 
 /**
@@ -44,7 +60,8 @@ export function renderSceneMetaFields(
   project: Project | null = null
 ): void {
   const meta = readSceneMeta(app, file);
-  const save = (patch: Partial<SceneMeta>) => void writeSceneMeta(app, file, patch);
+  const save = (patch: Partial<SceneMeta>) =>
+    void tryFileOp(() => writeSceneMeta(app, file, patch), "Couldn't save the scene change.");
   const entities = filterToScope(getCodexEntities(app), scopeContextForProject(project));
 
   // Status
@@ -150,21 +167,61 @@ export function renderSceneMetaFields(
       const patch: Partial<SceneMeta> = { characters: chars };
       const loc = mentions.find((m) => m.category === "location");
       if (loc && !fresh.location) patch.location = toLink(loc.name);
-      await writeSceneMeta(app, file, patch);
+      await tryFileOp(() => writeSceneMeta(app, file, patch), "Couldn't save detected mentions.");
     };
   });
 
-  // Act + Chapter
+  // Act + Chapter — free text, but suggest existing labels (and planned groups)
+  // so users reuse chapters/acts instead of creating typo'd phantom ones.
   field(container, "Act / Chapter", (host) => {
     const row = host.createDiv({ cls: "inkswell-inspector__pair" });
+    const suggest = (input: HTMLInputElement, kind: "act" | "chapter") => {
+      const labels = structureLabels(app, project, kind);
+      if (labels.length === 0) return;
+      const listId = `inkswell-${kind}-${structureListSeq++}`;
+      const list = host.createEl("datalist");
+      list.id = listId;
+      for (const l of labels) list.createEl("option", { value: l });
+      input.setAttribute("list", listId);
+    };
     const act = row.createEl("input", { type: "text" });
     act.value = meta.act ?? "";
     act.placeholder = "Act";
+    suggest(act, "act");
     act.onchange = () => save({ act: act.value });
     const ch = row.createEl("input", { type: "text" });
     ch.value = meta.chapter ?? "";
     ch.placeholder = "Chapter";
+    suggest(ch, "chapter");
     ch.onchange = () => save({ chapter: ch.value });
+  });
+
+  // Plotlines — plain titles from the project's plotline list (Plan → Grid).
+  // Same chips pattern as Characters, but titles are strings, not wikilinks.
+  field(container, "Plotlines", (host) => {
+    const current = meta.plotlines ?? [];
+    const chips = host.createDiv({ cls: "inkswell-inspector__chips" });
+    for (const title of current) {
+      const chip = chips.createSpan({ cls: "inkswell-chip", text: title });
+      const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
+      x.onclick = () => save({ plotlines: current.filter((t) => t !== title) });
+    }
+    const configured = (project?.inkswell?.plotlines ?? []).map((p) => p.title);
+    const remaining = configured.filter((t) => !current.includes(t));
+    if (remaining.length > 0) {
+      const add = host.createEl("select", { cls: "dropdown" });
+      add.createEl("option", { text: "+ add plotline", value: "" });
+      for (const t of remaining) add.createEl("option", { text: t, value: t });
+      add.value = "";
+      add.onchange = () => {
+        if (add.value) save({ plotlines: [...current, add.value] });
+      };
+    } else if (configured.length === 0 && current.length === 0) {
+      host.createSpan({
+        cls: "inkswell-stats__muted",
+        text: "No plotlines yet — create them in Plan → Grid.",
+      });
+    }
   });
 
   // Target words
@@ -215,13 +272,15 @@ export function renderSceneAuditFields(
   onChange?: () => void
 ): void {
   const audit = readSceneAudit(app, file);
+  const saveAudit = (patch: Parameters<typeof writeSceneAudit>[2]) =>
+    void tryFileOp(() => writeSceneAudit(app, file, patch), "Couldn't save the audit change.");
   const list = container.createDiv({ cls: "inkswell-audit__checks" });
   for (const cp of SCENE_CHECKPOINTS) {
     const label = list.createEl("label", { cls: "inkswell-audit__check" });
     const cb = label.createEl("input", { type: "checkbox" });
     cb.checked = !!audit.checks[cp.id];
     cb.onchange = () => {
-      void writeSceneAudit(app, file, { checks: { [cp.id]: cb.checked } });
+      saveAudit({ checks: { [cp.id]: cb.checked } });
       onChange?.();
     };
     label.createSpan({ text: cp.label });
@@ -236,14 +295,14 @@ export function renderSceneAuditFields(
       if (audit.verdict === v) o.selected = true;
     }
     sel.value = audit.verdict ?? "";
-    sel.onchange = () => void writeSceneAudit(app, file, { verdict: sel.value as "" | "keep" });
+    sel.onchange = () => saveAudit({ verdict: sel.value as "" | "keep" });
   });
   field(container, "If removed…", (host) => {
     const ta = host.createEl("textarea", { cls: "inkswell-inspector__textarea" });
     ta.rows = 2;
     ta.value = audit.purpose ?? "";
     ta.placeholder = "What later scenes break if this one is cut?";
-    ta.onchange = () => void writeSceneAudit(app, file, { purpose: ta.value });
+    ta.onchange = () => saveAudit({ purpose: ta.value });
   });
 
   // Opening type — override the heuristic when it's wrong.
@@ -256,7 +315,7 @@ export function renderSceneAuditFields(
       if (audit.opening === t) o.selected = true;
     }
     sel.value = audit.opening ?? "";
-    sel.onchange = () => void writeSceneAudit(app, file, { opening: sel.value as "" | OpeningType });
+    sel.onchange = () => saveAudit({ opening: sel.value as "" | OpeningType });
   });
 
   // Character arc snapshots — internal (flaw) + external (problem) state for each
@@ -275,9 +334,7 @@ export function renderSceneAuditFields(
         external.value = snap.external ?? "";
         external.placeholder = "external / problem";
         const save = () =>
-          void writeSceneAudit(app, file, {
-            arc: { [name]: { internal: internal.value, external: external.value } },
-          });
+          saveAudit({ arc: { [name]: { internal: internal.value, external: external.value } } });
         internal.onchange = save;
         external.onchange = save;
       }
@@ -292,5 +349,5 @@ export function renderSceneAuditFields(
   ta.rows = 2;
   ta.value = audit.note ?? "";
   ta.placeholder = "What this scene needs in revision…";
-  ta.onchange = () => void writeSceneAudit(app, file, { note: ta.value });
+  ta.onchange = () => saveAudit({ note: ta.value });
 }

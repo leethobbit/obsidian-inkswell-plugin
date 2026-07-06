@@ -326,6 +326,33 @@ export class StatsPanel {
     const acts = metas.map((m) => m.act);
     const actOrder = [...new Set(acts.filter((a): a is string => !!a))];
     this.tallyBars(body, tallyBy(acts, actOrder));
+
+    body.createDiv({ cls: "inkswell-stats__muted", text: "By chapter" });
+    const chapters = metas.map((m) => m.chapter);
+    const chapterOrder = [...new Set(chapters.filter((c): c is string => !!c))];
+    this.tallyBars(body, tallyBy(chapters, chapterOrder));
+
+    // Read-only mirror of any per-chapter word targets (managed in Plan → Structure).
+    void this.renderChapterTargets(body, project);
+  }
+
+  /** Compact per-chapter target progress (only chapters that have a target). */
+  private async renderChapterTargets(body: HTMLElement, project: Project): Promise<void> {
+    const configured = (project.inkswell?.chapters ?? []).filter((g) => g.targetWords);
+    if (configured.length === 0) return;
+    const map = await this.stats.groupWords(project, "chapter");
+    body.createDiv({ cls: "inkswell-stats__muted", text: "Chapter targets" });
+    for (const g of configured) {
+      const target = g.targetWords ?? 0;
+      const words = map.get(g.title)?.words ?? 0;
+      const row = body.createDiv({ cls: "inkswell-stats__row" });
+      row.createSpan({ cls: "inkswell-tally__label", text: g.title });
+      this.progressBar(row, words, target);
+      row.createSpan({
+        cls: "inkswell-tally__count",
+        text: `${words.toLocaleString()} / ${target.toLocaleString()}`,
+      });
+    }
   }
 
   /**

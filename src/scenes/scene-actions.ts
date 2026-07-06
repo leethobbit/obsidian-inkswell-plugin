@@ -5,62 +5,54 @@
  * (synopsis) — never the prose body.
  */
 
-import { App, MarkdownView, Menu, Modal, Setting, TFile, normalizePath } from "obsidian";
+import { App, MarkdownView, Menu, Modal, Notice, Setting, TFile, normalizePath } from "obsidian";
+import { FormModal } from "../lib/form-modal";
 import { persistInkswellData, updateScenes } from "../projects/index-writer";
 import { expectInAppRename } from "../projects/rename-heal";
 import { renameSceneInBeats } from "../outliner/beats";
 import { removeScene } from "../projects/scene-tree";
 import { Project } from "../projects/types";
+import { tryFileOp } from "../lib/notify";
+import { sanitizeSegment } from "../settings/folders";
 import { EditSceneModal } from "./edit-scene-modal";
 import { readSceneMeta, writeSceneMeta } from "./scene-meta";
 import type InkswellPlugin from "../../main";
 
-class PromptModal extends Modal {
+/** Single/multi-line text prompt on the house scaffold (FormModal supplies
+ *  Enter-to-submit on the input, autofocus+select, and idempotent submit). */
+class PromptModal extends FormModal {
   private result: string | null = null;
+  private getValue: () => string = () => "";
+
   constructor(
     app: App,
     private opts: { title: string; value: string; multiline: boolean; cta: string },
     private cb: (value: string | null) => void
   ) {
     super(app);
+    this.cta = opts.cta;
   }
 
-  onOpen(): void {
-    const { contentEl } = this;
+  protected renderForm(contentEl: HTMLElement): void {
     contentEl.createEl("h3", { text: this.opts.title });
-    let getValue: () => string;
-
     if (this.opts.multiline) {
       const ta = contentEl.createEl("textarea", { cls: "inkswell-prompt__input" });
       ta.rows = 4;
       ta.value = this.opts.value;
-      getValue = () => ta.value;
-      window.setTimeout(() => ta.focus(), 0);
+      this.getValue = () => ta.value;
     } else {
       const inp = contentEl.createEl("input", { type: "text", cls: "inkswell-prompt__input" });
       inp.value = this.opts.value;
-      getValue = () => inp.value;
-      inp.onkeydown = (e) => {
-        if (e.key === "Enter") this.submit(getValue());
-      };
-      window.setTimeout(() => {
-        inp.focus();
-        inp.select();
-      }, 0);
+      this.getValue = () => inp.value;
     }
-
-    new Setting(contentEl)
-      .addButton((b) => b.setButtonText(this.opts.cta).setCta().onClick(() => this.submit(getValue())))
-      .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()));
   }
 
-  private submit(value: string): void {
-    this.result = value;
-    this.close();
+  protected submit(): void {
+    this.result = this.getValue();
   }
 
   onClose(): void {
-    this.contentEl.empty();
+    super.onClose();
     this.cb(this.result);
   }
 }
@@ -87,6 +79,9 @@ class ConfirmModal extends Modal {
           this.close();
         });
         b.buttonEl.addClass("mod-warning");
+        // Default focus on the primary action so Enter confirms (button
+        // semantics) and Escape still cancels — matching the house dialogs.
+        window.setTimeout(() => b.buttonEl.focus(), 0);
       })
       .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()));
   }
@@ -134,7 +129,9 @@ export async function editSynopsis(app: App, file: TFile): Promise<void> {
     multiline: true,
     cta: "Save",
   });
-  if (value !== null) await writeSceneMeta(app, file, { synopsis: value });
+  if (value !== null) {
+    await tryFileOp(() => writeSceneMeta(app, file, { synopsis: value }), "Couldn't save the synopsis.");
+  }
 }
 
 /**
@@ -155,8 +152,15 @@ export async function renameScene(
     cta: "Rename",
   });
   if (input === null) return null;
-  const next = input.trim().replace(/[\\/:*?"<>|]/g, "-");
-  if (!next || next === oldTitle) return null;
+  // Same sanitizer the create path uses: strips filename-illegal chars AND
+  // rejects dot-only / dot-edged names ("..", ".") that would create a hidden
+  // or folder-escaping file (which is how a scene renamed to ".." vanished).
+  const next = sanitizeSegment(input);
+  if (!next) {
+    if (input.trim()) new Notice("That name can't be used as a file name.");
+    return null;
+  }
+  if (next === oldTitle) return null;
 
   const folder = file.parent ? file.parent.path : "";
   const newPath = normalizePath(folder ? `${folder}/${next}.md` : `${next}.md`);
@@ -165,17 +169,20 @@ export async function renameScene(
   // Tell the store's rename-heal this rename is app-initiated — we update the
   // index below, so the heal must not also fire (a redundant/racing write).
   expectInAppRename(newPath);
-  await app.fileManager.renameFile(file, newPath);
-  const indexFile = app.vault.getAbstractFileByPath(project.vaultPath);
-  if (indexFile instanceof TFile) {
-    await updateScenes(app, indexFile, project.draft, (scenes) =>
-      scenes.map((s) => (s.title === oldTitle ? { ...s, title: next } : s))
-    );
-    // Beats link scenes by title in a separate frontmatter structure, so rewrite
-    // those links too — otherwise the rename orphans the beat's scene chip.
-    const beats = renameSceneInBeats(project.inkswell?.beats, oldTitle, next);
-    if (beats) await persistInkswellData(app, indexFile, { beats });
-  }
+  const ok = await tryFileOp(async () => {
+    await app.fileManager.renameFile(file, newPath);
+    const indexFile = app.vault.getAbstractFileByPath(project.vaultPath);
+    if (indexFile instanceof TFile) {
+      await updateScenes(app, indexFile, project.draft, (scenes) =>
+        scenes.map((s) => (s.title === oldTitle ? { ...s, title: next } : s))
+      );
+      // Beats link scenes by title in a separate frontmatter structure, so rewrite
+      // those links too — otherwise the rename orphans the beat's scene chip.
+      const beats = renameSceneInBeats(project.inkswell?.beats, oldTitle, next);
+      if (beats) await persistInkswellData(app, indexFile, { beats });
+    }
+  }, `Couldn't rename "${oldTitle}".`);
+  if (ok === null) return null;
   return newPath;
 }
 
@@ -190,11 +197,13 @@ export async function deleteScene(
     `Delete scene "${title}"? It will be moved to trash and removed from the project.`
   );
   if (!ok) return;
-  const indexFile = app.vault.getAbstractFileByPath(project.vaultPath);
-  if (indexFile instanceof TFile) {
-    await updateScenes(app, indexFile, project.draft, (scenes) => removeScene(scenes, title));
-  }
-  await app.fileManager.trashFile(file);
+  await tryFileOp(async () => {
+    const indexFile = app.vault.getAbstractFileByPath(project.vaultPath);
+    if (indexFile instanceof TFile) {
+      await updateScenes(app, indexFile, project.draft, (scenes) => removeScene(scenes, title));
+    }
+    await app.fileManager.trashFile(file);
+  }, `Couldn't delete "${title}".`);
 }
 
 /** Add the common scene items (Open / Edit synopsis / Rename / Delete) to a menu. */

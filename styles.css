@@ -271,25 +271,32 @@
 .inkswell-scene.is-inactive {
   opacity: 0.5;
 }
+/* Each status maps to a theme accent via --inkswell-status-rgb (Obsidian's
+   --color-*-rgb variables), so badges and the Track status mix-bar follow the
+   active theme instead of a hardcoded palette. Badges render a tint of the
+   accent; the mix-bar (below) uses it solid. */
 .inkswell-status--outlined {
-  background: #6b7280;
-  color: #fff;
+  --inkswell-status-rgb: var(--mono-rgb-100);
 }
 .inkswell-status--draft {
-  background: #b45309;
-  color: #fff;
+  --inkswell-status-rgb: var(--color-orange-rgb);
 }
 .inkswell-status--written {
-  background: #2563eb;
-  color: #fff;
+  --inkswell-status-rgb: var(--color-blue-rgb);
 }
 .inkswell-status--revised {
-  background: #7c3aed;
-  color: #fff;
+  --inkswell-status-rgb: var(--color-purple-rgb);
 }
 .inkswell-status--final {
-  background: #16a34a;
-  color: #fff;
+  --inkswell-status-rgb: var(--color-green-rgb);
+}
+.inkswell-status--outlined,
+.inkswell-status--draft,
+.inkswell-status--written,
+.inkswell-status--revised,
+.inkswell-status--final {
+  background: rgba(var(--inkswell-status-rgb), 0.18);
+  color: rgb(var(--inkswell-status-rgb));
 }
 
 /* --- Codex --- */
@@ -1006,6 +1013,281 @@
   overflow: hidden;
 }
 
+/* --- Plot grid (Plan → Grid) --- */
+.inkswell-plotgrid {
+  padding: var(--size-4-3);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.inkswell-plotgrid__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-3);
+  flex-wrap: wrap;
+}
+
+.inkswell-plotgrid__onboard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--size-4-3);
+  max-width: 46ch;
+  margin: var(--size-4-6) auto;
+}
+
+.inkswell-plotgrid__scroll {
+  overflow: auto;
+  min-height: 0;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+}
+
+.inkswell-plotgrid__table {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) repeat(var(--plotgrid-cols), minmax(180px, 1fr));
+  align-items: stretch;
+}
+
+/* Sticky chrome: header row on top, row labels on the left, corner on both. */
+.inkswell-plotgrid__corner,
+.inkswell-plotgrid__colhead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--background-primary);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.inkswell-plotgrid__corner,
+.inkswell-plotgrid__rowlabel {
+  position: sticky;
+  left: 0;
+  background: var(--background-primary);
+  border-right: 1px solid var(--background-modifier-border);
+}
+
+.inkswell-plotgrid__corner {
+  z-index: 3;
+}
+
+.inkswell-plotgrid__rowlabel {
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  padding: var(--size-4-2);
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.inkswell-plotgrid__rowlabel.is-act {
+  background: var(--background-secondary);
+  text-transform: uppercase;
+  font-size: var(--font-ui-smaller);
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.inkswell-plotgrid__rowlabel.is-planned {
+  color: var(--text-muted);
+  font-weight: var(--font-normal);
+}
+
+.inkswell-plotgrid__rowlabel.is-scene {
+  font-weight: var(--font-normal);
+  padding-left: var(--size-4-6);
+  cursor: default;
+}
+
+.inkswell-plotgrid__rowlabel .is-link {
+  cursor: pointer;
+}
+
+.inkswell-plotgrid__rowlabel .is-link:hover {
+  color: var(--text-accent);
+  text-decoration: underline;
+}
+
+.inkswell-plotgrid__chev {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+}
+
+.inkswell-plotgrid__chev svg {
+  width: 14px;
+  height: 14px;
+}
+
+.inkswell-plotgrid__rowcount {
+  color: var(--text-faint);
+  font-weight: var(--font-normal);
+  font-size: var(--font-ui-smaller);
+}
+
+.inkswell-plotgrid__colhead {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  padding: var(--size-4-2);
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: grab;
+}
+
+.inkswell-plotgrid__colhead.is-orphan {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.inkswell-plotgrid__colhead.is-dragging {
+  opacity: 0.4;
+}
+
+.inkswell-plotgrid__colhead.is-drop-left {
+  box-shadow: inset 2px 0 0 var(--interactive-accent);
+}
+
+.inkswell-plotgrid__colhead.is-drop-right {
+  box-shadow: inset -2px 0 0 var(--interactive-accent);
+}
+
+.inkswell-plotgrid__coltitle {
+  cursor: pointer;
+}
+
+.inkswell-plotgrid__coltitle:hover {
+  color: var(--text-normal);
+}
+
+.inkswell-plotgrid__coldot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.inkswell-plotgrid__colcount {
+  color: var(--text-faint);
+  font-weight: var(--font-normal);
+}
+
+.inkswell-plotgrid__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--size-4-1);
+  padding: var(--size-4-1) var(--size-4-2);
+  border-bottom: 1px solid var(--background-modifier-border);
+  border-right: 1px solid var(--background-modifier-border-hover);
+  min-height: 34px;
+}
+
+.inkswell-plotgrid__cell.is-act {
+  background: var(--background-secondary);
+  flex-direction: row;
+  align-items: center;
+}
+
+.inkswell-plotgrid__cell.is-drop,
+.inkswell-plotgrid__rowlabel.is-drop,
+.inkswell-plotgrid__colhead.is-drop {
+  outline: 2px dashed var(--interactive-accent);
+  outline-offset: -2px;
+}
+
+.inkswell-plotgrid__chip {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  width: 100%;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  padding: 2px var(--size-4-1) 2px var(--size-4-2);
+  font-size: var(--font-ui-smaller);
+  cursor: pointer;
+}
+
+.inkswell-plotgrid__chip.is-dragging {
+  opacity: 0.4;
+}
+
+.inkswell-plotgrid__chip.is-inactive,
+.inkswell-plotgrid__dot.is-inactive {
+  opacity: 0.45;
+}
+
+.inkswell-plotgrid__chiptext {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inkswell-plotgrid__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--interactive-accent);
+  flex: 0 0 auto;
+}
+
+/* Compact + act-aggregate cells lay dots out in a wrapped row. */
+.inkswell-plotgrid__cell.is-compact {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  cursor: pointer;
+}
+
+.inkswell-plotgrid__aggcount {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  margin-left: var(--size-4-1);
+}
+
+.inkswell-plotgrid__add,
+.inkswell-plotgrid__toggle {
+  border: 1px dashed var(--background-modifier-border);
+  background: transparent;
+  color: var(--text-faint);
+  border-radius: var(--radius-s);
+  padding: 0 var(--size-4-2);
+  line-height: 1.4;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.inkswell-plotgrid__add {
+  opacity: 0;
+}
+
+.inkswell-plotgrid__cell:hover .inkswell-plotgrid__add,
+.inkswell-plotgrid__add:focus-visible {
+  opacity: 1;
+}
+
+.inkswell-plotgrid__add:hover,
+.inkswell-plotgrid__toggle:hover {
+  color: var(--text-normal);
+  border-color: var(--text-muted);
+}
+
+.inkswell-plotgrid__focuschip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-1);
+}
+
 /* Write — manuscript editor */
 .inkswell-write {
   display: flex;
@@ -1241,19 +1523,6 @@
   padding: var(--size-4-3);
 }
 
-.inkswell-publish__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--size-4-2);
-  padding: var(--size-4-2) 0;
-  border-bottom: 1px solid var(--background-modifier-border);
-}
-
-.inkswell-publish__title {
-  font-weight: var(--font-semibold);
-}
-
 .inkswell-explorer {
   padding: 0 var(--size-4-2);
   user-select: none;
@@ -1455,7 +1724,12 @@
   opacity: 0.4;
 }
 
-.inkswell-scene.is-drop-target {
+/* Positional drop hint: a line at the top (above) or bottom (below) edge,
+   matching exactly where the dragged scene will land. */
+.inkswell-scene.is-drop-above {
+  box-shadow: inset 0 2px 0 0 var(--interactive-accent);
+}
+.inkswell-scene.is-drop-below {
   box-shadow: inset 0 -2px 0 0 var(--interactive-accent);
 }
 
@@ -1731,15 +2005,12 @@
 }
 .inkswell-mixbar__seg {
   min-width: 2px;
+  /* Solid form of the status accent (badges use the 18% tint). Source order
+     matters: this rule sits after the badge tints, so it wins on segments. */
+  background: rgb(var(--inkswell-status-rgb, var(--mono-rgb-100)));
 }
 .inkswell-mixbar__seg--none {
   background: var(--background-modifier-border);
-}
-
-.inkswell-stats__big {
-  font-size: 2em;
-  font-weight: var(--font-bold);
-  font-variant-numeric: tabular-nums;
 }
 
 .inkswell-stats__row {
@@ -1845,9 +2116,6 @@
 .inkswell-analysis {
   padding: var(--size-4-3);
 }
-.inkswell-analysis__toolbar {
-  margin-bottom: var(--size-4-3);
-}
 .inkswell-analysis__chips {
   display: flex;
   flex-wrap: wrap;
@@ -1895,8 +2163,102 @@
   background-color: var(--interactive-accent);
   transition: width 0.2s ease;
 }
+.inkswell-progress.is-empty .inkswell-progress__fill {
+  width: 0;
+}
+.inkswell-progress.is-done .inkswell-progress__fill {
+  background-color: var(--color-green);
+}
 
-/* 30-day bar chart */
+/* Plan → Outline (Act › Chapter › Scene tree) */
+.inkswell-outline {
+  padding: var(--size-4-3);
+}
+.inkswell-outline__bar {
+  display: flex;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-3);
+}
+.inkswell-outline__act {
+  margin-bottom: var(--size-4-3);
+}
+.inkswell-outline__children {
+  margin-left: var(--size-4-4);
+  border-left: 1px solid var(--background-modifier-border);
+  padding-left: var(--size-4-2);
+}
+.inkswell-outline__row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-1) var(--size-4-2);
+  border-radius: var(--radius-s);
+}
+.inkswell-outline__row.is-act {
+  font-weight: var(--font-semibold);
+  background-color: var(--background-secondary);
+}
+.inkswell-outline__row.is-chapter {
+  font-weight: var(--font-medium);
+}
+.inkswell-outline__row.is-dragging {
+  opacity: 0.4;
+}
+.inkswell-outline__row.is-drop-target,
+.inkswell-outline__children.is-drop-target {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+}
+/* Positional drop hint: a line at the top (above) or bottom (below) edge. */
+.inkswell-outline__row.is-drop-above {
+  box-shadow: inset 0 2px 0 0 var(--interactive-accent);
+}
+.inkswell-outline__row.is-drop-below {
+  box-shadow: inset 0 -2px 0 0 var(--interactive-accent);
+}
+.inkswell-outline__grip {
+  color: var(--text-faint);
+  cursor: grab;
+  display: inline-flex;
+}
+.inkswell-outline__name {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.inkswell-outline__name.is-link,
+.inkswell-outline__scene.is-link {
+  cursor: pointer;
+}
+.inkswell-outline__name.is-link:hover {
+  color: var(--text-accent);
+}
+.inkswell-outline__meta {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-outline__progress {
+  flex: 0 0 8em;
+}
+.inkswell-outline__target {
+  width: 5.5em;
+  flex: 0 0 auto;
+}
+.inkswell-outline__mini {
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-outline__subhead {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  margin: var(--size-4-3) 0 var(--size-4-1);
+}
+.inkswell-outline__empty {
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+  font-style: italic;
+  padding: var(--size-4-1) var(--size-4-2);
+}
 .inkswell-chart {
   display: flex;
   align-items: flex-end;
@@ -2100,10 +2462,6 @@
   gap: var(--size-4-2);
   flex-wrap: wrap;
   margin-bottom: var(--size-4-3);
-}
-
-.inkswell-revision__project {
-  font-weight: var(--font-semibold);
 }
 
 .inkswell-revision__toggle {

@@ -3,6 +3,9 @@
 ## What this project is
 Single Obsidian plugin (TypeScript + esbuild) that bundles a longform writer's suite — projects/scenes, a compile pipeline, word goals, writing sprints, and an invisible-revision decision log — replacing the fragile Longform + Word Goals + Word Sprint stack. Inkswell owns the drafting surface: scenes are written in its own embedded Live-Preview editor (the Write panel), backed by a custom CodeMirror 6 `EditorView` — not Obsidian's Markdown editor. Single-user, local, no backend. Desktop + mobile (pandoc export is desktop-only and feature-detected).
 
+## Stack reference
+Obsidian plugin conventions (toolchain, Vault API rules, deferred views, mobile, release runbook, gotchas) → `~/.claude/docs/obsidian-plugin-dev.md`. This repo is the reference implementation of that doc; where they disagree, this file wins here and the doc should be fixed.
+
 ## Commands
 | Task | Command |
 |------|---------|
@@ -58,7 +61,7 @@ Single Obsidian plugin (TypeScript + esbuild) that bundles a longform writer's s
 | Export docx/pdf | Optional pandoc manuscript step; detect binary, disable if missing |
 
 ## Adding a compile step (in order)
-1. Implement the `CompileStep` interface in [src/compile/steps/](src/compile/steps/), setting `kind: "scene" | "manuscript"`.
+1. Implement the `CompileStep` interface in [src/compile/steps.ts](src/compile/steps.ts), setting `kind: "scene" | "manuscript"`.
 2. Register it in the step registry so it appears in the compile UI.
 3. Add/extend a vitest case asserting pipeline ordering and output.
 4. `npm run typecheck && npm test`, then reload via the `obsidian-cli` skill and run a compile end-to-end.

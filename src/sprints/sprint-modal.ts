@@ -3,13 +3,15 @@
  * word goal.
  */
 
-import { App, Modal, Setting } from "obsidian";
+import { App, Setting } from "obsidian";
+import { FormModal } from "../lib/form-modal";
 import { SprintController } from "./sprint-controller";
 
-export class SprintModal extends Modal {
+export class SprintModal extends FormModal {
   private sprints: SprintController;
   private minutes: number;
   private goal: number;
+  protected cta = "Start";
 
   constructor(
     app: App,
@@ -23,8 +25,7 @@ export class SprintModal extends Modal {
     this.goal = defaultGoal;
   }
 
-  onOpen(): void {
-    const { contentEl } = this;
+  protected renderForm(contentEl: HTMLElement): void {
     contentEl.createEl("h3", { text: "Start a writing sprint" });
 
     new Setting(contentEl).setName("Duration (minutes)").addText((t) =>
@@ -43,19 +44,9 @@ export class SprintModal extends Modal {
           this.goal = Number.isFinite(n) && n > 0 ? n : 0;
         })
       );
-
-    new Setting(contentEl).addButton((b) =>
-      b
-        .setButtonText("Start")
-        .setCta()
-        .onClick(() => {
-          this.sprints.start(this.minutes, this.goal > 0 ? this.goal : null);
-          this.close();
-        })
-    );
   }
 
-  onClose(): void {
-    this.contentEl.empty();
+  protected submit(): void {
+    this.sprints.start(this.minutes, this.goal > 0 ? this.goal : null);
   }
 }

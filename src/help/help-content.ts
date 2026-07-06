@@ -79,14 +79,29 @@ export const HINTS: Record<string, HintEntry> = {
     body: (el) => {
       p(
         el,
-        "A Save-the-Cat–style 15-beat outline for the active project. Each beat carries " +
-          "its purpose, a planning note, an optional linked scene, and a done toggle; the " +
-          "bar across the top tracks how many are complete."
+        "A structural outline for the active project, built from a beat template you pick " +
+          "from the Template dropdown. Seven are included:"
+      );
+      steps(el, [
+        "Save the Cat (15 beats)",
+        "Three-Act (7)",
+        "Hero's Journey (12)",
+        "Seven-Point (7)",
+        "Story Circle (8)",
+        "Romancing the Beat (14)",
+        "27-Chapter (27)",
+      ]);
+      p(
+        el,
+        "Each beat carries its purpose, a planning note, an optional linked scene, and a " +
+          "done toggle; the bar across the top tracks how many are complete. Switch " +
+          "templates anytime — each keeps its own notes and links, so nothing is lost if " +
+          "you switch back."
       );
       steps(el, [
         "Type directly into a beat's planning note — it's inline, not a separate file.",
         "Link a beat to the scene that delivers it so Plan and Write stay in sync.",
-        'Scaffold generates scene stubs for any unlinked beats in one step.',
+        "Scaffold generates scene stubs for any unlinked beats in one step.",
       ]);
     },
   },
@@ -104,6 +119,55 @@ export const HINTS: Record<string, HintEntry> = {
           "Draft to Revised). Click a card to open the scene; right-click (or the ⋯ button) " +
           "for rename, edit, and delete. Card colour comes from the scene's colour field."
       );
+    },
+  },
+  "plan/grid": {
+    title: "How the plot grid works",
+    body: (el) => {
+      p(
+        el,
+        "A plotline × chapter matrix for tracking subplots and arcs. Columns are your " +
+          "plotlines; rows are your chapters; each cell shows the scenes that advance that " +
+          "plotline there. Cells are your real scenes — the grid derives from scene " +
+          "frontmatter, so it always matches the manuscript, and an empty stretch in a " +
+          "column is a pacing signal, not a bookkeeping gap."
+      );
+      p(
+        el,
+        "Click a cell's + to tag an existing scene or create a stub scene (status Idea) " +
+          "right there — that's how you plan a beat you haven't written yet. Expand a " +
+          "chapter row to toggle every scene's membership without dragging. Drag a chip " +
+          "to another cell to move it between plotlines or chapters; a scene can belong " +
+          "to several plotlines at once."
+      );
+      steps(el, [
+        "Manage plotlines from the column headers: rename (updates every tagged scene), recolor, reorder, focus, or delete.",
+        "Big book? Compact mode shows cells as colored dots (automatic on large grids), and act rows collapse to per-column counts.",
+        "Tags that match no plotline appear as “untracked” columns — adopt them into your list or clear them from all scenes.",
+      ]);
+    },
+  },
+  "plan/outline": {
+    title: "How the outline works",
+    body: (el) => {
+      p(
+        el,
+        "Organise your book as a tree: acts hold chapters, chapters hold scenes. Drag a " +
+          "scene into a chapter (or a chapter into an act), and drop above or below a row " +
+          "to reorder. This tree is the source of truth — arranging it also sets the " +
+          "manuscript's reading order, so each chapter's scenes stay together."
+      );
+      p(
+        el,
+        "It comes last in Plan on purpose. The usual flow is to sketch your Beats first, " +
+          "spin scenes off those beats, and draft them in Write — structure can wait. " +
+          "Once you have real scenes, come back here to group them into acts and chapters."
+      );
+      steps(el, [
+        "Nesting is optional — a scene can sit outside any chapter and a chapter outside any act (the “Chapters with no act” / “Unassigned scenes” buckets).",
+        "Give a chapter a word target to track its progress; the same targets show on Track.",
+        "Click a scene to open it in Write; use the ⋯ menu (or right-click) to rename, move, or delete.",
+      ]);
     },
   },
   codex: {
@@ -229,17 +293,21 @@ export const HELP_SECTIONS: HelpSection[] = [
   {
     phase: "Plan",
     icon: "compass",
-    summary: "Overview fields, the beat sheet, and the status board.",
+    summary: "Overview fields, the beat sheet, the status board, the plot grid, and the story outline.",
     body: (el) => {
       p(
         el,
         "Overview holds novel-level fields (logline, theme, genre) and long-form prose " +
-          "(synopsis, three-act sketch). Beats and Board are detailed below."
+          "(synopsis, three-act sketch). Beats, Board, Grid, and Outline are detailed below."
       );
       el.createEl("h4", { text: HINTS["plan/beats"].title });
       HINTS["plan/beats"].body(el);
       el.createEl("h4", { text: HINTS["plan/board"].title });
       HINTS["plan/board"].body(el);
+      el.createEl("h4", { text: HINTS["plan/grid"].title });
+      HINTS["plan/grid"].body(el);
+      el.createEl("h4", { text: HINTS["plan/outline"].title });
+      HINTS["plan/outline"].body(el);
     },
   },
   {

@@ -48,14 +48,14 @@ export async function runCompile(
 
   if (config.format === "md") {
     const path = `${base}.md`;
-    await app.vault.adapter.write(path, manuscript);
+    await writeOutput(app, path, manuscript);
     return { outputPath: path, wordCountSource: manuscript };
   }
 
   if (config.format === "html") {
     const html = await renderHtml(app, manuscript, project.vaultPath);
     const path = `${base}.html`;
-    await app.vault.adapter.write(path, html);
+    await writeOutput(app, path, html);
     return { outputPath: path, wordCountSource: manuscript };
   }
 
@@ -65,6 +65,24 @@ export async function runCompile(
   }
   const outputPath = await runPandoc(app, manuscript, base, config.pandoc);
   return { outputPath, wordCountSource: manuscript };
+}
+
+/**
+ * Write compile output through the vault API (NOT `adapter.write`) so the file
+ * shows up in Obsidian's file index and metadata cache immediately. The compile
+ * output path is explicit per-project config, so an existing file at that path
+ * is a previous compile and is replaced.
+ */
+async function writeOutput(app: App, path: string, content: string): Promise<TFile> {
+  const existing = app.vault.getAbstractFileByPath(path);
+  if (existing instanceof TFile) {
+    await app.vault.modify(existing, content);
+    return existing;
+  }
+  if (existing) {
+    throw new Error(`Can't write "${path}" — a folder with that name exists.`);
+  }
+  return app.vault.create(path, content);
 }
 
 async function loadScenes(app: App, project: Project): Promise<CompileScene[]> {
@@ -97,6 +115,9 @@ async function renderHtml(
   const container = createDiv();
   try {
     await MarkdownRenderer.render(app, markdown, container, sourcePath, component);
+    // innerHTML READ off a detached element, never a write to the live DOM:
+    // it serializes MarkdownRenderer's already-sanitized output into the
+    // exported HTML string. Not an injection sink.
     const body = container.innerHTML;
     return `<!doctype html>\n<html>\n<head>\n<meta charset="utf-8">\n</head>\n<body>\n${body}\n</body>\n</html>\n`;
   } finally {

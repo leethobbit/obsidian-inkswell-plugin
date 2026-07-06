@@ -5,9 +5,11 @@
  */
 
 import { App, TFile } from "obsidian";
+import { tryFileOp } from "../../lib/notify";
 import { resolveActive } from "../../projects/active-project";
 import { persistPublishing } from "../../projects/index-writer";
 import { ProjectStore } from "../../projects/project-store";
+import { baseDraftFor } from "../../projects/stories";
 import { Project } from "../../projects/types";
 import { projectSeries } from "../../series/series";
 import { PUBLISHING_CHECKLIST } from "../../publishing/checklist-def";
@@ -44,11 +46,15 @@ export class ChecklistPanel {
     container.empty();
     container.addClass("inkswell-publishing");
 
-    const project = resolveActive(this.store.getProjects(), this.plugin.activeProject.get());
-    if (!project) {
+    const active = resolveActive(this.store.getProjects(), this.plugin.activeProject.get());
+    if (!active) {
       container.createDiv({ cls: "inkswell-stats__muted", text: "No project selected." });
       return;
     }
+    // Publishing metadata/checklist describe the BOOK, not one draft — read and
+    // write the story's base draft so every draft shares one copy (like overview
+    // and goals), instead of drifting per draft.
+    const project = baseDraftFor(this.store.getProjects(), active);
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
     if (!(file instanceof TFile)) return;
     const data = project.inkswell?.publishing;
@@ -123,19 +129,23 @@ export class ChecklistPanel {
     taskId: string,
     patch: Partial<ChecklistTaskState>
   ): void {
-    void persistPublishing(this.app, file, (raw) => {
-      const pub = raw as PublishingData;
-      const checklist = pub.checklist ?? (pub.checklist = {});
-      const phase = checklist[phaseId] ?? (checklist[phaseId] = {});
-      const next: ChecklistTaskState = { ...(phase[taskId] ?? {}), ...patch };
-      if (!next.done) delete next.done;
-      if (!(next.notes ?? "").trim()) delete next.notes;
-      if (!(next.date ?? "").trim()) delete next.date;
-      if (Object.keys(next).length === 0) delete phase[taskId];
-      else phase[taskId] = next;
-      if (Object.keys(phase).length === 0) delete checklist[phaseId];
-      if (Object.keys(checklist).length === 0) delete pub.checklist;
-    });
+    void tryFileOp(
+      () =>
+        persistPublishing(this.app, file, (raw) => {
+          const pub = raw as PublishingData;
+          const checklist = pub.checklist ?? (pub.checklist = {});
+          const phase = checklist[phaseId] ?? (checklist[phaseId] = {});
+          const next: ChecklistTaskState = { ...(phase[taskId] ?? {}), ...patch };
+          if (!next.done) delete next.done;
+          if (!(next.notes ?? "").trim()) delete next.notes;
+          if (!(next.date ?? "").trim()) delete next.date;
+          if (Object.keys(next).length === 0) delete phase[taskId];
+          else phase[taskId] = next;
+          if (Object.keys(phase).length === 0) delete checklist[phaseId];
+          if (Object.keys(checklist).length === 0) delete pub.checklist;
+        }),
+      "Couldn't save the checklist task."
+    );
   }
 
   // --- Metadata worksheet (C2) ---------------------------------------------
@@ -235,10 +245,14 @@ export class ChecklistPanel {
   }
 
   private saveMeta(file: TFile, patch: Partial<PublishingMetadata>): void {
-    void persistPublishing(this.app, file, (raw) => {
-      const pub = raw as PublishingData;
-      pub.metadata = { ...(pub.metadata ?? {}), ...patch };
-    });
+    void tryFileOp(
+      () =>
+        persistPublishing(this.app, file, (raw) => {
+          const pub = raw as PublishingData;
+          pub.metadata = { ...(pub.metadata ?? {}), ...patch };
+        }),
+      "Couldn't save the book metadata."
+    );
   }
 }
 

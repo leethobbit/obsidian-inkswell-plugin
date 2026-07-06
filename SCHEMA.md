@@ -53,6 +53,7 @@ Flat top-level keys on each scene file. Field names match StoryLine where they o
 | `inactive` | boolean | `true` = archived; excluded from compile + stats |
 | `characters` | string[] | Linked codex characters as wikilinks, e.g. `["[[Anna]]"]` |
 | `location` | string | Linked codex location as a wikilink |
+| `plotlines` | string[] | Plotlines this scene advances — plain titles matching `inkswell.plotlines` entries (like `act`/`chapter` strings, NOT wikilinks) |
 | `targetWords` | number | Per-scene word-count target |
 
 ### Scene note — `rev*` revision-audit keys
@@ -97,6 +98,14 @@ ISO 8601 string, stamped when a draft is created via **New draft** (a draft's ow
 
 ### `inkswell.beats` — beat sheet
 `template` (enum: `save-the-cat` · `three-act` · `heros-journey` · `seven-point` · `story-circle` · `romancing-the-beat` · `twenty-seven-chapter`) · `assignments` (map of `beatId → {scenes?: string[], note?: string, done?: boolean}`).
+
+### `inkswell.acts` / `inkswell.chapters` — the Act › Chapter › Scene outline
+`inkswell.acts`: ordered `[{id, title}]`. `inkswell.chapters`: ordered `[{id, title, actId?, targetWords?}]`, where `actId` links a chapter to its act (the explicit chapter→act relationship; absent = act-less).
+
+These arrays are the **authoritative structure** (edited in Plan → **Outline**). The scene `act`/`chapter` strings and the `longform.scenes` order are **derived output Inkswell writes** from the tree: a scene's `chapter` = its chapter's title, its `act` = that chapter's act title (blank when loose/unassigned), and the manuscript is reordered to flatten(act → chapter → scene). This keeps chapters contiguous and Longform/StoryLine compatible (the scene strings still exist; the flat indented scene list is still valid). `id` is a stable string minted at creation so config/`actId` survive a rename. **Backward-compatible:** if the arrays are absent/partial, the outline is reconstructed from the scene strings (chapters adopted, a chapter's act inferred from its scenes' `act`), so pre-existing projects open with their current structure intact. Managed per **draft**, unlike story-level `overview`/`goals`.
+
+### `inkswell.plotlines` — the Plot Grid columns
+Ordered `[{id, title, color?}]` (edited in Plan → **Grid**). Array order = column order. Like acts/chapters, membership is by **title**: a scene joins a plotline via its `plotlines` string array, and the grid's cells derive entirely from scene data. `id` is a stable string minted at creation so `color` survives a rename (renaming a plotline rewrites every member scene's tag). Scene tags with no matching entry render as orphan "ghost" columns — adoptable, never silently dropped.
 
 ### `inkswell.revisions` — invisible-revision decision log
 Array of `{id, text, scene: string|null, status, created, type?, priority?}`.

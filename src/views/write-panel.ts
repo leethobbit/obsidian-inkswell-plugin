@@ -6,18 +6,19 @@
  *
  * Saves happen on blur / scene-switch / unmount (NOT per keystroke) so a store
  * refresh never rebuilds the editor mid-type. Frontmatter is preserved: only the
- * body is rewritten, re-reading current frontmatter at save time so concurrent
- * Inspector edits aren't clobbered. (A future upgrade can embed Obsidian's Live
- * Preview editor per scene; this textarea editor is the robust v1.)
+ * body is rewritten, atomically via `vault.process` so concurrent Inspector
+ * edits aren't clobbered. The editor is a custom CM6 Live-Preview surface
+ * (see scene-editor.ts); embedding Obsidian's own editor remains deferred.
  */
 
 import { EditorView } from "@codemirror/view";
-import { App, FuzzySuggestModal, Menu, TFile, setIcon } from "obsidian";
+import { App, FuzzySuggestModal, Menu, Notice, TFile, setIcon } from "obsidian";
 import { isPhone } from "../lib/platform";
 import { attachRowMenu } from "../lib/row-menu";
 import { addSceneMenuItems } from "../scenes/scene-actions";
 import { PromptModal } from "../ideation/prompt-modal";
 import { RevisionModal } from "../revisions/revision-modal";
+import { renderEmptyState } from "./panel-kit";
 import { createSceneEditor, flashRange, insertPlaceholder } from "./scene-editor";
 import { PlaceholderKind, scanPlaceholders } from "../lib/placeholders";
 import { PromptCategory, PromptPhase } from "../ideation/prompts";
@@ -76,6 +77,9 @@ export class WritePanel {
   /** Tracks the project the editor is currently bound to, to reset on change. */
   private lastProject: string | null = null;
   private selectedScene: string | null = null;
+  /** Stable hosts inside the panel, re-rendered in place by {@link update}. */
+  private navEl: HTMLElement | null = null;
+  private inspectorHost: HTMLElement | null = null;
 
   private editor: EditorView | null = null;
   /** Bumped each render; a stale async scene-load checks it and bails. */
@@ -226,8 +230,43 @@ export class WritePanel {
     backdrop.onclick = () => container.removeClass("nav-open");
     this.renderNavigator(main, project);
     this.renderEditor(main);
-    const insp = main.createDiv({ cls: "inkswell-write__inspector" });
-    this.inspector.render(insp, this.currentFile);
+    this.inspectorHost = main.createDiv({ cls: "inkswell-write__inspector" });
+    this.inspector.render(this.inspectorHost, this.currentFile);
+  }
+
+  /**
+   * Absorb a store/tracker refresh WITHOUT tearing down the live editor —
+   * re-renders the topbar, scene navigator, and inspector in place so the CM6
+   * editor keeps its undo history, scroll position, and cursor. Returns false
+   * when the refresh can't be absorbed (project switched, the selected scene
+   * changed or no longer resolves, or the panel isn't mounted) — the host then
+   * falls back to a full render.
+   */
+  update(): boolean {
+    if (!this.container || !this.container.isConnected) return false;
+    if (!this.editor || !this.currentFile) return false;
+    // A pending scene switch (selectScene / nav click) needs the full path so
+    // the new scene loads into the editor.
+    if (this.currentFile.path !== this.selectedScene) return false;
+
+    const projects = this.store.getProjects().filter((p) => p.draft.format === "scenes");
+    const project = resolveActive(projects, this.plugin.activeProject.get());
+    if (!project || project.vaultPath !== this.lastProject) return false;
+    // The scene must still be part of the project at the same path (a rename or
+    // removal invalidates the editor binding — rebuild).
+    if (!project.scenes.some((s) => s.path === this.selectedScene)) return false;
+
+    this.renderTopbar();
+    if (this.navEl) {
+      this.navEl.empty();
+      this.renderNavRows(this.navEl, project);
+    }
+    if (this.inspectorHost) this.inspector.render(this.inspectorHost, this.currentFile);
+    // A highlight requested for the already-open scene (Todos → same scene).
+    if (this.pendingHighlight) {
+      this.applyPendingHighlight(this.editor.state.doc.toString());
+    }
+    return true;
   }
 
   private renderTopbar(): void {
@@ -320,7 +359,11 @@ export class WritePanel {
   }
 
   private renderNavigator(parent: HTMLElement, project: Project): void {
-    const nav = parent.createDiv({ cls: "inkswell-write__nav" });
+    this.navEl = parent.createDiv({ cls: "inkswell-write__nav" });
+    this.renderNavRows(this.navEl, project);
+  }
+
+  private renderNavRows(nav: HTMLElement, project: Project): void {
     for (const scene of project.scenes) {
       const row = nav.createDiv({ cls: "inkswell-write__scene" });
       if (scene.path === this.selectedScene) row.addClass("is-active");
@@ -454,16 +497,29 @@ export class WritePanel {
     if (!file || !ed) return;
     const body = ed.state.doc.toString();
     if (body === this.loadedBody) return;
-    const cur = await this.app.vault.read(file);
-    const m = cur.match(FRONTMATTER_RE);
-    const fm = m ? m[1] : "";
-    await this.app.vault.modify(file, fm + body);
-    this.loadedBody = body;
+    try {
+      // Atomic read-modify-write: the current frontmatter is re-read inside the
+      // transform, so a concurrent Inspector/processFrontMatter write can't land
+      // between a read and a modify and get clobbered.
+      await this.app.vault.process(file, (cur) => {
+        const m = cur.match(FRONTMATTER_RE);
+        return (m ? m[1] : "") + body;
+      });
+      this.loadedBody = body;
+    } catch (e) {
+      // Never advance loadedBody on failure, so the next blur/save retries. The
+      // editor still holds the text — say so, since a torn-down editor could
+      // otherwise lose it silently.
+      console.error("[Inkswell] Failed to save scene body", e);
+      new Notice(
+        `Inkswell couldn't save "${file.basename}". Your text is still in the editor — copy it out if this keeps happening.`
+      );
+    }
   }
 
   private emptyState(parent: HTMLElement, text: string): void {
     const wrap = parent.createDiv({ cls: "inkswell-write__empty" });
-    wrap.createDiv({ cls: "inkswell-stats__muted", text });
+    renderEmptyState(wrap, text);
   }
 
   /**

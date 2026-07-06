@@ -66,3 +66,25 @@ export function isEntityVisible(entity: CodexEntity, ctx: ScopeContext): boolean
 export function filterToScope(entities: CodexEntity[], ctx: ScopeContext): CodexEntity[] {
   return entities.filter((e) => isEntityVisible(e, ctx));
 }
+
+/**
+ * The vantage point OF an entity itself — used to scope its relationship/link
+ * candidates to what that entity can actually see (a series-scoped character must
+ * not link a character from another series it can't even see). Returns null for a
+ * global entity: it has no scope to constrain by, so candidates aren't filtered. A
+ * project-scoped entity resolves its series from `projects` so its series-mates
+ * stay linkable.
+ */
+export function scopeContextForEntity(
+  entity: CodexEntity,
+  projects: Project[]
+): ScopeContext | null {
+  const scope = entity.scope;
+  if (isGlobalScope(scope)) return null;
+  if (scope?.series) return { projectName: null, seriesName: scope.series };
+  const owner = projects.find((p) => projectName(p) === scope?.project);
+  return {
+    projectName: scope?.project ?? null,
+    seriesName: owner ? projectSeries(owner)?.name ?? null : null,
+  };
+}

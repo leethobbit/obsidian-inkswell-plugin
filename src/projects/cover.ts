@@ -67,11 +67,12 @@ export async function setCoverFromUpload(app: App, project: Project, file: File)
   return path;
 }
 
-/** Delete a cover file by path (silently ignores a missing/non-file path). */
+/** Trash a cover file by path (silently ignores a missing/non-file path).
+ *  Trash, not delete — recoverable, matching every other deletion in the app. */
 export async function removeCoverFile(app: App, path: string | undefined): Promise<void> {
   if (!path) return;
   const file = app.vault.getAbstractFileByPath(path);
-  if (file instanceof TFile) await app.vault.delete(file);
+  if (file instanceof TFile) await app.fileManager.trashFile(file);
 }
 
 /** If the project owns its current cover file, delete it. Called on remove/replace. */
@@ -113,6 +114,13 @@ class ImageSuggestModal extends FuzzySuggestModal<TFile> {
 
   onClose(): void {
     super.onClose();
-    if (!this.resolved) this.onChoose(null);
+    // A selection fires onChooseItem right around when the modal closes, and
+    // Obsidian doesn't guarantee onChooseItem runs before onClose. Defer the
+    // "dismissed" result to the next tick and skip it if a choice landed — else
+    // onClose could resolve null before the picked file arrived, so choosing a
+    // cover from the vault silently did nothing.
+    window.setTimeout(() => {
+      if (!this.resolved) this.onChoose(null);
+    }, 0);
   }
 }

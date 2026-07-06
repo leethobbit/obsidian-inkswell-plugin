@@ -10,11 +10,13 @@
  */
 
 import { Notice, Plugin, WorkspaceLeaf } from "obsidian";
-import { CompileModal } from "./src/compile/compile-modal";
+import { runCompile } from "./src/compile/engine";
+import { resolveCompileConfig } from "./src/compile/config";
 import { TargetModal } from "./src/goals/target-modal";
 import { Idea, newIdeaId } from "./src/ideation/types";
+import { countWords } from "./src/lib/wordcount";
 import { openScene, promptText } from "./src/scenes/scene-actions";
-import { ActiveProject } from "./src/projects/active-project";
+import { ActiveProject, resolveActive } from "./src/projects/active-project";
 import { NewProjectModal } from "./src/projects/new-project-modal";
 import { ProjectStats } from "./src/projects/project-stats";
 import { ProjectStore } from "./src/projects/project-store";
@@ -114,6 +116,11 @@ export default class InkswellPlugin extends Plugin {
       callback: () => this.openBoard(),
     });
     this.addCommand({
+      id: "open-plot-grid",
+      name: "Open plot grid (Plan)",
+      callback: () => this.openPlotGrid(),
+    });
+    this.addCommand({
       id: "open-codex",
       name: "Open codex",
       callback: () => this.openCodex(),
@@ -136,9 +143,7 @@ export default class InkswellPlugin extends Plugin {
     this.addCommand({
       id: "compile-active-project",
       name: "Compile the active project",
-      callback: () => this.withActiveProject((p) =>
-        new CompileModal(this.app, p, this.settings).open()
-      ),
+      callback: () => void this.compileActiveProject(),
     });
     this.addCommand({
       id: "open-todos",
@@ -242,14 +247,25 @@ export default class InkswellPlugin extends Plugin {
     );
   }
 
-  /** Persist settings, the writing log, ideas, and the active project to data.json. */
-  async persist(): Promise<void> {
-    await this.saveData({
-      settings: this.settings,
-      writingLog: this.writingLog,
-      ideas: this.ideas,
-      activeProject: this.activeProject.get(),
-    });
+  /** Serializes data.json writes so overlapping persist() calls can't interleave. */
+  private persistChain: Promise<void> = Promise.resolve();
+
+  /** Persist settings, the writing log, ideas, and the active project to data.json.
+   *  Calls are serialized: a call queues behind any in-flight save and snapshots
+   *  state only when it runs, so the last write always carries current state and
+   *  two saveData writes never overlap on the file. */
+  persist(): Promise<void> {
+    this.persistChain = this.persistChain
+      .then(() =>
+        this.saveData({
+          settings: this.settings,
+          writingLog: this.writingLog,
+          ideas: this.ideas,
+          activeProject: this.activeProject.get(),
+        })
+      )
+      .catch((e) => console.error("[Inkswell] Failed to save data.json", e));
+    return this.persistChain;
   }
 
   // --- Story ideas inbox ---
@@ -318,6 +334,10 @@ export default class InkswellPlugin extends Plugin {
     return this.openInkswell("plan", undefined, "board");
   }
 
+  openPlotGrid(): Promise<void> {
+    return this.openInkswell("plan", undefined, "grid");
+  }
+
   openCodex(): Promise<void> {
     return this.openInkswell("codex");
   }
@@ -332,6 +352,29 @@ export default class InkswellPlugin extends Plugin {
 
   openCompile(): Promise<void> {
     return this.openInkswell("publish");
+  }
+
+  /**
+   * One-shot compile of the active project using its SAVED compile config — the
+   * same config, output name, and steps the Publish → Compile panel uses (via the
+   * shared {@link resolveCompileConfig}), so the command and the panel can't
+   * diverge. Resolves the active project the way every panel does (the header's
+   * selection), not the open markdown file.
+   */
+  private async compileActiveProject(): Promise<void> {
+    const project = resolveActive(this.store.getProjects(), this.activeProject.get());
+    if (!project) {
+      new Notice("No active project to compile. Open one in Inkswell first.");
+      return;
+    }
+    try {
+      const config = resolveCompileConfig(project, this.settings.defaultCompileFormat);
+      const result = await runCompile(this.app, project, config);
+      const words = countWords(result.wordCountSource);
+      new Notice(`Compiled ${words.toLocaleString()} words to ${result.outputPath}`);
+    } catch (e) {
+      new Notice(`Compile failed: ${(e as Error).message}`, 8000);
+    }
   }
 
   openHelp(): Promise<void> {
@@ -413,15 +456,21 @@ export default class InkswellPlugin extends Plugin {
     void this.openInkswell("write", (view) => view.openSceneInWrite(path));
   }
 
+  /**
+   * Resolve the project a project-scoped command acts on, the same way the
+   * panels do: the header's explicit selection first, then the active file's
+   * project, then the first project. (Editor-scoped commands like log-revision
+   * intentionally stay file-scoped — they act on the scene being edited.)
+   */
   private withActiveProject(fn: (p: Project) => void): void {
-    const active = this.app.workspace.getActiveFile();
-    if (!active) {
-      new Notice("No active file.");
-      return;
-    }
-    const project = this.projectForPath(active.path);
+    const activeFile = this.app.workspace.getActiveFile();
+    const selected = this.store.getProject(this.activeProject.get() ?? "");
+    const project =
+      selected ??
+      (activeFile ? this.projectForPath(activeFile.path) : undefined) ??
+      resolveActive(this.store.getProjects(), null);
     if (!project) {
-      new Notice("The active file isn't part of an Inkswell project.");
+      new Notice("No Inkswell project found. Create one with the New project command.");
       return;
     }
     fn(project);

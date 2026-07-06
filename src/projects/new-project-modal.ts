@@ -9,7 +9,8 @@
 import { App, Modal, Notice, Setting, TFile, normalizePath } from "obsidian";
 import { persistDraft } from "./index-writer";
 import { MultipleSceneDraft } from "./types";
-import { FolderSettings, joinPath, projectFolder } from "../settings/folders";
+import { FolderSettings, joinPath, projectFolder, sanitizeSegment } from "../settings/folders";
+import { tryFileOp } from "../lib/notify";
 
 export interface NewProjectOptions {
   title: string;
@@ -21,7 +22,6 @@ export interface NewProjectOptions {
   folders: FolderSettings;
 }
 
-const sanitize = (name: string): string => name.trim().replace(/[\\/:*?"<>|]/g, "-");
 const trimSlashes = (s: string): string => s.trim().replace(/^\/+|\/+$/g, "");
 
 /** Create a vault folder if it doesn't already exist (swallows exists/race). */
@@ -45,7 +45,7 @@ export async function createProject(
   app: App,
   opts: NewProjectOptions
 ): Promise<TFile | null> {
-  const safe = sanitize(opts.title);
+  const safe = sanitizeSegment(opts.title);
   if (!safe) {
     new Notice("Enter a project title.");
     return null;
@@ -61,31 +61,33 @@ export async function createProject(
   }
 
   const sceneFolder = trimSlashes(opts.sceneFolder) || "/";
-  const file = await app.vault.create(indexPath, "");
-  const draft: MultipleSceneDraft = {
-    format: "scenes",
-    title: safe,
-    titleInFrontmatter: true,
-    draftTitle: null,
-    workflow: null,
-    sceneFolder,
-    scenes: [],
-    ignoredFiles: [],
-    sceneTemplate: null,
-  };
-  await persistDraft(app, file, draft);
+  return tryFileOp(async () => {
+    const file = await app.vault.create(indexPath, "");
+    const draft: MultipleSceneDraft = {
+      format: "scenes",
+      title: safe,
+      titleInFrontmatter: true,
+      draftTitle: null,
+      workflow: null,
+      sceneFolder,
+      scenes: [],
+      ignoredFiles: [],
+      sceneTemplate: null,
+    };
+    await persistDraft(app, file, draft);
 
-  // Scene subfolder (relative to the project folder) when it's not the folder itself.
-  if (sceneFolder !== "/") {
-    await ensureFolder(app, normalizePath(joinPath(projFolder, sceneFolder)));
-  }
+    // Scene subfolder (relative to the project folder) when it's not the folder itself.
+    if (sceneFolder !== "/") {
+      await ensureFolder(app, normalizePath(joinPath(projFolder, sceneFolder)));
+    }
 
-  // Pre-create the project's codex folder so it's ready when co-location is on.
-  if (opts.folders.coLocateCodex) {
-    await ensureFolder(app, normalizePath(joinPath(projFolder, opts.folders.codexFolder || "Codex")));
-  }
+    // Pre-create the project's codex folder so it's ready when co-location is on.
+    if (opts.folders.coLocateCodex) {
+      await ensureFolder(app, normalizePath(joinPath(projFolder, opts.folders.codexFolder || "Codex")));
+    }
 
-  return file;
+    return file;
+  }, `Couldn't create the project "${safe}".`);
 }
 
 export class NewProjectModal extends Modal {

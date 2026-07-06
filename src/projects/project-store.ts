@@ -19,6 +19,7 @@ import {
   normalizePath,
   parseYaml,
 } from "obsidian";
+import { tryFileOp } from "../lib/notify";
 import { renameSceneInBeats } from "../outliner/beats";
 import { parseDraft } from "./draft-serialization";
 import { persistInkswellData, updateScenes } from "./index-writer";
@@ -33,6 +34,13 @@ import {
 
 type Subscriber = (projects: Project[]) => void;
 
+/** Cached per-index parse, valid while the file's path + mtime are unchanged. */
+interface ParsedIndex {
+  mtime: number;
+  draft: Draft | null;
+  inkswellRaw: unknown;
+}
+
 export class ProjectStore extends Component {
   private app: App;
   private projects: Project[] = [];
@@ -40,6 +48,10 @@ export class ProjectStore extends Component {
   private refreshQueued = false;
   private refreshing = false;
   private rerun = false;
+  /** Index-note frontmatter parses, keyed by path (invalidated by mtime). */
+  private parseCache = new Map<string, ParsedIndex>();
+  /** Fingerprint of the last notified state; unchanged ⇒ notify is skipped. */
+  private lastFingerprint: string | null = null;
 
   constructor(app: App) {
     super();
@@ -121,20 +133,25 @@ export class ProjectStore extends Component {
     const indexFile = this.app.vault.getAbstractFileByPath(plan.indexPath);
     const project = this.getProject(plan.indexPath);
     if (indexFile instanceof TFile && project) {
-      await updateScenes(this.app, indexFile, project.draft, (scenes) =>
-        scenes.map((s) => (s.title === plan.oldTitle ? { ...s, title: plan.newTitle } : s))
-      );
-      // Keep beat→scene links (stored by title) in sync with the healed rename.
-      const beats = renameSceneInBeats(project.inkswell?.beats, plan.oldTitle, plan.newTitle);
-      if (beats) await persistInkswellData(this.app, indexFile, { beats });
+      // Fired from a vault rename event, so a throw here would be an unhandled
+      // rejection — surface it like every other I/O entry point.
+      await tryFileOp(async () => {
+        await updateScenes(this.app, indexFile, project.draft, (scenes) =>
+          scenes.map((s) => (s.title === plan.oldTitle ? { ...s, title: plan.newTitle } : s))
+        );
+        // Keep beat→scene links (stored by title) in sync with the healed rename.
+        const beats = renameSceneInBeats(project.inkswell?.beats, plan.oldTitle, plan.newTitle);
+        if (beats) await persistInkswellData(this.app, indexFile, { beats });
+      }, `Couldn't update the project index for the renamed scene "${plan.newTitle}".`);
     }
   }
 
   /**
-   * Rebuild the project list. Detection is cheap (metadata cache), but the
+   * Rebuild the project list. Detection is cheap (metadata cache); the
    * `longform` block — especially the nested `scenes` array — is re-parsed from
-   * each candidate's own frontmatter. An in-flight guard coalesces overlapping
-   * refreshes so the last request always wins.
+   * each candidate's own frontmatter, with the parse cached by path + mtime so
+   * an unrelated vault event doesn't re-read every index. An in-flight guard
+   * coalesces overlapping refreshes so the last request always wins.
    */
   private async doRefresh(): Promise<void> {
     if (this.refreshing) {
@@ -144,6 +161,13 @@ export class ProjectStore extends Component {
     this.refreshing = true;
     try {
       const found: Project[] = [];
+      const liveCache = new Map<string, ParsedIndex>();
+      // Fingerprint parts: everything the panels render FROM THE VAULT that the
+      // host re-renders on notify — project indexes, codex notes (any note with
+      // a `codex` key; discovery is vault-wide, gotcha #7), and resolved scene
+      // files (their frontmatter drives status/act/POV badges). If none of these
+      // changed, the notify is skipped and no panel rebuild happens.
+      const parts: string[] = [];
       // Intentional whole-vault scan: Longform/Inkswell projects may live in any
       // folder (drop-in Longform compat imposes no structure), so discovery can't
       // be scoped. Detection is cache-only — full frontmatter is read only for the
@@ -153,23 +177,48 @@ export class ProjectStore extends Component {
         const fm = this.app.metadataCache.getFileCache(file)?.frontmatter as
           | Record<string, unknown>
           | undefined;
-        if (!fm || !("longform" in fm)) continue; // cheap detection only
-        const parsed = await this.readFrontmatter(file);
-        const longform = parsed?.["longform"] ?? fm["longform"];
-        if (!longform) continue;
-        const draft = parseDraft(longform, file.basename);
-        if (!draft) continue;
-        found.push(
-          this.buildProject(file, draft, parsed?.["inkswell"] ?? fm["inkswell"])
-        );
+        if (!fm) continue;
+        if ("codex" in fm) parts.push(`C|${file.path}|${file.stat.mtime}`);
+        if (!("longform" in fm)) continue; // cheap detection only
+        parts.push(`I|${file.path}|${file.stat.mtime}`);
+
+        const cached = this.parseCache.get(file.path);
+        let entry: ParsedIndex;
+        if (cached && cached.mtime === file.stat.mtime) {
+          entry = cached;
+        } else {
+          const parsed = await this.readFrontmatter(file);
+          const longform = parsed?.["longform"] ?? fm["longform"];
+          entry = {
+            mtime: file.stat.mtime,
+            // NOTE: the parsed draft is cached and shared across refreshes —
+            // treat Draft objects as immutable (updateScenes and friends already
+            // build new ones; never mutate draft.scenes in place).
+            draft: longform ? parseDraft(longform, file.basename) : null,
+            inkswellRaw: parsed?.["inkswell"] ?? fm["inkswell"],
+          };
+        }
+        liveCache.set(file.path, entry);
+        if (!entry.draft) continue;
+        found.push(this.buildProject(file, entry.draft, entry.inkswellRaw));
       }
+      this.parseCache = liveCache; // auto-prunes renamed/deleted indexes
       found.sort((a, b) => a.draft.title.localeCompare(b.draft.title));
+
+      for (const p of found) {
+        const scenes = p.scenes
+          .map((s) => {
+            const f = s.path ? this.app.vault.getAbstractFileByPath(s.path) : null;
+            return f instanceof TFile ? `${s.path}:${f.stat.mtime}` : `${s.title}:missing`;
+          })
+          .join(",");
+        parts.push(`P|${p.vaultPath}|${scenes}|U:${p.unknownFiles.join(",")}`);
+      }
+      const fingerprint = parts.sort().join("\n");
+      if (fingerprint === this.lastFingerprint) return; // nothing panels render changed
+
+      this.lastFingerprint = fingerprint;
       this.projects = found;
-      // Notify on every refresh: panels render vault data not captured by the
-      // project list alone (codex entities, scene frontmatter like status/act),
-      // so they must re-render on any metadata change. Focus loss while typing is
-      // prevented by the host's focus-guard (inkswell-view renderActive), not by
-      // suppressing notifications here.
       this.notify();
     } finally {
       this.refreshing = false;
@@ -267,24 +316,5 @@ export class ProjectStore extends Component {
     );
     const file = this.app.vault.getAbstractFileByPath(candidate);
     return file instanceof TFile ? file.path : null;
-  }
-}
-
-/**
- * Read the raw `inkswell` frontmatter block from a note's source as a fallback
- * (e.g. when only the file text is available). Most callers should use the
- * already-parsed value from the metadata cache instead.
- */
-export function parseInkswellBlock(source: string): InkswellProjectData | null {
-  const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!match) return null;
-  try {
-    const fm = parseYaml(match[1]) as Record<string, unknown>;
-    const inkswell = fm?.["inkswell"];
-    return inkswell && typeof inkswell === "object"
-      ? inkswell
-      : null;
-  } catch {
-    return null;
   }
 }

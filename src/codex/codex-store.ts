@@ -8,7 +8,7 @@ import { App, TFile, normalizePath } from "obsidian";
 import { linkTarget } from "./codex";
 import { starterCodexTemplate, codexTemplatesReadme } from "./codex-template";
 import { applyTemplateVars } from "../lib/template";
-import { FolderSettings, resolveTemplateFolder } from "../settings/folders";
+import { FolderSettings, resolveTemplateFolder, sanitizeSegment } from "../settings/folders";
 import {
   CODEX_CATEGORIES,
   CodexCategory,
@@ -114,8 +114,8 @@ export async function createEntity(
   scope: EntityScope = {},
   templateFile?: TFile | null
 ): Promise<TFile | null> {
-  const safe = name.trim().replace(/[\\/:*?"<>|]/g, "-");
-  if (!safe) return null;
+  const safe = sanitizeSegment(name);
+  if (!safe) return null; // empty, or a dot-only name that isn't a usable file name
 
   if (folder && !app.vault.getAbstractFileByPath(folder)) {
     try {

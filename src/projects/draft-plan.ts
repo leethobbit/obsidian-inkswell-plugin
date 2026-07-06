@@ -13,10 +13,8 @@
  * Inkswell data (revision log, beat assignments) still resolve in the copy.
  */
 
-import { joinPath, parentFolder } from "../settings/folders";
+import { joinPath, parentFolder, sanitizeSegment as sanitize } from "../settings/folders";
 import { Draft, Project } from "./types";
-
-const sanitize = (name: string): string => name.trim().replace(/[\\/:*?"<>|]/g, "-");
 
 /** Scene folder (relative to the new index note) that copied scenes land in. */
 const DRAFT_SCENE_FOLDER = "Scenes";

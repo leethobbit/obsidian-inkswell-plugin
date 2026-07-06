@@ -10,6 +10,7 @@
 
 import { App, TFile, normalizePath } from "obsidian";
 import { Project } from "../projects/types";
+import { sanitizeSegment } from "../settings/folders";
 
 /** Ordered H2 sections the Overview panel manages. Heading text is the key. */
 export const PLAN_SECTIONS = [
@@ -21,16 +22,12 @@ export const PLAN_SECTIONS = [
 ] as const;
 export type PlanSection = (typeof PLAN_SECTIONS)[number];
 
-function sanitizeTitle(name: string): string {
-  return name.replace(/[\\/:*?"<>|]/g, "-").trim();
-}
-
 /** Default planning-note path: sibling of the index note, "<Title> — Plan.md". */
 export function planningNotePath(project: Project): string {
   const indexBase = project.vaultPath.replace(/\.md$/i, "");
   const slash = indexBase.lastIndexOf("/");
   const folder = slash >= 0 ? indexBase.slice(0, slash) : "";
-  const name = sanitizeTitle(project.draft.title) || "Project";
+  const name = sanitizeSegment(project.draft.title) || "Project";
   const file = `${name} — Plan.md`;
   return normalizePath(folder ? `${folder}/${file}` : file);
 }
@@ -67,16 +64,10 @@ export function readSection(source: string, heading: string): string {
 }
 
 /**
- * Replace (or append) the body under an H2 heading and write the note back. Other
+ * Pure transform: replace (or append) the body under an H2 heading. Other
  * sections — including ones the user added by hand — are preserved.
  */
-export async function writeSection(
-  app: App,
-  file: TFile,
-  heading: string,
-  text: string
-): Promise<void> {
-  const source = await app.vault.read(file);
+export function replaceSection(source: string, heading: string, text: string): string {
   const lines = source.split(/\r?\n/);
   const norm = (s: string) => s.trim().toLowerCase();
   const block = text.trim();
@@ -88,9 +79,7 @@ export async function writeSection(
   if (start < 0) {
     // Section missing: append it.
     const tail = source.replace(/\s*$/, "");
-    const next = `${tail ? tail + "\n\n" : ""}## ${heading}\n\n${block}\n`;
-    await app.vault.modify(file, next);
-    return;
+    return `${tail ? tail + "\n\n" : ""}## ${heading}\n\n${block}\n`;
   }
 
   let end = lines.length;
@@ -104,5 +93,19 @@ export async function writeSection(
   const after = lines.slice(end);
   const middle = block ? ["", block, ""] : [""];
   const next = [...before, ...middle, ...after].join("\n").replace(/\n{3,}/g, "\n\n");
-  await app.vault.modify(file, next.replace(/\s*$/, "") + "\n");
+  return next.replace(/\s*$/, "") + "\n";
+}
+
+/**
+ * Replace (or append) a section and write the note back — atomically via
+ * `vault.process`, because each Overview textarea saves independently on blur
+ * and two sections blurring in quick succession must not race each other.
+ */
+export async function writeSection(
+  app: App,
+  file: TFile,
+  heading: string,
+  text: string
+): Promise<void> {
+  await app.vault.process(file, (source) => replaceSection(source, heading, text));
 }

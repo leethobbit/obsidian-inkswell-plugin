@@ -44,8 +44,3 @@ export class ActiveProject {
 export function resolveActive(projects: Project[], activePath: string | null): Project | null {
   return projects.find((p) => p.vaultPath === activePath) ?? projects[0] ?? null;
 }
-
-/** Convenience: resolve the active project from an ActiveProject controller. */
-export function pickProject(projects: Project[], active: ActiveProject): Project | null {
-  return resolveActive(projects, active.get());
-}
