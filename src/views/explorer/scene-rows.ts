@@ -181,30 +181,48 @@ export class SceneRows {
   }
 
   private wireDrag(row: HTMLElement, project: Project, index: number): void {
+    // Positional drop: the pointer's vertical position within the row picks
+    // above (top half) vs below (bottom half), and the indicator line matches
+    // exactly where the scene lands. (Same model as Plan → Outline.) The old
+    // whole-row indicator drew a bottom line but always inserted into the row's
+    // slot — i.e. ABOVE it — so the hint was a full item off from the result.
+    const isAfter = (e: DragEvent): boolean => {
+      const r = row.getBoundingClientRect();
+      return e.clientY > r.top + r.height / 2;
+    };
+    const clearHints = () => row.removeClasses(["is-drop-above", "is-drop-below"]);
+
     row.addEventListener("dragstart", (e) => {
       row.addClass("is-dragging");
       e.dataTransfer?.setData(
         "inkswell/scene",
         JSON.stringify({ project: project.vaultPath, index })
       );
+      if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
     });
-    row.addEventListener("dragend", () => row.removeClass("is-dragging"));
+    row.addEventListener("dragend", () => {
+      row.removeClass("is-dragging");
+      clearHints();
+    });
     row.addEventListener("dragover", (e) => {
       e.preventDefault();
-      row.addClass("is-drop-target");
+      clearHints();
+      row.addClass(isAfter(e) ? "is-drop-below" : "is-drop-above");
     });
-    row.addEventListener("dragleave", () => row.removeClass("is-drop-target"));
+    row.addEventListener("dragleave", clearHints);
     row.addEventListener("drop", (e) => {
       e.preventDefault();
-      row.removeClass("is-drop-target");
+      clearHints();
       const raw = e.dataTransfer?.getData("inkswell/scene");
       if (!raw) return;
       const payload = JSON.parse(raw) as { project: string; index: number };
       if (payload.project !== project.vaultPath) return; // only within a project
       const file = this.indexFile(project);
       if (!file) return;
+      // Below this row → insert before the next row; above → take this row's slot.
+      const to = isAfter(e) ? index + 1 : index;
       void tryFileOp(
-        () => updateScenes(this.app, file, project.draft, (s) => moveScene(s, payload.index, index)),
+        () => updateScenes(this.app, file, project.draft, (s) => moveScene(s, payload.index, to)),
         "Couldn't reorder the scene."
       );
     });

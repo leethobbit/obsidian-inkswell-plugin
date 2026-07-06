@@ -114,6 +114,13 @@ class ImageSuggestModal extends FuzzySuggestModal<TFile> {
 
   onClose(): void {
     super.onClose();
-    if (!this.resolved) this.onChoose(null);
+    // A selection fires onChooseItem right around when the modal closes, and
+    // Obsidian doesn't guarantee onChooseItem runs before onClose. Defer the
+    // "dismissed" result to the next tick and skip it if a choice landed — else
+    // onClose could resolve null before the picked file arrived, so choosing a
+    // cover from the vault silently did nothing.
+    window.setTimeout(() => {
+      if (!this.resolved) this.onChoose(null);
+    }, 0);
   }
 }

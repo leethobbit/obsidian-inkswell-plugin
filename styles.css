@@ -1449,7 +1449,12 @@
   opacity: 0.4;
 }
 
-.inkswell-scene.is-drop-target {
+/* Positional drop hint: a line at the top (above) or bottom (below) edge,
+   matching exactly where the dragged scene will land. */
+.inkswell-scene.is-drop-above {
+  box-shadow: inset 0 2px 0 0 var(--interactive-accent);
+}
+.inkswell-scene.is-drop-below {
   box-shadow: inset 0 -2px 0 0 var(--interactive-accent);
 }
 
