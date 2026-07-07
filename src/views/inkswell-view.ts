@@ -34,7 +34,8 @@ import { StatsPanel } from "../stats/stats-view";
 import { WritingTracker } from "../tracking/writing-tracker";
 import { ExplorerPanel } from "./explorer/explorer-view";
 import { CompilePanel } from "./compile-panel";
-import { WritePanel } from "./write-panel";
+import { WritePanel, SceneHighlight } from "./write-panel";
+import { SearchPanel } from "./search-panel";
 import { SceneInspector } from "../scenes/scene-inspector";
 import { HelpPanel } from "../help/help-panel";
 import { renderHint } from "../help/hint";
@@ -68,6 +69,7 @@ export class InkswellView extends ItemView {
   private compile: CompilePanel;
   private checklist: ChecklistPanel;
   private launch: LaunchPanel;
+  private search: SearchPanel;
   private help: HelpPanel;
   private inspector: SceneInspector;
 
@@ -134,6 +136,17 @@ export class InkswellView extends ItemView {
     this.compile = new CompilePanel(this.app, plugin, store);
     this.checklist = new ChecklistPanel(this.app, plugin, store);
     this.launch = new LaunchPanel(this.app, plugin, store);
+    this.search = new SearchPanel(this.app, store, plugin.activeProject, {
+      onOpenInWrite: (path, hl) => this.openSceneInWrite(path, hl),
+      // Flush the open scene's unsaved text before replace re-reads from disk.
+      beforeReplace: () => this.write.flushPendingSave(),
+      // If the editor is bound to a scene that just changed, reload it from disk
+      // so its stale buffer can't clobber the replacement on a later blur.
+      afterReplace: (changedPaths) => {
+        const open = this.write.currentScenePath();
+        if (open && changedPaths.includes(open)) this.write.reloadCurrentScene();
+      },
+    });
     this.help = new HelpPanel(this.app, plugin);
     this.inspector = new SceneInspector(this.app, store);
 
@@ -405,7 +418,7 @@ export class InkswellView extends ItemView {
   }
 
   /** Select a scene in the Write panel and switch to it (cross-panel navigation). */
-  openSceneInWrite(path: string, highlight?: { from: number; to: number }): void {
+  openSceneInWrite(path: string, highlight?: SceneHighlight): void {
     this.write.selectScene(path, highlight);
     this.setMode("write");
   }
@@ -582,6 +595,9 @@ export class InkswellView extends ItemView {
         break;
       case "write":
         this.write.render(panel);
+        break;
+      case "search":
+        this.search.render(panel);
         break;
       case "track":
         this.stats.render(panel);

@@ -16,7 +16,7 @@ describe("nav model", () => {
 
   it("splits the More sheet into usable rows then redirected ones", () => {
     const { usable, redirected } = phoneMoreDestinations();
-    expect(usable.map((d) => d.id)).toEqual(["track", "revise", "help"]);
+    expect(usable.map((d) => d.id)).toEqual(["track", "revise", "help", "search"]);
     expect(redirected.map((d) => d.id)).toEqual(["plan", "publish"]);
     // Revise's sheet row jumps straight to the phone-usable Todos slice.
     expect(usable.find((d) => d.id === "revise")?.phone?.subtab).toBe("todos");

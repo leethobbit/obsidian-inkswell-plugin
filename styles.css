@@ -535,6 +535,108 @@
   color: var(--text-muted);
 }
 
+/* --- Search panel (cross-scene full-text search) --- */
+.inkswell-search {
+  padding: var(--size-4-3);
+}
+.inkswell-search__controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-3);
+}
+.inkswell-search__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+.inkswell-search__scope {
+  flex: 0 0 auto;
+}
+.inkswell-search__query,
+.inkswell-search__replace {
+  flex: 1 1 12em;
+  min-width: 10em;
+}
+.inkswell-search__confirm {
+  margin: var(--size-4-2) 0;
+  padding: var(--size-4-2);
+  background: var(--background-secondary);
+  border-radius: var(--radius-s);
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-search__ack {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--size-4-1);
+  margin-top: var(--size-4-2);
+}
+.inkswell-search__opts {
+  gap: var(--size-4-3);
+}
+.inkswell-search__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.inkswell-search__filters {
+  gap: var(--size-4-3);
+}
+.inkswell-search__filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-1);
+}
+.inkswell-search__filterlabel {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+.inkswell-search__scene {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-2);
+  font-weight: var(--font-semibold);
+  margin-top: var(--size-4-3);
+  cursor: pointer;
+}
+.inkswell-search__badge {
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-medium);
+  border-radius: 3px;
+  padding: 0 var(--size-4-1);
+  white-space: nowrap;
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+}
+.inkswell-search__badge--synopsis {
+  background: hsla(45, 90%, 50%, 0.25);
+  color: var(--text-normal);
+}
+.inkswell-search__hit {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-2);
+  padding: 2px 0;
+  cursor: pointer;
+}
+.inkswell-search__hit:hover {
+  background: var(--background-modifier-hover);
+}
+.inkswell-search__line {
+  color: var(--text-faint);
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-search__text {
+  flex: 1;
+  color: var(--text-muted);
+}
+
 /* --- Audit panel (Revise → Audit): 3-tier revision checklists --- */
 .inkswell-audit__summary {
   margin-bottom: var(--size-4-3);

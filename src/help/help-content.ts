@@ -241,6 +241,29 @@ export const HINTS: Record<string, HintEntry> = {
       );
     },
   },
+  search: {
+    title: "How search works",
+    body: (el) => {
+      p(
+        el,
+        "Full-text search across your scenes' prose and their synopses. Pick a scope — " +
+          "this draft, the whole story, the series, or the whole vault — and narrow with " +
+          "the metadata filters (status, POV, chapter, plotline, character)."
+      );
+      p(
+        el,
+        "Results group by scene. Click a hit to jump straight to it in Write, where it " +
+          "flashes so you can find it fast. A synopsis hit opens the scene without a flash " +
+          "(the synopsis isn't part of the editable body). Set only a filter, with no query, " +
+          "to list every scene that matches — a quick structured finder."
+      );
+      p(
+        el,
+        "Matching is literal (not a wildcard or regex), with optional Match case and Whole " +
+          "word toggles; archived scenes are included only when you tick “Include archived”."
+      );
+    },
+  },
   "publish/compile": {
     title: "How compile works",
     body: (el) => {
@@ -321,6 +344,12 @@ export const HELP_SECTIONS: HelpSection[] = [
     icon: "book-marked",
     summary: "Your story bible, scoped global / project / series.",
     body: HINTS["codex"].body,
+  },
+  {
+    phase: "Search",
+    icon: "search",
+    summary: "Full-text search across scenes, scoped and filterable.",
+    body: HINTS["search"].body,
   },
   {
     phase: "Track",

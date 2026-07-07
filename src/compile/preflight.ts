@@ -7,8 +7,8 @@
  */
 
 import { scanPlaceholders } from "../lib/placeholders";
+import { stripFrontmatter } from "../lib/frontmatter";
 
-const FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/;
 const OBSIDIAN_COMMENT_RE = /%%[\s\S]*?%%/g;
 
 export interface SceneText {
@@ -31,7 +31,7 @@ export interface PreflightFinding {
 
 /** Strip frontmatter + comments to get the prose that will be compiled. */
 function prose(raw: string): string {
-  return raw.replace(FRONTMATTER_RE, "").replace(OBSIDIAN_COMMENT_RE, "");
+  return stripFrontmatter(raw).replace(OBSIDIAN_COMMENT_RE, "");
 }
 
 /** Canonicalize a scene-break glyph line to a style label, or null if not one. */

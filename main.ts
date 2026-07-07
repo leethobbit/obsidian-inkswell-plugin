@@ -151,6 +151,11 @@ export default class InkswellPlugin extends Plugin {
       callback: () => this.openTodos(),
     });
     this.addCommand({
+      id: "search-scenes",
+      name: "Search scenes",
+      callback: () => this.openSearch(),
+    });
+    this.addCommand({
       id: "insert-todo",
       name: "Insert a to-do marker…",
       checkCallback: (checking) => {
@@ -384,6 +389,11 @@ export default class InkswellPlugin extends Plugin {
   /** Open the Todos sweep (all bracketed to-do markers across the project). */
   openTodos(): Promise<void> {
     return this.openInkswell("revise", undefined, "todos");
+  }
+
+  /** Open cross-scene search. */
+  openSearch(): Promise<void> {
+    return this.openInkswell("search");
   }
 
   /** The live InkswellView, if its tab is open (for editor-scoped commands). */

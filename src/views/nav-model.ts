@@ -14,6 +14,7 @@ export type InkswellMode =
   | "revise"
   | "publish"
   | "codex"
+  | "search"
   | "help";
 
 export interface SubTab {
@@ -108,6 +109,14 @@ export const DESTINATIONS: Destination[] = [
     icon: "bar-chart-3",
     meta: true,
     phone: { slot: "more", order: 1 },
+  },
+  // Cross-cutting tool: full-text search over scene prose across a chosen scope.
+  {
+    id: "search",
+    label: "Search",
+    icon: "search",
+    meta: true,
+    phone: { slot: "more", order: 4 },
   },
   {
     id: "help",

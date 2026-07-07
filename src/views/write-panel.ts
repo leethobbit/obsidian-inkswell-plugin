@@ -21,6 +21,7 @@ import { RevisionModal } from "../revisions/revision-modal";
 import { renderEmptyState } from "./panel-kit";
 import { createSceneEditor, flashRange, insertPlaceholder } from "./scene-editor";
 import { PlaceholderKind, scanPlaceholders } from "../lib/placeholders";
+import { splitFrontmatter } from "../lib/frontmatter";
 import { PromptCategory, PromptPhase } from "../ideation/prompts";
 import { countWords } from "../lib/wordcount";
 import { resolveActive } from "../projects/active-project";
@@ -31,7 +32,41 @@ import { SceneInspector } from "../scenes/scene-inspector";
 import { SprintController } from "../sprints/sprint-controller";
 import type InkswellPlugin from "../../main";
 
-const FRONTMATTER_RE = /^(---\r?\n[\s\S]*?\r?\n---\r?\n?)([\s\S]*)$/;
+/**
+ * A scroll-to + flash target handed to the Write panel by another panel (Todos,
+ * cross-scene Search). `from`/`to` are offsets into the scene BODY (frontmatter
+ * stripped), matching the editor's document. `verify` — when set — is the exact
+ * body substring the offsets were computed from; if the file has shifted since
+ * the scan, the panel re-locates that literal instead of flashing stale offsets.
+ */
+export interface SceneHighlight {
+  from: number;
+  to: number;
+  verify?: string;
+}
+
+/**
+ * Find the occurrence of `needle` in `haystack` closest to `near` (by start
+ * offset). Used to re-locate a search hit whose stored offset has drifted after
+ * an edit. Returns -1 when the literal is absent.
+ */
+function nearestIndexOf(haystack: string, needle: string, near: number): number {
+  if (!needle) return -1;
+  let best = -1;
+  let bestDist = Infinity;
+  let i = haystack.indexOf(needle);
+  while (i !== -1) {
+    const dist = Math.abs(i - near);
+    if (dist < bestDist) {
+      best = i;
+      bestDist = dist;
+    }
+    // Once we're past `near`, matches only get farther — stop early.
+    if (i >= near) break;
+    i = haystack.indexOf(needle, i + 1);
+  }
+  return best;
+}
 
 /** The five to-do marker types, for the insert picker. */
 interface TodoType {
@@ -96,8 +131,8 @@ export class WritePanel {
    *  a save → store-refresh → panel rebuild that destroys the editor mid-insert.
    *  See {@link openInsertMenu}. */
   private suppressBlurSave = false;
-  /** A token to scroll-to + flash once the editor finishes loading (from Todos). */
-  private pendingHighlight: { from: number; to: number } | null = null;
+  /** A token to scroll-to + flash once the editor finishes loading (Todos / Search). */
+  private pendingHighlight: SceneHighlight | null = null;
 
   // Writing-prompt state. Filters persist across modal opens; promptText is the
   // chosen prompt currently shown next to the topbar "Prompt" button ("" = none).
@@ -118,7 +153,7 @@ export class WritePanel {
    * Sets the owning project active and pins `lastProject` so the next render
    * keeps the selection instead of clearing it on a perceived project change.
    */
-  selectScene(path: string, highlight?: { from: number; to: number }): void {
+  selectScene(path: string, highlight?: SceneHighlight): void {
     const ctx = this.store.findSceneByPath(path);
     if (!ctx) return;
     this.plugin.activeProject.set(ctx.project.vaultPath);
@@ -130,6 +165,34 @@ export class WritePanel {
   /** Whether a live scene editor is currently mounted (for command availability). */
   hasEditor(): boolean {
     return !!this.editor;
+  }
+
+  /** The scene path the editor is currently bound to (for replace coordination). */
+  currentScenePath(): string | null {
+    return this.currentFile?.path ?? null;
+  }
+
+  /**
+   * Flush any unsaved editor text to disk NOW. Called before a cross-scene replace
+   * so the open scene's latest content is what replace re-reads (never a stale
+   * on-disk copy). No-op when nothing is dirty.
+   */
+  flushPendingSave(): Promise<void> {
+    return this.saveBody();
+  }
+
+  /**
+   * Drop the live editor WITHOUT saving — its buffer predates an external write
+   * (a find & replace), so saving it would clobber the replacement. The next
+   * render re-reads the scene fresh from disk. If the panel is currently visible,
+   * re-render now; otherwise the editor is simply invalidated and the next natural
+   * render rebuilds it.
+   */
+  reloadCurrentScene(): void {
+    this.editor?.destroy();
+    this.editor = null;
+    this.loadedBody = "";
+    if (this.container && this.container.isConnected) this.render(this.container);
   }
 
   /**
@@ -433,10 +496,9 @@ export class WritePanel {
     const host = wrap.createDiv({ cls: "inkswell-write__cm" });
     void this.app.vault.cachedRead(file).then((content) => {
       if (token !== this.editorToken) return;
-      const m = content.match(FRONTMATTER_RE);
-      const body = m ? m[2] : content;
+      const { frontmatter, body } = splitFrontmatter(content);
       this.loadedBody = body;
-      this.loadedFrontmatter = m ? m[1] : "";
+      this.loadedFrontmatter = frontmatter;
       this.editor = createSceneEditor({
         parent: host,
         doc: body,
@@ -465,9 +527,28 @@ export class WritePanel {
     const hl = this.pendingHighlight;
     this.pendingHighlight = null;
     if (!hl || !this.editor) return;
-    const match = scanPlaceholders(body).find((m) => m.from === hl.from);
-    const target = match ?? hl;
-    flashRange(this.editor, target.from, target.to);
+    let from = hl.from;
+    let to = hl.to;
+    if (hl.verify != null) {
+      // Search hit: the offsets are only trustworthy while the body is unchanged.
+      // If the exact literal isn't still at [from,to), re-locate it (nearest
+      // occurrence to the original offset); flashRange clamps if it's gone.
+      if (body.slice(hl.from, hl.to) !== hl.verify) {
+        const at = nearestIndexOf(body, hl.verify, hl.from);
+        if (at !== -1) {
+          from = at;
+          to = at + hl.verify.length;
+        }
+      }
+    } else {
+      // Placeholder/Todos target: re-scan to confirm the exact token by offset.
+      const match = scanPlaceholders(body).find((m) => m.from === hl.from);
+      if (match) {
+        from = match.from;
+        to = match.to;
+      }
+    }
+    flashRange(this.editor, from, to);
   }
 
   private updateCount(): void {
@@ -501,10 +582,7 @@ export class WritePanel {
       // Atomic read-modify-write: the current frontmatter is re-read inside the
       // transform, so a concurrent Inspector/processFrontMatter write can't land
       // between a read and a modify and get clobbered.
-      await this.app.vault.process(file, (cur) => {
-        const m = cur.match(FRONTMATTER_RE);
-        return (m ? m[1] : "") + body;
-      });
+      await this.app.vault.process(file, (cur) => splitFrontmatter(cur).frontmatter + body);
       this.loadedBody = body;
     } catch (e) {
       // Never advance loadedBody on failure, so the next blur/save retries. The
