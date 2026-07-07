@@ -34,13 +34,25 @@ export interface PhonePlacement {
   subtab?: string;
 }
 
+/**
+ * Rail grouping. The desktop rail draws a divider between consecutive groups;
+ * `tools` is floated to the bottom like a footer. Groups appear as contiguous
+ * runs in DESTINATIONS order (asserted in tests). Phone surfaces ignore this —
+ * they're driven by `phone` placement.
+ *   hub      — the entry point (Home)
+ *   pipeline — the writing lifecycle, in order (Plan · Write · Revise · Publish)
+ *   insight  — reference/insight consulted during any phase (Codex · Track)
+ *   tools    — occasional utilities, pinned to the bottom (Search · Help)
+ */
+export type RailGroup = "hub" | "pipeline" | "insight" | "tools";
+
 export interface Destination {
   id: InkswellMode;
   label: string;
   icon: string;
   subtabs?: SubTab[];
-  /** Meta cluster (cross-cutting views/tools), rendered after a rail separator. */
-  meta?: boolean;
+  /** Which rail group this destination belongs to (drives dividers + footer). */
+  group: RailGroup;
   /** Phone placement; absent = reachable on phones only indirectly. */
   phone?: PhonePlacement;
   /** Always shows the "use a larger screen" notice on phones. */
@@ -48,16 +60,20 @@ export interface Destination {
 }
 
 export const DESTINATIONS: Destination[] = [
+  // Hub — the entry point.
   {
     id: "home",
     label: "Home",
     icon: "home",
+    group: "hub",
     phone: { slot: "bar", order: 2, label: "Scenes" },
   },
+  // Pipeline — the writing lifecycle, in order.
   {
     id: "plan",
     label: "Plan",
     icon: "compass",
+    group: "pipeline",
     subtabs: [
       { id: "overview", label: "Overview" },
       { id: "beats", label: "Beats" },
@@ -68,11 +84,12 @@ export const DESTINATIONS: Destination[] = [
     phone: { slot: "more", order: 5 },
     phoneRedirect: true,
   },
-  { id: "write", label: "Write", icon: "pencil", phone: { slot: "bar", order: 1 } },
+  { id: "write", label: "Write", icon: "pencil", group: "pipeline", phone: { slot: "bar", order: 1 } },
   {
     id: "revise",
     label: "Revise",
     icon: "git-compare",
+    group: "pipeline",
     subtabs: [
       { id: "audit", label: "Audit" },
       { id: "log", label: "Log" },
@@ -86,6 +103,7 @@ export const DESTINATIONS: Destination[] = [
     id: "publish",
     label: "Publish",
     icon: "upload",
+    group: "pipeline",
     subtabs: [
       { id: "compile", label: "Compile" },
       { id: "checklist", label: "Checklist" },
@@ -94,38 +112,43 @@ export const DESTINATIONS: Destination[] = [
     phone: { slot: "more", order: 6 },
     phoneRedirect: true,
   },
-  // Meta cluster (after a separator): cross-cutting tools, not pipeline phases.
-  // Codex is reference material used across Plan/Write/Revise, so it sits here.
+  // Insight — reference material consulted across any pipeline phase.
   {
     id: "codex",
     label: "Codex",
     icon: "book-marked",
-    meta: true,
+    group: "insight",
     phone: { slot: "bar", order: 3 },
   },
   {
     id: "track",
     label: "Track",
     icon: "bar-chart-3",
-    meta: true,
+    group: "insight",
     phone: { slot: "more", order: 1 },
   },
-  // Cross-cutting tool: full-text search over scene prose across a chosen scope.
+  // Tools — occasional utilities, floated to the bottom of the rail.
   {
     id: "search",
     label: "Search",
     icon: "search",
-    meta: true,
+    group: "tools",
     phone: { slot: "more", order: 4 },
   },
   {
     id: "help",
     label: "Help",
     icon: "help-circle",
-    meta: true,
+    group: "tools",
     phone: { slot: "more", order: 3 },
   },
 ];
+
+/** Rail group order — the sequence of contiguous group runs in DESTINATIONS. */
+export const RAIL_GROUP_ORDER: RailGroup[] = ["hub", "pipeline", "insight", "tools"];
+
+/** The group floated to the bottom of the rail (a footer of occasional tools). */
+export const RAIL_FOOTER_GROUP: RailGroup = "tools";
 
 /** Destinations always redirected to the "use a larger screen" notice on phones. */
 export const PHONE_REDIRECTED: ReadonlySet<InkswellMode> = new Set(

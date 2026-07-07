@@ -42,7 +42,7 @@ import { renderHint } from "../help/hint";
 import { hintKey } from "../help/help-content";
 import { PhoneShell } from "./phone/phone-shell";
 import { openMoreSheet } from "./phone/more-sheet";
-import { DESTINATIONS, InkswellMode, PHONE_REDIRECTED } from "./nav-model";
+import { DESTINATIONS, InkswellMode, PHONE_REDIRECTED, RAIL_FOOTER_GROUP } from "./nav-model";
 import type InkswellPlugin from "../../main";
 
 export const VIEW_TYPE_INKSWELL = "inkswell";
@@ -173,13 +173,18 @@ export class InkswellView extends ItemView {
     root.addClass("inkswell-host");
 
     this.rail = root.createDiv({ cls: "inkswell-rail" });
-    let metaSeparated = false;
+    // Draw a divider whenever the group changes between consecutive destinations
+    // (groups are contiguous runs in DESTINATIONS). The divider that begins the
+    // footer group gets `--push` so CSS floats that group to the bottom. Sprint
+    // is intentionally absent — it's an action, not a destination (reachable from
+    // the Write topbar, the status bar, and the command palette).
+    let prevGroup: string | null = null;
     for (const dest of DESTINATIONS) {
-      // Divider between the core pipeline and the meta cluster (Track + Sprint).
-      if (dest.meta && !metaSeparated) {
-        this.rail.createDiv({ cls: "inkswell-rail__separator" });
-        metaSeparated = true;
+      if (prevGroup !== null && dest.group !== prevGroup) {
+        const sep = this.rail.createDiv({ cls: "inkswell-rail__separator" });
+        if (dest.group === RAIL_FOOTER_GROUP) sep.addClass("inkswell-rail__separator--push");
       }
+      prevGroup = dest.group;
       const item = this.rail.createDiv({ cls: "inkswell-rail__item" });
       setIcon(item.createSpan({ cls: "inkswell-rail__icon" }), dest.icon);
       item.createSpan({ cls: "inkswell-rail__label", text: dest.label });
@@ -187,14 +192,6 @@ export class InkswellView extends ItemView {
       item.setAttribute("aria-label", dest.label);
       item.onclick = () => this.setMode(dest.id);
     }
-    // Sprint is part of the meta cluster (an action, not a destination), so it
-    // sits with Track right after the separator — not pinned to the bottom.
-    if (!metaSeparated) this.rail.createDiv({ cls: "inkswell-rail__separator" });
-    const sprint = this.rail.createDiv({ cls: "inkswell-rail__item" });
-    setIcon(sprint.createSpan({ cls: "inkswell-rail__icon" }), "timer");
-    sprint.createSpan({ cls: "inkswell-rail__label", text: "Sprint" });
-    sprint.setAttribute("aria-label", "Start a writing sprint");
-    sprint.onclick = () => this.plugin.startSprint();
 
     // Right of the rail: a persistent header (project selector) above the body.
     // The header lives OUTSIDE the body so renderActive()'s body.empty() never

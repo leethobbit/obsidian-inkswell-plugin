@@ -21,8 +21,14 @@
 
 .inkswell-rail__separator {
   height: 1px;
-  margin: var(--size-2-2) var(--size-2-3);
+  /* A touch more vertical breathing room so the grouping reads at a glance. */
+  margin: var(--size-4-2) var(--size-2-3);
   background: var(--background-modifier-border);
+}
+/* The divider that begins the footer group floats it (and everything after) to
+   the bottom of the rail's flex column. */
+.inkswell-rail__separator--push {
+  margin-top: auto;
 }
 
 .inkswell-rail__item {
