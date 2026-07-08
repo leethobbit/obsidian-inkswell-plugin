@@ -143,6 +143,43 @@
   font-weight: var(--font-semibold);
 }
 
+/* Plan → Structure: a compact Tree | Board | Grid switcher above the active view. */
+.inkswell-structure__bar {
+  display: flex;
+  align-items: center;
+  padding: var(--size-4-2) var(--size-4-3);
+  flex-shrink: 0;
+}
+
+.inkswell-viewswitch {
+  display: inline-flex;
+  gap: var(--size-4-1);
+  padding: var(--size-2-1);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+
+.inkswell-viewswitch__btn {
+  padding: var(--size-4-1) var(--size-4-3);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.inkswell-viewswitch__btn:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.inkswell-viewswitch__btn.is-active {
+  color: var(--text-normal);
+  background-color: var(--background-modifier-active-hover);
+  font-weight: var(--font-semibold);
+}
+
 .inkswell-main {
   flex: 1;
   min-height: 0;
@@ -1137,13 +1174,21 @@
   flex-wrap: wrap;
 }
 
-.inkswell-plotgrid__onboard {
+/* Shared onboarding empty state (renderEmptyStateAction): a centered box with a
+   muted message and one or more next-step buttons. Used across the Plan surfaces. */
+.inkswell-onboard {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--size-4-3);
   max-width: 46ch;
   margin: var(--size-4-6) auto;
+}
+
+.inkswell-onboard__actions {
+  display: flex;
+  gap: var(--size-4-2);
+  flex-wrap: wrap;
 }
 
 .inkswell-plotgrid__scroll {

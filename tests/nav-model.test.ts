@@ -56,6 +56,11 @@ describe("nav model", () => {
     expect(runs).toEqual(RAIL_GROUP_ORDER);
   });
 
+  it("gives Plan three sub-tabs: Overview, Beats, Structure", () => {
+    const plan = DESTINATIONS.find((d) => d.id === "plan");
+    expect(plan?.subtabs?.map((s) => s.id)).toEqual(["overview", "beats", "structure"]);
+  });
+
   it("groups the rail: Home / pipeline / insight / tools", () => {
     const byGroup = (g: string) => DESTINATIONS.filter((d) => d.group === g).map((d) => d.id);
     expect(byGroup("hub")).toEqual(["home"]);

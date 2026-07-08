@@ -16,6 +16,7 @@ time the version bump renames that section to the new version and date.
 
 ### Changed
 - **The sidebar is grouped into clearer sections.** The navigation rail now reads as four visually separated groups — **Home**, then the writing pipeline (**Plan · Write · Revise · Publish**), then **Codex · Track**, and finally **Search · Help** pinned at the bottom — so it's easier to scan as the app has grown. **Sprint has moved out of the rail** (it was an action, not a place); start one from the **Write** toolbar, the status bar, or the "Start a writing sprint" command exactly as before.
+- **Plan is simpler: three tabs instead of five.** Plan used to open onto five side-by-side tabs (Overview, Beats, Board, Grid, Outline) with no obvious order — overwhelming for a newcomer. It's now **Overview → Beats → Structure**, a natural flow: shape the story, plan the beats, then arrange the scenes. Board, Grid, and the outline tree were really three views of the same scenes, so they now live together under **Structure** behind a **Tree | Board | Grid** switcher — the outline tree is the default. Your board grouping, plot-grid focus, and per-view tips are unchanged, and the "Open board" / "Open plot grid" commands still jump straight to those views. Empty Plan surfaces now point you at the natural next step (e.g. a bare Structure suggests starting from Beats).
 
 ## [1.6.0] - 2026-07-06
 

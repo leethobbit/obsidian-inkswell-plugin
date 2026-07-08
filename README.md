@@ -45,7 +45,7 @@ Five pipeline phases — **Home · Plan · Write · Revise · Publish** — plus
 | Surface | What it's for |
 |---------|---------------|
 | **Home** | Projects, a nestable scene tree, a cover-art hero card (logline / theme / word-target progress), multiple drafts per story, ideas inbox + quick capture, and series grouping for multi-book worlds. |
-| **Plan** | Beat sheets (7 outline templates incl. Save the Cat!) and a Kanban Board (by status / act / POV). |
+| **Plan** | Overview fields, beat sheets (7 templates incl. Save the Cat!), and **Structure** — the outline tree, a Kanban board, and a plotline × chapter grid, behind one Tree / Board / Grid switcher. |
 | **Write** | A distraction-light Live-Preview editor, writing prompts, fast-drafting placeholder tokens, and timed sprints. |
 | **Revise** | An Audit toolkit, the invisible-revision Log, a Todos sweep for placeholder markers, and manuscript Analysis. |
 | **Publish** | A configurable compile/export pipeline plus a self-publishing checklist and launch planner. |
@@ -61,7 +61,7 @@ Projects and a nestable scene tree, an ideas inbox with quick capture, and serie
 
 ### Plan — structure before you draft
 
-*Beats* (7 outline templates incl. Save the Cat!, with scene scaffolding) and a *Board* (Kanban by status / act / POV).
+A three-step flow: *Overview* (novel-level fields and long-form prose), *Beats* (7 outline templates incl. Save the Cat!, with scene scaffolding), and *Structure* — the same scenes seen three ways behind a **Tree | Board | Grid** switcher: the authoritative Act › Chapter › Scene outline tree, a Kanban board (by status / act / chapter / POV), and a plotline × chapter plot grid.
 
 <!-- PLAN -->
 ![Plan: Kanban board with colored scene cards grouped by status](assets/plan.png)

@@ -77,9 +77,7 @@ export const DESTINATIONS: Destination[] = [
     subtabs: [
       { id: "overview", label: "Overview" },
       { id: "beats", label: "Beats" },
-      { id: "board", label: "Board" },
-      { id: "grid", label: "Grid" },
-      { id: "outline", label: "Outline" },
+      { id: "structure", label: "Structure" },
     ],
     phone: { slot: "more", order: 5 },
     phoneRedirect: true,

@@ -336,11 +336,11 @@ export default class InkswellPlugin extends Plugin {
   }
 
   openBoard(): Promise<void> {
-    return this.openInkswell("plan", undefined, "board");
+    return this.openInkswell("plan", (view) => view.openPlanStructure("board"));
   }
 
   openPlotGrid(): Promise<void> {
-    return this.openInkswell("plan", undefined, "grid");
+    return this.openInkswell("plan", (view) => view.openPlanStructure("grid"));
   }
 
   openCodex(): Promise<void> {

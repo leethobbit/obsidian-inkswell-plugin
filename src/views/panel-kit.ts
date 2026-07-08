@@ -15,6 +15,36 @@ export function renderEmptyState(parent: HTMLElement, text: string): HTMLElement
   return parent.createDiv({ cls: "inkswell-stats__muted", text });
 }
 
+/** One action button in an onboarding empty state. `cta` styles it as the primary. */
+export interface EmptyStateAction {
+  label: string;
+  onClick: () => void;
+  cta?: boolean;
+}
+
+/**
+ * A richer empty state than {@link renderEmptyState}: a centered box with a muted
+ * message and one or more action buttons that point the user at the natural next
+ * step (e.g. "Go to Beats"). Generalizes the plot grid's onboarding box so every
+ * Plan surface can guide a newcomer with the same look. Returns the box.
+ */
+export function renderEmptyStateAction(
+  parent: HTMLElement,
+  text: string,
+  actions: EmptyStateAction[] = []
+): HTMLElement {
+  const box = parent.createDiv({ cls: "inkswell-onboard" });
+  box.createDiv({ cls: "inkswell-stats__muted", text });
+  if (actions.length > 0) {
+    const row = box.createDiv({ cls: "inkswell-onboard__actions" });
+    for (const a of actions) {
+      const btn = row.createEl("button", { text: a.label, cls: a.cta ? "mod-cta" : undefined });
+      btn.onclick = () => a.onClick();
+    }
+  }
+  return box;
+}
+
 /** Options for `SectionState.section()` — the caller supplies its own classes
  *  so this stays reusable across panels with different section styling. */
 export interface SectionOptions {

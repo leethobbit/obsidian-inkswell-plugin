@@ -14,7 +14,7 @@ interface Phase {
 }
 
 const PHASES: Phase[] = [
-  { icon: "compass", name: "Plan", blurb: "Beat sheet, board, and overview." },
+  { icon: "compass", name: "Plan", blurb: "Overview, beat sheet, and story structure." },
   { icon: "pencil", name: "Write", blurb: "Focused editor with to-do markers." },
   { icon: "git-compare", name: "Revise", blurb: "Audit, decision log, and sweeps." },
   { icon: "upload", name: "Publish", blurb: "Compile and launch your book." },

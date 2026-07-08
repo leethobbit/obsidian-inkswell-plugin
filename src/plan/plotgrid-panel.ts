@@ -38,7 +38,7 @@ import { EditSceneModal } from "../scenes/edit-scene-modal";
 import { addSceneMenuItems, confirmDelete, promptText } from "../scenes/scene-actions";
 import { SceneMeta, readSceneMeta, statusLabel, writeSceneMeta } from "../scenes/scene-meta";
 import { COLORS } from "../scenes/scene-meta-form";
-import { renderEmptyState } from "../views/panel-kit";
+import { EmptyStateAction, renderEmptyState, renderEmptyStateAction } from "../views/panel-kit";
 import type InkswellPlugin from "../../main";
 
 const COLOR_NAMES: Record<string, string> = {
@@ -166,15 +166,16 @@ export class PlotGridPanel {
   // --- Empty state / toolbar -------------------------------------------------
 
   private renderOnboarding(container: HTMLElement): void {
-    const box = container.createDiv({ cls: "inkswell-plotgrid__onboard" });
-    box.createDiv({
-      cls: "inkswell-stats__muted",
-      text:
-        "Track subplots and arcs across your chapters. Columns are plotlines; " +
-        "cells are the scenes that advance them — so the grid always matches the manuscript.",
-    });
-    const btn = box.createEl("button", { text: "Create your first plotline", cls: "mod-cta" });
-    btn.onclick = () => void this.addPlotline();
+    const noScenes = (this.project?.scenes.length ?? 0) === 0;
+    const text =
+      "Track subplots and arcs across your chapters. Columns are plotlines; " +
+      "cells are the scenes that advance them — so the grid always matches the manuscript." +
+      (noScenes ? " You have no scenes yet — Beats → Scaffold scenes is the fastest start." : "");
+    const actions: EmptyStateAction[] = [
+      { label: "Create your first plotline", cta: true, onClick: () => void this.addPlotline() },
+    ];
+    if (noScenes) actions.push({ label: "Go to Beats", onClick: () => void this.plugin.openBeats() });
+    renderEmptyStateAction(container, text, actions);
   }
 
   private renderToolbar(root: HTMLElement, grid: PlotGrid): void {
