@@ -19,10 +19,8 @@ import { NewDraftModal } from "./drafts-modal";
 import { CodexPanel } from "../codex/codex-panel";
 import { AnalysisPanel } from "../insight/analysis-panel";
 import { BeatPanel } from "../outliner/beat-panel";
-import { BoardPanel } from "../outliner/board-panel";
 import { OverviewPanel } from "../plan/overview-panel";
-import { PlotGridPanel } from "../plan/plotgrid-panel";
-import { StructurePanel } from "../plan/structure-panel";
+import { StructurePanel, StructureView } from "../plan/structure-panel";
 import { ProjectStats } from "../projects/project-stats";
 import { ProjectStore } from "../projects/project-store";
 import { ChecklistPanel } from "./publish/checklist-panel";
@@ -34,14 +32,15 @@ import { StatsPanel } from "../stats/stats-view";
 import { WritingTracker } from "../tracking/writing-tracker";
 import { ExplorerPanel } from "./explorer/explorer-view";
 import { CompilePanel } from "./compile-panel";
-import { WritePanel } from "./write-panel";
+import { WritePanel, SceneHighlight } from "./write-panel";
+import { SearchPanel } from "./search-panel";
 import { SceneInspector } from "../scenes/scene-inspector";
 import { HelpPanel } from "../help/help-panel";
 import { renderHint } from "../help/hint";
 import { hintKey } from "../help/help-content";
 import { PhoneShell } from "./phone/phone-shell";
 import { openMoreSheet } from "./phone/more-sheet";
-import { DESTINATIONS, InkswellMode, PHONE_REDIRECTED } from "./nav-model";
+import { DESTINATIONS, InkswellMode, PHONE_REDIRECTED, RAIL_FOOTER_GROUP } from "./nav-model";
 import type InkswellPlugin from "../../main";
 
 export const VIEW_TYPE_INKSWELL = "inkswell";
@@ -55,8 +54,6 @@ export class InkswellView extends ItemView {
   private explorer: ExplorerPanel;
   private overview: OverviewPanel;
   private beats: BeatPanel;
-  private board: BoardPanel;
-  private plotGrid: PlotGridPanel;
   private structure: StructurePanel;
   private codex: CodexPanel;
   private write: WritePanel;
@@ -68,6 +65,7 @@ export class InkswellView extends ItemView {
   private compile: CompilePanel;
   private checklist: ChecklistPanel;
   private launch: LaunchPanel;
+  private search: SearchPanel;
   private help: HelpPanel;
   private inspector: SceneInspector;
 
@@ -112,8 +110,6 @@ export class InkswellView extends ItemView {
     });
     this.overview = new OverviewPanel(this.app, plugin, store, plugin.activeProject);
     this.beats = new BeatPanel(this.app, plugin, store, plugin.activeProject);
-    this.board = new BoardPanel(this.app, plugin, store, plugin.activeProject);
-    this.plotGrid = new PlotGridPanel(this.app, plugin, store, plugin.activeProject);
     this.structure = new StructurePanel(this.app, plugin, store, plugin.activeProject);
     this.codex = new CodexPanel(this.app, plugin);
     // On phones a codex row tap drills into a single-column detail screen; on
@@ -134,6 +130,17 @@ export class InkswellView extends ItemView {
     this.compile = new CompilePanel(this.app, plugin, store);
     this.checklist = new ChecklistPanel(this.app, plugin, store);
     this.launch = new LaunchPanel(this.app, plugin, store);
+    this.search = new SearchPanel(this.app, store, plugin.activeProject, {
+      onOpenInWrite: (path, hl) => this.openSceneInWrite(path, hl),
+      // Flush the open scene's unsaved text before replace re-reads from disk.
+      beforeReplace: () => this.write.flushPendingSave(),
+      // If the editor is bound to a scene that just changed, reload it from disk
+      // so its stale buffer can't clobber the replacement on a later blur.
+      afterReplace: (changedPaths) => {
+        const open = this.write.currentScenePath();
+        if (open && changedPaths.includes(open)) this.write.reloadCurrentScene();
+      },
+    });
     this.help = new HelpPanel(this.app, plugin);
     this.inspector = new SceneInspector(this.app, store);
 
@@ -160,13 +167,18 @@ export class InkswellView extends ItemView {
     root.addClass("inkswell-host");
 
     this.rail = root.createDiv({ cls: "inkswell-rail" });
-    let metaSeparated = false;
+    // Draw a divider whenever the group changes between consecutive destinations
+    // (groups are contiguous runs in DESTINATIONS). The divider that begins the
+    // footer group gets `--push` so CSS floats that group to the bottom. Sprint
+    // is intentionally absent — it's an action, not a destination (reachable from
+    // the Write topbar, the status bar, and the command palette).
+    let prevGroup: string | null = null;
     for (const dest of DESTINATIONS) {
-      // Divider between the core pipeline and the meta cluster (Track + Sprint).
-      if (dest.meta && !metaSeparated) {
-        this.rail.createDiv({ cls: "inkswell-rail__separator" });
-        metaSeparated = true;
+      if (prevGroup !== null && dest.group !== prevGroup) {
+        const sep = this.rail.createDiv({ cls: "inkswell-rail__separator" });
+        if (dest.group === RAIL_FOOTER_GROUP) sep.addClass("inkswell-rail__separator--push");
       }
+      prevGroup = dest.group;
       const item = this.rail.createDiv({ cls: "inkswell-rail__item" });
       setIcon(item.createSpan({ cls: "inkswell-rail__icon" }), dest.icon);
       item.createSpan({ cls: "inkswell-rail__label", text: dest.label });
@@ -174,14 +186,6 @@ export class InkswellView extends ItemView {
       item.setAttribute("aria-label", dest.label);
       item.onclick = () => this.setMode(dest.id);
     }
-    // Sprint is part of the meta cluster (an action, not a destination), so it
-    // sits with Track right after the separator — not pinned to the bottom.
-    if (!metaSeparated) this.rail.createDiv({ cls: "inkswell-rail__separator" });
-    const sprint = this.rail.createDiv({ cls: "inkswell-rail__item" });
-    setIcon(sprint.createSpan({ cls: "inkswell-rail__icon" }), "timer");
-    sprint.createSpan({ cls: "inkswell-rail__label", text: "Sprint" });
-    sprint.setAttribute("aria-label", "Start a writing sprint");
-    sprint.onclick = () => this.plugin.startSprint();
 
     // Right of the rail: a persistent header (project selector) above the body.
     // The header lives OUTSIDE the body so renderActive()'s body.empty() never
@@ -405,9 +409,15 @@ export class InkswellView extends ItemView {
   }
 
   /** Select a scene in the Write panel and switch to it (cross-panel navigation). */
-  openSceneInWrite(path: string, highlight?: { from: number; to: number }): void {
+  openSceneInWrite(path: string, highlight?: SceneHighlight): void {
     this.write.selectScene(path, highlight);
     this.setMode("write");
+  }
+
+  /** Open Plan → Structure on a specific view (deep link for board/grid commands). */
+  openPlanStructure(view: StructureView): void {
+    this.structure.setView(view);
+    this.setMode("plan", "structure");
   }
 
   getRevisionPanel(): RevisionPanel {
@@ -567,10 +577,8 @@ export class InkswellView extends ItemView {
         break;
       case "plan": {
         const sub = this.subtab["plan"] ?? "overview";
-        if (sub === "board") this.board.render(panel);
-        else if (sub === "beats") this.beats.render(panel);
-        else if (sub === "grid") this.plotGrid.render(panel);
-        else if (sub === "outline") this.structure.render(panel);
+        if (sub === "beats") this.beats.render(panel);
+        else if (sub === "structure") this.structure.render(panel);
         else this.overview.render(panel);
         break;
       }
@@ -582,6 +590,9 @@ export class InkswellView extends ItemView {
         break;
       case "write":
         this.write.render(panel);
+        break;
+      case "search":
+        this.search.render(panel);
         break;
       case "track":
         this.stats.render(panel);

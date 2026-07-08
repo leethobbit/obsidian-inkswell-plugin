@@ -17,7 +17,7 @@ import { Project } from "../projects/types";
 import { EditSceneModal } from "../scenes/edit-scene-modal";
 import { addSceneMenuItems } from "../scenes/scene-actions";
 import { readSceneMeta, statusLabel } from "../scenes/scene-meta";
-import { renderEmptyState } from "../views/panel-kit";
+import { renderEmptyStateAction } from "../views/panel-kit";
 import { BeatSheet, DEFAULT_TEMPLATE, TEMPLATE_META } from "./beat-templates";
 import { beatProgress, mergeBeats, setAssignment } from "./beats";
 import { promptNewScene } from "./create-scene";
@@ -49,7 +49,9 @@ export class BeatPanel {
 
     const project = resolveActive(this.store.getProjects(), this.active.get());
     if (!project) {
-      renderEmptyState(container, "No projects found.");
+      renderEmptyStateAction(container, "No projects yet — a project holds your scenes, plan, and goals.", [
+        { label: "Create a project", cta: true, onClick: () => this.plugin.newProject() },
+      ]);
       return;
     }
 

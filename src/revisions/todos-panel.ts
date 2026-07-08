@@ -13,8 +13,7 @@ import { App, TFile } from "obsidian";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
 import { GapHit, PlaceholderKind, findGaps } from "../lib/placeholders";
-
-const FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/;
+import { stripFrontmatter } from "../lib/frontmatter";
 
 const KIND_LABEL: Record<PlaceholderKind, string> = {
   todo: "TODO",
@@ -88,7 +87,7 @@ export class TodosPanel {
       if (!scene.path) continue;
       const file = this.app.vault.getAbstractFileByPath(scene.path);
       if (!(file instanceof TFile)) continue;
-      const body = (await this.app.vault.cachedRead(file)).replace(FRONTMATTER_RE, "");
+      const body = stripFrontmatter(await this.app.vault.cachedRead(file));
       const todos = findGaps(body);
       if (todos.length) groups.push({ title: scene.title, path: scene.path, todos });
     }

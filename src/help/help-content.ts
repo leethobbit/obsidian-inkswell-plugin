@@ -152,16 +152,18 @@ export const HINTS: Record<string, HintEntry> = {
     body: (el) => {
       p(
         el,
-        "Organise your book as a tree: acts hold chapters, chapters hold scenes. Drag a " +
-          "scene into a chapter (or a chapter into an act), and drop above or below a row " +
-          "to reorder. This tree is the source of truth — arranging it also sets the " +
-          "manuscript's reading order, so each chapter's scenes stay together."
+        "The Tree view of Structure: organise your book as acts holding chapters holding " +
+          "scenes. Drag a scene into a chapter (or a chapter into an act), and drop above " +
+          "or below a row to reorder. This tree is the source of truth — arranging it also " +
+          "sets the manuscript's reading order, so each chapter's scenes stay together. " +
+          "The Board and Grid views (top of the tab) show the same scenes a different way."
       );
       p(
         el,
-        "It comes last in Plan on purpose. The usual flow is to sketch your Beats first, " +
-          "spin scenes off those beats, and draft them in Write — structure can wait. " +
-          "Once you have real scenes, come back here to group them into acts and chapters."
+        "Structure comes last in Plan on purpose. The usual flow is to sketch your Beats " +
+          "first, spin scenes off those beats, and draft them in Write — structure can " +
+          "wait. Once you have real scenes, come back here to group them into acts and " +
+          "chapters."
       );
       steps(el, [
         "Nesting is optional — a scene can sit outside any chapter and a chapter outside any act (the “Chapters with no act” / “Unassigned scenes” buckets).",
@@ -241,6 +243,29 @@ export const HINTS: Record<string, HintEntry> = {
       );
     },
   },
+  search: {
+    title: "How search works",
+    body: (el) => {
+      p(
+        el,
+        "Full-text search across your scenes' prose and their synopses. Pick a scope — " +
+          "this draft, the whole story, the series, or the whole vault — and narrow with " +
+          "the metadata filters (status, POV, chapter, plotline, character)."
+      );
+      p(
+        el,
+        "Results group by scene. Click a hit to jump straight to it in Write, where it " +
+          "flashes so you can find it fast. A synopsis hit opens the scene without a flash " +
+          "(the synopsis isn't part of the editable body). Set only a filter, with no query, " +
+          "to list every scene that matches — a quick structured finder."
+      );
+      p(
+        el,
+        "Matching is literal (not a wildcard or regex), with optional Match case and Whole " +
+          "word toggles; archived scenes are included only when you tick “Include archived”."
+      );
+    },
+  },
   "publish/compile": {
     title: "How compile works",
     body: (el) => {
@@ -293,21 +318,23 @@ export const HELP_SECTIONS: HelpSection[] = [
   {
     phase: "Plan",
     icon: "compass",
-    summary: "Overview fields, the beat sheet, the status board, the plot grid, and the story outline.",
+    summary: "Overview fields, the beat sheet, and Structure (outline tree, board, and plot grid).",
     body: (el) => {
       p(
         el,
         "Overview holds novel-level fields (logline, theme, genre) and long-form prose " +
-          "(synopsis, three-act sketch). Beats, Board, Grid, and Outline are detailed below."
+          "(synopsis, three-act sketch). Beats is the beat sheet. Structure combines the " +
+          "outline tree, the Kanban board, and the plot grid behind one Tree | Board | " +
+          "Grid switcher — three views of the same scenes. All are detailed below."
       );
       el.createEl("h4", { text: HINTS["plan/beats"].title });
       HINTS["plan/beats"].body(el);
+      el.createEl("h4", { text: HINTS["plan/outline"].title });
+      HINTS["plan/outline"].body(el);
       el.createEl("h4", { text: HINTS["plan/board"].title });
       HINTS["plan/board"].body(el);
       el.createEl("h4", { text: HINTS["plan/grid"].title });
       HINTS["plan/grid"].body(el);
-      el.createEl("h4", { text: HINTS["plan/outline"].title });
-      HINTS["plan/outline"].body(el);
     },
   },
   {
@@ -321,6 +348,12 @@ export const HELP_SECTIONS: HelpSection[] = [
     icon: "book-marked",
     summary: "Your story bible, scoped global / project / series.",
     body: HINTS["codex"].body,
+  },
+  {
+    phase: "Search",
+    icon: "search",
+    summary: "Full-text search across scenes, scoped and filterable.",
+    body: HINTS["search"].body,
   },
   {
     phase: "Track",

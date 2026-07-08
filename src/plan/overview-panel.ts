@@ -17,6 +17,7 @@ import { ProjectStore } from "../projects/project-store";
 import { baseDraftFor } from "../projects/stories";
 import { Project, ProjectOverview } from "../projects/types";
 import { openScene } from "../scenes/scene-actions";
+import { renderEmptyStateAction } from "../views/panel-kit";
 import {
   PLAN_SECTIONS,
   PlanSection,
@@ -64,7 +65,9 @@ export class OverviewPanel {
 
     const active = resolveActive(this.store.getProjects(), this.active.get());
     if (!active) {
-      container.createDiv({ cls: "inkswell-stats__muted", text: "No projects found." });
+      renderEmptyStateAction(container, "No projects yet — a project holds your scenes, plan, and goals.", [
+        { label: "Create a project", cta: true, onClick: () => this.plugin.newProject() },
+      ]);
       return;
     }
     // Overview + planning note are story-level — always read/write the base draft

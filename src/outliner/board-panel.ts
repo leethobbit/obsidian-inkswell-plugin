@@ -17,7 +17,7 @@ import { addSceneMenuItems } from "../scenes/scene-actions";
 import { promptNewScene } from "./create-scene";
 import { EditSceneModal } from "../scenes/edit-scene-modal";
 import { readSceneMeta, statusLabel, writeSceneMeta } from "../scenes/scene-meta";
-import { renderEmptyState } from "../views/panel-kit";
+import { renderEmptyState, renderEmptyStateAction } from "../views/panel-kit";
 import { BoardColumn, BoardItem, GroupField, buildColumns } from "./board";
 import type InkswellPlugin from "../../main";
 
@@ -81,6 +81,14 @@ export class BoardPanel {
         synopsis: m.synopsis,
         color: m.color,
       });
+    }
+
+    if (items.length === 0) {
+      renderEmptyStateAction(container, "No scenes yet — cards appear here as you create scenes.", [
+        { label: "New scene", cta: true, onClick: () => promptNewScene(this.app, this.store, project) },
+        { label: "Go to Beats", onClick: () => void this.plugin.openBeats() },
+      ]);
+      return;
     }
 
     const cols = buildColumns(items, this.field);

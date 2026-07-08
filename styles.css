@@ -21,8 +21,14 @@
 
 .inkswell-rail__separator {
   height: 1px;
-  margin: var(--size-2-2) var(--size-2-3);
+  /* A touch more vertical breathing room so the grouping reads at a glance. */
+  margin: var(--size-4-2) var(--size-2-3);
   background: var(--background-modifier-border);
+}
+/* The divider that begins the footer group floats it (and everything after) to
+   the bottom of the rail's flex column. */
+.inkswell-rail__separator--push {
+  margin-top: auto;
 }
 
 .inkswell-rail__item {
@@ -132,6 +138,43 @@
 }
 
 .inkswell-subtab.is-active {
+  color: var(--text-normal);
+  background-color: var(--background-modifier-active-hover);
+  font-weight: var(--font-semibold);
+}
+
+/* Plan → Structure: a compact Tree | Board | Grid switcher above the active view. */
+.inkswell-structure__bar {
+  display: flex;
+  align-items: center;
+  padding: var(--size-4-2) var(--size-4-3);
+  flex-shrink: 0;
+}
+
+.inkswell-viewswitch {
+  display: inline-flex;
+  gap: var(--size-4-1);
+  padding: var(--size-2-1);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+
+.inkswell-viewswitch__btn {
+  padding: var(--size-4-1) var(--size-4-3);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.inkswell-viewswitch__btn:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.inkswell-viewswitch__btn.is-active {
   color: var(--text-normal);
   background-color: var(--background-modifier-active-hover);
   font-weight: var(--font-semibold);
@@ -531,6 +574,108 @@
   font-size: var(--font-ui-smaller);
 }
 .inkswell-todos__text {
+  flex: 1;
+  color: var(--text-muted);
+}
+
+/* --- Search panel (cross-scene full-text search) --- */
+.inkswell-search {
+  padding: var(--size-4-3);
+}
+.inkswell-search__controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-3);
+}
+.inkswell-search__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+.inkswell-search__scope {
+  flex: 0 0 auto;
+}
+.inkswell-search__query,
+.inkswell-search__replace {
+  flex: 1 1 12em;
+  min-width: 10em;
+}
+.inkswell-search__confirm {
+  margin: var(--size-4-2) 0;
+  padding: var(--size-4-2);
+  background: var(--background-secondary);
+  border-radius: var(--radius-s);
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-search__ack {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--size-4-1);
+  margin-top: var(--size-4-2);
+}
+.inkswell-search__opts {
+  gap: var(--size-4-3);
+}
+.inkswell-search__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.inkswell-search__filters {
+  gap: var(--size-4-3);
+}
+.inkswell-search__filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-1);
+}
+.inkswell-search__filterlabel {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+.inkswell-search__scene {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-2);
+  font-weight: var(--font-semibold);
+  margin-top: var(--size-4-3);
+  cursor: pointer;
+}
+.inkswell-search__badge {
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-medium);
+  border-radius: 3px;
+  padding: 0 var(--size-4-1);
+  white-space: nowrap;
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+}
+.inkswell-search__badge--synopsis {
+  background: hsla(45, 90%, 50%, 0.25);
+  color: var(--text-normal);
+}
+.inkswell-search__hit {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-2);
+  padding: 2px 0;
+  cursor: pointer;
+}
+.inkswell-search__hit:hover {
+  background: var(--background-modifier-hover);
+}
+.inkswell-search__line {
+  color: var(--text-faint);
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-search__text {
   flex: 1;
   color: var(--text-muted);
 }
@@ -1029,13 +1174,21 @@
   flex-wrap: wrap;
 }
 
-.inkswell-plotgrid__onboard {
+/* Shared onboarding empty state (renderEmptyStateAction): a centered box with a
+   muted message and one or more next-step buttons. Used across the Plan surfaces. */
+.inkswell-onboard {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--size-4-3);
   max-width: 46ch;
   margin: var(--size-4-6) auto;
+}
+
+.inkswell-onboard__actions {
+  display: flex;
+  gap: var(--size-4-2);
+  flex-wrap: wrap;
 }
 
 .inkswell-plotgrid__scroll {
