@@ -175,10 +175,33 @@ export class RevisionPanel {
         text: d.priority,
       });
     }
-    meta.createSpan({ text: d.scene ? `↳ ${d.scene}` : "project-wide" });
+    // The scene anchor: a link that opens that scene in Write when it resolves.
+    const scenePath = d.scene ? this.scenePathFor(project, d.scene) : null;
+    if (d.scene) {
+      const sceneEl = meta.createSpan({ text: `↳ ${d.scene}` });
+      if (scenePath) {
+        sceneEl.addClass("inkswell-revision__scenelink");
+        sceneEl.setAttribute("aria-label", `Open "${d.scene}" in Write`);
+        sceneEl.onclick = (e) => {
+          e.stopPropagation();
+          this.plugin.openSceneInWrite(scenePath);
+        };
+      }
+    } else {
+      meta.createSpan({ text: "project-wide" });
+    }
 
     attachRowMenu(row, row, () => {
       const menu = new Menu();
+      if (scenePath) {
+        menu.addItem((i) =>
+          i
+            .setTitle("Open scene in Write")
+            .setIcon("pen-tool")
+            .onClick(() => this.plugin.openSceneInWrite(scenePath))
+        );
+        menu.addSeparator();
+      }
       menu.addItem((i) =>
         i
           .setTitle("Edit…")
@@ -194,6 +217,11 @@ export class RevisionPanel {
       );
       return menu;
     });
+  }
+
+  /** Resolve a decision's scene title to its vault path within the project. */
+  private scenePathFor(project: Project, title: string): string | null {
+    return project.scenes.find((s) => s.title === title)?.path ?? null;
   }
 
   /** Open the modal pre-filled to edit a decision in place (preserves id/status). */

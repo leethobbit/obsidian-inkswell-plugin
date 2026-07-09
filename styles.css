@@ -2725,6 +2725,13 @@
   align-items: center;
   gap: var(--size-4-1);
 }
+.inkswell-revision__scenelink {
+  cursor: pointer;
+  color: var(--text-accent);
+}
+.inkswell-revision__scenelink:hover {
+  text-decoration: underline;
+}
 .inkswell-revision__type {
   border-radius: 3px;
   padding: 0 var(--size-4-1);
