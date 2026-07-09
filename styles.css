@@ -1665,8 +1665,59 @@
 .inkswell-write__inspector {
   width: 260px;
   flex-shrink: 0;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   border-left: 1px solid var(--background-modifier-border);
+}
+/* Right-column panel slot: a fixed switcher over a scrolling content area. */
+.inkswell-write__insptabs {
+  flex-shrink: 0;
+  padding: var(--size-4-2) var(--size-4-2) 0;
+}
+.inkswell-write__inspcontent {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Revision sidebar (the "Revision" right-column panel). */
+.inkswell-revsidebar__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-3);
+  flex-wrap: wrap;
+}
+.inkswell-revsidebar__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-1);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+.inkswell-revsidebar__list {
+  padding: 0 var(--size-4-2) var(--size-4-2);
+}
+.inkswell-revsidebar__group {
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-revsidebar__scene {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--size-4-2);
+  padding: var(--size-4-1) 0;
+  cursor: pointer;
+  font-weight: var(--font-semibold);
+  font-size: var(--font-ui-small);
+}
+.inkswell-revsidebar__count {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-weight: var(--font-normal);
+  font-size: var(--font-ui-smaller);
 }
 .inkswell-write__empty {
   padding: var(--size-4-4);

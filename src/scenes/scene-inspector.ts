@@ -8,11 +8,14 @@
 import { App, TFile } from "obsidian";
 import { featureEnabled } from "../features";
 import { ProjectStore } from "../projects/project-store";
+import { RightPanel } from "../views/right-panel";
 import { openScene } from "./scene-actions";
 import { renderSceneAuditFields, renderSceneMetaFields } from "./scene-meta-form";
 import type InkswellPlugin from "../../main";
 
-export class SceneInspector {
+export class SceneInspector implements RightPanel {
+  readonly id = "scene";
+  readonly label = "Scene";
   private app: App;
   private plugin: InkswellPlugin;
   private store: ProjectStore;

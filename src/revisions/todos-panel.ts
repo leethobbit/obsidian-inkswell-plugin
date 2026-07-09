@@ -9,11 +9,11 @@
  * match the Write editor's document exactly (its doc is the body sans frontmatter).
  */
 
-import { App, TFile } from "obsidian";
+import { App } from "obsidian";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
-import { GapHit, PlaceholderKind, findGaps } from "../lib/placeholders";
-import { stripFrontmatter } from "../lib/frontmatter";
+import { PlaceholderKind } from "../lib/placeholders";
+import { SceneTodos, scanProjectTodos } from "./todos-scan";
 
 const KIND_LABEL: Record<PlaceholderKind, string> = {
   todo: "TODO",
@@ -24,12 +24,6 @@ const KIND_LABEL: Record<PlaceholderKind, string> = {
 };
 
 const KIND_ORDER: PlaceholderKind[] = ["todo", "research", "note", "dialogue", "scene"];
-
-interface SceneTodos {
-  title: string;
-  path: string;
-  todos: GapHit[];
-}
 
 /** Highlight target handed to the Write panel: a token's offsets in the body. */
 export interface TodoHighlight {
@@ -82,16 +76,7 @@ export class TodosPanel {
   }
 
   private async scan(scenes: { title: string; path: string | null }[]): Promise<void> {
-    const groups: SceneTodos[] = [];
-    for (const scene of scenes) {
-      if (!scene.path) continue;
-      const file = this.app.vault.getAbstractFileByPath(scene.path);
-      if (!(file instanceof TFile)) continue;
-      const body = stripFrontmatter(await this.app.vault.cachedRead(file));
-      const todos = findGaps(body);
-      if (todos.length) groups.push({ title: scene.title, path: scene.path, todos });
-    }
-    this.groups = groups;
+    this.groups = await scanProjectTodos(this.app, scenes);
     this.renderChips();
     this.renderList();
   }

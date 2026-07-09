@@ -30,6 +30,8 @@ import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
 import { readSceneMeta } from "../scenes/scene-meta";
 import { SceneInspector } from "../scenes/scene-inspector";
+import { RightPanel } from "./right-panel";
+import { RevisionSidebar } from "../revisions/revision-sidebar";
 import { SprintController } from "../sprints/sprint-controller";
 import type InkswellPlugin from "../../main";
 
@@ -108,6 +110,10 @@ export class WritePanel {
   private store: ProjectStore;
   private sprints: SprintController;
   private inspector: SceneInspector;
+  /** The right-column panel slot: choosable panels behind a switcher. */
+  private rightPanels: RightPanel[];
+  /** Which right-column panel is showing (in-memory; survives update()). */
+  private activeRightPanel = "scene";
 
   private container: HTMLElement | null = null;
   /** Tracks the project the editor is currently bound to, to reset on change. */
@@ -147,6 +153,10 @@ export class WritePanel {
     this.store = store;
     this.sprints = sprints;
     this.inspector = new SceneInspector(this.app, this.plugin, store);
+    const revision = new RevisionSidebar(this.app, store, plugin.activeProject, (path, from, to) =>
+      this.jumpToRevision(path, from, to)
+    );
+    this.rightPanels = [this.inspector, revision];
   }
 
   /**
@@ -295,7 +305,7 @@ export class WritePanel {
     this.renderNavigator(main, project);
     this.renderEditor(main);
     this.inspectorHost = main.createDiv({ cls: "inkswell-write__inspector" });
-    this.inspector.render(this.inspectorHost, this.currentFile);
+    this.renderRightColumn();
   }
 
   /**
@@ -325,12 +335,58 @@ export class WritePanel {
       this.navEl.empty();
       this.renderNavRows(this.navEl, project);
     }
-    if (this.inspectorHost) this.inspector.render(this.inspectorHost, this.currentFile);
+    if (this.inspectorHost) this.renderRightColumn();
     // A highlight requested for the already-open scene (Todos → same scene).
     if (this.pendingHighlight) {
       this.applyPendingHighlight(this.editor.state.doc.toString());
     }
     return true;
+  }
+
+  /**
+   * Render the right-column panel slot: a segmented switcher (only when more than
+   * one panel) over the active panel's content. Called from both render() and the
+   * in-place update() so the choice survives a fast-path refresh.
+   */
+  private renderRightColumn(): void {
+    const col = this.inspectorHost;
+    if (!col) return;
+    col.empty();
+    if (this.rightPanels.length > 1) {
+      const bar = col.createDiv({ cls: "inkswell-write__insptabs" });
+      const seg = bar.createDiv({ cls: "inkswell-viewswitch" });
+      for (const p of this.rightPanels) {
+        const btn = seg.createEl("button", { cls: "inkswell-viewswitch__btn", text: p.label });
+        btn.toggleClass("is-active", p.id === this.activeRightPanel);
+        btn.setAttribute("aria-label", `${p.label} panel`);
+        btn.onclick = () => {
+          this.activeRightPanel = p.id;
+          this.renderRightColumn();
+        };
+      }
+    }
+    const content = col.createDiv({ cls: "inkswell-write__inspcontent" });
+    const panel =
+      this.rightPanels.find((p) => p.id === this.activeRightPanel) ?? this.rightPanels[0];
+    panel.render(content, this.currentFile);
+  }
+
+  /**
+   * Jump to a revision item from the Revision panel. A marker in the already-open
+   * scene flashes in place (no reload); anything else navigates to its scene
+   * (markers carry offsets to highlight; decisions just open the scene).
+   */
+  private jumpToRevision(path: string, from?: number, to?: number): void {
+    const highlight = from != null && to != null ? { from, to } : undefined;
+    if (path === this.currentScenePath()) {
+      if (highlight && this.editor) {
+        this.pendingHighlight = highlight;
+        this.applyPendingHighlight(this.editor.state.doc.toString());
+      }
+      return;
+    }
+    this.selectScene(path, highlight);
+    this.rerender();
   }
 
   private renderTopbar(): void {
