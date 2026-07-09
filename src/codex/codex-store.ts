@@ -5,9 +5,11 @@
  */
 
 import { App, TFile, normalizePath } from "obsidian";
-import { linkTarget } from "./codex";
+import { detectMentions, linkTarget } from "./codex";
+import { isEntityVisible, scopeContextForProject } from "./codex-scope";
 import { starterCodexTemplate, codexTemplatesReadme } from "./codex-template";
 import { applyTemplateVars } from "../lib/template";
+import { Project } from "../projects/types";
 import { FolderSettings, resolveTemplateFolder, sanitizeSegment } from "../settings/folders";
 import {
   CODEX_CATEGORIES,
@@ -76,26 +78,60 @@ export async function writeEntityScope(
   });
 }
 
+/** Does this scene's `characters`/`location` frontmatter link to `entityName`? */
+function referencesByFrontmatter(app: App, file: TFile, entityName: string): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- cast tames Obsidian's `any`-typed frontmatter; without it the reads below trip no-unsafe-assignment
+  const fm = app.metadataCache.getFileCache(file)?.frontmatter as
+    | Record<string, unknown>
+    | undefined;
+  if (!fm) return false;
+  const refs: string[] = [];
+  const chars = fm["characters"];
+  if (Array.isArray(chars)) refs.push(...chars.filter((x): x is string => typeof x === "string"));
+  else if (typeof chars === "string") refs.push(chars);
+  if (typeof fm["location"] === "string") refs.push(fm["location"]);
+  return refs.some((r) => linkTarget(r) === entityName);
+}
+
 /**
- * Scenes that reference an entity by name through their `characters`/`location`
- * frontmatter wikilinks. Cheap metadata-cache scan; returns matching files.
+ * Scenes that reference an entity, for its "Appears in" list. A scene counts when
+ * its body text mentions the entity's name or an alias (whole-word, via
+ * {@link detectMentions}) OR it carries an explicit `characters`/`location`
+ * frontmatter link — so deliberate links still count when the name isn't in the
+ * prose. Automatic: no manual tagging step, and every codex category is covered.
+ *
+ * Scoped to scenes the entity can see: a global entity scans every project; a
+ * project/series-scoped one only its own book(s), so a same-named entity in an
+ * unrelated book doesn't cross-match. Body text is read via `cachedRead`
+ * (Obsidian-cached), so re-scans on a panel re-render are cheap.
  */
-export function scenesReferencing(app: App, entityName: string): TFile[] {
+export async function scenesForEntity(
+  app: App,
+  projects: Project[],
+  entity: CodexEntity
+): Promise<TFile[]> {
+  const files: TFile[] = [];
+  const seen = new Set<string>();
+  for (const project of projects) {
+    if (!isEntityVisible(entity, scopeContextForProject(project))) continue;
+    for (const scene of project.scenes) {
+      if (!scene.path || seen.has(scene.path)) continue;
+      const f = app.vault.getAbstractFileByPath(scene.path);
+      if (f instanceof TFile) {
+        seen.add(scene.path);
+        files.push(f);
+      }
+    }
+  }
+
   const out: TFile[] = [];
-  // Intentional whole-vault scan (cache-only): scenes referencing an entity can
-  // live in any folder, so this can't be scoped to a directory.
-  for (const file of app.vault.getMarkdownFiles()) {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- cast tames Obsidian's `any`-typed frontmatter; without it the downstream reads trip no-unsafe-assignment
-    const fm = app.metadataCache.getFileCache(file)?.frontmatter as
-      | Record<string, unknown>
-      | undefined;
-    if (!fm) continue;
-    const refs: string[] = [];
-    const chars = fm["characters"];
-    if (Array.isArray(chars)) refs.push(...chars.filter((x): x is string => typeof x === "string"));
-    else if (typeof chars === "string") refs.push(chars);
-    if (typeof fm["location"] === "string") refs.push(fm["location"]);
-    if (refs.some((r) => linkTarget(r) === entityName)) out.push(file);
+  for (const file of files) {
+    if (referencesByFrontmatter(app, file, entity.name)) {
+      out.push(file);
+      continue;
+    }
+    const text = await app.vault.cachedRead(file);
+    if (detectMentions(text, [entity]).length > 0) out.push(file);
   }
   out.sort((a, b) => a.basename.localeCompare(b.basename));
   return out;

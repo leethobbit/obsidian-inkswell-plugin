@@ -18,7 +18,7 @@ import {
   createEntity,
   getCodexEntities,
   resolveCodexTemplate,
-  scenesReferencing,
+  scenesForEntity,
   writeEntityScope,
 } from "./codex-store";
 import { linkTarget, toLink } from "./codex";
@@ -47,6 +47,8 @@ export class CodexPanel {
   private selectedPath: string | null = null;
   /** When false, the list is filtered to the active project's scope (default). */
   private showAll = false;
+  /** Bumped per detail render so a slow "Appears in" scan can't fill a stale pane. */
+  private appearsToken = 0;
   /**
    * Optional intercept for a row tap. When it returns true the tap is considered
    * handled (the phone shell drills into a single-column detail screen) and the
@@ -263,18 +265,26 @@ export class CodexPanel {
       this.renderField(host, file, entity, field, profile, entities);
     }
 
-    // Read-only: scenes that link this entity (characters/location frontmatter).
-    const scenes = scenesReferencing(this.app, entity.name);
+    // Read-only: scenes that mention this entity (body text) or link it explicitly
+    // (characters/location frontmatter). Computed automatically — see scenesForEntity.
+    // Async (reads scene bodies), so render a placeholder and fill when it resolves;
+    // the token drops the result if the pane re-rendered or another entry was picked.
+    const token = ++this.appearsToken;
     this.field(host, "Appears in", (control) => {
-      if (scenes.length === 0) {
-        control.createSpan({ cls: "inkswell-stats__muted", text: "No scenes link this yet." });
-        return;
-      }
-      const wrap = control.createDiv({ cls: "inkswell-codex__refs" });
-      for (const s of scenes) {
-        const ref = wrap.createSpan({ cls: "inkswell-chip", text: s.basename });
-        ref.onclick = () => openScene(this.app, s);
-      }
+      control.createSpan({ cls: "inkswell-stats__muted", text: "Scanning scenes…" });
+      void scenesForEntity(this.app, this.plugin.store.getProjects(), entity).then((scenes) => {
+        if (token !== this.appearsToken) return;
+        control.empty();
+        if (scenes.length === 0) {
+          control.createSpan({ cls: "inkswell-stats__muted", text: "No scenes mention this yet." });
+          return;
+        }
+        const wrap = control.createDiv({ cls: "inkswell-codex__refs" });
+        for (const s of scenes) {
+          const ref = wrap.createSpan({ cls: "inkswell-chip", text: s.basename });
+          ref.onclick = () => openScene(this.app, s);
+        }
+      });
     });
   }
 

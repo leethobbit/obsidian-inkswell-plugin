@@ -6,7 +6,7 @@
 
 import { App, TFile } from "obsidian";
 import { tryFileOp } from "../lib/notify";
-import { detectMentions, linkTarget, toLink } from "../codex/codex";
+import { linkTarget, toLink } from "../codex/codex";
 import { getCodexEntities } from "../codex/codex-store";
 import { filterToScope, scopeContextForProject } from "../codex/codex-scope";
 import { Project } from "../projects/types";
@@ -50,8 +50,8 @@ function structureLabels(app: App, project: Project | null, kind: "act" | "chapt
 
 /**
  * Render all editable scene-metadata field rows into `container`. When `project`
- * (the scene's owning book) is given, codex pickers and auto-detect are scoped to
- * that book + its series + global entries; without it, all entities are offered.
+ * (the scene's owning book) is given, the codex pickers are scoped to that book +
+ * its series + global entries; without it, all entities are offered.
  */
 export function renderSceneMetaFields(
   container: HTMLElement,
@@ -150,26 +150,10 @@ export function renderSceneMetaFields(
     sel.onchange = () => save({ location: sel.value ? toLink(sel.value) : "" });
   });
 
-  // Auto-detect codex mentions in the scene body.
-  field(container, "", (host) => {
-    const btn = host.createEl("button", { text: "Detect mentions" });
-    btn.setAttribute("aria-label", "Scan the scene text for codex characters/locations");
-    btn.onclick = async () => {
-      const text = await app.vault.cachedRead(file);
-      const mentions = detectMentions(text, entities);
-      const fresh = readSceneMeta(app, file);
-      const chars = Array.from(
-        new Set([
-          ...(fresh.characters ?? []),
-          ...mentions.filter((m) => m.category === "character").map((m) => toLink(m.name)),
-        ])
-      );
-      const patch: Partial<SceneMeta> = { characters: chars };
-      const loc = mentions.find((m) => m.category === "location");
-      if (loc && !fresh.location) patch.location = toLink(loc.name);
-      await tryFileOp(() => writeSceneMeta(app, file, patch), "Couldn't save detected mentions.");
-    };
-  });
+  // Codex mentions are surfaced automatically on each entry's "Appears in" list
+  // (scenesForEntity scans scene text) — no manual "detect" step here. The
+  // Characters/Location fields above remain explicit metadata for the Search
+  // character filter and the Revise → Audit character-arc roster.
 
   // Act + Chapter — free text, but suggest existing labels (and planned groups)
   // so users reuse chapters/acts instead of creating typo'd phantom ones.

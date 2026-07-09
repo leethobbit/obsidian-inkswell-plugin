@@ -188,8 +188,9 @@ export const HINTS: Record<string, HintEntry> = {
       ]);
       p(
         el,
-        "While you write, the codex auto-detects entries mentioned by name or alias, so " +
-          "linking and lookups stay effortless."
+        "Each entry's “Appears in” list updates itself: it shows every scene whose text " +
+          "mentions the entry by name or alias (plus any scene that links it explicitly), " +
+          "for every category — so a new entry finds its scenes with no tagging step."
       );
     },
   },
