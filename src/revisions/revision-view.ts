@@ -161,10 +161,20 @@ export class RevisionPanel {
         setDecisionStatus(decisionsOf(project), d.id, check.checked ? "applied" : "pending")
       );
 
+    // A scene-anchored decision: clicking its text opens that scene in Write (the
+    // primary "go act on it" action). Edit moves to the ⋯ menu. A scene-less
+    // decision has nowhere to jump, so its text still opens the editor.
+    const scenePath = d.scene ? this.scenePathFor(project, d.scene) : null;
+
     const body = row.createDiv({ cls: "inkswell-revision__body" });
     const textEl = body.createDiv({ cls: "inkswell-revision__text", text: d.text });
-    textEl.setAttribute("aria-label", "Edit decision");
-    textEl.onclick = () => this.openEdit(project, d);
+    if (scenePath) {
+      textEl.setAttribute("aria-label", `Open "${d.scene ?? ""}" in Write`);
+      textEl.onclick = () => this.plugin.openSceneInWrite(scenePath);
+    } else {
+      textEl.setAttribute("aria-label", "Edit decision");
+      textEl.onclick = () => this.openEdit(project, d);
+    }
     const meta = body.createDiv({ cls: "inkswell-revision__meta" });
     const type = decisionType(d);
     const typeLabel = REVISION_TYPES.find((t) => t.id === type)?.label ?? type;
@@ -175,8 +185,7 @@ export class RevisionPanel {
         text: d.priority,
       });
     }
-    // The scene anchor: a link that opens that scene in Write when it resolves.
-    const scenePath = d.scene ? this.scenePathFor(project, d.scene) : null;
+    // The scene anchor, also a link to Write (a second, explicit affordance).
     if (d.scene) {
       const sceneEl = meta.createSpan({ text: `↳ ${d.scene}` });
       if (scenePath) {
