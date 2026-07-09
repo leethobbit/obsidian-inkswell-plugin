@@ -6,16 +6,20 @@
  */
 
 import { App, TFile } from "obsidian";
+import { featureEnabled } from "../features";
 import { ProjectStore } from "../projects/project-store";
 import { openScene } from "./scene-actions";
 import { renderSceneAuditFields, renderSceneMetaFields } from "./scene-meta-form";
+import type InkswellPlugin from "../../main";
 
 export class SceneInspector {
   private app: App;
+  private plugin: InkswellPlugin;
   private store: ProjectStore;
 
-  constructor(app: App, store: ProjectStore) {
+  constructor(app: App, plugin: InkswellPlugin, store: ProjectStore) {
     this.app = app;
+    this.plugin = plugin;
     this.store = store;
   }
 
@@ -46,12 +50,16 @@ export class SceneInspector {
     });
     open.onclick = () => openScene(this.app, file);
 
-    renderSceneMetaFields(container, this.app, file, ctx.project);
+    const disabled = this.plugin.settings.disabledFeatures;
+    renderSceneMetaFields(container, this.app, file, ctx.project, disabled);
 
     // Revision audit — collapsed by default so it doesn't crowd the drafting
     // metadata. The 14-point scene checklist (Revise → Audit) lives here too.
-    const audit = container.createEl("details", { cls: "inkswell-inspector__audit" });
-    audit.createEl("summary", { text: "Revision audit" });
-    renderSceneAuditFields(audit, this.app, file);
+    // Hidden when the Audit feature is off (its saved data is kept).
+    if (featureEnabled(disabled, "audit")) {
+      const audit = container.createEl("details", { cls: "inkswell-inspector__audit" });
+      audit.createEl("summary", { text: "Revision audit" });
+      renderSceneAuditFields(audit, this.app, file);
+    }
   }
 }

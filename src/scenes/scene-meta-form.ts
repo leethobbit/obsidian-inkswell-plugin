@@ -7,6 +7,7 @@
 import { App, TFile } from "obsidian";
 import { tryFileOp } from "../lib/notify";
 import { linkTarget, toLink } from "../codex/codex";
+import { featureEnabled } from "../features";
 import { getCodexEntities } from "../codex/codex-store";
 import { filterToScope, scopeContextForProject } from "../codex/codex-scope";
 import { Project } from "../projects/types";
@@ -57,7 +58,8 @@ export function renderSceneMetaFields(
   container: HTMLElement,
   app: App,
   file: TFile,
-  project: Project | null = null
+  project: Project | null = null,
+  disabledFeatures: readonly string[] = []
 ): void {
   const meta = readSceneMeta(app, file);
   const save = (patch: Partial<SceneMeta>) =>
@@ -182,7 +184,9 @@ export function renderSceneMetaFields(
 
   // Plotlines — plain titles from the project's plotline list (Plan → Grid).
   // Same chips pattern as Characters, but titles are strings, not wikilinks.
-  field(container, "Plotlines", (host) => {
+  // Hidden when the Plot grid feature is off (its data is kept, just not shown).
+  if (featureEnabled(disabledFeatures, "plot-grid"))
+    field(container, "Plotlines", (host) => {
     const current = meta.plotlines ?? [];
     const chips = host.createDiv({ cls: "inkswell-inspector__chips" });
     for (const title of current) {

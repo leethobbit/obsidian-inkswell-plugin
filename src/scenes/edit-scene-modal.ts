@@ -33,7 +33,13 @@ export class EditSceneModal extends Modal {
     contentEl.createEl("h3", { text: `Edit scene — ${this.file.basename}` });
     // Reuse the inspector classes so the field rows pick up existing styles.
     const form = contentEl.createDiv({ cls: "inkswell-inspector inkswell-edit-scene" });
-    renderSceneMetaFields(form, this.app, this.file, this.project);
+    renderSceneMetaFields(
+      form,
+      this.app,
+      this.file,
+      this.project,
+      this.plugin?.settings.disabledFeatures ?? []
+    );
 
     new Setting(contentEl)
       .addButton((b) =>

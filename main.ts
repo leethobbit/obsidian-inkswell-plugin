@@ -22,6 +22,7 @@ import { ProjectStats } from "./src/projects/project-stats";
 import { ProjectStore } from "./src/projects/project-store";
 import { Project } from "./src/projects/types";
 import { RevisionModal } from "./src/revisions/revision-modal";
+import { FeatureId, featureEnabled } from "./src/features";
 import {
   DEFAULT_SETTINGS,
   InkswellSettings,
@@ -108,17 +109,20 @@ export default class InkswellPlugin extends Plugin {
     this.addCommand({
       id: "open-beats",
       name: "Open beat sheet (Plan)",
-      callback: () => this.openBeats(),
+      checkCallback: (checking) =>
+        this.featureCommand(checking, "beats", () => void this.openBeats()),
     });
     this.addCommand({
       id: "open-board",
       name: "Open board (Plan)",
-      callback: () => this.openBoard(),
+      checkCallback: (checking) =>
+        this.featureCommand(checking, "board", () => void this.openBoard()),
     });
     this.addCommand({
       id: "open-plot-grid",
       name: "Open plot grid (Plan)",
-      callback: () => this.openPlotGrid(),
+      checkCallback: (checking) =>
+        this.featureCommand(checking, "plot-grid", () => void this.openPlotGrid()),
     });
     this.addCommand({
       id: "open-codex",
@@ -216,12 +220,18 @@ export default class InkswellPlugin extends Plugin {
     this.addCommand({
       id: "open-analysis",
       name: "Open analysis (Revise)",
-      callback: () => this.openAnalysis(),
+      checkCallback: (checking) =>
+        this.featureCommand(checking, "analysis", () => void this.openAnalysis()),
     });
     this.addCommand({
       id: "open-help",
       name: "Open help",
       callback: () => this.openHelp(),
+    });
+    this.addCommand({
+      id: "manage-features",
+      name: "Manage features",
+      callback: () => this.openFeatureSettings(),
     });
     this.addCommand({
       id: "quick-capture",
@@ -319,6 +329,42 @@ export default class InkswellPlugin extends Plugin {
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_INKSWELL)) {
       if (leaf.view instanceof InkswellView) leaf.view.refresh();
     }
+  }
+
+  /** Force a full rebuild of the open view (bypasses the Write fast path). Used
+   *  after a feature toggle so a change to the Write toolbar actually re-renders. */
+  refreshView(): void {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_INKSWELL)) {
+      if (leaf.view instanceof InkswellView) leaf.view.forceRefresh();
+    }
+  }
+
+  /**
+   * checkCallback body shared by every optional-feature command: hide the command
+   * from the palette when its feature is off, else run `run`.
+   */
+  private featureCommand(checking: boolean, id: FeatureId, run: () => void): boolean {
+    if (!featureEnabled(this.settings.disabledFeatures, id)) return false;
+    if (!checking) run();
+    return true;
+  }
+
+  /** Enable/disable an optional feature (lossless — only gates UI) and re-render. */
+  async setFeatureEnabled(id: FeatureId, enabled: boolean): Promise<void> {
+    const set = new Set(this.settings.disabledFeatures);
+    if (enabled) set.delete(id);
+    else set.add(id);
+    this.settings.disabledFeatures = [...set];
+    await this.saveSettings();
+    this.refreshView();
+  }
+
+  /** Open plugin settings to the Inkswell tab (the "Manage features" command). */
+  private openFeatureSettings(): void {
+    const setting = (this.app as unknown as { setting: { open(): void; openTabById(id: string): void } })
+      .setting;
+    setting.open();
+    setting.openTabById(this.manifest.id);
   }
 
   refreshStatus(): void {
