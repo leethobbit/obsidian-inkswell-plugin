@@ -2,7 +2,10 @@
 status: written
 pov: Mara Vance
 chapter: One
-act: "1"
+act: Act I
+plotlines:
+  - The Leaking Memory
+  - The Lattice
 synopsis: A lamp on her route shows Mara a memory that cannot be hers — a room she has never entered, a name she has never heard. The catalyst.
 characters:
   - "[[Mara Vance]]"

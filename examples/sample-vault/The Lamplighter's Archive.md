@@ -12,7 +12,7 @@ longform:
     - 05 - A Memory Not Her Own
     - 06 - The Archivist's Bargain
     - 07 - Blackout
-    - 08 - Let's Dance Night
+    - 08 - What the Dark Remembers
   ignoredFiles: []
 inkswell:
   series:
@@ -22,6 +22,13 @@ inkswell:
     target: 90000
     deadline: 2026-09-01
     daysPerWeek: 5
+  overview:
+    logline: A lamplighter who tends a sleeping city's memory-lamps lights one that shows her a life she never lived — and follows it down into the sealed Archive the city has spent a generation forgetting.
+    theme: What a city chooses to remember, and what it costs to be the one who carries it.
+    genre: Gaslamp fantasy
+    audience: Readers of cozy-but-eerie gaslamp fantasy with a quiet, competent heroine — Piranesi by way of a lamplighter's round.
+    cover: cover.svg
+    planningNote: The Lamplighter's Archive — Plan.md
   compile:
     sceneSteps:
       - id: strip-frontmatter
@@ -76,6 +83,63 @@ inkswell:
         scenes:
           - 07 - Blackout
         note: The district goes dark. Every lamp on Vesper Row is wiped at once.
+      dark-night-of-the-soul:
+        note: The blackout took the one memory Mara had gone down to protect. If the Archive can be wiped, nothing she loves is safe in it — including the thing she buried there.
+      break-into-3:
+        scenes:
+          - 08 - What the Dark Remembers
+        note: Mara stops trying to save the row and chooses to remember it instead — reading herself into the Archive so the erased days have somewhere to live.
+      finale:
+        scenes:
+          - 08 - What the Dark Remembers
+        note: She relights Vesper Row from the Archive's own store, giving the district back its day — and keeps, awake, the one memory she'd spent years not carrying.
+      final-image:
+        note: Mara lights the last lamp again — but now she is the Archive's reader, and the row remembers her too.
+  acts:
+    - id: act-1
+      title: Act I
+    - id: act-2
+      title: Act II
+    - id: act-3
+      title: Act III
+  chapters:
+    - id: ch-1
+      title: One
+      actId: act-1
+      targetWords: 3000
+    - id: ch-2
+      title: Two
+      actId: act-1
+      targetWords: 1500
+    - id: ch-3
+      title: Three
+      actId: act-2
+      targetWords: 3600
+    - id: ch-4
+      title: Four
+      actId: act-2
+      targetWords: 1700
+    - id: ch-5
+      title: Five
+      actId: act-3
+      targetWords: 1500
+    - id: ch-6
+      title: Six
+      actId: act-3
+      targetWords: 1600
+  plotlines:
+    - id: pl-memory
+      title: The Leaking Memory
+      color: "#6B9BD1"
+    - id: pl-bureau
+      title: Coll & the Bureau
+      color: "#C65D5D"
+    - id: pl-grief
+      title: Mara's Grief
+      color: "#9B72C4"
+    - id: pl-lattice
+      title: The Lattice
+      color: "#4FA88B"
   revisions:
     - id: rev-lamplight-stores
       text: From now on, lamplight stores memory — it doesn't merely illuminate. Treat earlier "light" references as retroactively true.

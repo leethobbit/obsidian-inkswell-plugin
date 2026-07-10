@@ -2,7 +2,10 @@
 status: idea
 pov: Mara Vance
 chapter: Four
-act: "2"
+act: Act II
+plotlines:
+  - The Leaking Memory
+  - Mara's Grief
 synopsis: The Archive offers Mara a bargain — read for it, and it will give her back something she lost and has stopped letting herself remember. Bad guys close in.
 characters:
   - "[[Mara Vance]]"

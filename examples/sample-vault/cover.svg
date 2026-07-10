@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200" width="800" height="1200" role="img" aria-label="The Lamplighter's Archive — Book One of The Lattice Cycle">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b1220"/>
+      <stop offset="0.55" stop-color="#111a2e"/>
+      <stop offset="1" stop-color="#1b2540"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffd88a" stop-opacity="0.95"/>
+      <stop offset="0.35" stop-color="#f4b860" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#f4b860" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vignette" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0.6" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.55"/>
+    </radialGradient>
+  </defs>
+
+  <!-- night sky -->
+  <rect width="800" height="1200" fill="url(#sky)"/>
+
+  <!-- scattered stored "memories" as faint motes -->
+  <g fill="#9fb6d8" opacity="0.5">
+    <circle cx="120" cy="180" r="2"/>
+    <circle cx="680" cy="140" r="1.6"/>
+    <circle cx="240" cy="90" r="1.4"/>
+    <circle cx="560" cy="230" r="2.2"/>
+    <circle cx="700" cy="330" r="1.4"/>
+    <circle cx="90" cy="360" r="1.8"/>
+    <circle cx="420" cy="120" r="1.5"/>
+  </g>
+
+  <!-- the lamp glow -->
+  <circle cx="400" cy="470" r="260" fill="url(#glow)"/>
+
+  <!-- lamp: warm halo, glass housing, post -->
+  <g stroke="#e8c07a" stroke-width="5" fill="#0e1526" stroke-linejoin="round">
+    <!-- finial -->
+    <path d="M400 300 l0 -34" stroke-linecap="round"/>
+    <circle cx="400" cy="258" r="9" fill="#e8c07a" stroke="none"/>
+    <!-- cap -->
+    <path d="M338 336 L400 300 L462 336 Z"/>
+    <!-- glass housing -->
+    <path d="M352 336 L448 336 L436 470 L364 470 Z"/>
+    <!-- crossbars -->
+    <path d="M360 400 L440 400" stroke-width="3" opacity="0.7"/>
+  </g>
+
+  <!-- flame -->
+  <path d="M400 372 c-16 22 -4 42 0 46 c4 -4 16 -24 0 -46 Z" fill="#ffe6a6"/>
+
+  <!-- post -->
+  <g stroke="#c9a86a" stroke-width="7" stroke-linecap="round">
+    <path d="M400 470 L400 812"/>
+    <path d="M368 812 L432 812"/>
+    <path d="M356 470 L444 470" stroke-width="9"/>
+  </g>
+
+  <!-- horizon / cobbled row implied by a single line -->
+  <path d="M120 812 L680 812" stroke="#33436a" stroke-width="3" opacity="0.7"/>
+
+  <!-- vignette on top of art -->
+  <rect width="800" height="1200" fill="url(#vignette)"/>
+
+  <!-- series line -->
+  <text x="400" y="128" text-anchor="middle" fill="#9fb6d8"
+        font-family="Georgia, 'Times New Roman', serif" font-size="24"
+        letter-spacing="6" opacity="0.85">BOOK ONE · THE LATTICE CYCLE</text>
+
+  <!-- title -->
+  <text x="400" y="960" text-anchor="middle" fill="#f4e8cf"
+        font-family="Georgia, 'Times New Roman', serif" font-size="72"
+        font-style="italic">The Lamplighter's</text>
+  <text x="400" y="1044" text-anchor="middle" fill="#f4e8cf"
+        font-family="Georgia, 'Times New Roman', serif" font-size="72"
+        font-style="italic">Archive</text>
+
+  <!-- rule -->
+  <path d="M300 1088 L500 1088" stroke="#e8c07a" stroke-width="2" opacity="0.8"/>
+
+  <!-- tagline -->
+  <text x="400" y="1136" text-anchor="middle" fill="#c8d3e8"
+        font-family="Georgia, 'Times New Roman', serif" font-size="26">
+    She lights the lamps that keep a city's memory.
+  </text>
+</svg>

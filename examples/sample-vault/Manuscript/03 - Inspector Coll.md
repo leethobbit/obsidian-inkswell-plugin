@@ -2,7 +2,9 @@
 status: draft
 pov: Inspector Coll
 chapter: Two
-act: "1"
+act: Act I
+plotlines:
+  - Coll & the Bureau
 synopsis: An inspector from the Bureau of Continuance arrives to audit the dark stretch of Vesper Row. He is more interested in Mara than in the lamps. The debate.
 characters:
   - "[[Mara Vance]]"
