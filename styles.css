@@ -2732,6 +2732,23 @@
 .inkswell-revision__scenelink:hover {
   text-decoration: underline;
 }
+
+/* Scene grouping in the Revise → Log panel. */
+.inkswell-revision__group {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-2);
+  margin: var(--size-4-4) 0 var(--size-4-1);
+  font-weight: var(--font-semibold);
+}
+.inkswell-revision__group:first-child {
+  margin-top: 0;
+}
+.inkswell-revision__groupcount {
+  color: var(--text-muted);
+  font-weight: var(--font-normal);
+  font-size: var(--font-ui-smaller);
+}
 .inkswell-revision__type {
   border-radius: 3px;
   padding: 0 var(--size-4-1);

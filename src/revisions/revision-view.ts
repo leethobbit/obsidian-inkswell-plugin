@@ -21,6 +21,7 @@ import {
   setDecisionStatus,
 } from "./revisions";
 import { REVISION_TYPES, RevisionDecision, RevisionType } from "./types";
+import { RevisionGroup, buildRevisionGroups } from "./revision-work";
 import type InkswellPlugin from "../../main";
 
 export class RevisionPanel {
@@ -29,8 +30,6 @@ export class RevisionPanel {
   private store: ProjectStore;
   private container: HTMLElement | null = null;
 
-  /** undefined = all scenes, null = project-wide only, string = a scene title. */
-  private sceneFilter: string | null | undefined = undefined;
   private typeFilter: RevisionType | undefined = undefined;
   private showApplied = false;
 
@@ -42,7 +41,6 @@ export class RevisionPanel {
 
   /** Focus a specific project (used when opened from a command on an active file). */
   focusProject(path: string): void {
-    this.sceneFilter = undefined;
     this.plugin.activeProject.set(path); // host re-renders on the change
   }
 
@@ -66,60 +64,45 @@ export class RevisionPanel {
 
     this.renderToolbar(container, project);
 
+    // Decisions to show, filtered by status (pending unless "show applied") and
+    // type, then grouped by scene — the same grouping the Write → Revision sidebar
+    // uses (no markers here, no "current scene"). Grouping replaces the old scene
+    // filter and makes navigation a scene-level action, so decision rows stay
+    // uniform (click = edit) whether they're scene-anchored or project-wide.
     const all = decisionsOf(project);
-    const pending = filterDecisions(all, {
-      status: "pending",
-      scene: this.sceneFilter,
-      type: this.typeFilter,
-    });
-    const applied = filterDecisions(all, {
-      status: "applied",
-      scene: this.sceneFilter,
-      type: this.typeFilter,
-    });
+    let decisions = this.showApplied ? all : filterDecisions(all, { status: "pending" });
+    if (this.typeFilter) decisions = filterDecisions(decisions, { type: this.typeFilter });
+    const groups = buildRevisionGroups(project.scenes, [], decisions, null);
 
     const list = container.createDiv({ cls: "inkswell-revision__list" });
-    if (pending.length === 0 && (!this.showApplied || applied.length === 0)) {
+    if (groups.length === 0) {
       list.createDiv({
         cls: "inkswell-stats__muted",
         text: "No decisions yet. Draft forward; log changes as you go.",
       });
+      return;
     }
+    for (const g of groups) this.renderGroup(list, project, g);
+  }
 
-    if (pending.length > 0) {
-      list.createEl("h4", { text: `Pending (${pending.length})` });
-      pending.forEach((d) => this.renderRow(list, project, d));
+  private renderGroup(parent: HTMLElement, project: Project, g: RevisionGroup): void {
+    const header = parent.createDiv({ cls: "inkswell-revision__group" });
+    const title = header.createSpan({ cls: "inkswell-revision__groupname", text: g.title });
+    header.createSpan({ cls: "inkswell-revision__groupcount", text: String(g.decisions.length) });
+    // Navigation lives on the scene header — the one clear "go to this scene in
+    // Write" action. The Whole-project group has no scene, so it doesn't navigate.
+    if (g.path) {
+      const path = g.path;
+      header.addClass("is-link");
+      header.setAttribute("aria-label", `Open "${g.title}" in Write`);
+      title.addClass("inkswell-revision__scenelink");
+      header.onclick = () => this.plugin.openSceneInWrite(path);
     }
-    if (this.showApplied && applied.length > 0) {
-      list.createEl("h4", { text: `Applied (${applied.length})` });
-      applied.forEach((d) => this.renderRow(list, project, d));
-    }
+    for (const d of g.decisions) this.renderRow(parent, project, d);
   }
 
   private renderToolbar(root: HTMLElement, project: Project): void {
     const bar = root.createDiv({ cls: "inkswell-revision__toolbar" });
-
-    const sceneSel = bar.createEl("select", { cls: "dropdown" });
-    sceneSel.createEl("option", { text: "All scenes", value: "__all__" });
-    sceneSel.createEl("option", { text: "Project-wide", value: "__global__" });
-    for (const s of project.scenes) {
-      sceneSel.createEl("option", { text: s.title, value: s.title });
-    }
-    sceneSel.value =
-      this.sceneFilter === undefined
-        ? "__all__"
-        : this.sceneFilter === null
-          ? "__global__"
-          : this.sceneFilter;
-    sceneSel.onchange = () => {
-      this.sceneFilter =
-        sceneSel.value === "__all__"
-          ? undefined
-          : sceneSel.value === "__global__"
-            ? null
-            : sceneSel.value;
-      this.rerender();
-    };
 
     const typeSel = bar.createEl("select", { cls: "dropdown" });
     typeSel.createEl("option", { text: "All types", value: "__all__" });
@@ -142,10 +125,8 @@ export class RevisionPanel {
     const add = bar.createEl("button", { cls: "clickable-icon" });
     setIcon(add, "plus");
     add.setAttribute("aria-label", "Log a decision");
-    add.onclick = () => {
-      const scene = typeof this.sceneFilter === "string" ? this.sceneFilter : null;
-      new RevisionModal(this.app, project, scene).open();
-    };
+    // Anchor is chosen in the modal (scene picker), so no scene needs pre-selecting.
+    add.onclick = () => new RevisionModal(this.app, project, null).open();
   }
 
   private renderRow(parent: HTMLElement, project: Project, d: RevisionDecision): void {
@@ -161,20 +142,12 @@ export class RevisionPanel {
         setDecisionStatus(decisionsOf(project), d.id, check.checked ? "applied" : "pending")
       );
 
-    // A scene-anchored decision: clicking its text opens that scene in Write (the
-    // primary "go act on it" action). Edit moves to the ⋯ menu. A scene-less
-    // decision has nowhere to jump, so its text still opens the editor.
-    const scenePath = d.scene ? this.scenePathFor(project, d.scene) : null;
-
+    // Uniform decision row: click the text to edit it, regardless of whether it's
+    // scene-anchored or project-wide (navigation lives on the scene group header).
     const body = row.createDiv({ cls: "inkswell-revision__body" });
     const textEl = body.createDiv({ cls: "inkswell-revision__text", text: d.text });
-    if (scenePath) {
-      textEl.setAttribute("aria-label", `Open "${d.scene ?? ""}" in Write`);
-      textEl.onclick = () => this.plugin.openSceneInWrite(scenePath);
-    } else {
-      textEl.setAttribute("aria-label", "Edit decision");
-      textEl.onclick = () => this.openEdit(project, d);
-    }
+    textEl.setAttribute("aria-label", "Edit decision");
+    textEl.onclick = () => this.openEdit(project, d);
     const meta = body.createDiv({ cls: "inkswell-revision__meta" });
     const type = decisionType(d);
     const typeLabel = REVISION_TYPES.find((t) => t.id === type)?.label ?? type;
@@ -185,32 +158,9 @@ export class RevisionPanel {
         text: d.priority,
       });
     }
-    // The scene anchor, also a link to Write (a second, explicit affordance).
-    if (d.scene) {
-      const sceneEl = meta.createSpan({ text: `↳ ${d.scene}` });
-      if (scenePath) {
-        sceneEl.addClass("inkswell-revision__scenelink");
-        sceneEl.setAttribute("aria-label", `Open "${d.scene}" in Write`);
-        sceneEl.onclick = (e) => {
-          e.stopPropagation();
-          this.plugin.openSceneInWrite(scenePath);
-        };
-      }
-    } else {
-      meta.createSpan({ text: "project-wide" });
-    }
 
     attachRowMenu(row, row, () => {
       const menu = new Menu();
-      if (scenePath) {
-        menu.addItem((i) =>
-          i
-            .setTitle("Open scene in Write")
-            .setIcon("pen-tool")
-            .onClick(() => this.plugin.openSceneInWrite(scenePath))
-        );
-        menu.addSeparator();
-      }
       menu.addItem((i) =>
         i
           .setTitle("Edit…")
@@ -226,11 +176,6 @@ export class RevisionPanel {
       );
       return menu;
     });
-  }
-
-  /** Resolve a decision's scene title to its vault path within the project. */
-  private scenePathFor(project: Project, title: string): string | null {
-    return project.scenes.find((s) => s.title === title)?.path ?? null;
   }
 
   /** Open the modal pre-filled to edit a decision in place (preserves id/status). */
