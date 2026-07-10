@@ -10,6 +10,9 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Changed
+- **New projects now scaffold under a "Writing" folder by default.** Fresh installs create projects and the shared Codex under `Writing/` instead of at the vault root, and a new project's scenes default to a **`Draft 1`** folder (was `Scenes`) — which reads naturally the moment you add a second draft. This only affects where *new* content is created: it's still fully configurable in **Settings → Folders** and in the New Project dialog, discovery stays vault-wide (nothing is confined to `Writing/`), and **existing setups are untouched** — your saved base-folder wins.
+
 ## [1.7.0] - 2026-07-10
 
 ### Added
