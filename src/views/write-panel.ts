@@ -13,6 +13,7 @@
 
 import { EditorView } from "@codemirror/view";
 import { App, FuzzySuggestModal, Menu, Notice, TFile, setIcon } from "obsidian";
+import { featureEnabled } from "../features";
 import { isPhone } from "../lib/platform";
 import { attachRowMenu } from "../lib/row-menu";
 import { addSceneMenuItems } from "../scenes/scene-actions";
@@ -29,6 +30,8 @@ import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
 import { readSceneMeta } from "../scenes/scene-meta";
 import { SceneInspector } from "../scenes/scene-inspector";
+import { RightPanel } from "./right-panel";
+import { RevisionSidebar } from "../revisions/revision-sidebar";
 import { SprintController } from "../sprints/sprint-controller";
 import type InkswellPlugin from "../../main";
 
@@ -107,6 +110,10 @@ export class WritePanel {
   private store: ProjectStore;
   private sprints: SprintController;
   private inspector: SceneInspector;
+  /** The right-column panel slot: choosable panels behind a switcher. */
+  private rightPanels: RightPanel[];
+  /** Which right-column panel is showing (in-memory; survives update()). */
+  private activeRightPanel = "scene";
 
   private container: HTMLElement | null = null;
   /** Tracks the project the editor is currently bound to, to reset on change. */
@@ -145,7 +152,11 @@ export class WritePanel {
     this.plugin = plugin;
     this.store = store;
     this.sprints = sprints;
-    this.inspector = new SceneInspector(this.app, store);
+    this.inspector = new SceneInspector(this.app, this.plugin, store);
+    const revision = new RevisionSidebar(this.app, store, plugin.activeProject, (path, from, to) =>
+      this.jumpToRevision(path, from, to)
+    );
+    this.rightPanels = [this.inspector, revision];
   }
 
   /**
@@ -294,7 +305,7 @@ export class WritePanel {
     this.renderNavigator(main, project);
     this.renderEditor(main);
     this.inspectorHost = main.createDiv({ cls: "inkswell-write__inspector" });
-    this.inspector.render(this.inspectorHost, this.currentFile);
+    this.renderRightColumn();
   }
 
   /**
@@ -324,12 +335,58 @@ export class WritePanel {
       this.navEl.empty();
       this.renderNavRows(this.navEl, project);
     }
-    if (this.inspectorHost) this.inspector.render(this.inspectorHost, this.currentFile);
+    if (this.inspectorHost) this.renderRightColumn();
     // A highlight requested for the already-open scene (Todos → same scene).
     if (this.pendingHighlight) {
       this.applyPendingHighlight(this.editor.state.doc.toString());
     }
     return true;
+  }
+
+  /**
+   * Render the right-column panel slot: a segmented switcher (only when more than
+   * one panel) over the active panel's content. Called from both render() and the
+   * in-place update() so the choice survives a fast-path refresh.
+   */
+  private renderRightColumn(): void {
+    const col = this.inspectorHost;
+    if (!col) return;
+    col.empty();
+    if (this.rightPanels.length > 1) {
+      const bar = col.createDiv({ cls: "inkswell-write__insptabs" });
+      const seg = bar.createDiv({ cls: "inkswell-viewswitch" });
+      for (const p of this.rightPanels) {
+        const btn = seg.createEl("button", { cls: "inkswell-viewswitch__btn", text: p.label });
+        btn.toggleClass("is-active", p.id === this.activeRightPanel);
+        btn.setAttribute("aria-label", `${p.label} panel`);
+        btn.onclick = () => {
+          this.activeRightPanel = p.id;
+          this.renderRightColumn();
+        };
+      }
+    }
+    const content = col.createDiv({ cls: "inkswell-write__inspcontent" });
+    const panel =
+      this.rightPanels.find((p) => p.id === this.activeRightPanel) ?? this.rightPanels[0];
+    panel.render(content, this.currentFile);
+  }
+
+  /**
+   * Jump to a revision item from the Revision panel. A marker in the already-open
+   * scene flashes in place (no reload); anything else navigates to its scene
+   * (markers carry offsets to highlight; decisions just open the scene).
+   */
+  private jumpToRevision(path: string, from?: number, to?: number): void {
+    const highlight = from != null && to != null ? { from, to } : undefined;
+    if (path === this.currentScenePath()) {
+      if (highlight && this.editor) {
+        this.pendingHighlight = highlight;
+        this.applyPendingHighlight(this.editor.state.doc.toString());
+      }
+      return;
+    }
+    this.selectScene(path, highlight);
+    this.rerender();
   }
 
   private renderTopbar(): void {
@@ -365,16 +422,34 @@ export class WritePanel {
 
     // Prompt group — separated from the sprint controls by a divider; the chosen
     // prompt fills the remaining space (ellipsis-truncated) and reopens on click.
-    const promptGroup = bar.createDiv({
-      cls: "inkswell-write__group inkswell-write__group--prompt",
-    });
-    const promptBtn = promptGroup.createEl("button", { text: "Prompt" });
-    promptBtn.onclick = () => this.openPromptModal();
-    const promptEl = promptGroup.createSpan({
-      cls: "inkswell-write__prompt",
-      text: this.promptText,
-    });
-    if (this.promptText) promptEl.onclick = () => this.openPromptModal();
+    // Optional feature: hidden when "Writing prompts" is toggled off.
+    if (featureEnabled(this.plugin.settings.disabledFeatures, "prompts")) {
+      const promptGroup = bar.createDiv({
+        cls: "inkswell-write__group inkswell-write__group--prompt",
+      });
+      const promptBtn = promptGroup.createEl("button", { text: "Prompt" });
+      promptBtn.onclick = () => this.openPromptModal();
+      // Right-click to hide (re-enable in Settings → Features).
+      promptBtn.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        const menu = new Menu();
+        menu.addItem((i) =>
+          i
+            .setTitle("Hide writing prompts")
+            .setIcon("eye-off")
+            .onClick(() => {
+              void this.plugin.setFeatureEnabled("prompts", false);
+              new Notice("Writing prompts hidden — re-enable in Settings → Features.");
+            })
+        );
+        menu.showAtMouseEvent(e);
+      });
+      const promptEl = promptGroup.createSpan({
+        cls: "inkswell-write__prompt",
+        text: this.promptText,
+      });
+      if (this.promptText) promptEl.onclick = () => this.openPromptModal();
+    }
 
     // To-do-insert controls — only useful with a scene open. Lets you drop a
     // [TODO:…]/[RESEARCH:…]/[NOTE:…]/[DIALOGUE:…]/[SCENE:…] marker and keep drafting.

@@ -9,7 +9,7 @@
  * change; panels are created once and keep their own state across switches.
  */
 
-import { ItemView, Menu, TFile, WorkspaceLeaf, setIcon } from "obsidian";
+import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 import { isPhone, renderPhoneRedirect } from "../lib/platform";
 import { createDraft, deleteDraft, renameDraft } from "../projects/draft-actions";
 import { draftLabel, groupIntoStories, Story, storyOf } from "../projects/stories";
@@ -40,7 +40,15 @@ import { renderHint } from "../help/hint";
 import { hintKey } from "../help/help-content";
 import { PhoneShell } from "./phone/phone-shell";
 import { openMoreSheet } from "./phone/more-sheet";
-import { DESTINATIONS, InkswellMode, PHONE_REDIRECTED, RAIL_FOOTER_GROUP } from "./nav-model";
+import {
+  DESTINATIONS,
+  InkswellMode,
+  PHONE_REDIRECTED,
+  RAIL_FOOTER_GROUP,
+  enabledSubtabs,
+  resolveSubtab,
+} from "./nav-model";
+import { FeatureId } from "../features";
 import type InkswellPlugin from "../../main";
 
 export const VIEW_TYPE_INKSWELL = "inkswell";
@@ -119,6 +127,9 @@ export class InkswellView extends ItemView {
       this.pushDetail("codex", path);
       return true;
     };
+    // An "Appears in" scene opens in the Write editor (flashing the first mention),
+    // never as a raw note — matching Search/To-dos navigation.
+    this.codex.onOpenInWrite = (path, hl) => this.openSceneInWrite(path, hl);
     this.write = new WritePanel(this.app, plugin, store, plugin.sprints);
     this.stats = new StatsPanel(this.app, plugin, tracker, store, stats);
     this.revisions = new RevisionPanel(this.app, plugin, store);
@@ -142,7 +153,7 @@ export class InkswellView extends ItemView {
       },
     });
     this.help = new HelpPanel(this.app, plugin);
-    this.inspector = new SceneInspector(this.app, store);
+    this.inspector = new SceneInspector(this.app, plugin, store);
 
     // Re-render the active destination whenever projects, the log, or the active
     // project change.
@@ -367,6 +378,35 @@ export class InkswellView extends ItemView {
     this.renderActive();
   }
 
+  /**
+   * The sub-tab to actually show for `mode`: the remembered one if it's still
+   * enabled, else the first enabled tab (so a hidden active tab falls back to a
+   * visible core one instead of a blank pane).
+   */
+  private effectiveSubtab(mode: InkswellMode): string | undefined {
+    const dest = DESTINATIONS.find((d) => d.id === mode);
+    if (!dest) return undefined;
+    return resolveSubtab(dest, this.subtab[mode], this.plugin.settings.disabledFeatures);
+  }
+
+  /** Right-click "Hide <label>" on an optional tab/view → disable + toast. */
+  private attachHideMenu(el: HTMLElement, feature: FeatureId, label: string): void {
+    el.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      const menu = new Menu();
+      menu.addItem((i) =>
+        i
+          .setTitle(`Hide ${label}`)
+          .setIcon("eye-off")
+          .onClick(() => {
+            void this.plugin.setFeatureEnabled(feature, false);
+            new Notice(`${label} hidden — re-enable in Settings → Features.`);
+          })
+      );
+      menu.showAtMouseEvent(e);
+    });
+  }
+
   /** Phone "More → Capture idea" → the shared quick-capture flow. */
   openCapture(): void {
     void this.plugin.quickCaptureIdea();
@@ -439,6 +479,13 @@ export class InkswellView extends ItemView {
     this.renderActive();
   }
 
+  /** Full rebuild that bypasses the Write fast path — used after a feature toggle
+   *  so the Write toolbar (e.g. the prompts button) actually re-renders. */
+  forceRefresh(): void {
+    this.renderedMode = null;
+    this.renderActive();
+  }
+
   private renderActive(): void {
     if (!this.body || !this.rail || !this.header) return;
 
@@ -505,13 +552,16 @@ export class InkswellView extends ItemView {
 
     // Optional sub-tab bar — suppressed entirely on phones (the bottom bar / More
     // sheet drive navigation; sub-tabs would offer tabs that just redirect).
-    if (dest?.subtabs && dest.subtabs.length > 0 && !isPhone()) {
-      const active = this.subtab[this.mode] ?? dest.subtabs[0].id;
+    const subtabs = dest ? enabledSubtabs(dest, this.plugin.settings.disabledFeatures) : [];
+    if (subtabs.length > 0 && !isPhone()) {
+      const active = this.effectiveSubtab(this.mode);
       const bar = this.body.createDiv({ cls: "inkswell-subtabs" });
-      for (const st of dest.subtabs) {
+      for (const st of subtabs) {
         const b = bar.createEl("button", { cls: "inkswell-subtab", text: st.label });
         b.toggleClass("is-active", st.id === active);
         b.onclick = () => this.setMode(this.mode, st.id);
+        // Optional tabs can be hidden in place (re-enable in Settings → Features).
+        if (st.feature) this.attachHideMenu(b, st.feature, st.label);
       }
     }
 
@@ -576,7 +626,7 @@ export class InkswellView extends ItemView {
         else this.explorer.render(panel);
         break;
       case "plan": {
-        const sub = this.subtab["plan"] ?? "overview";
+        const sub = this.effectiveSubtab("plan") ?? "overview";
         if (sub === "beats") this.beats.render(panel);
         else if (sub === "structure") this.structure.render(panel);
         else this.overview.render(panel);
@@ -598,7 +648,7 @@ export class InkswellView extends ItemView {
         this.stats.render(panel);
         break;
       case "revise": {
-        const sub = this.subtab["revise"] ?? "audit";
+        const sub = this.effectiveSubtab("revise") ?? "audit";
         if (sub === "analysis") this.analysis.render(panel);
         else if (sub === "todos") this.todos.render(panel);
         else if (sub === "log") this.revisions.render(panel);
@@ -606,7 +656,7 @@ export class InkswellView extends ItemView {
         break;
       }
       case "publish": {
-        const sub = this.subtab["publish"] ?? "compile";
+        const sub = this.effectiveSubtab("publish") ?? "compile";
         if (sub === "checklist") this.checklist.render(panel);
         else if (sub === "launch") this.launch.render(panel);
         else this.compile.render(panel);

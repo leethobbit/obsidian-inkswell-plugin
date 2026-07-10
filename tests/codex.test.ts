@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectMentions, linkTarget, toLink } from "../src/codex/codex";
+import { detectMentions, firstMentionOffset, linkTarget, toLink } from "../src/codex/codex";
 import { CodexEntity } from "../src/codex/types";
 
 const entities: CodexEntity[] = [
@@ -88,5 +88,47 @@ describe("detectMentions", () => {
     expect(detectMentions("Then Zoë vanished.", accented).map((x) => x.name)).toEqual(["Zoë"]);
     // Plural/substring must NOT match (trailing letter blocks the boundary).
     expect(detectMentions("the Zoës arrived", accented)).toEqual([]);
+  });
+});
+
+describe("firstMentionOffset", () => {
+  const anna = entities[0]; // name "Anna", alias "The Shadow"
+  const erik = entities[1];
+
+  it("returns offsets that slice back to the matched name (mid-text)", () => {
+    const text = "She turned as Anna entered.";
+    const hit = firstMentionOffset(text, anna);
+    expect(hit).not.toBeNull();
+    expect(text.slice(hit!.from, hit!.to)).toBe("Anna");
+  });
+
+  it("locates a name at the very start (no consumed leading char)", () => {
+    const text = "Anna arrived first.";
+    const hit = firstMentionOffset(text, anna);
+    expect(hit).toEqual({ from: 0, to: 4 });
+  });
+
+  it("returns the FIRST appearance when repeated", () => {
+    const text = "Once, Anna spoke. Later, Anna left.";
+    const hit = firstMentionOffset(text, anna)!;
+    expect(hit.from).toBe(text.indexOf("Anna"));
+    expect(text.slice(hit.from, hit.to)).toBe("Anna");
+  });
+
+  it("picks the earliest of name-or-alias, not the first needle tried", () => {
+    // Alias appears before the name; offsets must point at the alias occurrence.
+    const text = "They called her The Shadow long before anyone knew Anna.";
+    const hit = firstMentionOffset(text, anna)!;
+    expect(text.slice(hit.from, hit.to)).toBe("The Shadow");
+  });
+
+  it("returns null when the entity is absent (frontmatter-only reference)", () => {
+    expect(firstMentionOffset("A quiet room, nobody home.", erik)).toBeNull();
+    expect(firstMentionOffset("", anna)).toBeNull();
+  });
+
+  it("does not match a substring inside a larger word", () => {
+    // 'Erik' inside 'Erikson' must not produce a bogus offset.
+    expect(firstMentionOffset("The Erikson estate.", erik)).toBeNull();
   });
 });

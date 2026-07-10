@@ -27,6 +27,12 @@ export class HelpPanel {
         "A reference for every part of the workbench. The pipeline runs Plan → Write → " +
         "Revise → Publish, with Codex and Track alongside. Expand a section to dig in.",
     });
+    container.createEl("p", {
+      cls: "inkswell-stats__muted",
+      text:
+        "Not using a surface? Hide it in Settings → Features (or right-click an optional " +
+        "tab). Hiding is lossless — your data is kept and turning it back on restores it.",
+    });
 
     for (const section of HELP_SECTIONS) {
       const sec = container.createEl("details", { cls: "inkswell-stats__section inkswell-help__section" });

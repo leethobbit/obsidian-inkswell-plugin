@@ -60,9 +60,11 @@ export const HINTS: Record<string, HintEntry> = {
     body: (el) => {
       p(
         el,
-        "Write is a focused editor: pick a scene on the left, draft in the centre, " +
-          "tweak its metadata in the Inspector on the right. Edits save on blur and " +
-          "when you switch scenes — never mid-keystroke."
+        "Write is a focused editor: pick a scene on the left, draft in the centre, and " +
+          "use the right column on the right. That column has two tabs — Scene (metadata " +
+          "for the scene you're on) and Revision (this project's outstanding to-do markers " +
+          "and logged revision decisions, current scene first — click a marker to jump to " +
+          "it). Edits save on blur and when you switch scenes — never mid-keystroke."
       );
       p(
         el,
@@ -188,8 +190,9 @@ export const HINTS: Record<string, HintEntry> = {
       ]);
       p(
         el,
-        "While you write, the codex auto-detects entries mentioned by name or alias, so " +
-          "linking and lookups stay effortless."
+        "Each entry's “Appears in” list updates itself: it shows every scene whose text " +
+          "mentions the entry by name or alias (plus any scene that links it explicitly), " +
+          "for every category — so a new entry finds its scenes with no tagging step."
       );
     },
   },

@@ -34,7 +34,7 @@
 ## Why Inkswell
 
 - **You can handle nearly the entire writing process just with Inkswell.** Inkswell organizes the entire arc of a novel — **Plan · Write · Revise · Publish**, plus a cross-cutting **Codex** and **Track** dashboard — into a single host view. Inkswell can get you from your first story ideas to a finished manuscript, with unique and powerful tools at each stage.
-- **Focus on UX with only the features you need.** I have noticed a trend in other writing tools to add every possible feature under the sun.  For some writers, this may be what they want, but my experience is that those tools often try to do too many things, and it makes it challenging to use them effectively.  Inkswell is built with user experience at the forefront - I have made a huge effort to deliver the most vital features for each stage of the writing journey, in order to get the most streamlined workflows possible without being overly opinionated. (I hope!)
+- **Focus on UX with only the features you need.** I have noticed a trend in other writing tools to add every possible feature under the sun.  For some writers, this may be what they want, but my experience is that those tools often try to do too many things, and it makes it challenging to use them effectively.  Inkswell is built with user experience at the forefront - I have made a huge effort to deliver the most vital features for each stage of the writing journey, in order to get the most streamlined workflows possible without being overly opinionated. (I hope!) And when a surface isn't for you, **hide it** — Settings → Features (or right-click the tab) turns off optional tools like the board, plot grid, beats, or the publishing checklist, losslessly, so the app stays as lean as your workflow.
 - **Local-first. No AI.** Inkswell makes **no network calls**, collects **no telemetry**, and does not generate any text. Your manuscript lives in your vault's frontmatter and the notes you write. Inkswell is built to make it easier for you to write, not do the writing for you.
 - **Drop-in for Longform users.** I am a long time fan of the [Longform plugin](https://github.com/kevboh/longform), so I made Inkswell compatible with that format. Inkswell reads and writes the same `longform` frontmatter, so existing projects load with **zero migration**. Inkswell-only data lives under a separate `inkswell` key to avoid collisions.
 
@@ -92,7 +92,7 @@ A configurable **compile/export** pipeline (Markdown & HTML built in; `.docx` / 
 
 ### Codex — your story bible
 
-Characters, locations, worlds, factions, items, events, and concepts, each with its own profile and linked scenes, plus mention auto-detect so your canon stays consistent as the manuscript grows. Can be scoped for single writing projects, or shared across a series.
+Characters, locations, worlds, factions, items, events, and concepts, each with its own profile. Every entry automatically lists the scenes that mention it — by name or alias, for any category — so your canon stays consistent as the manuscript grows. Can be scoped for single writing projects, or shared across a series.
 
 <!-- CODEX -->
 ![Codex: a character profile in the story bible with linked scenes](assets/codex.png)

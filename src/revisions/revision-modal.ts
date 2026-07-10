@@ -21,7 +21,6 @@ export class RevisionModal extends Modal {
   private project: Project;
   private sceneTitle: string | null;
   private text: string;
-  private anchorToScene: boolean;
   private type: RevisionType = "continuity";
   private priority: RevisionPriority | "" = "";
   /** The decision being edited, or null when logging a new one. */
@@ -39,16 +38,14 @@ export class RevisionModal extends Modal {
     this.existing = existing;
     if (existing) {
       // Edit mode: seed every field from the decision; its anchor scene drives
-      // the anchor dropdown (null = project-wide, which stays project-wide).
+      // the anchor dropdown (null = project-wide).
       this.sceneTitle = existing.scene;
       this.text = existing.text;
-      this.anchorToScene = existing.scene !== null;
       this.type = existing.type ?? "continuity";
       this.priority = existing.priority ?? "";
     } else {
       this.sceneTitle = sceneTitle;
       this.text = initialText.trim();
-      this.anchorToScene = sceneTitle !== null;
     }
   }
 
@@ -86,17 +83,17 @@ export class RevisionModal extends Modal {
       d.setValue(this.priority).onChange((v) => (this.priority = v as RevisionPriority | ""));
     });
 
-    if (this.sceneTitle) {
+    // Anchor: whole project, or any scene in the book. Shown for multi-scene
+    // projects (a single-scene project has nothing to anchor to).
+    if (this.project.scenes.length > 0) {
       new Setting(contentEl)
         .setName("Anchor")
-        .setDesc("Tie this decision to the current scene, or make it project-wide.")
-        .addDropdown((d) =>
-          d
-            .addOption("scene", `This scene: ${this.sceneTitle}`)
-            .addOption("global", "Whole project")
-            .setValue(this.anchorToScene ? "scene" : "global")
-            .onChange((v) => (this.anchorToScene = v === "scene"))
-        );
+        .setDesc("Tie this decision to a scene, or make it project-wide.")
+        .addDropdown((d) => {
+          d.addOption("", "Whole project");
+          for (const s of this.project.scenes) d.addOption(s.title, s.title);
+          d.setValue(this.sceneTitle ?? "").onChange((v) => (this.sceneTitle = v || null));
+        });
     }
 
     new Setting(contentEl).addButton((b) =>
@@ -116,7 +113,7 @@ export class RevisionModal extends Modal {
     const decision: RevisionDecision = {
       id: this.existing?.id ?? newRevisionId(),
       text,
-      scene: this.anchorToScene ? this.sceneTitle : null,
+      scene: this.sceneTitle,
       status: this.existing?.status ?? "pending",
       created: this.existing?.created ?? new Date().toISOString(),
       type: this.type,

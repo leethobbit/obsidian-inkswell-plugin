@@ -14,7 +14,8 @@
  * `container.empty()` when it self-rerenders (a Group-by change, a drag write).
  */
 
-import { App } from "obsidian";
+import { App, Menu, Notice } from "obsidian";
+import { FeatureId, featureEnabled } from "../features";
 import { renderHint } from "../help/hint";
 import { BoardPanel } from "../outliner/board-panel";
 import { ActiveProject } from "../projects/active-project";
@@ -25,12 +26,17 @@ import type InkswellPlugin from "../../main";
 
 export type StructureView = "tree" | "board" | "grid";
 
-/** The switcher buttons, in order. `hint` is the frozen HINTS key for each view. */
-const VIEWS: { id: StructureView; label: string; icon: string; hint: string }[] = [
-  { id: "tree", label: "Tree", icon: "list-tree", hint: "plan/outline" },
-  { id: "board", label: "Board", icon: "square-kanban", hint: "plan/board" },
-  { id: "grid", label: "Grid", icon: "grid-3x3", hint: "plan/grid" },
-];
+/**
+ * The switcher buttons, in order. `hint` is the frozen HINTS key for each view;
+ * `feature` (when set) gates the view behind an optional-feature toggle — Tree is
+ * the always-on core view.
+ */
+const VIEWS: { id: StructureView; label: string; icon: string; hint: string; feature?: FeatureId }[] =
+  [
+    { id: "tree", label: "Tree", icon: "list-tree", hint: "plan/outline" },
+    { id: "board", label: "Board", icon: "square-kanban", hint: "plan/board", feature: "board" },
+    { id: "grid", label: "Grid", icon: "grid-3x3", hint: "plan/grid", feature: "plot-grid" },
+  ];
 
 export class StructurePanel {
   private plugin: InkswellPlugin;
@@ -55,24 +61,53 @@ export class StructurePanel {
     if (this.container) this.render(this.container);
   }
 
+  /** Right-click an optional view button to hide it (re-enable in Settings). */
+  private attachHideMenu(el: HTMLElement, feature: FeatureId, label: string): void {
+    el.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      const menu = new Menu();
+      menu.addItem((i) =>
+        i
+          .setTitle(`Hide ${label}`)
+          .setIcon("eye-off")
+          .onClick(() => {
+            void this.plugin.setFeatureEnabled(feature, false);
+            new Notice(`${label} hidden — re-enable in Settings → Features.`);
+          })
+      );
+      menu.showAtMouseEvent(e);
+    });
+  }
+
   render(container: HTMLElement): void {
     this.container = container;
     container.empty();
     container.addClass("inkswell-structure");
 
-    // Switcher: a segmented control, one active view at a time.
-    const bar = container.createDiv({ cls: "inkswell-structure__bar" });
-    const seg = bar.createDiv({ cls: "inkswell-viewswitch" });
-    for (const v of VIEWS) {
-      const btn = seg.createEl("button", { cls: "inkswell-viewswitch__btn", text: v.label });
-      btn.toggleClass("is-active", v.id === this.view);
-      btn.setAttribute("aria-label", `${v.label} view`);
-      btn.onclick = () => this.setView(v.id);
+    // Drop views whose optional feature is disabled; Tree (no feature) always
+    // stays. If the active view was just hidden, fall back to Tree.
+    const disabled = this.plugin.settings.disabledFeatures;
+    const views = VIEWS.filter((v) => !v.feature || featureEnabled(disabled, v.feature));
+    if (!views.some((v) => v.id === this.view)) this.view = "tree";
+
+    // Switcher: a segmented control, one active view at a time. A single remaining
+    // view needs no switcher.
+    if (views.length > 1) {
+      const bar = container.createDiv({ cls: "inkswell-structure__bar" });
+      const seg = bar.createDiv({ cls: "inkswell-viewswitch" });
+      for (const v of views) {
+        const btn = seg.createEl("button", { cls: "inkswell-viewswitch__btn", text: v.label });
+        btn.toggleClass("is-active", v.id === this.view);
+        btn.setAttribute("aria-label", `${v.label} view`);
+        btn.onclick = () => this.setView(v.id);
+        // Right-click an optional view to hide it (re-enable in Settings → Features).
+        if (v.feature) this.attachHideMenu(btn, v.feature, `${v.label} view`);
+      }
     }
 
     // Per-view contextual tip — its own host so a child's self-rerender can't wipe
     // it, and keyed by the frozen HINTS key so dismissals persist across the merge.
-    const active = VIEWS.find((v) => v.id === this.view) ?? VIEWS[0];
+    const active = views.find((v) => v.id === this.view) ?? views[0];
     renderHint(container.createDiv(), this.plugin, active.hint);
 
     // The child panel renders into its own host below the chrome.

@@ -5,6 +5,8 @@
  * were declared independently and reconciled by hand; they drifted.)
  */
 
+import { FeatureId, featureEnabled } from "../features";
+
 /** Top-level phase destinations. */
 export type InkswellMode =
   | "home"
@@ -20,6 +22,8 @@ export type InkswellMode =
 export interface SubTab {
   id: string;
   label: string;
+  /** Optional-feature id gating this tab; absent = always shown (core). */
+  feature?: FeatureId;
 }
 
 /** Where (and how) a destination surfaces on phones. */
@@ -76,7 +80,7 @@ export const DESTINATIONS: Destination[] = [
     group: "pipeline",
     subtabs: [
       { id: "overview", label: "Overview" },
-      { id: "beats", label: "Beats" },
+      { id: "beats", label: "Beats", feature: "beats" },
       { id: "structure", label: "Structure" },
     ],
     phone: { slot: "more", order: 5 },
@@ -89,10 +93,10 @@ export const DESTINATIONS: Destination[] = [
     icon: "git-compare",
     group: "pipeline",
     subtabs: [
-      { id: "audit", label: "Audit" },
+      { id: "audit", label: "Audit", feature: "audit" },
       { id: "log", label: "Log" },
       { id: "todos", label: "Todos" },
-      { id: "analysis", label: "Analysis" },
+      { id: "analysis", label: "Analysis", feature: "analysis" },
     ],
     // Only the Todos slice is phone-usable; the sheet row jumps straight to it.
     phone: { slot: "more", order: 2, label: "To-dos", subtab: "todos" },
@@ -104,8 +108,8 @@ export const DESTINATIONS: Destination[] = [
     group: "pipeline",
     subtabs: [
       { id: "compile", label: "Compile" },
-      { id: "checklist", label: "Checklist" },
-      { id: "launch", label: "Launch" },
+      { id: "checklist", label: "Checklist", feature: "checklist" },
+      { id: "launch", label: "Launch", feature: "launch" },
     ],
     phone: { slot: "more", order: 6 },
     phoneRedirect: true,
@@ -175,4 +179,25 @@ export function phoneMoreDestinations(): { usable: Destination[]; redirected: De
 export function phoneTabForMode(mode: InkswellMode): string {
   const dest = DESTINATIONS.find((d) => d.id === mode);
   return dest?.phone?.slot === "bar" ? dest.id : "more";
+}
+
+/** A destination's sub-tabs with feature-gated ones dropped when disabled. */
+export function enabledSubtabs(dest: Destination, disabled: readonly string[]): SubTab[] {
+  return (dest.subtabs ?? []).filter((s) => !s.feature || featureEnabled(disabled, s.feature));
+}
+
+/**
+ * Resolve the effective sub-tab to show: the remembered one if it's still
+ * enabled, otherwise the first enabled sub-tab (so hiding the active tab falls
+ * back to a visible core one rather than a blank pane). Undefined when the
+ * destination has no (enabled) sub-tabs.
+ */
+export function resolveSubtab(
+  dest: Destination,
+  remembered: string | undefined,
+  disabled: readonly string[]
+): string | undefined {
+  const enabled = enabledSubtabs(dest, disabled);
+  if (remembered && enabled.some((s) => s.id === remembered)) return remembered;
+  return enabled[0]?.id;
 }

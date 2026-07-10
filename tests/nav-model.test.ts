@@ -61,6 +61,23 @@ describe("nav model", () => {
     expect(plan?.subtabs?.map((s) => s.id)).toEqual(["overview", "beats", "structure"]);
   });
 
+  it("tags optional sub-tabs with their feature id and leaves core ones untagged", () => {
+    const featureOf = (mode: string, sub: string) =>
+      DESTINATIONS.find((d) => d.id === mode)?.subtabs?.find((s) => s.id === sub)?.feature;
+    // Optional tabs carry a feature id...
+    expect(featureOf("plan", "beats")).toBe("beats");
+    expect(featureOf("revise", "audit")).toBe("audit");
+    expect(featureOf("revise", "analysis")).toBe("analysis");
+    expect(featureOf("publish", "checklist")).toBe("checklist");
+    expect(featureOf("publish", "launch")).toBe("launch");
+    // ...core tabs stay untagged (always shown).
+    expect(featureOf("plan", "overview")).toBeUndefined();
+    expect(featureOf("plan", "structure")).toBeUndefined();
+    expect(featureOf("revise", "todos")).toBeUndefined();
+    expect(featureOf("revise", "log")).toBeUndefined();
+    expect(featureOf("publish", "compile")).toBeUndefined();
+  });
+
   it("groups the rail: Home / pipeline / insight / tools", () => {
     const byGroup = (g: string) => DESTINATIONS.filter((d) => d.group === g).map((d) => d.id);
     expect(byGroup("hub")).toEqual(["home"]);

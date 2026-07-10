@@ -10,6 +10,7 @@ import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import { tryFileOp } from "../lib/notify";
 import type InkswellPlugin from "../../main";
 import { OutputFormat } from "../compile/types";
+import { FeatureGroup, OPTIONAL_FEATURES, featureEnabled } from "../features";
 import { generateCodexTemplates } from "../codex/codex-store";
 import { resolveTemplateFolder } from "./folders";
 import { resetHelpState } from "../help/hint";
@@ -50,6 +51,12 @@ export interface InkswellSettings {
   showHelpHints: boolean;
   /** Hint keys the user has dismissed (e.g. "plan/beats", "codex"). */
   dismissedHints: string[];
+  /**
+   * Optional feature ids the user has hidden (see src/features.ts). A feature is
+   * ON unless listed here, so new optional features default on. Hiding only gates
+   * rendering/commands — stored data is never touched, so re-enabling is lossless.
+   */
+  disabledFeatures: string[];
 }
 
 export const DEFAULT_SETTINGS: InkswellSettings = {
@@ -70,6 +77,7 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   welcomeSeen: false,
   showHelpHints: true,
   dismissedHints: [],
+  disabledFeatures: [],
 };
 
 export class InkswellSettingTab extends PluginSettingTab {
@@ -78,6 +86,37 @@ export class InkswellSettingTab extends PluginSettingTab {
   constructor(app: App, plugin: InkswellPlugin) {
     super(app, plugin);
     this.plugin = plugin;
+  }
+
+  /**
+   * The "Features" section: a toggle per optional surface, grouped by area.
+   * Hiding is lossless (only rendering/commands are gated) — the intro says so.
+   */
+  private renderFeatures(containerEl: HTMLElement): void {
+    new Setting(containerEl).setName("Features").setHeading();
+    containerEl.createEl("p", {
+      cls: "setting-item-description",
+      text:
+        "Hide surfaces you don't use to keep Inkswell lean. Hiding only hides — " +
+        "your notes and data are kept, and turning a feature back on restores everything. " +
+        "You can also right-click an optional tab in the app to hide it.",
+    });
+
+    let lastGroup: FeatureGroup | null = null;
+    for (const f of OPTIONAL_FEATURES) {
+      if (f.group !== lastGroup) {
+        new Setting(containerEl).setName(f.group).setHeading();
+        lastGroup = f.group;
+      }
+      new Setting(containerEl)
+        .setName(f.label)
+        .setDesc(f.desc)
+        .addToggle((t) =>
+          t
+            .setValue(featureEnabled(this.plugin.settings.disabledFeatures, f.id))
+            .onChange((v) => void this.plugin.setFeatureEnabled(f.id, v))
+        );
+    }
   }
 
   display(): void {
@@ -124,6 +163,8 @@ export class InkswellSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
+
+    this.renderFeatures(containerEl);
 
     new Setting(containerEl).setName("Goals & sprints").setHeading();
 
