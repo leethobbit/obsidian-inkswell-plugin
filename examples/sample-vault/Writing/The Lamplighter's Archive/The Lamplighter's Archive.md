@@ -3,7 +3,7 @@ longform:
   format: scenes
   title: The Lamplighter's Archive
   draftTitle: First Draft
-  sceneFolder: Manuscript
+  sceneFolder: Draft 1
   scenes:
     - 01 - The Last Lamp on Vesper Row
     - 02 - What the Light Remembers
@@ -27,8 +27,8 @@ inkswell:
     theme: What a city chooses to remember, and what it costs to be the one who carries it.
     genre: Gaslamp fantasy
     audience: Readers of cozy-but-eerie gaslamp fantasy with a quiet, competent heroine — Piranesi by way of a lamplighter's round.
-    cover: cover.svg
-    planningNote: The Lamplighter's Archive — Plan.md
+    cover: Writing/The Lamplighter's Archive/cover.svg
+    planningNote: Writing/The Lamplighter's Archive/The Lamplighter's Archive — Plan.md
   compile:
     sceneSteps:
       - id: strip-frontmatter

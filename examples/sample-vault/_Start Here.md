@@ -53,13 +53,20 @@ Nothing here is magic — it's all plain Markdown you can inspect:
   scene order, the word target, the overview, the beat sheet, the **acts /
   chapters / plotlines** structure, the compile recipe, the series, and the
   revision log.
-- **Each scene** lives in [Manuscript/](Manuscript/) with flat frontmatter:
+- **The project has two drafts.** Both index notes share the same
+  `longform.title`, so Inkswell groups them into one *story* with a **draft
+  switcher** at the top of the project. The main book is the first draft (its
+  scenes live in `Draft 1/`); a short **Second Draft** stub lives in
+  `Drafts/Second Draft/Scenes/` purely to show the feature. Story-level metadata
+  (cover, logline, goals, series) is shared from the first draft — each draft
+  just carries its own scene set, word counts, and Search scope.
+- **Each scene** lives in [Draft 1/](Writing/The%20Lamplighter's%20Archive/Draft%201/) with flat frontmatter:
   `status`, `pov`, `chapter`, `act`, `plotlines`, `characters`, `location`,
   `targetWords`. Those fields drive the colors, the Inspector, the Outline and
   Plot Grid, and the Track tallies. The Plot Grid and Outline are pure
   projections of these — a scene joins a plotline or chapter just by naming it,
   so the views can never drift from the manuscript.
-- **Codex entries** in [Codex/](Codex/) are just notes carrying a `codex:` key.
+- **Codex entries** in [Codex/](Writing/Codex/) are just notes carrying a `codex:` key.
   Scenes link to them with ordinary `[[wikilinks]]` in their `characters` /
   `location` fields, and the Codex panel finds the references automatically.
   Each entry here also carries `codex-series: The Lattice Cycle`, which **scopes**
