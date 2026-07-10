@@ -127,6 +127,9 @@ export class InkswellView extends ItemView {
       this.pushDetail("codex", path);
       return true;
     };
+    // An "Appears in" scene opens in the Write editor (flashing the first mention),
+    // never as a raw note — matching Search/To-dos navigation.
+    this.codex.onOpenInWrite = (path, hl) => this.openSceneInWrite(path, hl);
     this.write = new WritePanel(this.app, plugin, store, plugin.sprints);
     this.stats = new StatsPanel(this.app, plugin, tracker, store, stats);
     this.revisions = new RevisionPanel(this.app, plugin, store);

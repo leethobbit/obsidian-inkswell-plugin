@@ -21,7 +21,9 @@ import {
   scenesForEntity,
   writeEntityScope,
 } from "./codex-store";
-import { linkTarget, toLink } from "./codex";
+import { firstMentionOffset, linkTarget, toLink } from "./codex";
+import { stripFrontmatter } from "../lib/frontmatter";
+import type { SceneHighlight } from "../views/write-panel";
 import {
   defaultScopeForProject,
   filterToScope,
@@ -56,6 +58,12 @@ export class CodexPanel {
    * desktop, where the two-pane layout updates in place.
    */
   onSelect?: (path: string) => boolean;
+  /**
+   * Open a scene in Write (never as a raw note), optionally flashing a body hit.
+   * Wired by the host to the same cross-panel navigation Search/To-dos use, so an
+   * "Appears in" link lands in the manuscript editor rather than Obsidian's file.
+   */
+  onOpenInWrite?: (path: string, highlight?: SceneHighlight) => void;
 
   constructor(app: App, plugin: InkswellPlugin) {
     this.app = app;
@@ -282,10 +290,30 @@ export class CodexPanel {
         const wrap = control.createDiv({ cls: "inkswell-codex__refs" });
         for (const s of scenes) {
           const ref = wrap.createSpan({ cls: "inkswell-chip", text: s.basename });
-          ref.onclick = () => openScene(this.app, s);
+          ref.onclick = () => void this.openReferencingScene(s, entity);
         }
       });
     });
+  }
+
+  /**
+   * Open an "Appears in" scene in the Write editor (not as a raw note) and flash
+   * the entity's first appearance in the prose. The body is read fresh at click
+   * time, so the offsets are current; `verify` lets Write re-locate the literal if
+   * the file shifted in between. A scene that only links the entity via frontmatter
+   * (no name in the prose) opens without a flash. Falls back to opening the note
+   * directly if the host wired no navigation callback.
+   */
+  private async openReferencingScene(file: TFile, entity: CodexEntity): Promise<void> {
+    if (!this.onOpenInWrite) {
+      openScene(this.app, file);
+      return;
+    }
+    let highlight: SceneHighlight | undefined;
+    const body = stripFrontmatter(await this.app.vault.cachedRead(file));
+    const hit = firstMentionOffset(body, entity);
+    if (hit) highlight = { from: hit.from, to: hit.to, verify: body.slice(hit.from, hit.to) };
+    this.onOpenInWrite(file.path, highlight);
   }
 
   private renderField(
