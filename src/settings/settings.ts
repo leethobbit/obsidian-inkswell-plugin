@@ -71,7 +71,7 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   defaultSprintMinutes: 15,
   defaultSprintWordGoal: 0,
   streakThreshold: 1,
-  baseFolder: "",
+  baseFolder: "Writing",
   codexFolder: "Codex",
   coLocateCodex: true,
   welcomeSeen: false,
