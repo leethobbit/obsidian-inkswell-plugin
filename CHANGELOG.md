@@ -10,6 +10,8 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-07-10
+
 ### Added
 - **Revise → Log is now grouped by scene.** The decision log groups its entries under the scene each is anchored to (with a "Whole project" section for story-wide ones), matching the Write → Revision sidebar. **Click a scene heading to open that scene in Write**; decision rows themselves are now uniform everywhere — click one to edit it, tick to mark applied, ⋯ for the rest — so nothing behaves differently depending on whether it has a scene. The old scene-filter dropdown is replaced by the grouping, and **logging a decision now has a full scene picker** (any scene, or whole project), so you can anchor it wherever from one place.
 - **See your revision work while you write — a new Revision panel in the Write sidebar.** The right column in **Write** now has a **Scene / Revision** switcher. **Scene** is the metadata inspector as before; **Revision** lists everything left to fix across the project, grouped by scene with the one you're drafting first: the inline `[TODO:]` / `[RESEARCH:]` markers still in your prose **and** your logged Revision Log decisions. Click a marker to scroll to it (it flashes in the editor — no scene switch if it's the open one); tick a decision **applied**, edit or delete it, or **+ Log a revision** for the current scene — all without leaving Write. Other scenes' items collapse so the list stays scannable. (This right column is now a small "panel slot" — the groundwork for a more flexible workspace.)
@@ -171,7 +173,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.6.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.7.0...HEAD
+[1.7.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.6.0...1.7.0
 [1.6.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.5.0...1.6.0
 [1.5.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.4.0...1.5.0
 [1.4.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.3.1...1.4.0
