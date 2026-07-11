@@ -10,11 +10,11 @@ import { Project } from "../projects/types";
 import { decisionsOf, persistRevisions, upsertDecision } from "./revisions";
 import {
   REVISION_PRIORITIES,
-  REVISION_TYPES,
   RevisionDecision,
   RevisionPriority,
   RevisionType,
   newRevisionId,
+  typeChoices,
 } from "./types";
 
 export class RevisionModal extends Modal {
@@ -74,9 +74,15 @@ export class RevisionModal extends Modal {
 
     new Setting(contentEl)
       .setName("Type")
-      .setDesc("Continuity decisions read 'from now on…'; others are issues to fix later.")
+      .setDesc(
+        "Continuity decisions read 'from now on…'; others are issues to fix later. " +
+          "For research questions or missing scenes, drop a [RESEARCH: ] or [SCENE: ] " +
+          "marker in the prose instead — it marks the exact spot."
+      )
       .addDropdown((d) => {
-        for (const t of REVISION_TYPES) d.addOption(t.id, t.label);
+        // Offered types only — plus this decision's own legacy type when editing,
+        // so a saved research/new-scene decision never silently changes type.
+        for (const t of typeChoices(this.existing?.type)) d.addOption(t.id, t.label);
         d.setValue(this.type).onChange((v) => (this.type = v as RevisionType));
       });
 
