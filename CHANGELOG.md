@@ -10,6 +10,8 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-07-11
+
 ### Added
 - **Create your own codex types.** The Codex's built-in seven (Character, Location, World, Faction, Item, Event, Concept) can now be extended with your own — Creatures, Spells, Ships, Deities, whatever your story needs. Add one from **Settings → Custom codex types** or straight from the Codex panel's type dropdown (**＋ New type…**), give it a name, plural, and icon, and it behaves like the built-ins: its own group in the Codex list, entries with a profile (Aliases, Type, Description, Significance, Related entries), project/series scoping, automatic "Appears in", and its own starter template note (add bespoke frontmatter fields there — they're kept on every entry). Deleting a type never touches your notes: its entries simply show under a new **Uncategorized** group, still fully viewable and editable. Relatedly, a note whose `codex:` value doesn't match any known type used to be silently invisible in the Codex panel — it now appears under Uncategorized instead.
 
@@ -189,7 +191,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.7.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.8.0...HEAD
+[1.8.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.7.0...1.8.0
 [1.7.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.6.0...1.7.0
 [1.6.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.5.0...1.6.0
 [1.5.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.4.0...1.5.0
