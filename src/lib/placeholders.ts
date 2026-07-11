@@ -38,6 +38,24 @@ export const PLACEHOLDER_CLASS: Record<PlaceholderKind, string> = {
   scene: "cm-ph-scene",
 };
 
+/** User-facing label per kind — badges, filter chips, insert menus. */
+export const PLACEHOLDER_LABEL: Record<PlaceholderKind, string> = {
+  todo: "TODO",
+  research: "Research",
+  note: "Note",
+  dialogue: "Dialogue",
+  scene: "Scene",
+};
+
+/** Canonical display order for kind lists (chips, pickers). */
+export const PLACEHOLDER_ORDER: PlaceholderKind[] = [
+  "todo",
+  "research",
+  "note",
+  "dialogue",
+  "scene",
+];
+
 export interface PlaceholderTemplate {
   /** The literal text inserted at the cursor. */
   text: string;

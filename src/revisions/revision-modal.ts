@@ -31,7 +31,10 @@ export class RevisionModal extends Modal {
     project: Project,
     sceneTitle: string | null,
     initialText = "",
-    existing: RevisionDecision | null = null
+    existing: RevisionDecision | null = null,
+    /** Called with the index path just before saving — lets the opening surface
+     *  mark the write as its own (selfWrites) so the host softens the notify. */
+    private markWrite?: (path: string) => void
   ) {
     super(app);
     this.project = project;
@@ -119,6 +122,7 @@ export class RevisionModal extends Modal {
       type: this.type,
       priority: this.priority || undefined,
     };
+    this.markWrite?.(this.project.vaultPath);
     await persistRevisions(
       this.app,
       this.project,
