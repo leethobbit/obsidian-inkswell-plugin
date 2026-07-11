@@ -9,6 +9,8 @@
 
 import { App, Menu, Notice, TFile, normalizePath, setIcon } from "obsidian";
 import { attachRowMenu } from "../lib/row-menu";
+import { preserveFocus, tagField } from "../lib/focus-preserve";
+import { autosizeTextarea } from "../lib/form-fields";
 import {
   confirmDelete,
   openScene,
@@ -82,6 +84,17 @@ export class CodexPanel {
     this.selectedPath = path;
   }
 
+  /**
+   * The host calls this instead of a full body rebuild when a store notify was
+   * caused purely by this panel's own profile writes. Both panes re-read the
+   * (now current) metadata cache — the immediate post-save render can be a
+   * step behind it (e.g. a just-added alias chip) — but the detail rebuild is
+   * focus-preserving, so the user's caret and in-flight text survive.
+   */
+  softRefresh(): void {
+    this.refreshPanes();
+  }
+
   render(container: HTMLElement): void {
     container.empty();
     container.addClass("inkswell-codex");
@@ -91,6 +104,7 @@ export class CodexPanel {
       type: "search",
       placeholder: "Search codex…",
     });
+    tagField(searchInput, "codex:search");
     searchInput.value = this.search;
     searchInput.oninput = () => {
       this.search = searchInput.value;
@@ -143,8 +157,7 @@ export class CodexPanel {
       );
       if (file) {
         this.selectedPath = file.path;
-        this.renderList();
-        this.renderDetail();
+        this.refreshPanes();
       }
     };
 
@@ -219,8 +232,7 @@ export class CodexPanel {
     row.onclick = () => {
       if (this.onSelect?.(entity.path)) return; // phone: drilled into a detail screen
       this.selectedPath = entity.path;
-      this.renderList();
-      this.renderDetail();
+      this.refreshPanes();
     };
     attachRowMenu(row, row, () => {
       const menu = new Menu();
@@ -325,6 +337,9 @@ export class CodexPanel {
     entities: CodexEntity[]
   ): void {
     const save = async (value: Profile[string]) => {
+      // Mark the write as our own BEFORE it lands, so the store notify it
+      // produces is recognized and softened (no rebuild under the caret).
+      this.plugin.selfWrites.mark(file.path);
       await tryFileOp(
         () => writeProfile(this.app, file, entity.category, { [field.key]: value }),
         "Couldn't save the profile field."
@@ -334,13 +349,13 @@ export class CodexPanel {
     // that the list also shows).
     const saveAndRefresh = async (value: Profile[string]) => {
       await save(value);
-      this.renderList();
-      this.renderDetail();
+      this.refreshPanes();
     };
 
     this.field(host, field.label, (control) => {
       if (field.type === "text") {
         const t = control.createEl("input", { type: "text" });
+        tagField(t, `codex:${field.key}`);
         t.value = (profile[field.key] as string) ?? "";
         if (field.placeholder) t.placeholder = field.placeholder;
         t.onchange = () => void save(t.value);
@@ -348,10 +363,12 @@ export class CodexPanel {
       }
       if (field.type === "textarea") {
         const ta = control.createEl("textarea", { cls: "inkswell-inspector__textarea" });
+        tagField(ta, `codex:${field.key}`);
         ta.rows = 3;
         ta.value = (profile[field.key] as string) ?? "";
         if (field.placeholder) ta.placeholder = field.placeholder;
         ta.onchange = () => void save(ta.value);
+        autosizeTextarea(ta);
         return;
       }
       if (field.type === "list") {
@@ -362,13 +379,25 @@ export class CodexPanel {
           const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
           x.onclick = () => void saveAndRefresh(current.filter((c) => c !== val));
         }
-        const input = control.createEl("input", { type: "text" });
+        const addRow = control.createDiv({ cls: "inkswell-inspector__addrow" });
+        const input = addRow.createEl("input", { type: "text" });
+        tagField(input, `codex:${field.key}-add`);
         input.placeholder = field.placeholder ?? "Add…";
-        input.onkeydown = (e) => {
-          if (e.key !== "Enter") return;
+        const commit = () => {
           const v = input.value.trim();
+          // Clear before the refresh so the focus-preserving rebuild hands
+          // back an empty input, ready for the next value.
+          input.value = "";
           if (v && !current.includes(v)) void saveAndRefresh([...current, v]);
         };
+        input.onkeydown = (e) => {
+          if (e.key !== "Enter") return;
+          commit();
+        };
+        // Android IMEs often don't deliver an Enter keydown at all (key
+        // "Unidentified"/229 while composing) — the button always works.
+        const addBtn = addRow.createEl("button", { text: "Add" });
+        addBtn.onclick = commit;
         return;
       }
       // links
@@ -401,6 +430,7 @@ export class CodexPanel {
     if (field.single) {
       const cur = profile[field.key] ? linkTarget(profile[field.key] as string) : "";
       const sel = control.createEl("select", { cls: "dropdown" });
+      tagField(sel, `codex:${field.key}`);
       sel.createEl("option", { text: "— none —", value: "" });
       for (const c of candidates) sel.createEl("option", { text: c.name, value: c.name });
       sel.value = candidates.some((c) => c.name === cur) ? cur : "";
@@ -420,6 +450,7 @@ export class CodexPanel {
     );
     if (remaining.length > 0) {
       const add = control.createEl("select", { cls: "dropdown" });
+      tagField(add, `codex:${field.key}-add`);
       add.createEl("option", { text: `+ add ${field.label.toLowerCase()}`, value: "" });
       for (const c of remaining) add.createEl("option", { text: c.name, value: c.name });
       add.value = "";
@@ -436,6 +467,15 @@ export class CodexPanel {
     const f = parent.createDiv({ cls: "inkswell-inspector__field" });
     if (label) f.createDiv({ cls: "inkswell-inspector__label", text: label });
     build(f.createDiv({ cls: "inkswell-inspector__control" }));
+  }
+
+  /** Rebuild both panes, handing focus/caret back to whichever detail field
+   *  triggered the refresh (alias Enter, chip removal, link/scope selects). */
+  private refreshPanes(): void {
+    this.renderList();
+    const detail = this.detailEl;
+    if (detail) preserveFocus(detail, () => this.renderDetail());
+    else this.renderDetail();
   }
 
   /** Tooltip describing what scope a new entry will inherit. */
@@ -460,6 +500,7 @@ export class CodexPanel {
 
     this.field(host, "Scope", (control) => {
       const sel = control.createEl("select", { cls: "dropdown" });
+      tagField(sel, "codex:scope");
       sel.createEl("option", { text: "Global (all projects)", value: "" });
       if (seriesNames.length) {
         const grp = sel.createEl("optgroup");
@@ -484,9 +525,9 @@ export class CodexPanel {
             ? { series: v.slice(2) }
             : { project: v.slice(2) };
         void (async () => {
+          this.plugin.selfWrites.mark(file.path);
           await writeEntityScope(this.app, file, next);
-          this.renderList();
-          this.renderDetail();
+          this.refreshPanes();
         })();
       };
     });
@@ -515,8 +556,7 @@ export class CodexPanel {
     );
     if (ok === null) return;
     if (this.selectedPath === file.path) this.selectedPath = path;
-    this.renderList();
-    this.renderDetail();
+    this.refreshPanes();
   }
 
   private async remove(file: TFile, name: string): Promise<void> {
@@ -525,7 +565,6 @@ export class CodexPanel {
     const done = await tryFileOp(() => this.app.fileManager.trashFile(file), `Couldn't delete "${name}".`);
     if (done === null) return;
     if (this.selectedPath === file.path) this.selectedPath = null;
-    this.renderList();
-    this.renderDetail();
+    this.refreshPanes();
   }
 }

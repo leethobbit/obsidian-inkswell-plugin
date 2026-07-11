@@ -20,6 +20,7 @@ import { ActiveProject, resolveActive } from "./src/projects/active-project";
 import { NewProjectModal } from "./src/projects/new-project-modal";
 import { ProjectStats } from "./src/projects/project-stats";
 import { ProjectStore } from "./src/projects/project-store";
+import { SelfWriteRegistry } from "./src/lib/self-write";
 import { Project } from "./src/projects/types";
 import { RevisionModal } from "./src/revisions/revision-modal";
 import { FeatureId, featureEnabled } from "./src/features";
@@ -45,6 +46,9 @@ export default class InkswellPlugin extends Plugin {
   writingLog: WritingLogData = emptyLog();
   ideas: Idea[] = [];
   activeProject: ActiveProject = new ActiveProject();
+  /** Paths the plugin's own inline forms just wrote — lets the view soften the
+   *  store notify those writes produce instead of rebuilding the focused field. */
+  selfWrites: SelfWriteRegistry = new SelfWriteRegistry();
   store!: ProjectStore;
   stats!: ProjectStats;
   tracker!: WritingTracker;

@@ -69,7 +69,12 @@ export class AuditPanel {
   /** Open <details> ids, preserved across re-renders. */
   private sections = new SectionState(["audit-scenes"]);
 
-  constructor(app: App, store: ProjectStore, active: ActiveProject) {
+  constructor(
+    app: App,
+    store: ProjectStore,
+    active: ActiveProject,
+    private markWrite?: (path: string) => void
+  ) {
     this.app = app;
     this.store = store;
     this.active = active;
@@ -247,13 +252,19 @@ export class AuditPanel {
     const build = () => {
       if (built) return;
       built = true;
-      renderSceneAuditFields(body, this.app, file, () => {
-        const n = body.querySelectorAll<HTMLInputElement>(
-          ".inkswell-audit__check input:checked"
-        ).length;
-        badge.setText(`${n}/${total}`);
-        badge.toggleClass("is-complete", n === total);
-      });
+      renderSceneAuditFields(
+        body,
+        this.app,
+        file,
+        () => {
+          const n = body.querySelectorAll<HTMLInputElement>(
+            ".inkswell-audit__check input:checked"
+          ).length;
+          badge.setText(`${n}/${total}`);
+          badge.toggleClass("is-complete", n === total);
+        },
+        this.markWrite
+      );
     };
     if (row.open) build();
     row.addEventListener("toggle", () => {

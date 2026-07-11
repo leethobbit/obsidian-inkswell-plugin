@@ -6,6 +6,8 @@
 
 import { App, TFile } from "obsidian";
 import { tryFileOp } from "../lib/notify";
+import { tagField } from "../lib/focus-preserve";
+import { autosizeTextarea } from "../lib/form-fields";
 import { linkTarget, toLink } from "../codex/codex";
 import { featureEnabled } from "../features";
 import { getCodexEntities } from "../codex/codex-store";
@@ -59,16 +61,20 @@ export function renderSceneMetaFields(
   app: App,
   file: TFile,
   project: Project | null = null,
-  disabledFeatures: readonly string[] = []
+  disabledFeatures: readonly string[] = [],
+  markWrite?: (path: string) => void
 ): void {
   const meta = readSceneMeta(app, file);
-  const save = (patch: Partial<SceneMeta>) =>
+  const save = (patch: Partial<SceneMeta>) => {
+    markWrite?.(file.path);
     void tryFileOp(() => writeSceneMeta(app, file, patch), "Couldn't save the scene change.");
+  };
   const entities = filterToScope(getCodexEntities(app), scopeContextForProject(project));
 
   // Status
   field(container, "Status", (host) => {
     const sel = host.createEl("select", { cls: "dropdown" });
+    tagField(sel, "scene:status");
     sel.createEl("option", { text: "— none —", value: "" });
     for (const s of SCENE_STATUSES) {
       const o = sel.createEl("option", { text: statusLabel(s), value: s });
@@ -81,6 +87,7 @@ export function renderSceneMetaFields(
   // Subtitle
   field(container, "Subtitle", (host) => {
     const t = host.createEl("input", { type: "text" });
+    tagField(t, "scene:subtitle");
     t.value = meta.subtitle ?? "";
     t.placeholder = "e.g. Three years later";
     t.onchange = () => save({ subtitle: t.value });
@@ -89,16 +96,19 @@ export function renderSceneMetaFields(
   // Synopsis
   field(container, "Synopsis", (host) => {
     const ta = host.createEl("textarea", { cls: "inkswell-inspector__textarea" });
+    tagField(ta, "scene:synopsis");
     ta.rows = 3;
     ta.value = meta.synopsis ?? "";
     ta.placeholder = "What happens in this scene…";
     ta.onchange = () => save({ synopsis: ta.value });
+    autosizeTextarea(ta);
   });
 
   // POV — suggests codex characters (typo-free, discoverable) but stays free
   // text, since POV can also be a narrative mode ("Omniscient", "First person").
   field(container, "POV", (host) => {
     const t = host.createEl("input", { type: "text" });
+    tagField(t, "scene:pov");
     t.value = meta.pov ?? "";
     t.placeholder = "Character or narrative mode";
     const chars = entities.filter((e) => e.category === "character");
@@ -127,6 +137,7 @@ export function renderSceneMetaFields(
     );
     if (remaining.length > 0) {
       const add = host.createEl("select", { cls: "dropdown" });
+      tagField(add, "scene:characters-add");
       add.createEl("option", { text: "+ add character", value: "" });
       for (const c of remaining) add.createEl("option", { text: c.name, value: c.name });
       add.value = "";
@@ -143,6 +154,7 @@ export function renderSceneMetaFields(
     const locs = entities.filter((e) => e.category === "location");
     const cur = meta.location ? linkTarget(meta.location) : "";
     const sel = host.createEl("select", { cls: "dropdown" });
+    tagField(sel, "scene:location");
     sel.createEl("option", { text: "— none —", value: "" });
     for (const l of locs) {
       const o = sel.createEl("option", { text: l.name, value: l.name });
@@ -171,11 +183,13 @@ export function renderSceneMetaFields(
       input.setAttribute("list", listId);
     };
     const act = row.createEl("input", { type: "text" });
+    tagField(act, "scene:act");
     act.value = meta.act ?? "";
     act.placeholder = "Act";
     suggest(act, "act");
     act.onchange = () => save({ act: act.value });
     const ch = row.createEl("input", { type: "text" });
+    tagField(ch, "scene:chapter");
     ch.value = meta.chapter ?? "";
     ch.placeholder = "Chapter";
     suggest(ch, "chapter");
@@ -198,6 +212,7 @@ export function renderSceneMetaFields(
     const remaining = configured.filter((t) => !current.includes(t));
     if (remaining.length > 0) {
       const add = host.createEl("select", { cls: "dropdown" });
+      tagField(add, "scene:plotlines-add");
       add.createEl("option", { text: "+ add plotline", value: "" });
       for (const t of remaining) add.createEl("option", { text: t, value: t });
       add.value = "";
@@ -215,6 +230,7 @@ export function renderSceneMetaFields(
   // Target words
   field(container, "Target words", (host) => {
     const t = host.createEl("input", { type: "number" });
+    tagField(t, "scene:target-words");
     t.value = meta.targetWords ? String(meta.targetWords) : "";
     t.placeholder = "0";
     t.onchange = () => {
@@ -257,11 +273,14 @@ export function renderSceneAuditFields(
   container: HTMLElement,
   app: App,
   file: TFile,
-  onChange?: () => void
+  onChange?: () => void,
+  markWrite?: (path: string) => void
 ): void {
   const audit = readSceneAudit(app, file);
-  const saveAudit = (patch: Parameters<typeof writeSceneAudit>[2]) =>
+  const saveAudit = (patch: Parameters<typeof writeSceneAudit>[2]) => {
+    markWrite?.(file.path);
     void tryFileOp(() => writeSceneAudit(app, file, patch), "Couldn't save the audit change.");
+  };
   const list = container.createDiv({ cls: "inkswell-audit__checks" });
   for (const cp of SCENE_CHECKPOINTS) {
     const label = list.createEl("label", { cls: "inkswell-audit__check" });
@@ -277,6 +296,7 @@ export function renderSceneAuditFields(
   // Lift-out test: verdict + "if removed, what breaks?" cascade note.
   field(container, "Lift-out test", (host) => {
     const sel = host.createEl("select", { cls: "dropdown" });
+    tagField(sel, "audit:verdict");
     sel.createEl("option", { text: "— undecided —", value: "" });
     for (const v of ["keep", "cut", "merge"] as const) {
       const o = sel.createEl("option", { text: v[0].toUpperCase() + v.slice(1), value: v });
@@ -287,15 +307,18 @@ export function renderSceneAuditFields(
   });
   field(container, "If removed…", (host) => {
     const ta = host.createEl("textarea", { cls: "inkswell-inspector__textarea" });
+    tagField(ta, "audit:purpose");
     ta.rows = 2;
     ta.value = audit.purpose ?? "";
     ta.placeholder = "What later scenes break if this one is cut?";
     ta.onchange = () => saveAudit({ purpose: ta.value });
+    autosizeTextarea(ta);
   });
 
   // Opening type — override the heuristic when it's wrong.
   field(container, "Opening", (host) => {
     const sel = host.createEl("select", { cls: "dropdown" });
+    tagField(sel, "audit:opening");
     sel.createEl("option", { text: "— auto —", value: "" });
     for (const t of OPENING_TYPES) {
       if (t === "unknown") continue;
@@ -316,9 +339,11 @@ export function renderSceneAuditFields(
         const row = host.createDiv({ cls: "inkswell-audit__arcrow" });
         row.createSpan({ cls: "inkswell-audit__arcname", text: name });
         const internal = row.createEl("input", { type: "text", cls: "inkswell-audit__arcfield" });
+        tagField(internal, `audit:arc-${name}-internal`);
         internal.value = snap.internal ?? "";
         internal.placeholder = "internal / flaw";
         const external = row.createEl("input", { type: "text", cls: "inkswell-audit__arcfield" });
+        tagField(external, `audit:arc-${name}-external`);
         external.value = snap.external ?? "";
         external.placeholder = "external / problem";
         const save = () =>
@@ -334,8 +359,10 @@ export function renderSceneAuditFields(
   const ta = noteWrap.createDiv({ cls: "inkswell-inspector__control" }).createEl("textarea", {
     cls: "inkswell-inspector__textarea",
   });
+  tagField(ta, "audit:note");
   ta.rows = 2;
   ta.value = audit.note ?? "";
   ta.placeholder = "What this scene needs in revision…";
   ta.onchange = () => saveAudit({ note: ta.value });
+  autosizeTextarea(ta);
 }

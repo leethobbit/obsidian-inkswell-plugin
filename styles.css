@@ -438,6 +438,17 @@
   margin-bottom: var(--size-4-1);
 }
 
+/* List-field add row: text input + explicit Add button (Enter also commits,
+   but Android IMEs don't reliably deliver it — the button always works). */
+.inkswell-inspector__addrow {
+  display: flex;
+  gap: var(--size-4-2);
+}
+.inkswell-inspector__addrow input {
+  flex: 1;
+  min-width: 0;
+}
+
 /* --- Home toolbar --- */
 .inkswell-explorer__toolbar {
   display: flex;
@@ -3091,6 +3102,61 @@ body.is-phone .inkswell-write__scenemeta > summary {
   align-items: center;
   color: var(--text-muted);
   font-size: var(--font-ui-small);
+}
+
+/* ===== Phone: soft-keyboard handling ===== */
+/* Android WebView bug, found on-device: when Obsidian shrinks its app
+   container for the soft keyboard, flex-stretch and percentage heights
+   resolve stale inside the shrunken subtree — the host's main column
+   collapses to its content height, leaving a keyboard-sized black void over
+   the UI. Absolute positioning resolves against the host's (correct) rect
+   and dodges the bug. Phone-only: the rail is display:none there, so
+   inset:0 overlays nothing; desktop/tablet keep the normal flex flow. */
+body.is-phone .inkswell-host {
+  position: relative;
+}
+body.is-phone .inkswell-host__main {
+  position: absolute;
+  inset: 0;
+}
+
+/* KeyboardWatcher publishes --inkswell-keyboard-inset + is-keyboard-open on
+   the host. Obsidian itself shrinks the app container while an input is
+   focused, so content isn't covered — but the bottom bar staying in the flex
+   column (with its navbar lift) squeezes the content to nothing. While
+   typing, the bar gets out of the way; tab-switching mid-edit isn't a flow
+   to protect. */
+body.is-phone .inkswell-host.is-keyboard-open .inkswell-bottombar {
+  display: none;
+}
+
+/* Form fields at ≥16px: sub-16px focused inputs trigger auto-zoom in mobile
+   webviews — the "field takes over the screen" effect. Also comfortable
+   touch heights for every profile/meta control. */
+body.is-phone .inkswell-inspector__control input,
+body.is-phone .inkswell-inspector__control select,
+body.is-phone .inkswell-inspector__control textarea,
+body.is-phone .inkswell-codex__toolbar input,
+body.is-phone .inkswell-codex__toolbar select {
+  font-size: max(16px, var(--font-ui-medium));
+}
+body.is-phone .inkswell-inspector__control input,
+body.is-phone .inkswell-inspector__control select,
+body.is-phone .inkswell-codex__toolbar input,
+body.is-phone .inkswell-codex__toolbar select,
+body.is-phone .inkswell-inspector__addrow button {
+  min-height: 44px;
+}
+
+/* Codex list toolbar: search + two selects + New don't fit one phone row —
+   search spans the top, the selects and New share the second row. */
+body.is-phone .inkswell-codex__toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: var(--size-4-2);
+}
+body.is-phone .inkswell-codex__toolbar input[type="search"] {
+  grid-column: 1 / -1;
 }
 
 /* ---- Contextual "How this works" tips ---- */

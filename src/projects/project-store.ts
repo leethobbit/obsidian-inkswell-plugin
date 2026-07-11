@@ -32,7 +32,13 @@ import {
   isMultiScene,
 } from "./types";
 
-type Subscriber = (projects: Project[]) => void;
+/**
+ * `changed` lists the vault paths whose fingerprint entries differ from the
+ * previously notified state (added, removed, or modified). It is absent on the
+ * immediate subscribe-time call. Subscribers that don't care can ignore it;
+ * the view uses it to soften rebuilds caused purely by its own writes.
+ */
+type Subscriber = (projects: Project[], changed?: ReadonlySet<string>) => void;
 
 /** Cached per-index parse, valid while the file's path + mtime are unchanged. */
 interface ParsedIndex {
@@ -50,8 +56,10 @@ export class ProjectStore extends Component {
   private rerun = false;
   /** Index-note frontmatter parses, keyed by path (invalidated by mtime). */
   private parseCache = new Map<string, ParsedIndex>();
-  /** Fingerprint of the last notified state; unchanged ⇒ notify is skipped. */
-  private lastFingerprint: string | null = null;
+  /** Per-path fingerprint of the last notified state (key = `C|path` /
+   *  `I|path` / `P|path`); an unchanged map ⇒ notify is skipped, and the
+   *  diff of the two maps becomes the notify's `changed` path set. */
+  private lastFingerprint: Map<string, string> | null = null;
 
   constructor(app: App) {
     super();
@@ -167,7 +175,7 @@ export class ProjectStore extends Component {
       // a `codex` key; discovery is vault-wide, gotcha #7), and resolved scene
       // files (their frontmatter drives status/act/POV badges). If none of these
       // changed, the notify is skipped and no panel rebuild happens.
-      const parts: string[] = [];
+      const parts = new Map<string, string>();
       // Intentional whole-vault scan: Longform/Inkswell projects may live in any
       // folder (drop-in Longform compat imposes no structure), so discovery can't
       // be scoped. Detection is cache-only — full frontmatter is read only for the
@@ -178,9 +186,9 @@ export class ProjectStore extends Component {
           | Record<string, unknown>
           | undefined;
         if (!fm) continue;
-        if ("codex" in fm) parts.push(`C|${file.path}|${file.stat.mtime}`);
+        if ("codex" in fm) parts.set(`C|${file.path}`, String(file.stat.mtime));
         if (!("longform" in fm)) continue; // cheap detection only
-        parts.push(`I|${file.path}|${file.stat.mtime}`);
+        parts.set(`I|${file.path}`, String(file.stat.mtime));
 
         const cached = this.parseCache.get(file.path);
         let entry: ParsedIndex;
@@ -209,17 +217,24 @@ export class ProjectStore extends Component {
         const scenes = p.scenes
           .map((s) => {
             const f = s.path ? this.app.vault.getAbstractFileByPath(s.path) : null;
-            return f instanceof TFile ? `${s.path}:${f.stat.mtime}` : `${s.title}:missing`;
+            // A scene's own frontmatter edits fingerprint under ITS path (`S|`),
+            // so the notify's `changed` set names the scene file the inline form
+            // actually wrote — the project entry only tracks structure.
+            if (f instanceof TFile) {
+              parts.set(`S|${f.path}`, String(f.stat.mtime));
+              return f.path;
+            }
+            return `${s.title}:missing`;
           })
           .join(",");
-        parts.push(`P|${p.vaultPath}|${scenes}|U:${p.unknownFiles.join(",")}`);
+        parts.set(`P|${p.vaultPath}`, `${scenes}|U:${p.unknownFiles.join(",")}`);
       }
-      const fingerprint = parts.sort().join("\n");
-      if (fingerprint === this.lastFingerprint) return; // nothing panels render changed
+      const changed = diffFingerprints(this.lastFingerprint, parts);
+      if (this.lastFingerprint && changed.size === 0) return; // nothing panels render changed
 
-      this.lastFingerprint = fingerprint;
+      this.lastFingerprint = parts;
       this.projects = found;
-      this.notify();
+      this.notify(changed);
     } finally {
       this.refreshing = false;
       if (this.rerun) {
@@ -246,8 +261,8 @@ export class ProjectStore extends Component {
     }
   }
 
-  private notify(): void {
-    for (const fn of this.subscribers) fn(this.projects);
+  private notify(changed: ReadonlySet<string>): void {
+    for (const fn of this.subscribers) fn(this.projects, changed);
   }
 
   private buildProject(
@@ -317,4 +332,26 @@ export class ProjectStore extends Component {
     const file = this.app.vault.getAbstractFileByPath(candidate);
     return file instanceof TFile ? file.path : null;
   }
+}
+
+/**
+ * Vault paths whose fingerprint entry was added, removed, or modified between
+ * two snapshots. Keys are `C|path` / `I|path` / `P|path`; the 2-char prefix is
+ * stripped so a note that is both an index and a codex entry dedupes to one
+ * path. (`|` can't appear in a vault path — Obsidian reserves it.)
+ */
+function diffFingerprints(
+  prev: ReadonlyMap<string, string> | null,
+  next: ReadonlyMap<string, string>
+): Set<string> {
+  const changed = new Set<string>();
+  for (const [key, value] of next) {
+    if (prev?.get(key) !== value) changed.add(key.slice(2));
+  }
+  if (prev) {
+    for (const key of prev.keys()) {
+      if (!next.has(key)) changed.add(key.slice(2));
+    }
+  }
+  return changed;
 }
