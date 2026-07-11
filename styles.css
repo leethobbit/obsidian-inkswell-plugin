@@ -1173,6 +1173,13 @@
   letter-spacing: 0.04em;
   margin-bottom: var(--size-4-2);
 }
+/* Structural context under a column head (a chapter column's act). */
+.inkswell-board__colsub {
+  font-weight: var(--font-normal);
+  color: var(--text-faint);
+  text-transform: none;
+  letter-spacing: normal;
+}
 
 .inkswell-board__list {
   display: flex;
