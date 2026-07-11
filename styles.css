@@ -3377,3 +3377,17 @@ body.is-phone .inkswell-codex__toolbar input[type="search"] {
   justify-content: flex-end;
   margin-top: var(--size-4-3);
 }
+
+/* ---- Custom codex types (settings section + add/edit modal) ---- */
+.inkswell-settings__caticon {
+  display: inline-flex;
+  vertical-align: -3px;
+  margin-right: var(--size-4-2);
+}
+.inkswell-catmodal__preview {
+  display: inline-flex;
+  width: 24px;
+  justify-content: center;
+  vertical-align: middle;
+  margin-left: var(--size-4-2);
+}

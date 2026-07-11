@@ -37,7 +37,8 @@ import { resolveCodexFolder, sanitizeSegment } from "../settings/folders";
 import { tryFileOp } from "../lib/notify";
 import { readProfile, writeProfile } from "./codex-profile";
 import { Profile, ProfileField, profileFields } from "./profile-schema";
-import { CODEX_CATEGORIES, CodexCategory, CodexEntity, EntityScope, categoryLabel } from "./types";
+import { CategoryDef, CodexEntity, EntityScope, allCategories, categoryLabel } from "./types";
+import { CategoryModal } from "./category-modal";
 import { Project } from "../projects/types";
 import { groupIntoSeries } from "../series/series";
 import type InkswellPlugin from "../../main";
@@ -53,6 +54,8 @@ export class CodexPanel {
   private showAll = false;
   /** Bumped per detail render so a slow "Appears in" scan can't fill a stale pane. */
   private appearsToken = 0;
+  /** Category to preselect in the rebuilt dropdown after "New type…" adds one. */
+  private pendingCategoryId: string | null = null;
   /**
    * Optional intercept for a row tap. When it returns true the tap is considered
    * handled (the phone shell drills into a single-column detail screen) and the
@@ -70,6 +73,11 @@ export class CodexPanel {
   constructor(app: App, plugin: InkswellPlugin) {
     this.app = app;
     this.plugin = plugin;
+  }
+
+  /** Built-ins + the user's custom types — read fresh from settings per render. */
+  private categories(): CategoryDef[] {
+    return allCategories(this.plugin.settings.customCategories);
   }
 
   /** The active project (the vantage point for scoping), or null. */
@@ -125,19 +133,38 @@ export class CodexPanel {
       this.renderList();
     };
 
+    const NEW_TYPE = "__new__"; // sentinel — can't collide with slug-shaped ids
+    const cats = this.categories();
     const catSel = bar.createEl("select", { cls: "dropdown" });
-    for (const c of CODEX_CATEGORIES) {
+    for (const c of cats) {
       catSel.createEl("option", { text: c.label, value: c.id });
     }
+    catSel.createEl("option", { text: "New type…", value: NEW_TYPE });
+    if (this.pendingCategoryId && cats.some((c) => c.id === this.pendingCategoryId)) {
+      catSel.value = this.pendingCategoryId;
+    }
+    this.pendingCategoryId = null;
+    // Picking "New type…" opens the add dialog instead of being a selection; the
+    // select snaps back so cancel leaves the previous category active.
+    let prevCat = catSel.value;
+    catSel.onchange = () => {
+      if (catSel.value !== NEW_TYPE) {
+        prevCat = catSel.value;
+        return;
+      }
+      catSel.value = prevCat;
+      this.openNewTypeModal();
+    };
     const newBtn = bar.createEl("button", { cls: "mod-cta", text: "New" });
     // New entries inherit the active project's scope: its series if it belongs to
     // one, else the book itself. With no active project they are created global.
     const createScope = defaultScopeForProject(active);
     newBtn.setAttribute("aria-label", this.scopeHint(active, createScope));
     newBtn.onclick = async () => {
-      const category = catSel.value as CodexCategory;
+      const def = this.categories().find((c) => c.id === catSel.value);
+      if (!def) return;
       const name = await promptText(this.app, {
-        title: `New ${categoryLabel(category)}`,
+        title: `New ${def.label}`,
         value: "",
         multiline: false,
         cta: "Create",
@@ -147,13 +174,13 @@ export class CodexPanel {
         () =>
           createEntity(
             this.app,
-            category,
+            def.id,
             name,
             resolveCodexFolder(this.plugin.settings, createScope, active?.vaultPath),
             createScope,
-            resolveCodexTemplate(this.app, this.plugin.settings, category)
+            resolveCodexTemplate(this.app, this.plugin.settings, def)
           ),
-        `Couldn't create the ${categoryLabel(category)}.`
+        `Couldn't create the ${def.label}.`
       );
       if (file) {
         this.selectedPath = file.path;
@@ -200,12 +227,38 @@ export class CodexPanel {
       return;
     }
 
-    for (const cat of CODEX_CATEGORIES) {
+    const cats = this.categories();
+    for (const cat of cats) {
       const entries = all.filter((e) => e.category === cat.id);
       if (entries.length === 0) continue;
       list.createEl("h4", { text: `${cat.plural} (${entries.length})` });
       for (const e of entries) this.renderRow(list, cat.icon, e);
     }
+
+    // Orphan safety: entries whose category no longer exists (a deleted custom
+    // type, or a hand-edited `codex:` value) stay visible and editable here.
+    const known = new Set(cats.map((c) => c.id));
+    const orphans = all.filter((e) => !known.has(e.category));
+    if (orphans.length > 0) {
+      list.createEl("h4", { text: `Uncategorized (${orphans.length})` });
+      for (const e of orphans) this.renderRow(list, "circle-help", e);
+    }
+  }
+
+  /** Open the add-custom-type dialog; on submit persist + rebuild with it selected. */
+  private openNewTypeModal(): void {
+    const merged = this.categories();
+    new CategoryModal(this.app, {
+      existing: null,
+      takenIds: merged.map((c) => c.id),
+      takenLabels: merged.map((c) => c.label.toLowerCase()),
+      onSubmit: async (def) => {
+        this.plugin.settings.customCategories.push(def);
+        await this.plugin.saveSettings();
+        this.pendingCategoryId = def.id;
+        this.plugin.refreshView();
+      },
+    }).open();
   }
 
   private renderRow(parent: HTMLElement, icon: string, entity: CodexEntity): void {
@@ -272,7 +325,7 @@ export class CodexPanel {
     head.createDiv({ cls: "inkswell-inspector__title", text: entity.name });
     head.createDiv({
       cls: "inkswell-inspector__project",
-      text: categoryLabel(entity.category),
+      text: categoryLabel(entity.category, this.plugin.settings.customCategories),
     });
     const openBtn = head.createEl("button", { text: "Open note" });
     openBtn.onclick = () => openScene(this.app, file);

@@ -5,8 +5,13 @@
  * Normal names still create as expected.
  */
 import { describe, expect, it } from "vitest";
-import { createEntity, scenesForEntity } from "../src/codex/codex-store";
-import { CodexCategory, CodexEntity, EntityScope } from "../src/codex/types";
+import {
+  createEntity,
+  generateCodexTemplates,
+  getCodexEntities,
+  scenesForEntity,
+} from "../src/codex/codex-store";
+import { CategoryDef, CodexCategory, CodexEntity, EntityScope } from "../src/codex/types";
 import { Project } from "../src/projects/types";
 import { TFile } from "./fakes/obsidian";
 import { FakeApp } from "./fakes/fake-app";
@@ -35,6 +40,59 @@ describe("createEntity filename safety", () => {
     expect(file?.path).toBe("Codex/The Shire.md");
     expect(app.metadataCache.getFileCache(file as never)?.frontmatter?.["codex"]).toBe(
       "location"
+    );
+  });
+});
+
+describe("getCodexEntities discovery", () => {
+  it("accepts any non-empty string category (orphan safety — unknowns must not vanish)", () => {
+    const app = new FakeApp();
+    app.vault.seed("Codex/Smaug.md", "---\ncodex: dragon\n---\nA great wyrm.\n");
+    app.vault.seed("Codex/Anna.md", "---\ncodex: character\n---\nBio.\n");
+    const cats = getCodexEntities(app.asApp()).map((e) => e.category).sort();
+    expect(cats).toEqual(["character", "dragon"]);
+  });
+
+  it("trims whitespace around the category value", () => {
+    const app = new FakeApp();
+    app.vault.seed("Codex/Smaug.md", "---\ncodex: ' dragon '\n---\n");
+    expect(getCodexEntities(app.asApp())[0]?.category).toBe("dragon");
+  });
+
+  it("still skips notes whose codex key is not a usable string", () => {
+    const app = new FakeApp();
+    app.vault.seed("Codex/BoolKey.md", "---\ncodex: true\n---\n");
+    app.vault.seed("Codex/NumKey.md", "---\ncodex: 5\n---\n");
+    app.vault.seed("Codex/EmptyKey.md", "---\ncodex: ''\n---\n");
+    app.vault.seed("Codex/BlankKey.md", "---\ncodex: '   '\n---\n");
+    app.vault.seed("Codex/NoKey.md", "---\ntags: [x]\n---\n");
+    expect(getCodexEntities(app.asApp())).toEqual([]);
+  });
+});
+
+describe("generateCodexTemplates with custom categories", () => {
+  const folders = { baseFolder: "", codexFolder: "Codex", coLocateCodex: true };
+  const creature: CategoryDef = {
+    id: "creature",
+    label: "Creature",
+    plural: "Creatures",
+    icon: "dog",
+  };
+
+  it("writes a template note for custom types alongside the built-ins", async () => {
+    const app = new FakeApp();
+    const created = await generateCodexTemplates(app.asApp(), folders, [creature]);
+    expect(created).toContain("Templates/Creature.md");
+    expect(created).toContain("Templates/Character.md");
+  });
+
+  it("never clobbers an existing template", async () => {
+    const app = new FakeApp();
+    app.vault.seed("Templates/Creature.md", "my customized template\n");
+    const created = await generateCodexTemplates(app.asApp(), folders, [creature]);
+    expect(created).not.toContain("Templates/Creature.md");
+    expect(await app.vault.cachedRead(app.vault.getAbstractFileByPath("Templates/Creature.md") as never)).toBe(
+      "my customized template\n"
     );
   });
 });

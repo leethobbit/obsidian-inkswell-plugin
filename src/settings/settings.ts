@@ -6,12 +6,15 @@
  * it belongs in the project index's `inkswell` frontmatter.
  */
 
-import { App, Notice, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting, setIcon } from "obsidian";
 import { tryFileOp } from "../lib/notify";
 import type InkswellPlugin from "../../main";
 import { OutputFormat } from "../compile/types";
 import { FeatureGroup, OPTIONAL_FEATURES, featureEnabled } from "../features";
-import { generateCodexTemplates } from "../codex/codex-store";
+import { generateCodexTemplates, getCodexEntities } from "../codex/codex-store";
+import { CategoryDef, allCategories } from "../codex/types";
+import { CategoryModal } from "../codex/category-modal";
+import { confirmDelete } from "../scenes/scene-actions";
 import { resolveTemplateFolder } from "./folders";
 import { resetHelpState } from "../help/hint";
 import { WelcomeModal } from "../help/welcome-modal";
@@ -57,6 +60,14 @@ export interface InkswellSettings {
    * rendering/commands — stored data is never touched, so re-enabling is lossless.
    */
   disabledFeatures: string[];
+  /**
+   * User-defined codex types, merged after the seven built-ins wherever
+   * categories are listed (via allCategories — computed at render time, never
+   * cached). Normalized on load (normalizeCustomCategories); built-ins are never
+   * editable. Deleting one leaves its notes intact — entries show as
+   * "Uncategorized" in the Codex panel.
+   */
+  customCategories: CategoryDef[];
 }
 
 export const DEFAULT_SETTINGS: InkswellSettings = {
@@ -78,6 +89,7 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   showHelpHints: true,
   dismissedHints: [],
   disabledFeatures: [],
+  customCategories: [],
 };
 
 export class InkswellSettingTab extends PluginSettingTab {
@@ -119,7 +131,100 @@ export class InkswellSettingTab extends PluginSettingTab {
     }
   }
 
+  /**
+   * The "Custom codex types" section: the user's own categories alongside the
+   * seven built-ins. Add/edit go through CategoryModal; deleting a type never
+   * touches notes — its entries show as "Uncategorized" in the Codex panel.
+   */
+  private renderCustomCategories(containerEl: HTMLElement): void {
+    new Setting(containerEl).setName("Custom Codex types").setHeading();
+    containerEl.createEl("p", {
+      cls: "setting-item-description",
+      text:
+        "Add your own codex types (creatures, spells, ships…) next to the built-in " +
+        "seven. Entries get a generic profile — Aliases, Type, Description, " +
+        "Significance, Related entries. Built-in types can't be edited or removed. " +
+        "For bespoke fields, edit the type's template note (below) — extra " +
+        "frontmatter you add there is kept on every entry.",
+    });
+
+    const upsert = async (def: CategoryDef): Promise<void> => {
+      const list = this.plugin.settings.customCategories;
+      const i = list.findIndex((c) => c.id === def.id);
+      if (i >= 0) list[i] = def;
+      else list.push(def);
+      await this.plugin.saveSettings();
+      this.plugin.refreshView();
+      this.rerender();
+    };
+    /** Ids/labels a new or edited type may not collide with (excludes itself). */
+    const taken = (except: CategoryDef | null) => {
+      const others = allCategories(this.plugin.settings.customCategories).filter(
+        (c) => c.id !== except?.id
+      );
+      return {
+        takenIds: others.map((c) => c.id),
+        takenLabels: others.map((c) => c.label.toLowerCase()),
+      };
+    };
+
+    for (const cat of this.plugin.settings.customCategories) {
+      const row = new Setting(containerEl)
+        .setName(cat.label)
+        .setDesc(`${cat.plural} · codex: ${cat.id}`)
+        .addButton((b) =>
+          b.setButtonText("Edit").onClick(() => {
+            new CategoryModal(this.app, {
+              existing: cat,
+              ...taken(cat),
+              onSubmit: upsert,
+            }).open();
+          })
+        )
+        .addExtraButton((b) =>
+          b
+            .setIcon("trash")
+            .setTooltip("Delete")
+            .onClick(async () => {
+              const n = getCodexEntities(this.app).filter((e) => e.category === cat.id).length;
+              const msg =
+                n > 0
+                  ? `Delete the "${cat.label}" type? ${n} existing entr${n === 1 ? "y" : "ies"} ` +
+                    "will show under Uncategorized — the notes themselves are not touched."
+                  : `Delete the "${cat.label}" type?`;
+              if (!(await confirmDelete(this.app, msg))) return;
+              this.plugin.settings.customCategories =
+                this.plugin.settings.customCategories.filter((c) => c.id !== cat.id);
+              await this.plugin.saveSettings();
+              this.plugin.refreshView();
+              this.rerender();
+            })
+        );
+      const iconEl = createSpan({ cls: "inkswell-settings__caticon" });
+      setIcon(iconEl, cat.icon);
+      row.nameEl.prepend(iconEl);
+    }
+
+    new Setting(containerEl).addButton((b) =>
+      b
+        .setButtonText("Add custom type")
+        .setCta()
+        .onClick(() => {
+          new CategoryModal(this.app, {
+            existing: null,
+            ...taken(null),
+            onSubmit: upsert,
+          }).open();
+        })
+    );
+  }
+
   display(): void {
+    this.rerender();
+  }
+
+  /** Full tab (re)build. Internal callers use this, not the deprecated `display`. */
+  private rerender(): void {
     const { containerEl } = this;
     containerEl.empty();
 
@@ -302,6 +407,8 @@ export class InkswellSettingTab extends PluginSettingTab {
         })
       );
 
+    this.renderCustomCategories(containerEl);
+
     new Setting(containerEl).setName("Codex templates").setHeading();
 
     const templateFolder = resolveTemplateFolder(this.plugin.settings) || "(vault root)";
@@ -317,7 +424,12 @@ export class InkswellSettingTab extends PluginSettingTab {
       .addButton((b) =>
         b.setButtonText("Generate starter templates").onClick(async () => {
           const created = await tryFileOp(
-            () => generateCodexTemplates(this.app, this.plugin.settings),
+            () =>
+              generateCodexTemplates(
+                this.app,
+                this.plugin.settings,
+                this.plugin.settings.customCategories
+              ),
             "Couldn't generate the starter templates."
           );
           if (created === null) return;

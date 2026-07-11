@@ -10,36 +10,35 @@
  */
 
 import { profileFields } from "./profile-schema";
-import { CODEX_CATEGORIES, CodexCategory, categoryLabel } from "./types";
+import { CODEX_CATEGORIES, CategoryDef } from "./types";
 
 /** Starter note text for a category's template. Tag defaults to the category id. */
-export function starterCodexTemplate(category: CodexCategory): string {
-  const label = categoryLabel(category);
+export function starterCodexTemplate(cat: CategoryDef): string {
   // Category-specific field labels (skip the shared `aliases`, already shown above).
-  const fields = profileFields(category)
+  const fields = profileFields(cat.id)
     .slice(1)
     .map((f) => f.label)
     .join(", ");
   return [
     "---",
     "tags:",
-    `  - ${category}`,
+    `  - ${cat.id}`,
     "aliases: []",
     "---",
     "# {{title}}",
     "",
-    `%% Inkswell sets \`codex: ${category}\` and the project/series scope`,
+    `%% Inkswell sets \`codex: ${cat.id}\` and the project/series scope`,
     "   automatically — don't add a `codex:` key here, or this template note will",
     "   show up as a codex entry. `{{title}}` is replaced with the entry's name.",
-    `   Edit this note to change what every new ${label} starts with.`,
-    `   ${label} fields you can fill from the Codex panel: ${fields}. %%`,
+    `   Edit this note to change what every new ${cat.label} starts with.`,
+    `   ${cat.label} fields you can fill from the Codex panel: ${fields}. %%`,
     "",
   ].join("\n");
 }
 
 /** README dropped into the templates folder explaining the system. */
-export function codexTemplatesReadme(): string {
-  const list = CODEX_CATEGORIES.map((c) => `- **${c.label}** → \`${c.label}.md\``).join("\n");
+export function codexTemplatesReadme(categories: CategoryDef[] = CODEX_CATEGORIES): string {
+  const list = categories.map((c) => `- **${c.label}** → \`${c.label}.md\``).join("\n");
   return [
     "# Inkswell content templates",
     "",

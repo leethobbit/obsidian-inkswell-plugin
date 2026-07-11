@@ -24,6 +24,7 @@ import { SelfWriteRegistry } from "./src/lib/self-write";
 import { Project } from "./src/projects/types";
 import { RevisionModal } from "./src/revisions/revision-modal";
 import { FeatureId, featureEnabled } from "./src/features";
+import { normalizeCustomCategories } from "./src/codex/types";
 import {
   DEFAULT_SETTINGS,
   InkswellSettings,
@@ -259,6 +260,9 @@ export default class InkswellPlugin extends Plugin {
       activeProject?: string;
     };
     this.settings = Object.assign({}, DEFAULT_SETTINGS, stored.settings ?? {});
+    // data.json is hand-editable and the merge above doesn't validate shapes —
+    // drop malformed/colliding custom codex types before anything renders them.
+    this.settings.customCategories = normalizeCustomCategories(this.settings.customCategories);
     this.writingLog = Object.assign({}, emptyLog(), stored.writingLog ?? {});
     this.ideas = Array.isArray(stored.ideas) ? stored.ideas : [];
     this.activeProject = new ActiveProject(
