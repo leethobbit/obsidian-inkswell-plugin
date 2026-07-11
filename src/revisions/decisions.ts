@@ -77,15 +77,6 @@ export function pendingCount(list: RevisionDecision[]): number {
   return list.reduce((n, d) => (d.status === "pending" ? n + 1 : n), 0);
 }
 
-const PRIORITY_RANK: Record<RevisionPriority, number> = { high: 0, med: 1, low: 2 };
-
-/** Display order within a group: high → med → low → no priority; stable
- *  (creation order preserved) within a band. Returns a new array. */
-export function sortDecisionsForDisplay(list: RevisionDecision[]): RevisionDecision[] {
-  const rank = (d: RevisionDecision): number =>
-    d.priority ? PRIORITY_RANK[d.priority] : 3;
-  return [...list].sort((a, b) => rank(a) - rank(b));
-}
 
 /** Current decisions for a project (empty array if none). */
 export function decisionsOf(project: Project): RevisionDecision[] {

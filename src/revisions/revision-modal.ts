@@ -9,7 +9,6 @@ import { App, Modal, Notice, Setting } from "obsidian";
 import { Project } from "../projects/types";
 import { decisionsOf, persistRevisions, upsertDecision } from "./revisions";
 import {
-  REVISION_PRIORITIES,
   RevisionDecision,
   RevisionPriority,
   RevisionType,
@@ -86,11 +85,10 @@ export class RevisionModal extends Modal {
         d.setValue(this.type).onChange((v) => (this.type = v as RevisionType));
       });
 
-    new Setting(contentEl).setName("Priority").addDropdown((d) => {
-      d.addOption("", "— none —");
-      for (const p of REVISION_PRIORITIES) d.addOption(p.id, p.label);
-      d.setValue(this.priority).onChange((v) => (this.priority = v as RevisionPriority | ""));
-    });
+    // No Priority field: a revision pass is worked in prose order, so a rank
+    // never changes behavior — it was a capture-time tax. `this.priority` is
+    // still seeded from an existing decision, so editing a legacy entry
+    // preserves its saved priority (the badge keeps rendering).
 
     // Anchor: whole project, or any scene in the book. Shown for multi-scene
     // projects (a single-scene project has nothing to anchor to).

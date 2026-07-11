@@ -64,11 +64,9 @@ export function typeChoices(existing?: RevisionType): { id: RevisionType; label:
   return ids.map((id) => REVISION_TYPES.find((t) => t.id === id) ?? { id, label: id });
 }
 
-export const REVISION_PRIORITIES: { id: RevisionPriority; label: string }[] = [
-  { id: "high", label: "High" },
-  { id: "med", label: "Medium" },
-  { id: "low", label: "Low" },
-];
+// No REVISION_PRIORITIES picker list: priority is legacy as of 1.8 (a rank
+// never changed behavior in a prose-order revision pass). The `priority` field
+// below stays — saved values render as badges and survive edits.
 
 export interface RevisionDecision {
   id: string;

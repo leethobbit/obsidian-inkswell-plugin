@@ -5,9 +5,8 @@ import {
   buildRevisionGroups,
   buildWorkChips,
 } from "../src/revisions/revision-work";
-import { sortDecisionsForDisplay } from "../src/revisions/decisions";
 import type { SceneTodos } from "../src/revisions/todos-scan";
-import type { RevisionDecision, RevisionPriority, RevisionType } from "../src/revisions/types";
+import type { RevisionDecision, RevisionType } from "../src/revisions/types";
 import type { GapHit, PlaceholderKind } from "../src/lib/placeholders";
 
 const scenes = [
@@ -115,10 +114,9 @@ const kindGap = (kind: PlaceholderKind, from = 0): GapHit => ({
   excerpt: `[${kind.toUpperCase()}: x]`,
 });
 
-const typed = (id: string, type?: RevisionType, priority?: RevisionPriority): RevisionDecision => ({
+const typed = (id: string, type?: RevisionType): RevisionDecision => ({
   ...decision(id, null),
   type,
-  priority,
 });
 
 describe("buildWorkChips", () => {
@@ -171,28 +169,5 @@ describe("applyWorkFilter", () => {
     const out = applyWorkFilter(markerSet, decisionSet, { facet: "decision", type: "continuity" });
     expect(out.todos).toEqual([]);
     expect(out.decisions.map((d) => d.id)).toEqual(["a"]); // untyped = continuity
-  });
-});
-
-describe("sortDecisionsForDisplay", () => {
-  it("orders high → med → low → none, keeping creation order within a band", () => {
-    const list = [
-      typed("none1"),
-      typed("low1", undefined, "low"),
-      typed("high1", undefined, "high"),
-      typed("med1", undefined, "med"),
-      typed("high2", undefined, "high"),
-      typed("none2"),
-    ];
-    expect(sortDecisionsForDisplay(list).map((d) => d.id)).toEqual([
-      "high1",
-      "high2",
-      "med1",
-      "low1",
-      "none1",
-      "none2",
-    ]);
-    // Input untouched.
-    expect(list.map((d) => d.id)).toEqual(["none1", "low1", "high1", "med1", "high2", "none2"]);
   });
 });

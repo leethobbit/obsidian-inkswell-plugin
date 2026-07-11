@@ -231,7 +231,7 @@ export const HINTS: Record<string, HintEntry> = {
       p(
         el,
         "Decisions are the story-level rulings (“from now on, the brother is dead”): log " +
-          "one with “Log a decision”, give it a type and priority, and anchor it to a scene " +
+          "one with “Log a decision”, give it a type, and anchor it to a scene " +
           "or the whole project. Tick it applied once you've made the change; click its text " +
           "to edit it. Prefer a [RESEARCH: ] or [SCENE: ] marker for research questions and " +
           "missing scenes — it marks the exact spot in the prose."

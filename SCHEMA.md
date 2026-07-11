@@ -111,7 +111,7 @@ Ordered `[{id, title, color?}]` (edited in Plan → **Grid**). Array order = col
 Array of `{id, text, scene: string|null, status, created, type?, priority?}`.
 - `status`: `pending` · `applied`
 - `type`: `continuity` (default if absent) · `plot-hole` · `rewrite` · `character` · `research` · `new-scene` — `research` and `new-scene` are **legacy as of 1.8**: still read, displayed, filtered, and preserved on edit, but no longer offered when logging a new decision (that work is directed to `[RESEARCH: ]` / `[SCENE: ]` prose markers)
-- `priority`: `low` · `med` · `high`
+- `priority`: `low` · `med` · `high` — **legacy as of 1.8**: still read, displayed as a badge, and preserved on edit, but no longer offered when logging a decision (a rank never changes behavior in a prose-order revision pass)
 
 ### `inkswell.revisionChecklist` — project Story/Page checklists
 `story` and `page`, each a map of `checkpointId → {done?: boolean, note?: string}`.

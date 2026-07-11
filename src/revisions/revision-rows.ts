@@ -14,13 +14,7 @@ import { App, Menu } from "obsidian";
 import { attachRowMenu } from "../lib/row-menu";
 import { GapHit, PLACEHOLDER_LABEL } from "../lib/placeholders";
 import { Project } from "../projects/types";
-import {
-  decisionType,
-  decisionsOf,
-  removeDecision,
-  setDecisionStatus,
-  sortDecisionsForDisplay,
-} from "./decisions";
+import { decisionType, decisionsOf, removeDecision, setDecisionStatus } from "./decisions";
 import { RevisionModal } from "./revision-modal";
 import { REVISION_TYPES, RevisionDecision } from "./types";
 import { RevisionGroup } from "./revision-work";
@@ -107,8 +101,8 @@ export function renderDecisionRow(
 }
 
 /** A group's rows in canonical order: decisions first (scene-level directives
- *  you hold in mind, highest priority first), then markers in prose order
- *  (worked top to bottom). */
+ *  you hold in mind, in the order they were logged), then markers in prose
+ *  order (worked top to bottom). */
 export function renderRevisionGroupItems(
   box: HTMLElement,
   project: Project,
@@ -116,6 +110,6 @@ export function renderRevisionGroupItems(
   ctx: DecisionRowContext,
   onJump: MarkerJump
 ): void {
-  for (const d of sortDecisionsForDisplay(g.decisions)) renderDecisionRow(box, project, d, ctx);
+  for (const d of g.decisions) renderDecisionRow(box, project, d, ctx);
   if (g.path) for (const t of g.todos) renderMarkerRow(box, g.path, t, onJump);
 }
