@@ -47,7 +47,7 @@ Five pipeline phases — **Home · Plan · Write · Revise · Publish** — plus
 | **Home** | Projects, a nestable scene tree, a cover-art hero card (logline / theme / word-target progress), multiple drafts per story, ideas inbox + quick capture, and series grouping for multi-book worlds. |
 | **Plan** | Overview fields, beat sheets (7 templates incl. Save the Cat!), and **Structure** — the outline tree, a Kanban board, and a plotline × chapter grid, behind one Tree / Board / Grid switcher. |
 | **Write** | A distraction-light Live-Preview editor, writing prompts, fast-drafting placeholder tokens, and timed sprints. |
-| **Revise** | An Audit toolkit, the invisible-revision Log, a Todos sweep for placeholder markers, and manuscript Analysis. |
+| **Revise** | An Audit toolkit, a unified To-dos worklist (placeholder markers left in prose + logged revision decisions), and manuscript Analysis. |
 | **Publish** | A configurable compile/export pipeline plus a self-publishing checklist and launch planner. |
 | **Codex** | A story bible — characters, locations, worlds, factions, items, events, and concepts — with scene linking and mention auto-detect. |
 | **Track** | Word goals, streaks, a GitHub-style heatmap, lifetime records, a deadline pace calculator, and milestone zones. |
@@ -68,7 +68,7 @@ A three-step flow: *Overview* (novel-level fields and long-form prose), *Beats* 
 
 ### Write — draft fast, fix later
 
-A distraction-light, Live-Preview manuscript editor with writing prompts and timed **sprints**. Fast-drafting **placeholder tokens** — `[TODO: …]`, `[RESEARCH: …]`, `[DIALOGUE: …]`, `[SCENE: …]`, `[NOTE: …]` — highlight as you type, so you can mark a gap and keep moving forward. Find them all later in the Revise → Todos sweep.
+A distraction-light, Live-Preview manuscript editor with writing prompts and timed **sprints**. Fast-drafting **placeholder tokens** — `[TODO: …]`, `[RESEARCH: …]`, `[DIALOGUE: …]`, `[SCENE: …]`, `[NOTE: …]` — highlight as you type, so you can mark a gap and keep moving forward. Find them all later in Revise → To-dos.
 
 <!-- WRITE -->
 ![Write: Live-Preview editor with highlighted placeholder tokens and a running sprint timer](assets/write.png)
@@ -76,8 +76,7 @@ A distraction-light, Live-Preview manuscript editor with writing prompts and tim
 ### Revise — from draft to book
 
 - **Audit** — per-scene and project revision checklists, a scene-purpose lift-out test, scene-opening variety, a character-arc grid, a side-character roster, and a style-sheet consistency scan.
-- **The invisible-revision Log** — capture *"from now on, assume X"* decisions (e.g. "the inn is now called the Gilded Wren") as typed, prioritized entries and **keep drafting forward** instead of breaking flow to backfill earlier chapters.
-- **Todos** — a one-click sweep of every placeholder marker (`[TODO]`, `[RESEARCH]`, …) across the manuscript.
+- **To-dos** — everything left to fix in one scene-grouped worklist: every placeholder marker (`[TODO]`, `[RESEARCH]`, …) left in the prose, plus your **invisible-revision decisions** — capture *"from now on, assume X"* rulings (e.g. "the inn is now called the Gilded Wren") as typed, prioritized entries and **keep drafting forward** instead of breaking flow to backfill earlier chapters.
 - **Analysis** — readability, overused words, echoes, and composition mix.
 
 <!-- REVISE -->

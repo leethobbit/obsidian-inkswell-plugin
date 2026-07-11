@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  PLACEHOLDER_LABEL,
+  PLACEHOLDER_ORDER,
   PlaceholderKind,
   findGaps,
   scanPlaceholders,
@@ -7,6 +9,13 @@ import {
 
 const kinds = (text: string): PlaceholderKind[] =>
   scanPlaceholders(text).map((m) => m.kind);
+
+describe("kind labels", () => {
+  it("covers every kind, in a canonical order", () => {
+    expect([...PLACEHOLDER_ORDER].sort()).toEqual(Object.keys(PLACEHOLDER_LABEL).sort());
+    expect(PLACEHOLDER_ORDER).toEqual(["todo", "research", "note", "dialogue", "scene"]);
+  });
+});
 
 describe("scanPlaceholders — token forms", () => {
   it("matches all five token kinds", () => {

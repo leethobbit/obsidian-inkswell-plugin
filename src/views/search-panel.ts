@@ -5,7 +5,7 @@
  * a body hit to jump to it in Write and flash it (synopsis hits open the scene
  * without a flash, since the synopsis isn't in the editor document).
  *
- * Structurally a sibling of the Todos sweep (revisions/todos-panel.ts): read each
+ * Structurally a sibling of the revision to-dos panel (revisions/work-panel.ts): read each
  * scene body via `cachedRead`, run a pure scanner, group + jump-to-scene. The one
  * addition is an mtime-keyed body cache so re-running a query across a large scope
  * doesn't re-read every file. This panel is read-only; find & replace is layered

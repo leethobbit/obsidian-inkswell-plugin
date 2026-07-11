@@ -6,8 +6,8 @@
  * new one) — so you can see and act on what's left without leaving Write.
  *
  * Read-mostly composition over the pure `buildRevisionGroups` + the shared
- * `scanProjectTodos`; mutations reuse the same decision ops as Revise → Log, so
- * the two stay in sync. Async (marker scan) with a stale-guard token.
+ * `scanProjectTodos`; mutations reuse the same decision ops as Revise → To-dos,
+ * so the two stay in sync. Async (marker scan) with a stale-guard token.
  */
 
 import { App, TFile } from "obsidian";
@@ -62,7 +62,7 @@ export class RevisionSidebar implements RightPanel {
 
     // Toolbar: log a decision for the current scene + reveal applied ones.
     const bar = host.createDiv({ cls: "inkswell-revsidebar__bar" });
-    const add = bar.createEl("button", { cls: "inkswell-revsidebar__add", text: "Log a revision" });
+    const add = bar.createEl("button", { cls: "inkswell-revsidebar__add", text: "Log a decision" });
     add.onclick = () => new RevisionModal(this.app, project, this.currentSceneTitle(project), "").open();
     const toggle = bar.createEl("label", { cls: "inkswell-revsidebar__toggle" });
     const cb = toggle.createEl("input", { type: "checkbox" });

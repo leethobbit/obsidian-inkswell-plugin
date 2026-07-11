@@ -524,9 +524,55 @@
   cursor: pointer;
 }
 
-/* --- Todos panel (Revise → Todos): the bracketed to-do marker sweep --- */
+/* --- To-do marker rows + kind badges/chips (shared: Revise → To-dos, Write sidebar) --- */
 .inkswell-todos {
   padding: var(--size-4-3);
+}
+
+/* Revise → To-dos: the merged worklist (markers + decisions) */
+.inkswell-revwork {
+  padding: var(--size-4-3);
+}
+.inkswell-revwork__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin: var(--size-4-3) 0;
+}
+.inkswell-revwork__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-1);
+  flex: 1;
+  min-width: 0;
+}
+.inkswell-revwork__chipsep {
+  color: var(--text-faint);
+  padding: 0 var(--size-4-1);
+}
+/* Decision-type chips read differently from marker-kind chips. */
+.inkswell-revwork__chip--decision {
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+}
+.inkswell-revwork__chip--decision.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+.inkswell-revwork__add {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  white-space: nowrap;
+}
+.inkswell-revwork__addicon {
+  display: inline-flex;
+}
+.inkswell-revwork__addicon .svg-icon {
+  width: 14px;
+  height: 14px;
 }
 .inkswell-todos__filters {
   display: flex;
@@ -2744,7 +2790,7 @@
   text-decoration: underline;
 }
 
-/* Scene grouping in the Revise → Log panel. */
+/* Scene grouping in the Revise → To-dos panel. */
 .inkswell-revision__group {
   display: flex;
   align-items: baseline;

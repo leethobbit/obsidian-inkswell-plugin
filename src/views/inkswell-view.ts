@@ -28,8 +28,7 @@ import { ProjectStore } from "../projects/project-store";
 import { ChecklistPanel } from "./publish/checklist-panel";
 import { LaunchPanel } from "./publish/launch-panel";
 import { AuditPanel } from "../revisions/audit-panel";
-import { TodosPanel } from "../revisions/todos-panel";
-import { RevisionPanel } from "../revisions/revision-view";
+import { RevisionWorkPanel } from "../revisions/work-panel";
 import { StatsPanel } from "../stats/stats-view";
 import { WritingTracker } from "../tracking/writing-tracker";
 import { ExplorerPanel } from "./explorer/explorer-view";
@@ -68,8 +67,7 @@ export class InkswellView extends ItemView {
   private codex: CodexPanel;
   private write: WritePanel;
   private stats: StatsPanel;
-  private revisions: RevisionPanel;
-  private todos: TodosPanel;
+  private todos: RevisionWorkPanel;
   private audit: AuditPanel;
   private analysis: AnalysisPanel;
   private compile: CompilePanel;
@@ -136,8 +134,7 @@ export class InkswellView extends ItemView {
     this.codex.onOpenInWrite = (path, hl) => this.openSceneInWrite(path, hl);
     this.write = new WritePanel(this.app, plugin, store, plugin.sprints);
     this.stats = new StatsPanel(this.app, plugin, tracker, store, stats);
-    this.revisions = new RevisionPanel(this.app, plugin, store);
-    this.todos = new TodosPanel(this.app, store, plugin.activeProject, (path, hl) =>
+    this.todos = new RevisionWorkPanel(this.app, plugin, store, (path, hl) =>
       this.openSceneInWrite(path, hl)
     );
     this.audit = new AuditPanel(this.app, store, plugin.activeProject, (path) =>
@@ -467,10 +464,12 @@ export class InkswellView extends ItemView {
   }
 
   /** Whether a destination shows the "use a larger screen" notice on phones.
-   *  Revise is enabled only for its Todos slice; its other tabs redirect. */
+   *  Revise is enabled only for its To-dos slice; its other tabs redirect. */
   private isRedirected(mode: InkswellMode): boolean {
     if (PHONE_REDIRECTED.has(mode)) return true;
-    if (mode === "revise") return (this.subtab["revise"] ?? "audit") !== "todos";
+    // effectiveSubtab (not the raw remembered value) so a remembered subtab
+    // that's been disabled or removed can't strand the phone on a redirect.
+    if (mode === "revise") return this.effectiveSubtab("revise") !== "todos";
     return false;
   }
 
@@ -502,8 +501,8 @@ export class InkswellView extends ItemView {
     this.setMode("plan", "structure");
   }
 
-  getRevisionPanel(): RevisionPanel {
-    return this.revisions;
+  getRevisionPanel(): RevisionWorkPanel {
+    return this.todos;
   }
 
   /** True when Write is active with a live editor (gates the insert-todo command). */
@@ -690,7 +689,10 @@ export class InkswellView extends ItemView {
         // The Write fast path already absorbs metadata changes in place.
         return this.write.update();
       case "revise":
-        // Audit checkbox/note writes update their own badges via onChange.
+        // To-dos: a decision write from the merged panel — refresh its rows in
+        // place (cached marker scan + fresh decisions). Audit's checkbox/note
+        // writes keep updating their own badges via onChange.
+        if (this.effectiveSubtab("revise") === "todos") this.todos.softRefresh();
         return true;
       default:
         return false;
@@ -775,7 +777,6 @@ export class InkswellView extends ItemView {
         const sub = this.effectiveSubtab("revise") ?? "audit";
         if (sub === "analysis") this.analysis.render(panel);
         else if (sub === "todos") this.todos.render(panel);
-        else if (sub === "log") this.revisions.render(panel);
         else this.audit.render(panel);
         break;
       }

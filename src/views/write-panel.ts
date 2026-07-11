@@ -474,7 +474,7 @@ export class WritePanel {
         };
       }
       const gaps = insertGroup.createEl("button", { text: "Find to-dos" });
-      gaps.setAttribute("aria-label", "Open the Todos sweep (Revise)");
+      gaps.setAttribute("aria-label", "Open to-dos (Revise)");
       gaps.onclick = () => void this.plugin.openTodos();
       const issue = insertGroup.createEl("button", { text: "Log issue" });
       issue.setAttribute("aria-label", "Log a revision issue for this scene (Mod-Shift-L)");

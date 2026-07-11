@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { PROJECT_GROUP_KEY, buildRevisionGroups } from "../src/revisions/revision-work";
+import {
+  PROJECT_GROUP_KEY,
+  applyWorkFilter,
+  buildRevisionGroups,
+  buildWorkChips,
+} from "../src/revisions/revision-work";
+import { sortDecisionsForDisplay } from "../src/revisions/decisions";
 import type { SceneTodos } from "../src/revisions/todos-scan";
-import type { RevisionDecision } from "../src/revisions/types";
-import type { GapHit } from "../src/lib/placeholders";
+import type { RevisionDecision, RevisionPriority, RevisionType } from "../src/revisions/types";
+import type { GapHit, PlaceholderKind } from "../src/lib/placeholders";
 
 const scenes = [
   { title: "One", path: "Book/1.md" },
@@ -98,5 +104,95 @@ describe("buildRevisionGroups", () => {
     expect(groups.some((g) => g.isCurrent)).toBe(false);
     expect(groups[0].key).toBe(PROJECT_GROUP_KEY); // project group precedes scene groups
     expect(groups.map((g) => g.title)).toEqual(["Whole project", "Two"]);
+  });
+});
+
+const kindGap = (kind: PlaceholderKind, from = 0): GapHit => ({
+  from,
+  to: from + 6,
+  kind,
+  line: 1,
+  excerpt: `[${kind.toUpperCase()}: x]`,
+});
+
+const typed = (id: string, type?: RevisionType, priority?: RevisionPriority): RevisionDecision => ({
+  ...decision(id, null),
+  type,
+  priority,
+});
+
+describe("buildWorkChips", () => {
+  it("orders All → marker kinds → decision types, omitting zero-count chips", () => {
+    const chips = buildWorkChips(
+      [todos("Book/1.md", kindGap("todo"), kindGap("research", 20))],
+      [typed("a"), typed("b", "plot-hole")]
+    );
+    expect(chips.map((c) => c.label)).toEqual(["All", "TODO", "Research", "Continuity", "Plot hole"]);
+    expect(chips[0].count).toBe(4); // All = markers + decisions
+    expect(chips.map((c) => c.decision)).toEqual([false, false, false, true, true]);
+  });
+
+  it("shows legacy decision-type chips only when such decisions exist", () => {
+    const none = buildWorkChips([], [typed("a", "continuity")]);
+    expect(none.some((c) => c.label === "New scene")).toBe(false);
+    const some = buildWorkChips([], [typed("a", "new-scene"), typed("b", "research")]);
+    expect(some.filter((c) => c.decision).map((c) => c.label)).toEqual(["Research", "New scene"]);
+  });
+
+  it("buckets untyped decisions as Continuity", () => {
+    const chips = buildWorkChips([], [typed("a"), typed("b")]);
+    expect(chips.find((c) => c.label === "Continuity")?.count).toBe(2);
+  });
+});
+
+describe("applyWorkFilter", () => {
+  const markerSet = [todos("Book/1.md", kindGap("todo"), kindGap("research", 20))];
+  const decisionSet = [typed("a"), typed("b", "plot-hole")];
+
+  it("is the identity for the all facet", () => {
+    const out = applyWorkFilter(markerSet, decisionSet, { facet: "all" });
+    expect(out.todos).toEqual(markerSet);
+    expect(out.decisions).toEqual(decisionSet);
+  });
+
+  it("marker facet keeps only that kind and drops all decisions", () => {
+    const out = applyWorkFilter(markerSet, decisionSet, { facet: "marker", kind: "research" });
+    expect(out.decisions).toEqual([]);
+    expect(out.todos).toHaveLength(1);
+    expect(out.todos[0].todos.map((t) => t.kind)).toEqual(["research"]);
+  });
+
+  it("marker facet drops scene groups left with no matching markers", () => {
+    const out = applyWorkFilter(markerSet, decisionSet, { facet: "marker", kind: "note" });
+    expect(out.todos).toEqual([]);
+  });
+
+  it("decision facet keeps only that effective type and drops all markers", () => {
+    const out = applyWorkFilter(markerSet, decisionSet, { facet: "decision", type: "continuity" });
+    expect(out.todos).toEqual([]);
+    expect(out.decisions.map((d) => d.id)).toEqual(["a"]); // untyped = continuity
+  });
+});
+
+describe("sortDecisionsForDisplay", () => {
+  it("orders high → med → low → none, keeping creation order within a band", () => {
+    const list = [
+      typed("none1"),
+      typed("low1", undefined, "low"),
+      typed("high1", undefined, "high"),
+      typed("med1", undefined, "med"),
+      typed("high2", undefined, "high"),
+      typed("none2"),
+    ];
+    expect(sortDecisionsForDisplay(list).map((d) => d.id)).toEqual([
+      "high1",
+      "high2",
+      "med1",
+      "low1",
+      "none1",
+      "none2",
+    ]);
+    // Input untouched.
+    expect(list.map((d) => d.id)).toEqual(["none1", "low1", "high1", "med1", "high2", "none2"]);
   });
 });

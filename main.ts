@@ -436,7 +436,7 @@ export default class InkswellPlugin extends Plugin {
     return this.openInkswell("help");
   }
 
-  /** Open the Todos sweep (all bracketed to-do markers across the project). */
+  /** Open Revise → To-dos (markers left in prose + logged decisions). */
   openTodos(): Promise<void> {
     return this.openInkswell("revise", undefined, "todos");
   }
@@ -456,7 +456,8 @@ export default class InkswellPlugin extends Plugin {
     return this.openInkswell("revise", undefined, "analysis");
   }
 
-  /** Open the revision log, focused on the active file's project when possible. */
+  /** Open the merged revision worklist (Revise → To-dos), focused on the active
+   *  file's project when possible. */
   openRevisions(): Promise<void> {
     const active = this.app.workspace.getActiveFile();
     const project = active ? this.projectForPath(active.path) : null;
@@ -465,7 +466,7 @@ export default class InkswellPlugin extends Plugin {
       (view) => {
         if (project) view.getRevisionPanel().focusProject(project.vaultPath);
       },
-      "log"
+      "todos"
     );
   }
 
