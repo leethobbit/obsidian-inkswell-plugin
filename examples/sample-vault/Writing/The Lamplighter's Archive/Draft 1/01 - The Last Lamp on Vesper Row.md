@@ -2,7 +2,9 @@
 status: revised
 pov: Mara Vance
 chapter: One
-act: "1"
+act: Act I
+plotlines:
+  - The Lattice
 synopsis: Mara lights the last lamp on her night route as the district sleeps, content in a small life — the opening image of the city's memory kept safe for one more night.
 characters:
   - "[[Mara Vance]]"

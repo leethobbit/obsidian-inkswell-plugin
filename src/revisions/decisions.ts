@@ -77,6 +77,7 @@ export function pendingCount(list: RevisionDecision[]): number {
   return list.reduce((n, d) => (d.status === "pending" ? n + 1 : n), 0);
 }
 
+
 /** Current decisions for a project (empty array if none). */
 export function decisionsOf(project: Project): RevisionDecision[] {
   return project.inkswell?.revisions ?? [];

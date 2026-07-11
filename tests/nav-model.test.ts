@@ -74,7 +74,13 @@ describe("nav model", () => {
     expect(featureOf("plan", "overview")).toBeUndefined();
     expect(featureOf("plan", "structure")).toBeUndefined();
     expect(featureOf("revise", "todos")).toBeUndefined();
-    expect(featureOf("revise", "log")).toBeUndefined();
+    // The merged worklist (old Log folded in) keeps the phone-matching label.
+    expect(
+      DESTINATIONS.find((d) => d.id === "revise")?.subtabs?.find((s) => s.id === "todos")?.label
+    ).toBe("To-dos");
+    expect(
+      DESTINATIONS.find((d) => d.id === "revise")?.subtabs?.some((s) => s.id === "log")
+    ).toBe(false);
     expect(featureOf("publish", "compile")).toBeUndefined();
   });
 

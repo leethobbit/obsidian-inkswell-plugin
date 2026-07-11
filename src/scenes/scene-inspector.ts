@@ -54,7 +54,8 @@ export class SceneInspector implements RightPanel {
     open.onclick = () => openScene(this.app, file);
 
     const disabled = this.plugin.settings.disabledFeatures;
-    renderSceneMetaFields(container, this.app, file, ctx.project, disabled);
+    const markWrite = (path: string) => this.plugin.selfWrites.mark(path);
+    renderSceneMetaFields(container, this.app, file, ctx.project, disabled, markWrite);
 
     // Revision audit — collapsed by default so it doesn't crowd the drafting
     // metadata. The 14-point scene checklist (Revise → Audit) lives here too.
@@ -62,7 +63,7 @@ export class SceneInspector implements RightPanel {
     if (featureEnabled(disabled, "audit")) {
       const audit = container.createEl("details", { cls: "inkswell-inspector__audit" });
       audit.createEl("summary", { text: "Revision audit" });
-      renderSceneAuditFields(audit, this.app, file);
+      renderSceneAuditFields(audit, this.app, file, undefined, markWrite);
     }
   }
 }

@@ -78,6 +78,13 @@ export class ExplorerPanel {
     });
   }
 
+  /** Re-render into the last container (scene badges after an inline meta save).
+   *  A no-op before the first render or when the container left the DOM (e.g.
+   *  a phone drill-down replaced the list with the inspector screen). */
+  softRefresh(): void {
+    if (this.container?.isConnected) this.render(this.container);
+  }
+
   render(container: HTMLElement): void {
     this.container = container;
     container.empty();

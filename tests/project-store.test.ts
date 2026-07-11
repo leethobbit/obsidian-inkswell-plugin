@@ -95,6 +95,45 @@ describe("ProjectStore", () => {
     ]);
   });
 
+  it("reports which paths changed in each notify (self-write soft-refresh contract)", async () => {
+    const batches: Array<ReadonlySet<string> | undefined> = [];
+    const unsub = store.subscribe((_, changed) => batches.push(changed));
+    expect(batches).toEqual([undefined]); // subscribe-time snapshot has no diff
+
+    // A scene frontmatter edit names the SCENE file, not its project index.
+    await app.fileManager.processFrontMatter(
+      app.file("Books/Alpha/Scenes/First.md") as never,
+      (fm) => {
+        fm["status"] = "written";
+      }
+    );
+    await flushAsync();
+    expect(batches.length).toBe(2);
+    expect([...(batches[1] ?? [])]).toEqual(["Books/Alpha/Scenes/First.md"]);
+
+    // A codex note edit names the codex note.
+    await app.fileManager.processFrontMatter(app.file("Diary.md") as never, (fm) => {
+      fm["codex"] = "character";
+    });
+    await flushAsync();
+    expect(batches.length).toBe(3);
+    expect([...(batches[2] ?? [])]).toEqual(["Diary.md"]);
+
+    // An index structure edit names the index (project entry + its own mtime),
+    // plus the scene files it dropped from the resolved set.
+    await app.fileManager.processFrontMatter(
+      app.file("Books/Alpha/Alpha.md") as never,
+      (fm) => {
+        const lf = fm["longform"] as Record<string, unknown>;
+        lf["scenes"] = ["First"];
+      }
+    );
+    await flushAsync();
+    expect(batches.length).toBe(4);
+    expect(batches[3]?.has("Books/Alpha/Alpha.md")).toBe(true);
+    unsub();
+  });
+
   it("skips notify for edits to notes no panel renders, notifies for scene changes", async () => {
     let calls = 0;
     const unsub = store.subscribe(() => calls++);

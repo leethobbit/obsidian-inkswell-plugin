@@ -2,7 +2,10 @@
 status: idea
 pov: Inspector Coll
 chapter: Five
-act: "3"
+act: Act III
+plotlines:
+  - Coll & the Bureau
+  - The Lattice
 synopsis: Every lamp on Vesper Row is wiped at once. Coll arrives to a row that has forgotten itself — and realizes too late what, and who, the blackout was meant to erase. All is lost.
 characters:
   - "[[Inspector Coll]]"

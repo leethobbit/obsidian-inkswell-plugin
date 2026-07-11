@@ -36,11 +36,37 @@ export const REVISION_TYPES: { id: RevisionType; label: string }[] = [
   { id: "new-scene", label: "New scene" },
 ];
 
-export const REVISION_PRIORITIES: { id: RevisionPriority; label: string }[] = [
-  { id: "high", label: "High" },
-  { id: "med", label: "Medium" },
-  { id: "low", label: "Low" },
+/**
+ * Types offered when logging a NEW decision — story-level rulings only.
+ * `research` / `new-scene` are legacy: point-in-prose work belongs in a
+ * `[RESEARCH: ]` / `[SCENE: ]` marker at the exact spot instead. Saved
+ * decisions with those types stay valid forever (post-1.0 frozen contract:
+ * enum values are never removed) — they render, filter, and edit normally.
+ */
+export const OFFERED_REVISION_TYPES: RevisionType[] = [
+  "continuity",
+  "plot-hole",
+  "character",
+  "rewrite",
 ];
+
+/**
+ * Dropdown choices for the decision modal: the offered set, plus the
+ * decision's own legacy type when editing one — so a saved research/new-scene
+ * decision keeps its label and never silently changes type.
+ */
+export function typeChoices(existing?: RevisionType): { id: RevisionType; label: string }[] {
+  const ids = OFFERED_REVISION_TYPES.includes(existing as RevisionType)
+    ? OFFERED_REVISION_TYPES
+    : existing
+      ? [...OFFERED_REVISION_TYPES, existing]
+      : OFFERED_REVISION_TYPES;
+  return ids.map((id) => REVISION_TYPES.find((t) => t.id === id) ?? { id, label: id });
+}
+
+// No REVISION_PRIORITIES picker list: priority is legacy as of 1.8 (a rank
+// never changed behavior in a prose-order revision pass). The `priority` field
+// below stays — saved values render as badges and survive edits.
 
 export interface RevisionDecision {
   id: string;

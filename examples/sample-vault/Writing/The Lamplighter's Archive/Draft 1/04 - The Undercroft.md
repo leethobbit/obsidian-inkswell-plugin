@@ -2,7 +2,9 @@
 status: draft
 pov: Mara Vance
 chapter: Three
-act: "2"
+act: Act II
+plotlines:
+  - The Leaking Memory
 synopsis: Following the leak, Mara finds the access stair to the sealed Undercroft beneath the canal locks and goes down. Break into Act Two.
 characters:
   - "[[Mara Vance]]"

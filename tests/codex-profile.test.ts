@@ -6,7 +6,7 @@ import {
   isEmptyValue,
   profileFields,
 } from "../src/codex/profile-schema";
-import { CODEX_CATEGORIES, CodexCategory } from "../src/codex/types";
+import { BuiltinCodexCategory, CODEX_CATEGORIES } from "../src/codex/types";
 
 const field = (over: Partial<ProfileField>): ProfileField => ({
   key: "x",
@@ -25,7 +25,7 @@ describe("profile schema", () => {
   });
 
   it("covers the roadmap-picked fields per category", () => {
-    const expected: Record<CodexCategory, string[]> = {
+    const expected: Record<BuiltinCodexCategory, string[]> = {
       character: ["role", "traits", "motivation", "flaw", "backstory", "arc", "relationships"],
       location: ["type", "parent", "region", "climate", "atmosphere", "significance", "history"],
       world: ["geography", "culture", "politics", "magicTech", "religion", "economy", "history"],
@@ -48,6 +48,24 @@ describe("profile schema", () => {
         }
       }
     }
+  });
+
+  it("gives non-builtin categories the generic field set (customs and orphans alike)", () => {
+    for (const cat of ["creature", "no-longer-exists"]) {
+      expect(profileFields(cat).map((f) => f.key)).toEqual([
+        "aliases",
+        "type",
+        "description",
+        "significance",
+        "related",
+      ]);
+    }
+  });
+
+  it("leaves the generic Related links unrestricted (any category)", () => {
+    const related = profileFields("creature").find((f) => f.key === "related");
+    expect(related?.type).toBe("links");
+    expect(related?.linkCategory).toBeUndefined();
   });
 });
 

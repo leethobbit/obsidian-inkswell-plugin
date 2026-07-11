@@ -11,6 +11,8 @@
 
 import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 import { isPhone, renderPhoneRedirect } from "../lib/platform";
+import { preserveFocus } from "../lib/focus-preserve";
+import { KeyboardWatcher } from "./phone/keyboard-watch";
 import { createDraft, deleteDraft, renameDraft } from "../projects/draft-actions";
 import { draftLabel, groupIntoStories, Story, storyOf } from "../projects/stories";
 import { promptText } from "../scenes/scene-actions";
@@ -26,8 +28,7 @@ import { ProjectStore } from "../projects/project-store";
 import { ChecklistPanel } from "./publish/checklist-panel";
 import { LaunchPanel } from "./publish/launch-panel";
 import { AuditPanel } from "../revisions/audit-panel";
-import { TodosPanel } from "../revisions/todos-panel";
-import { RevisionPanel } from "../revisions/revision-view";
+import { RevisionWorkPanel } from "../revisions/work-panel";
 import { StatsPanel } from "../stats/stats-view";
 import { WritingTracker } from "../tracking/writing-tracker";
 import { ExplorerPanel } from "./explorer/explorer-view";
@@ -66,8 +67,7 @@ export class InkswellView extends ItemView {
   private codex: CodexPanel;
   private write: WritePanel;
   private stats: StatsPanel;
-  private revisions: RevisionPanel;
-  private todos: TodosPanel;
+  private todos: RevisionWorkPanel;
   private audit: AuditPanel;
   private analysis: AnalysisPanel;
   private compile: CompilePanel;
@@ -93,6 +93,8 @@ export class InkswellView extends ItemView {
   private unsubs: Array<() => void> = [];
   /** Set while a body rebuild is deferred because an input is focused. */
   private pendingRender = false;
+  /** Timer id for the pending-render safety sweep (0 = none scheduled). */
+  private pendingSweep = 0;
   /** Destination the body was last FULLY built for (gates the Write fast path). */
   private renderedMode: InkswellMode | null = null;
   /** True between pointerdown and pointerup — a deferred rebuild must not fire
@@ -132,11 +134,12 @@ export class InkswellView extends ItemView {
     this.codex.onOpenInWrite = (path, hl) => this.openSceneInWrite(path, hl);
     this.write = new WritePanel(this.app, plugin, store, plugin.sprints);
     this.stats = new StatsPanel(this.app, plugin, tracker, store, stats);
-    this.revisions = new RevisionPanel(this.app, plugin, store);
-    this.todos = new TodosPanel(this.app, store, plugin.activeProject, (path, hl) =>
+    this.todos = new RevisionWorkPanel(this.app, plugin, store, (path, hl) =>
       this.openSceneInWrite(path, hl)
     );
-    this.audit = new AuditPanel(this.app, store, plugin.activeProject);
+    this.audit = new AuditPanel(this.app, store, plugin.activeProject, (path) =>
+      plugin.selfWrites.mark(path)
+    );
     this.analysis = new AnalysisPanel(this.app, store, plugin.activeProject);
     this.compile = new CompilePanel(this.app, plugin, store);
     this.checklist = new ChecklistPanel(this.app, plugin, store);
@@ -156,8 +159,10 @@ export class InkswellView extends ItemView {
     this.inspector = new SceneInspector(this.app, plugin, store);
 
     // Re-render the active destination whenever projects, the log, or the active
-    // project change.
-    this.unsubs.push(store.subscribe(() => this.renderActive()));
+    // project change. The store also reports WHICH paths changed, so a notify
+    // caused purely by our own inline-form writes can be softened (no rebuild
+    // under the user's caret).
+    this.unsubs.push(store.subscribe((_, changed) => this.renderActive(changed)));
     this.unsubs.push(tracker.onChange(() => this.renderActive()));
     this.unsubs.push(plugin.activeProject.subscribe(() => this.renderActive()));
   }
@@ -221,6 +226,40 @@ export class InkswellView extends ItemView {
     this.registerDomEvent(window, "resize", () => {
       if (isPhone()) this.phone.alignAboveNavbar();
     });
+    // Deferred-rebuild flush: one delegated focusout on the body (bubbles from
+    // every field, present or future) instead of a per-element blur listener a
+    // mobile webview could orphan. See renderActive's editing guard.
+    this.registerDomEvent(this.body, "focusout", () => {
+      window.setTimeout(() => this.flushPendingRender(), 0);
+    });
+    this.register(() => window.clearTimeout(this.pendingSweep));
+    // Phone: keep the focused field visible once the soft keyboard settles
+    // (the webview doesn't reliably scroll fields inside nested flex columns).
+    this.registerDomEvent(this.body, "focusin", (e) => {
+      if (!isPhone()) return;
+      const t = e.target;
+      if (!(t instanceof HTMLElement)) return;
+      if (t.tagName !== "INPUT" && t.tagName !== "TEXTAREA" && t.tagName !== "SELECT") return;
+      window.setTimeout(() => {
+        if (t.isConnected && activeDocument.activeElement === t) {
+          t.scrollIntoView({ block: "center" });
+        }
+      }, 300);
+    });
+    // Track the soft keyboard: exposes --inkswell-keyboard-inset / is-keyboard-open
+    // on the host (CSS hides the bottom bar while typing), and re-measures the
+    // navbar lift. Measure twice: once immediately, and again after Obsidian's
+    // floating navbar finishes animating back in — measuring mid-animation
+    // reads zero overlap and leaves the bar parked under the navbar.
+    if (isPhone()) {
+      const keyboard = new KeyboardWatcher();
+      this.register(
+        keyboard.attach(root, () => {
+          this.phone.alignAboveNavbar();
+          window.setTimeout(() => this.phone.alignAboveNavbar(), 400);
+        })
+      );
+    }
     // Clicking a Home scene drives the Inspector directly (see the ExplorerPanel
     // callback above). These workspace events keep the Home inspector following
     // the active scene file when you navigate notes *outside* the host: file-open
@@ -425,10 +464,12 @@ export class InkswellView extends ItemView {
   }
 
   /** Whether a destination shows the "use a larger screen" notice on phones.
-   *  Revise is enabled only for its Todos slice; its other tabs redirect. */
+   *  Revise is enabled only for its To-dos slice; its other tabs redirect. */
   private isRedirected(mode: InkswellMode): boolean {
     if (PHONE_REDIRECTED.has(mode)) return true;
-    if (mode === "revise") return (this.subtab["revise"] ?? "audit") !== "todos";
+    // effectiveSubtab (not the raw remembered value) so a remembered subtab
+    // that's been disabled or removed can't strand the phone on a redirect.
+    if (mode === "revise") return this.effectiveSubtab("revise") !== "todos";
     return false;
   }
 
@@ -460,8 +501,8 @@ export class InkswellView extends ItemView {
     this.setMode("plan", "structure");
   }
 
-  getRevisionPanel(): RevisionPanel {
-    return this.revisions;
+  getRevisionPanel(): RevisionWorkPanel {
+    return this.todos;
   }
 
   /** True when Write is active with a live editor (gates the insert-todo command). */
@@ -486,42 +527,36 @@ export class InkswellView extends ItemView {
     this.renderActive();
   }
 
-  private renderActive(): void {
+  private renderActive(changed?: ReadonlySet<string>): void {
     if (!this.body || !this.rail || !this.header) return;
 
     // The header is outside the body and safe to refresh anytime.
     this.renderHeader();
 
-    // Don't rebuild the body while the user is typing inside it — that would
-    // destroy focus mid-keystroke. Defer the rebuild until the field blurs.
-    const ae = activeDocument.activeElement as HTMLElement | null;
-    const editing =
-      !!ae &&
-      this.body.contains(ae) &&
-      (ae.tagName === "TEXTAREA" || ae.tagName === "INPUT" || ae.isContentEditable);
-    if (editing) {
-      if (this.pendingRender) return;
-      this.pendingRender = true;
-      const onBlur = () => {
-        ae.removeEventListener("blur", onBlur);
-        // Defer to the next tick so focus has settled: tabbing to another field
-        // fires blur on this one before that field gains focus, so re-checking
-        // immediately would rebuild and destroy the field being tabbed into.
-        // And never rebuild mid-click — if a pointer is down (the user is
-        // clicking away), wait for it to lift so the click isn't swallowed.
-        const flush = () => {
-          if (this.pointerDown) {
-            window.setTimeout(flush, 50);
-            return;
-          }
-          this.pendingRender = false;
-          this.renderActive();
-        };
-        window.setTimeout(flush, 0);
-      };
-      ae.addEventListener("blur", onBlur);
+    // Self-write soft path: when every path in this notify was just written by
+    // one of our own inline forms (codex profile, scene meta), the active panel
+    // triggered it and its editor DOM must be left alone — rebuild it and the
+    // focused field is destroyed mid-keystroke (caret to 0; on mobile that
+    // reads as text entering backwards). Refresh only what the panel needs.
+    if (changed && this.plugin.selfWrites.coveredBy(changed) && this.softRefreshActive()) {
       return;
     }
+
+    // Don't rebuild the body while the user is typing inside it — that would
+    // destroy focus mid-keystroke. Defer the rebuild; the body-level focusout
+    // handler (onOpen) flushes it once the field is actually left. Delegated
+    // focusout can't be orphaned the way a per-element blur listener could
+    // (mobile webviews replace elements under a stuck listener), and each new
+    // notify re-evaluates the editing check, so a stale flag can't wedge.
+    if (this.isEditingInBody()) {
+      this.pendingRender = true;
+      // Safety sweep: focus can vanish WITHOUT a focusout (Chrome doesn't fire
+      // one when the focused element is removed from the DOM), which would
+      // strand this deferral until the next notify. Poll cheaply while pending.
+      this.schedulePendingSweep();
+      return;
+    }
+    this.pendingRender = false;
 
     // Rail highlight (desktop/tablet) + bottom-bar highlight (phone).
     this.rail.querySelectorAll<HTMLElement>(".inkswell-rail__item").forEach((b) => {
@@ -545,36 +580,122 @@ export class InkswellView extends ItemView {
       return;
     }
 
-    this.renderedMode = this.mode;
-    this.body.empty();
-    this.inspectorEl = null;
-    const dest = DESTINATIONS.find((d) => d.id === this.mode);
+    // Safety net for a rebuild that fires while a field is somehow still
+    // focused (the guard above depends on activeElement, which mobile webviews
+    // report unreliably): carry focus, caret, and un-committed text across.
+    preserveFocus(this.body, () => {
+      this.renderedMode = this.mode;
+      this.body.empty();
+      this.inspectorEl = null;
+      const dest = DESTINATIONS.find((d) => d.id === this.mode);
 
-    // Optional sub-tab bar — suppressed entirely on phones (the bottom bar / More
-    // sheet drive navigation; sub-tabs would offer tabs that just redirect).
-    const subtabs = dest ? enabledSubtabs(dest, this.plugin.settings.disabledFeatures) : [];
-    if (subtabs.length > 0 && !isPhone()) {
-      const active = this.effectiveSubtab(this.mode);
-      const bar = this.body.createDiv({ cls: "inkswell-subtabs" });
-      for (const st of subtabs) {
-        const b = bar.createEl("button", { cls: "inkswell-subtab", text: st.label });
-        b.toggleClass("is-active", st.id === active);
-        b.onclick = () => this.setMode(this.mode, st.id);
-        // Optional tabs can be hidden in place (re-enable in Settings → Features).
-        if (st.feature) this.attachHideMenu(b, st.feature, st.label);
+      // Optional sub-tab bar — suppressed entirely on phones (the bottom bar / More
+      // sheet drive navigation; sub-tabs would offer tabs that just redirect).
+      const subtabs = dest ? enabledSubtabs(dest, this.plugin.settings.disabledFeatures) : [];
+      if (subtabs.length > 0 && !isPhone()) {
+        const active = this.effectiveSubtab(this.mode);
+        const bar = this.body.createDiv({ cls: "inkswell-subtabs" });
+        for (const st of subtabs) {
+          const b = bar.createEl("button", { cls: "inkswell-subtab", text: st.label });
+          b.toggleClass("is-active", st.id === active);
+          b.onclick = () => this.setMode(this.mode, st.id);
+          // Optional tabs can be hidden in place (re-enable in Settings → Features).
+          if (st.feature) this.attachHideMenu(b, st.feature, st.label);
+        }
       }
+
+      // Main row: content + optional Scene Inspector (Home & Write).
+      const main = this.body.createDiv({ cls: "inkswell-main" });
+      const content = main.createDiv({ cls: "inkswell-content" });
+      this.renderContent(content);
+
+      // Home shows the host's active-file Inspector as a second column — wide
+      // screens only. On phones the inspector is a drill-down screen (renderContent).
+      if (this.mode === "home" && !isPhone()) {
+        this.inspectorEl = main.createDiv({ cls: "inkswell-inspector-col" });
+        this.updateInspector();
+      }
+    });
+  }
+
+  /** True while an editable field inside the body has focus. */
+  private isEditingInBody(): boolean {
+    const ae = activeDocument.activeElement as HTMLElement | null;
+    return (
+      !!ae &&
+      this.body.contains(ae) &&
+      (ae.tagName === "TEXTAREA" || ae.tagName === "INPUT" || ae.isContentEditable)
+    );
+  }
+
+  /** One-shot recheck while a deferred rebuild is pending; reschedules itself
+   *  until the deferral resolves. Only runs while pendingRender is set. */
+  private schedulePendingSweep(): void {
+    if (this.pendingSweep) return;
+    this.pendingSweep = window.setTimeout(() => {
+      this.pendingSweep = 0;
+      if (!this.pendingRender) return;
+      if (this.isEditingInBody()) {
+        this.schedulePendingSweep();
+        return;
+      }
+      this.flushPendingRender();
+    }, 1500);
+  }
+
+  /** Flush a deferred rebuild once focus has settled outside any field. Defer
+   *  past the tick so tabbing between fields doesn't rebuild in the gap, and
+   *  never rebuild mid-click — the click's target would be torn down. */
+  private flushPendingRender(): void {
+    if (!this.pendingRender) return;
+    if (this.pointerDown) {
+      window.setTimeout(() => this.flushPendingRender(), 50);
+      return;
     }
+    if (this.isEditingInBody()) return; // moved to another field; next focusout retries
+    this.pendingRender = false;
+    this.renderActive();
+  }
 
-    // Main row: content + optional Scene Inspector (Home & Write).
-    const main = this.body.createDiv({ cls: "inkswell-main" });
-    const content = main.createDiv({ cls: "inkswell-content" });
-    this.renderContent(content);
-
-    // Home shows the host's active-file Inspector as a second column — wide
-    // screens only. On phones the inspector is a drill-down screen (renderContent).
-    if (this.mode === "home" && !isPhone()) {
-      this.inspectorEl = main.createDiv({ cls: "inkswell-inspector-col" });
-      this.updateInspector();
+  /**
+   * Targeted refresh for a notify that only reflects the active panel's own
+   * writes. Returns true when handled (the focused editor DOM was left alone);
+   * false falls through to the normal render path.
+   */
+  private softRefreshActive(): boolean {
+    if (this.renderedMode !== this.mode) return false; // body isn't this panel's DOM
+    switch (this.mode) {
+      case "codex":
+        // Names/aliases/parents show in the list; the detail pane holds the caret.
+        this.codex.softRefresh();
+        return true;
+      case "home": {
+        // Refresh the scene list (status badges); the explorer no-ops on a
+        // phone detail screen where its container is detached.
+        this.explorer.softRefresh();
+        // The inspector (side column on desktop, drill-down screen on phone)
+        // shows chips/badges the write may have changed — rebuild it with
+        // focus preserved so the field being edited keeps caret and text.
+        if (this.inspectorEl) {
+          preserveFocus(this.inspectorEl, () => this.updateInspector());
+        } else if (isPhone() && this.detail["home"]) {
+          const host = this.body.querySelector<HTMLElement>(".inkswell-panelhost");
+          const file = this.fileAt(this.detail["home"]);
+          if (host && file) preserveFocus(host, () => this.inspector.render(host, file));
+        }
+        return true;
+      }
+      case "write":
+        // The Write fast path already absorbs metadata changes in place.
+        return this.write.update();
+      case "revise":
+        // To-dos: a decision write from the merged panel — refresh its rows in
+        // place (cached marker scan + fresh decisions). Audit's checkbox/note
+        // writes keep updating their own badges via onChange.
+        if (this.effectiveSubtab("revise") === "todos") this.todos.softRefresh();
+        return true;
+      default:
+        return false;
     }
   }
 
@@ -614,9 +735,14 @@ export class InkswellView extends ItemView {
 
     // A detail screen gets a back header; the list screen gets the contextual tip.
     // (renderHint owns its host so the panel's self-rerender never wipes it.)
-    if (homeFile) this.renderPhoneBack(content, "Scene", () => this.popDetail("home"));
-    else if (codexDetail) this.renderPhoneBack(content, "Codex", () => this.popDetail("codex"));
-    else renderHint(content, this.plugin, hintKey(this.mode, this.subtab[this.mode]));
+    if (homeFile) {
+      this.renderPhoneBack(content, homeFile.basename, () => this.popDetail("home"));
+    } else if (codexDetail) {
+      const entryName = this.fileAt(codexDetail)?.basename ?? "Codex";
+      this.renderPhoneBack(content, entryName, () => this.popDetail("codex"));
+    } else {
+      renderHint(content, this.plugin, hintKey(this.mode, this.subtab[this.mode]));
+    }
 
     const panel = content.createDiv({ cls: "inkswell-panelhost" });
 
@@ -651,7 +777,6 @@ export class InkswellView extends ItemView {
         const sub = this.effectiveSubtab("revise") ?? "audit";
         if (sub === "analysis") this.analysis.render(panel);
         else if (sub === "todos") this.todos.render(panel);
-        else if (sub === "log") this.revisions.render(panel);
         else this.audit.render(panel);
         break;
       }

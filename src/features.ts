@@ -40,7 +40,7 @@ export interface FeatureDef {
 /**
  * Every optional feature, in the order (and grouping) the Settings section shows
  * them. Core surfaces (Home, Write, Track, Codex, Search, Help, Plan → Overview,
- * Structure → Tree, Revise → Log/Todos, Publish → Compile, sprints, ideas) are
+ * Structure → Tree, Revise → To-dos, Publish → Compile, sprints, ideas) are
  * deliberately absent — they can't be hidden.
  */
 export const OPTIONAL_FEATURES: FeatureDef[] = [

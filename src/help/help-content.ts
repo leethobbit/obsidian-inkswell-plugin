@@ -70,7 +70,7 @@ export const HINTS: Record<string, HintEntry> = {
         el,
         "Don't stop to research or perfect a hard bit. Drop a bracketed marker and " +
           "keep moving — they're highlighted in the editor and swept up later in " +
-          "Revise → Todos. The keyword is case-insensitive and the “: text” is optional."
+          "Revise → To-dos. The keyword is case-insensitive and the “: text” is optional."
       );
       examples(el, ["[TODO: ]", "[RESEARCH: ]", "[NOTE: ]", "[DIALOGUE: ]", "[SCENE: ]"]);
       p(el, 'Run “Insert a to-do marker…” for a picker that drops one at the cursor.');
@@ -213,36 +213,28 @@ export const HINTS: Record<string, HintEntry> = {
       );
     },
   },
-  "revise/log": {
-    title: "How the revision log works",
-    body: (el) => {
-      p(
-        el,
-        "A decision log for revision work: capture what needs changing now, act on it " +
-          "later. Each entry has a type (Continuity, Plot hole, Rewrite, Character, " +
-          "Research, New-scene) and a priority."
-      );
-      steps(el, [
-        'Add one with “Log a revision decision” — it pre-fills from your editor selection.',
-        "Anchor it to the current scene, or to the whole project.",
-        "Entries start Pending; click Apply once you've made the change.",
-        "Filter by project, scene, or type; toggle Show applied to review history.",
-      ]);
-    },
-  },
   "revise/todos": {
-    title: "How the to-do sweep works",
+    title: "How revision to-dos work",
     body: (el) => {
       p(
         el,
-        "Every bracketed marker you dropped while drafting, gathered in one place and " +
-          "grouped by scene. Use the chips to filter by type."
+        "Everything left to revise, in one scene-grouped list: the bracketed markers you " +
+          "dropped while drafting, and the revision decisions you logged along the way. " +
+          "Use the chips to filter by marker kind or decision type."
       );
       examples(el, ["[TODO]", "[RESEARCH: ]", "[NOTE: ]", "[DIALOGUE: ]", "[SCENE: ]"]);
       p(
         el,
-        "Click a row to jump straight to that spot in Write — the marker flashes so you " +
-          "can resolve it fast. Edit the prose to remove it; the sweep updates on the next scan."
+        "Click a marker to jump straight to that spot in Write — it flashes so you can " +
+          "resolve it fast; edit the prose to remove it and the list updates on the next scan."
+      );
+      p(
+        el,
+        "Decisions are the story-level rulings (“from now on, the brother is dead”): log " +
+          "one with “Log a decision”, give it a type, and anchor it to a scene " +
+          "or the whole project. Tick it applied once you've made the change; click its text " +
+          "to edit it. Prefer a [RESEARCH: ] or [SCENE: ] marker for research questions and " +
+          "missing scenes — it marks the exact spot in the prose."
       );
     },
   },
@@ -379,12 +371,10 @@ export const HELP_SECTIONS: HelpSection[] = [
   {
     phase: "Revise",
     icon: "git-compare",
-    summary: "Audit checklists, the decision log, the to-do sweep, and prose analysis.",
+    summary: "Audit checklists, revision to-dos, and prose analysis.",
     body: (el) => {
       el.createEl("h4", { text: HINTS["revise/audit"].title });
       HINTS["revise/audit"].body(el);
-      el.createEl("h4", { text: HINTS["revise/log"].title });
-      HINTS["revise/log"].body(el);
       el.createEl("h4", { text: HINTS["revise/todos"].title });
       HINTS["revise/todos"].body(el);
       el.createEl("h4", { text: "Analysis" });

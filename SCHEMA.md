@@ -110,8 +110,8 @@ Ordered `[{id, title, color?}]` (edited in Plan → **Grid**). Array order = col
 ### `inkswell.revisions` — invisible-revision decision log
 Array of `{id, text, scene: string|null, status, created, type?, priority?}`.
 - `status`: `pending` · `applied`
-- `type`: `continuity` (default if absent) · `plot-hole` · `rewrite` · `character` · `research` · `new-scene`
-- `priority`: `low` · `med` · `high`
+- `type`: `continuity` (default if absent) · `plot-hole` · `rewrite` · `character` · `research` · `new-scene` — `research` and `new-scene` are **legacy as of 1.8**: still read, displayed, filtered, and preserved on edit, but no longer offered when logging a new decision (that work is directed to `[RESEARCH: ]` / `[SCENE: ]` prose markers)
+- `priority`: `low` · `med` · `high` — **legacy as of 1.8**: still read, displayed as a badge, and preserved on edit, but no longer offered when logging a decision (a rank never changes behavior in a prose-order revision pass)
 
 ### `inkswell.revisionChecklist` — project Story/Page checklists
 `story` and `page`, each a map of `checkpointId → {done?: boolean, note?: string}`.
@@ -143,7 +143,7 @@ Source: `src/codex/codex-store.ts`, `src/codex/profile-schema.ts`, `src/codex/co
 
 | Key | Type | Notes |
 |-----|------|-------|
-| `codex` | enum | Category / discovery marker: `character` · `location` · `world` · `faction` · `item` · `event` · `concept` |
+| `codex` | string | Category / discovery marker: a built-in id (`character` · `location` · `world` · `faction` · `item` · `event` · `concept`) or a user-defined custom-type slug (`/^[a-z][a-z0-9-]*$/`) |
 | `aliases` | string[] | Obsidian-native; used by mention auto-detect |
 | `parent` | wikilink | Parent entity (nested locations → world, etc.) |
 | `codex-series` | string | Scope: visible only to books whose `inkswell.series.name` matches. Wins over `codex-project`. |
@@ -154,6 +154,8 @@ Source: `src/codex/codex-store.ts`, `src/codex/profile-schema.ts`, `src/codex/co
 **Template-introduced keys.** When a codex template note (`<baseFolder>/Templates/<Label>.md`) is present, new entries are scaffolded from it, so a note may carry additional **user-authored** frontmatter — most commonly Obsidian-native `tags` — that Inkswell preserves but does not manage or read. On creation Inkswell force-sets `codex` and scope over whatever the template declared; everything else is the user's. Source: `src/codex/codex-template.ts`, `createEntity` in `src/codex/codex-store.ts`.
 
 Per-category profile fields are flat top-level keys, written by the profile editor. **Character:** `role` `function` `memorableTrait` `age` `gender` `occupation` `traits` `motivation` `flaw` `appearance` `backstory` `arc` `relationships[]`. **Location:** `type` `parent` `region` `climate` `population` `atmosphere` `significance` `history`. **World:** `geography` `culture` `politics` `magicTech` `religion` `economy` `history`. **Faction:** `type` `leadership[]` `size` `territory[]` `goal` `allies[]` `enemies[]`. **Item:** `type` `owner` `significance`. **Event:** `date` `participants[]` `outcome`. **Concept:** `type` `rules` `limitations` `significance`. (Fields ending `[]` are wikilink arrays; the rest are strings.)
+
+**Custom codex types** (Settings → Custom codex types) are persisted in the plugin's local `data.json` as `settings.customCategories` (`{id, label, plural, icon}`; normalized on load by `normalizeCustomCategories` in `src/codex/types.ts`). Their entries — and any entity whose `codex:` value matches **no** known type — use the generic profile keys: `type` `description` `significance` `related[]` (plus the shared `aliases`). Discovery is category-agnostic: an unrecognized `codex:` value is **never dropped**; the Codex panel shows it under "Uncategorized". Deleting a custom type touches no notes.
 
 ---
 

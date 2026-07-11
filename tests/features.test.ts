@@ -29,7 +29,7 @@ describe("enabledSubtabs", () => {
     expect(enabledSubtabs(plan, []).map((s) => s.id)).toEqual(["overview", "beats", "structure"]);
     expect(enabledSubtabs(plan, ["beats"]).map((s) => s.id)).toEqual(["overview", "structure"]);
     // Core tabs (no feature) are never dropped.
-    expect(enabledSubtabs(revise, ["audit", "analysis"]).map((s) => s.id)).toEqual(["log", "todos"]);
+    expect(enabledSubtabs(revise, ["audit", "analysis"]).map((s) => s.id)).toEqual(["todos"]);
     expect(enabledSubtabs(publish, ["checklist", "launch"]).map((s) => s.id)).toEqual(["compile"]);
   });
 });
@@ -42,14 +42,14 @@ describe("resolveSubtab", () => {
 
   it("falls back to the first enabled tab when the remembered one is hidden", () => {
     expect(resolveSubtab(plan, "beats", ["beats"])).toBe("overview");
-    // Audit hidden → Revise's first enabled tab is Log.
-    expect(resolveSubtab(revise, "audit", ["audit"])).toBe("log");
+    // Audit hidden → Revise's first enabled tab is the merged To-dos.
+    expect(resolveSubtab(revise, "audit", ["audit"])).toBe("todos");
     // Publish with both optionals hidden falls back to Compile.
     expect(resolveSubtab(publish, "launch", ["checklist", "launch"])).toBe("compile");
   });
 
   it("uses the first enabled tab when nothing is remembered", () => {
     expect(resolveSubtab(plan, undefined, [])).toBe("overview");
-    expect(resolveSubtab(revise, undefined, ["audit"])).toBe("log");
+    expect(resolveSubtab(revise, undefined, ["audit"])).toBe("todos");
   });
 });

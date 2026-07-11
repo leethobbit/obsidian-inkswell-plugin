@@ -9,6 +9,8 @@
 
 import { App, Menu, Notice, TFile, normalizePath, setIcon } from "obsidian";
 import { attachRowMenu } from "../lib/row-menu";
+import { preserveFocus, tagField } from "../lib/focus-preserve";
+import { autosizeTextarea } from "../lib/form-fields";
 import {
   confirmDelete,
   openScene,
@@ -35,7 +37,8 @@ import { resolveCodexFolder, sanitizeSegment } from "../settings/folders";
 import { tryFileOp } from "../lib/notify";
 import { readProfile, writeProfile } from "./codex-profile";
 import { Profile, ProfileField, profileFields } from "./profile-schema";
-import { CODEX_CATEGORIES, CodexCategory, CodexEntity, EntityScope, categoryLabel } from "./types";
+import { CategoryDef, CodexEntity, EntityScope, allCategories, categoryLabel } from "./types";
+import { CategoryModal } from "./category-modal";
 import { Project } from "../projects/types";
 import { groupIntoSeries } from "../series/series";
 import type InkswellPlugin from "../../main";
@@ -51,6 +54,8 @@ export class CodexPanel {
   private showAll = false;
   /** Bumped per detail render so a slow "Appears in" scan can't fill a stale pane. */
   private appearsToken = 0;
+  /** Category to preselect in the rebuilt dropdown after "New type…" adds one. */
+  private pendingCategoryId: string | null = null;
   /**
    * Optional intercept for a row tap. When it returns true the tap is considered
    * handled (the phone shell drills into a single-column detail screen) and the
@@ -70,6 +75,11 @@ export class CodexPanel {
     this.plugin = plugin;
   }
 
+  /** Built-ins + the user's custom types — read fresh from settings per render. */
+  private categories(): CategoryDef[] {
+    return allCategories(this.plugin.settings.customCategories);
+  }
+
   /** The active project (the vantage point for scoping), or null. */
   private activeProject(): Project | null {
     const path = this.plugin.activeProject.get();
@@ -82,6 +92,17 @@ export class CodexPanel {
     this.selectedPath = path;
   }
 
+  /**
+   * The host calls this instead of a full body rebuild when a store notify was
+   * caused purely by this panel's own profile writes. Both panes re-read the
+   * (now current) metadata cache — the immediate post-save render can be a
+   * step behind it (e.g. a just-added alias chip) — but the detail rebuild is
+   * focus-preserving, so the user's caret and in-flight text survive.
+   */
+  softRefresh(): void {
+    this.refreshPanes();
+  }
+
   render(container: HTMLElement): void {
     container.empty();
     container.addClass("inkswell-codex");
@@ -91,6 +112,7 @@ export class CodexPanel {
       type: "search",
       placeholder: "Search codex…",
     });
+    tagField(searchInput, "codex:search");
     searchInput.value = this.search;
     searchInput.oninput = () => {
       this.search = searchInput.value;
@@ -111,19 +133,38 @@ export class CodexPanel {
       this.renderList();
     };
 
+    const NEW_TYPE = "__new__"; // sentinel — can't collide with slug-shaped ids
+    const cats = this.categories();
     const catSel = bar.createEl("select", { cls: "dropdown" });
-    for (const c of CODEX_CATEGORIES) {
+    for (const c of cats) {
       catSel.createEl("option", { text: c.label, value: c.id });
     }
+    catSel.createEl("option", { text: "New type…", value: NEW_TYPE });
+    if (this.pendingCategoryId && cats.some((c) => c.id === this.pendingCategoryId)) {
+      catSel.value = this.pendingCategoryId;
+    }
+    this.pendingCategoryId = null;
+    // Picking "New type…" opens the add dialog instead of being a selection; the
+    // select snaps back so cancel leaves the previous category active.
+    let prevCat = catSel.value;
+    catSel.onchange = () => {
+      if (catSel.value !== NEW_TYPE) {
+        prevCat = catSel.value;
+        return;
+      }
+      catSel.value = prevCat;
+      this.openNewTypeModal();
+    };
     const newBtn = bar.createEl("button", { cls: "mod-cta", text: "New" });
     // New entries inherit the active project's scope: its series if it belongs to
     // one, else the book itself. With no active project they are created global.
     const createScope = defaultScopeForProject(active);
     newBtn.setAttribute("aria-label", this.scopeHint(active, createScope));
     newBtn.onclick = async () => {
-      const category = catSel.value as CodexCategory;
+      const def = this.categories().find((c) => c.id === catSel.value);
+      if (!def) return;
       const name = await promptText(this.app, {
-        title: `New ${categoryLabel(category)}`,
+        title: `New ${def.label}`,
         value: "",
         multiline: false,
         cta: "Create",
@@ -133,18 +174,17 @@ export class CodexPanel {
         () =>
           createEntity(
             this.app,
-            category,
+            def.id,
             name,
             resolveCodexFolder(this.plugin.settings, createScope, active?.vaultPath),
             createScope,
-            resolveCodexTemplate(this.app, this.plugin.settings, category)
+            resolveCodexTemplate(this.app, this.plugin.settings, def)
           ),
-        `Couldn't create the ${categoryLabel(category)}.`
+        `Couldn't create the ${def.label}.`
       );
       if (file) {
         this.selectedPath = file.path;
-        this.renderList();
-        this.renderDetail();
+        this.refreshPanes();
       }
     };
 
@@ -187,12 +227,38 @@ export class CodexPanel {
       return;
     }
 
-    for (const cat of CODEX_CATEGORIES) {
+    const cats = this.categories();
+    for (const cat of cats) {
       const entries = all.filter((e) => e.category === cat.id);
       if (entries.length === 0) continue;
       list.createEl("h4", { text: `${cat.plural} (${entries.length})` });
       for (const e of entries) this.renderRow(list, cat.icon, e);
     }
+
+    // Orphan safety: entries whose category no longer exists (a deleted custom
+    // type, or a hand-edited `codex:` value) stay visible and editable here.
+    const known = new Set(cats.map((c) => c.id));
+    const orphans = all.filter((e) => !known.has(e.category));
+    if (orphans.length > 0) {
+      list.createEl("h4", { text: `Uncategorized (${orphans.length})` });
+      for (const e of orphans) this.renderRow(list, "circle-help", e);
+    }
+  }
+
+  /** Open the add-custom-type dialog; on submit persist + rebuild with it selected. */
+  private openNewTypeModal(): void {
+    const merged = this.categories();
+    new CategoryModal(this.app, {
+      existing: null,
+      takenIds: merged.map((c) => c.id),
+      takenLabels: merged.map((c) => c.label.toLowerCase()),
+      onSubmit: async (def) => {
+        this.plugin.settings.customCategories.push(def);
+        await this.plugin.saveSettings();
+        this.pendingCategoryId = def.id;
+        this.plugin.refreshView();
+      },
+    }).open();
   }
 
   private renderRow(parent: HTMLElement, icon: string, entity: CodexEntity): void {
@@ -219,8 +285,7 @@ export class CodexPanel {
     row.onclick = () => {
       if (this.onSelect?.(entity.path)) return; // phone: drilled into a detail screen
       this.selectedPath = entity.path;
-      this.renderList();
-      this.renderDetail();
+      this.refreshPanes();
     };
     attachRowMenu(row, row, () => {
       const menu = new Menu();
@@ -260,7 +325,7 @@ export class CodexPanel {
     head.createDiv({ cls: "inkswell-inspector__title", text: entity.name });
     head.createDiv({
       cls: "inkswell-inspector__project",
-      text: categoryLabel(entity.category),
+      text: categoryLabel(entity.category, this.plugin.settings.customCategories),
     });
     const openBtn = head.createEl("button", { text: "Open note" });
     openBtn.onclick = () => openScene(this.app, file);
@@ -325,6 +390,9 @@ export class CodexPanel {
     entities: CodexEntity[]
   ): void {
     const save = async (value: Profile[string]) => {
+      // Mark the write as our own BEFORE it lands, so the store notify it
+      // produces is recognized and softened (no rebuild under the caret).
+      this.plugin.selfWrites.mark(file.path);
       await tryFileOp(
         () => writeProfile(this.app, file, entity.category, { [field.key]: value }),
         "Couldn't save the profile field."
@@ -334,13 +402,13 @@ export class CodexPanel {
     // that the list also shows).
     const saveAndRefresh = async (value: Profile[string]) => {
       await save(value);
-      this.renderList();
-      this.renderDetail();
+      this.refreshPanes();
     };
 
     this.field(host, field.label, (control) => {
       if (field.type === "text") {
         const t = control.createEl("input", { type: "text" });
+        tagField(t, `codex:${field.key}`);
         t.value = (profile[field.key] as string) ?? "";
         if (field.placeholder) t.placeholder = field.placeholder;
         t.onchange = () => void save(t.value);
@@ -348,10 +416,12 @@ export class CodexPanel {
       }
       if (field.type === "textarea") {
         const ta = control.createEl("textarea", { cls: "inkswell-inspector__textarea" });
+        tagField(ta, `codex:${field.key}`);
         ta.rows = 3;
         ta.value = (profile[field.key] as string) ?? "";
         if (field.placeholder) ta.placeholder = field.placeholder;
         ta.onchange = () => void save(ta.value);
+        autosizeTextarea(ta);
         return;
       }
       if (field.type === "list") {
@@ -362,13 +432,25 @@ export class CodexPanel {
           const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
           x.onclick = () => void saveAndRefresh(current.filter((c) => c !== val));
         }
-        const input = control.createEl("input", { type: "text" });
+        const addRow = control.createDiv({ cls: "inkswell-inspector__addrow" });
+        const input = addRow.createEl("input", { type: "text" });
+        tagField(input, `codex:${field.key}-add`);
         input.placeholder = field.placeholder ?? "Add…";
-        input.onkeydown = (e) => {
-          if (e.key !== "Enter") return;
+        const commit = () => {
           const v = input.value.trim();
+          // Clear before the refresh so the focus-preserving rebuild hands
+          // back an empty input, ready for the next value.
+          input.value = "";
           if (v && !current.includes(v)) void saveAndRefresh([...current, v]);
         };
+        input.onkeydown = (e) => {
+          if (e.key !== "Enter") return;
+          commit();
+        };
+        // Android IMEs often don't deliver an Enter keydown at all (key
+        // "Unidentified"/229 while composing) — the button always works.
+        const addBtn = addRow.createEl("button", { text: "Add" });
+        addBtn.onclick = commit;
         return;
       }
       // links
@@ -401,6 +483,7 @@ export class CodexPanel {
     if (field.single) {
       const cur = profile[field.key] ? linkTarget(profile[field.key] as string) : "";
       const sel = control.createEl("select", { cls: "dropdown" });
+      tagField(sel, `codex:${field.key}`);
       sel.createEl("option", { text: "— none —", value: "" });
       for (const c of candidates) sel.createEl("option", { text: c.name, value: c.name });
       sel.value = candidates.some((c) => c.name === cur) ? cur : "";
@@ -420,6 +503,7 @@ export class CodexPanel {
     );
     if (remaining.length > 0) {
       const add = control.createEl("select", { cls: "dropdown" });
+      tagField(add, `codex:${field.key}-add`);
       add.createEl("option", { text: `+ add ${field.label.toLowerCase()}`, value: "" });
       for (const c of remaining) add.createEl("option", { text: c.name, value: c.name });
       add.value = "";
@@ -436,6 +520,15 @@ export class CodexPanel {
     const f = parent.createDiv({ cls: "inkswell-inspector__field" });
     if (label) f.createDiv({ cls: "inkswell-inspector__label", text: label });
     build(f.createDiv({ cls: "inkswell-inspector__control" }));
+  }
+
+  /** Rebuild both panes, handing focus/caret back to whichever detail field
+   *  triggered the refresh (alias Enter, chip removal, link/scope selects). */
+  private refreshPanes(): void {
+    this.renderList();
+    const detail = this.detailEl;
+    if (detail) preserveFocus(detail, () => this.renderDetail());
+    else this.renderDetail();
   }
 
   /** Tooltip describing what scope a new entry will inherit. */
@@ -460,6 +553,7 @@ export class CodexPanel {
 
     this.field(host, "Scope", (control) => {
       const sel = control.createEl("select", { cls: "dropdown" });
+      tagField(sel, "codex:scope");
       sel.createEl("option", { text: "Global (all projects)", value: "" });
       if (seriesNames.length) {
         const grp = sel.createEl("optgroup");
@@ -484,9 +578,9 @@ export class CodexPanel {
             ? { series: v.slice(2) }
             : { project: v.slice(2) };
         void (async () => {
+          this.plugin.selfWrites.mark(file.path);
           await writeEntityScope(this.app, file, next);
-          this.renderList();
-          this.renderDetail();
+          this.refreshPanes();
         })();
       };
     });
@@ -515,8 +609,7 @@ export class CodexPanel {
     );
     if (ok === null) return;
     if (this.selectedPath === file.path) this.selectedPath = path;
-    this.renderList();
-    this.renderDetail();
+    this.refreshPanes();
   }
 
   private async remove(file: TFile, name: string): Promise<void> {
@@ -525,7 +618,6 @@ export class CodexPanel {
     const done = await tryFileOp(() => this.app.fileManager.trashFile(file), `Couldn't delete "${name}".`);
     if (done === null) return;
     if (this.selectedPath === file.path) this.selectedPath = null;
-    this.renderList();
-    this.renderDetail();
+    this.refreshPanes();
   }
 }

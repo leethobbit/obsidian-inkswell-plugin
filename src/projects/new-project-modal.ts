@@ -93,7 +93,7 @@ export async function createProject(
 export class NewProjectModal extends Modal {
   private title = "";
   private baseFolder: string;
-  private sceneFolder = "Scenes";
+  private sceneFolder = "Draft 1";
   private folders: FolderSettings;
   private onCreated: (file: TFile) => void;
 

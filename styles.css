@@ -438,6 +438,17 @@
   margin-bottom: var(--size-4-1);
 }
 
+/* List-field add row: text input + explicit Add button (Enter also commits,
+   but Android IMEs don't reliably deliver it — the button always works). */
+.inkswell-inspector__addrow {
+  display: flex;
+  gap: var(--size-4-2);
+}
+.inkswell-inspector__addrow input {
+  flex: 1;
+  min-width: 0;
+}
+
 /* --- Home toolbar --- */
 .inkswell-explorer__toolbar {
   display: flex;
@@ -513,9 +524,55 @@
   cursor: pointer;
 }
 
-/* --- Todos panel (Revise → Todos): the bracketed to-do marker sweep --- */
+/* --- To-do marker rows + kind badges/chips (shared: Revise → To-dos, Write sidebar) --- */
 .inkswell-todos {
   padding: var(--size-4-3);
+}
+
+/* Revise → To-dos: the merged worklist (markers + decisions) */
+.inkswell-revwork {
+  padding: var(--size-4-3);
+}
+.inkswell-revwork__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin: var(--size-4-3) 0;
+}
+.inkswell-revwork__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-1);
+  flex: 1;
+  min-width: 0;
+}
+.inkswell-revwork__chipsep {
+  color: var(--text-faint);
+  padding: 0 var(--size-4-1);
+}
+/* Decision-type chips read differently from marker-kind chips. */
+.inkswell-revwork__chip--decision {
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+}
+.inkswell-revwork__chip--decision.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+.inkswell-revwork__add {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  white-space: nowrap;
+}
+.inkswell-revwork__addicon {
+  display: inline-flex;
+}
+.inkswell-revwork__addicon .svg-icon {
+  width: 14px;
+  height: 14px;
 }
 .inkswell-todos__filters {
   display: flex;
@@ -1115,6 +1172,13 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin-bottom: var(--size-4-2);
+}
+/* Structural context under a column head (a chapter column's act). */
+.inkswell-board__colsub {
+  font-weight: var(--font-normal);
+  color: var(--text-faint);
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .inkswell-board__list {
@@ -2733,7 +2797,7 @@
   text-decoration: underline;
 }
 
-/* Scene grouping in the Revise → Log panel. */
+/* Scene grouping in the Revise → To-dos panel. */
 .inkswell-revision__group {
   display: flex;
   align-items: baseline;
@@ -3093,6 +3157,61 @@ body.is-phone .inkswell-write__scenemeta > summary {
   font-size: var(--font-ui-small);
 }
 
+/* ===== Phone: soft-keyboard handling ===== */
+/* Android WebView bug, found on-device: when Obsidian shrinks its app
+   container for the soft keyboard, flex-stretch and percentage heights
+   resolve stale inside the shrunken subtree — the host's main column
+   collapses to its content height, leaving a keyboard-sized black void over
+   the UI. Absolute positioning resolves against the host's (correct) rect
+   and dodges the bug. Phone-only: the rail is display:none there, so
+   inset:0 overlays nothing; desktop/tablet keep the normal flex flow. */
+body.is-phone .inkswell-host {
+  position: relative;
+}
+body.is-phone .inkswell-host__main {
+  position: absolute;
+  inset: 0;
+}
+
+/* KeyboardWatcher publishes --inkswell-keyboard-inset + is-keyboard-open on
+   the host. Obsidian itself shrinks the app container while an input is
+   focused, so content isn't covered — but the bottom bar staying in the flex
+   column (with its navbar lift) squeezes the content to nothing. While
+   typing, the bar gets out of the way; tab-switching mid-edit isn't a flow
+   to protect. */
+body.is-phone .inkswell-host.is-keyboard-open .inkswell-bottombar {
+  display: none;
+}
+
+/* Form fields at ≥16px: sub-16px focused inputs trigger auto-zoom in mobile
+   webviews — the "field takes over the screen" effect. Also comfortable
+   touch heights for every profile/meta control. */
+body.is-phone .inkswell-inspector__control input,
+body.is-phone .inkswell-inspector__control select,
+body.is-phone .inkswell-inspector__control textarea,
+body.is-phone .inkswell-codex__toolbar input,
+body.is-phone .inkswell-codex__toolbar select {
+  font-size: max(16px, var(--font-ui-medium));
+}
+body.is-phone .inkswell-inspector__control input,
+body.is-phone .inkswell-inspector__control select,
+body.is-phone .inkswell-codex__toolbar input,
+body.is-phone .inkswell-codex__toolbar select,
+body.is-phone .inkswell-inspector__addrow button {
+  min-height: 44px;
+}
+
+/* Codex list toolbar: search + two selects + New don't fit one phone row —
+   search spans the top, the selects and New share the second row. */
+body.is-phone .inkswell-codex__toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: var(--size-4-2);
+}
+body.is-phone .inkswell-codex__toolbar input[type="search"] {
+  grid-column: 1 / -1;
+}
+
 /* ---- Contextual "How this works" tips ---- */
 /* The tip lives in its own host above the panel; the panel keeps its prior
    parent (.inkswell-content), so panel layout is unchanged. */
@@ -3257,4 +3376,18 @@ body.is-phone .inkswell-write__scenemeta > summary {
   display: flex;
   justify-content: flex-end;
   margin-top: var(--size-4-3);
+}
+
+/* ---- Custom codex types (settings section + add/edit modal) ---- */
+.inkswell-settings__caticon {
+  display: inline-flex;
+  vertical-align: -3px;
+  margin-right: var(--size-4-2);
+}
+.inkswell-catmodal__preview {
+  display: inline-flex;
+  width: 24px;
+  justify-content: center;
+  vertical-align: middle;
+  margin-left: var(--size-4-2);
 }

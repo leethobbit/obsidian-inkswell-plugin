@@ -9,12 +9,11 @@ import { App, Modal, Notice, Setting } from "obsidian";
 import { Project } from "../projects/types";
 import { decisionsOf, persistRevisions, upsertDecision } from "./revisions";
 import {
-  REVISION_PRIORITIES,
-  REVISION_TYPES,
   RevisionDecision,
   RevisionPriority,
   RevisionType,
   newRevisionId,
+  typeChoices,
 } from "./types";
 
 export class RevisionModal extends Modal {
@@ -31,7 +30,10 @@ export class RevisionModal extends Modal {
     project: Project,
     sceneTitle: string | null,
     initialText = "",
-    existing: RevisionDecision | null = null
+    existing: RevisionDecision | null = null,
+    /** Called with the index path just before saving — lets the opening surface
+     *  mark the write as its own (selfWrites) so the host softens the notify. */
+    private markWrite?: (path: string) => void
   ) {
     super(app);
     this.project = project;
@@ -71,17 +73,22 @@ export class RevisionModal extends Modal {
 
     new Setting(contentEl)
       .setName("Type")
-      .setDesc("Continuity decisions read 'from now on…'; others are issues to fix later.")
+      .setDesc(
+        "Continuity decisions read 'from now on…'; others are issues to fix later. " +
+          "For research questions or missing scenes, drop a [RESEARCH: ] or [SCENE: ] " +
+          "marker in the prose instead — it marks the exact spot."
+      )
       .addDropdown((d) => {
-        for (const t of REVISION_TYPES) d.addOption(t.id, t.label);
+        // Offered types only — plus this decision's own legacy type when editing,
+        // so a saved research/new-scene decision never silently changes type.
+        for (const t of typeChoices(this.existing?.type)) d.addOption(t.id, t.label);
         d.setValue(this.type).onChange((v) => (this.type = v as RevisionType));
       });
 
-    new Setting(contentEl).setName("Priority").addDropdown((d) => {
-      d.addOption("", "— none —");
-      for (const p of REVISION_PRIORITIES) d.addOption(p.id, p.label);
-      d.setValue(this.priority).onChange((v) => (this.priority = v as RevisionPriority | ""));
-    });
+    // No Priority field: a revision pass is worked in prose order, so a rank
+    // never changes behavior — it was a capture-time tax. `this.priority` is
+    // still seeded from an existing decision, so editing a legacy entry
+    // preserves its saved priority (the badge keeps rendering).
 
     // Anchor: whole project, or any scene in the book. Shown for multi-scene
     // projects (a single-scene project has nothing to anchor to).
@@ -119,6 +126,7 @@ export class RevisionModal extends Modal {
       type: this.type,
       priority: this.priority || undefined,
     };
+    this.markWrite?.(this.project.vaultPath);
     await persistRevisions(
       this.app,
       this.project,

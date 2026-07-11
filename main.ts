@@ -20,9 +20,11 @@ import { ActiveProject, resolveActive } from "./src/projects/active-project";
 import { NewProjectModal } from "./src/projects/new-project-modal";
 import { ProjectStats } from "./src/projects/project-stats";
 import { ProjectStore } from "./src/projects/project-store";
+import { SelfWriteRegistry } from "./src/lib/self-write";
 import { Project } from "./src/projects/types";
 import { RevisionModal } from "./src/revisions/revision-modal";
 import { FeatureId, featureEnabled } from "./src/features";
+import { normalizeCustomCategories } from "./src/codex/types";
 import {
   DEFAULT_SETTINGS,
   InkswellSettings,
@@ -45,6 +47,9 @@ export default class InkswellPlugin extends Plugin {
   writingLog: WritingLogData = emptyLog();
   ideas: Idea[] = [];
   activeProject: ActiveProject = new ActiveProject();
+  /** Paths the plugin's own inline forms just wrote — lets the view soften the
+   *  store notify those writes produce instead of rebuilding the focused field. */
+  selfWrites: SelfWriteRegistry = new SelfWriteRegistry();
   store!: ProjectStore;
   stats!: ProjectStats;
   tracker!: WritingTracker;
@@ -255,6 +260,9 @@ export default class InkswellPlugin extends Plugin {
       activeProject?: string;
     };
     this.settings = Object.assign({}, DEFAULT_SETTINGS, stored.settings ?? {});
+    // data.json is hand-editable and the merge above doesn't validate shapes —
+    // drop malformed/colliding custom codex types before anything renders them.
+    this.settings.customCategories = normalizeCustomCategories(this.settings.customCategories);
     this.writingLog = Object.assign({}, emptyLog(), stored.writingLog ?? {});
     this.ideas = Array.isArray(stored.ideas) ? stored.ideas : [];
     this.activeProject = new ActiveProject(
@@ -432,7 +440,7 @@ export default class InkswellPlugin extends Plugin {
     return this.openInkswell("help");
   }
 
-  /** Open the Todos sweep (all bracketed to-do markers across the project). */
+  /** Open Revise → To-dos (markers left in prose + logged decisions). */
   openTodos(): Promise<void> {
     return this.openInkswell("revise", undefined, "todos");
   }
@@ -452,7 +460,8 @@ export default class InkswellPlugin extends Plugin {
     return this.openInkswell("revise", undefined, "analysis");
   }
 
-  /** Open the revision log, focused on the active file's project when possible. */
+  /** Open the merged revision worklist (Revise → To-dos), focused on the active
+   *  file's project when possible. */
   openRevisions(): Promise<void> {
     const active = this.app.workspace.getActiveFile();
     const project = active ? this.projectForPath(active.path) : null;
@@ -461,7 +470,7 @@ export default class InkswellPlugin extends Plugin {
       (view) => {
         if (project) view.getRevisionPanel().focusProject(project.vaultPath);
       },
-      "log"
+      "todos"
     );
   }
 

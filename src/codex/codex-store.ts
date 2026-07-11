@@ -1,6 +1,9 @@
 /**
  * Codex discovery + creation. Entities are found by scanning the metadata cache
  * for notes with a `codex` frontmatter key (flat field — reliable in the cache).
+ * Discovery is category-agnostic: any non-empty string value counts, so an
+ * entity never vanishes when its category is deleted — grouping/labeling of
+ * unknown categories is the panel's job ("Uncategorized").
  * Creation writes a new note with a minimal frontmatter template.
  */
 
@@ -12,14 +15,13 @@ import { applyTemplateVars } from "../lib/template";
 import { Project } from "../projects/types";
 import { FolderSettings, resolveTemplateFolder, sanitizeSegment } from "../settings/folders";
 import {
-  CODEX_CATEGORIES,
+  CategoryDef,
   CodexCategory,
   CodexEntity,
   EntityScope,
   SCOPE_PROJECT_KEY,
   SCOPE_SERIES_KEY,
-  categoryLabel,
-  isCodexCategory,
+  allCategories,
 } from "./types";
 
 export function getCodexEntities(app: App): CodexEntity[] {
@@ -33,7 +35,7 @@ export function getCodexEntities(app: App): CodexEntity[] {
       | Record<string, unknown>
       | undefined;
     const cat = fm?.["codex"];
-    if (!isCodexCategory(cat)) continue;
+    if (typeof cat !== "string" || !cat.trim()) continue;
 
     const rawAliases = fm?.["aliases"];
     const aliases = Array.isArray(rawAliases)
@@ -45,7 +47,7 @@ export function getCodexEntities(app: App): CodexEntity[] {
     const parent = typeof parentRaw === "string" ? linkTarget(parentRaw) : undefined;
 
     const scope = readEntityScope(fm);
-    out.push({ path: file.path, name: file.basename, category: cat, aliases, parent, scope });
+    out.push({ path: file.path, name: file.basename, category: cat.trim(), aliases, parent, scope });
   }
   out.sort((a, b) => a.name.localeCompare(b.name));
   return out;
@@ -197,11 +199,11 @@ export async function createEntity(
 export function resolveCodexTemplate(
   app: App,
   settings: FolderSettings,
-  category: CodexCategory
+  category: CategoryDef
 ): TFile | null {
   const folder = resolveTemplateFolder(settings);
   const path = normalizePath(
-    folder ? `${folder}/${categoryLabel(category)}.md` : `${categoryLabel(category)}.md`
+    folder ? `${folder}/${category.label}.md` : `${category.label}.md`
   );
   const f = app.vault.getAbstractFileByPath(path);
   return f instanceof TFile ? f : null;
@@ -214,7 +216,8 @@ export function resolveCodexTemplate(
  */
 export async function generateCodexTemplates(
   app: App,
-  settings: FolderSettings
+  settings: FolderSettings,
+  customs: CategoryDef[] = []
 ): Promise<string[]> {
   const folder = resolveTemplateFolder(settings);
   if (folder && !app.vault.getAbstractFileByPath(folder)) {
@@ -231,8 +234,9 @@ export async function generateCodexTemplates(
     await app.vault.create(p, content);
     created.push(p);
   };
-  for (const cat of CODEX_CATEGORIES) await write(cat.label, starterCodexTemplate(cat.id));
-  await write("_Inkswell Templates", codexTemplatesReadme());
+  const categories = allCategories(customs);
+  for (const cat of categories) await write(cat.label, starterCodexTemplate(cat));
+  await write("_Inkswell Templates", codexTemplatesReadme(categories));
   return created;
 }
 

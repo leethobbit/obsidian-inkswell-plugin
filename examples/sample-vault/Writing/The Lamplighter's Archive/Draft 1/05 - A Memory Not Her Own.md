@@ -2,7 +2,10 @@
 status: outlined
 pov: Mara Vance
 chapter: Three
-act: "2"
+act: Act II
+plotlines:
+  - The Leaking Memory
+  - Mara's Grief
 synopsis: Inside the Archive, Mara reads the grief-memory to its end and learns the Archive has been waiting for a lighter who can read as well as light. False victory — the midpoint turn.
 characters:
   - "[[Mara Vance]]"

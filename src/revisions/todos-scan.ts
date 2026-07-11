@@ -4,7 +4,7 @@
  * `findGaps` scanner. Frontmatter is stripped first so token offsets/line numbers
  * match the Write editor's document (its doc is the body sans frontmatter).
  *
- * Used by both the Revise → Todos sweep and the Write → Revision sidebar, so the
+ * Used by both Revise → To-dos and the Write → Revision sidebar, so the
  * project-wide scan lives in one place.
  */
 

@@ -94,11 +94,12 @@ export const DESTINATIONS: Destination[] = [
     group: "pipeline",
     subtabs: [
       { id: "audit", label: "Audit", feature: "audit" },
-      { id: "log", label: "Log" },
-      { id: "todos", label: "Todos" },
+      // The merged worklist: inline prose markers + logged decisions in one
+      // scene-grouped view (the old separate Log subtab folded into it).
+      { id: "todos", label: "To-dos" },
       { id: "analysis", label: "Analysis", feature: "analysis" },
     ],
-    // Only the Todos slice is phone-usable; the sheet row jumps straight to it.
+    // Only the To-dos slice is phone-usable; the sheet row jumps straight to it.
     phone: { slot: "more", order: 2, label: "To-dos", subtab: "todos" },
   },
   {

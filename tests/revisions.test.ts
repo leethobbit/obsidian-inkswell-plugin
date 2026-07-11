@@ -8,7 +8,7 @@ import {
   setDecisionStatus,
   upsertDecision,
 } from "../src/revisions/decisions";
-import { RevisionDecision } from "../src/revisions/types";
+import { RevisionDecision, typeChoices } from "../src/revisions/types";
 
 function d(
   id: string,
@@ -109,5 +109,37 @@ describe("type & priority (B4)", () => {
     const list = upsertDecision([], d("1", { type: "character", priority: "med" }));
     const flipped = setDecisionStatus(list, "1", "applied");
     expect(flipped[0]).toMatchObject({ type: "character", priority: "med", status: "applied" });
+  });
+});
+
+describe("typeChoices", () => {
+  it("offers only the four core types for new decisions, in order", () => {
+    expect(typeChoices().map((t) => t.id)).toEqual([
+      "continuity",
+      "plot-hole",
+      "character",
+      "rewrite",
+    ]);
+  });
+
+  it("appends a legacy type when editing a decision that carries it", () => {
+    const choices = typeChoices("research");
+    expect(choices.map((t) => t.id)).toEqual([
+      "continuity",
+      "plot-hole",
+      "character",
+      "rewrite",
+      "research",
+    ]);
+    expect(choices.at(-1)?.label).toBe("Research");
+  });
+
+  it("does not duplicate a core type when editing one", () => {
+    expect(typeChoices("plot-hole").map((t) => t.id)).toEqual([
+      "continuity",
+      "plot-hole",
+      "character",
+      "rewrite",
+    ]);
   });
 });

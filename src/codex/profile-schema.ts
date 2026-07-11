@@ -8,7 +8,7 @@
  * prose. Keys not in a category's schema are preserved on write (never clobbered).
  */
 
-import { CodexCategory } from "./types";
+import { BuiltinCodexCategory, isBuiltinCategory } from "./types";
 
 export type ProfileFieldType =
   | "text" // single-line string
@@ -23,7 +23,7 @@ export interface ProfileField {
   type: ProfileFieldType;
   placeholder?: string;
   /** For `links`: restrict the picker to this category (undefined = any). */
-  linkCategory?: CodexCategory;
+  linkCategory?: string;
   /** For `links`: single value stored as a string (default = array). */
   single?: boolean;
 }
@@ -40,7 +40,7 @@ const ALIASES: ProfileField = {
  * Category-specific fields (excluding the shared `aliases`, which is prepended
  * by {@link profileFields}). Mirrors the field sets picked in ROADMAP v0.12.0.
  */
-const CATEGORY_FIELDS: Record<CodexCategory, ProfileField[]> = {
+const CATEGORY_FIELDS: Record<BuiltinCodexCategory, ProfileField[]> = {
   character: [
     { key: "role", label: "Role", type: "text", placeholder: "Protagonist, mentor…" },
     {
@@ -117,9 +117,28 @@ const CATEGORY_FIELDS: Record<CodexCategory, ProfileField[]> = {
   ],
 };
 
+/**
+ * Fields for user-defined custom categories (and for entities whose category is
+ * no longer recognized — "Uncategorized" entries stay fully editable). Kept
+ * generic on purpose: bespoke per-type fields are B2; until then, extra
+ * frontmatter baked into a type's template note persists on every entry
+ * (writeProfile only manages schema keys).
+ */
+const GENERIC_FIELDS: ProfileField[] = [
+  { key: "type", label: "Type", type: "text", placeholder: "What kind of entry this is" },
+  { key: "description", label: "Description", type: "textarea" },
+  {
+    key: "significance",
+    label: "Significance",
+    type: "textarea",
+    placeholder: "Why it matters to the story",
+  },
+  { key: "related", label: "Related entries", type: "links" },
+];
+
 /** Full ordered field list for a category (aliases first, then category fields). */
-export function profileFields(category: CodexCategory): ProfileField[] {
-  return [ALIASES, ...(CATEGORY_FIELDS[category] ?? [])];
+export function profileFields(category: string): ProfileField[] {
+  return [ALIASES, ...(isBuiltinCategory(category) ? CATEGORY_FIELDS[category] : GENERIC_FIELDS)];
 }
 
 /** A profile value is a string (text/textarea/single link) or string[] (list/links). */
