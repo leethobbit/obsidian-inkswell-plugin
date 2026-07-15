@@ -10,6 +10,8 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-07-15
+
 ### Added
 - **Scene template notes.** New scenes can now scaffold from a template, the same way codex entries do: put a `Scene.md` note in your templates folder (Settings → Templates → "Generate starter templates" creates a starter for you) and every scene you create — from the explorer, the Board, the Grid, or a beat scaffold — starts with that note's frontmatter and body, with `{{title}}` replaced by the scene's name. A single project can use its own template instead via the Longform-compatible `sceneTemplate` key on its index note (projects imported from Longform with a scene template now honor it). Anything Inkswell seeds itself — a beat's synopsis, a Grid drop's chapter — wins over the template, and `status: idea` is only applied when the template doesn't set a status of its own. Delete the note to go back to empty new scenes.
 - **Choose which day your week starts on.** Weekly goals, the weekly writing-habit count, and the Stats heatmap all assumed Monday. A new **Settings → Goals & sprints → Week starts on** option lets Sunday-week writers get numbers that match their calendar. Existing setups are untouched (Monday stays the default).
@@ -204,7 +206,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.8.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.9.0...HEAD
+[1.9.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.8.0...1.9.0
 [1.8.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.7.0...1.8.0
 [1.7.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.6.0...1.7.0
 [1.6.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.5.0...1.6.0
