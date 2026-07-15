@@ -10,6 +10,21 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-07-15
+
+### Added
+- **Scene template notes.** New scenes can now scaffold from a template, the same way codex entries do: put a `Scene.md` note in your templates folder (Settings → Templates → "Generate starter templates" creates a starter for you) and every scene you create — from the explorer, the Board, the Grid, or a beat scaffold — starts with that note's frontmatter and body, with `{{title}}` replaced by the scene's name. A single project can use its own template instead via the Longform-compatible `sceneTemplate` key on its index note (projects imported from Longform with a scene template now honor it). Anything Inkswell seeds itself — a beat's synopsis, a Grid drop's chapter — wins over the template, and `status: idea` is only applied when the template doesn't set a status of its own. Delete the note to go back to empty new scenes.
+- **Choose which day your week starts on.** Weekly goals, the weekly writing-habit count, and the Stats heatmap all assumed Monday. A new **Settings → Goals & sprints → Week starts on** option lets Sunday-week writers get numbers that match their calendar. Existing setups are untouched (Monday stays the default).
+
+- **Create scenes right in the Structure Tree.** Every chapter row has an **Add scene** button (also in the chapter's right-click/⋯ menu) that creates the scene inside that chapter, right after its last scene — no more hopping to the Board or explorer while outlining. The toolbar also gains an **Add scene** button for creating a scene without a chapter (it lands under "Unassigned scenes").
+
+### Changed
+- **Creating a project now lands you on its Plan tab.** It used to open the project's raw index note in a markdown tab — a YAML file a new user has no reason to see. Planning is the natural next step after "New project", so that's where you go.
+
+- **"Scaffold scenes" is now "Scaffold structure" — one click builds the whole skeleton.** On a project with an empty outline, scaffolding a beat template now creates the acts (using each structure's real act boundaries — Save the Cat splits 5/7/3, the 27-Chapter method gets its native 3×9, Romancing the Beat uses Gwen Hayes' four part names), one generically numbered chapter per beat ("Chapter One", "Chapter Two", …), and a placeholder scene per beat inside its chapter — all visible immediately in the Structure Tree, Board, and Grid. Every beat is also linked to its scene, so the beat sheet starts fully attached instead of unlinked (this linking now happens even on projects with existing structure). If the project already has acts or chapters, the button behaves exactly as before — it only creates missing scene stubs and says so, never touching a hand-built outline. Re-running is still safe: existing files and assignments are never overwritten. And because this creates a lot of files at once, the button now shows a **confirmation dialog with a full preview** — the exact acts, chapters, and scenes that will be created (or, on a structured project, just the scene stubs) — before anything is written.
+
+- **Act rows in the Structure Tree and Grid now show just the act's title.** They were prefixed with "Act — ", which read as a clunky "Act — Act I" with the default act names.
+
 ## [1.8.0] - 2026-07-11
 
 ### Added
@@ -191,7 +206,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.8.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.9.0...HEAD
+[1.9.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.8.0...1.9.0
 [1.8.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.7.0...1.8.0
 [1.7.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.6.0...1.7.0
 [1.6.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.5.0...1.6.0

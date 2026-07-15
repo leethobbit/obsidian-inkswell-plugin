@@ -22,6 +22,7 @@ import { confirmDelete, openScene, promptText } from "../scenes/scene-actions";
 import { readSceneMeta } from "../scenes/scene-meta";
 import { renderEmptyState, renderEmptyStateAction } from "../views/panel-kit";
 import { applyOutline } from "../outliner/apply-outline";
+import { promptNewScene } from "../outliner/create-scene";
 import {
   ActNode,
   ChapterNode,
@@ -74,6 +75,9 @@ export class OutlinePanel {
     addAct.onclick = () => void this.addAct();
     const addChapter = bar.createEl("button", { text: "Add chapter" });
     addChapter.onclick = () => void this.addChapter(null);
+    const addScene = bar.createEl("button", { text: "Add scene" });
+    addScene.setAttribute("aria-label", "Create a new scene without a chapter");
+    addScene.onclick = () => this.addScene(null);
 
     // Nothing to arrange yet: point at the natural upstream step rather than an
     // empty tree with two lonely buttons.
@@ -143,7 +147,7 @@ export class OutlinePanel {
     const box = container.createDiv({ cls: "inkswell-outline__act" });
     const row = box.createDiv({ cls: "inkswell-outline__row is-act" });
     this.grip(row);
-    row.createSpan({ cls: "inkswell-outline__name", text: `Act — ${act.title}` });
+    row.createSpan({ cls: "inkswell-outline__name", text: act.title });
     const addCh = row.createEl("button", { cls: "inkswell-outline__mini", text: "Add chapter" });
     addCh.onclick = () => void this.addChapter(act.id);
 
@@ -195,6 +199,9 @@ export class OutlinePanel {
       const n = Math.floor(Number(target.value));
       void this.setTarget(chapter.id, Number.isFinite(n) && n > 0 ? n : 0);
     };
+
+    const addSc = row.createEl("button", { cls: "inkswell-outline__mini", text: "Add scene" });
+    addSc.onclick = () => this.addScene(chapter);
 
     this.draggable(row, "chapter", chapter.id);
     // Chapter row accepts chapter-reorder (above/below this one, same act) and
@@ -363,6 +370,7 @@ export class OutlinePanel {
 
   private chapterMenu(chapter: ChapterNode, actId: string | null): Menu {
     const menu = new Menu();
+    menu.addItem((i) => i.setTitle("New scene…").setIcon("plus").onClick(() => this.addScene(chapter)));
     menu.addItem((i) => i.setTitle("Rename…").setIcon("pencil").onClick(() => void this.renameChapter(chapter)));
     menu.addItem((i) => i.setTitle("Delete").setIcon("trash").onClick(() => void this.deleteChapter(chapter)));
     menu.addSeparator();
@@ -401,6 +409,20 @@ export class OutlinePanel {
   }
 
   // --- Create / rename / delete / target -----------------------------------
+
+  /**
+   * Create a scene without leaving the Tree. With a chapter, the scene is tagged
+   * into it and inserted after its last scene (same convention as the Grid's
+   * "New scene here…"); an empty chapter appends at the manuscript's end and the
+   * next outline edit reflows it into place. With null, it lands unassigned.
+   */
+  private addScene(chapter: ChapterNode | null): void {
+    if (!this.project) return;
+    promptNewScene(this.app, this.store, this.plugin.settings, this.project, {
+      afterTitle: chapter?.scenes[chapter.scenes.length - 1]?.title,
+      meta: chapter ? { chapter: chapter.title } : undefined,
+    });
+  }
 
   private async addAct(): Promise<void> {
     const name = await promptText(this.app, { title: "New act", value: "", multiline: false, cta: "Add" });

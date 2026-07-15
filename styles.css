@@ -3391,3 +3391,31 @@ body.is-phone .inkswell-codex__toolbar input[type="search"] {
   vertical-align: middle;
   margin-left: var(--size-4-2);
 }
+
+/* ---- Scaffold structure confirmation (preview dialog) ---- */
+.inkswell-scaffold-preview {
+  max-height: 45vh;
+  overflow-y: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  padding: var(--size-4-2) var(--size-4-3);
+  margin: var(--size-4-2) 0;
+  font-size: var(--font-ui-small);
+}
+.inkswell-scaffold-preview__act {
+  font-weight: var(--font-semibold);
+  margin-top: var(--size-4-2);
+}
+.inkswell-scaffold-preview__act:first-child {
+  margin-top: 0;
+}
+.inkswell-scaffold-preview__row {
+  padding-left: var(--size-4-4);
+  display: flex;
+  gap: var(--size-4-2);
+  align-items: baseline;
+}
+.inkswell-scaffold-preview__note {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}

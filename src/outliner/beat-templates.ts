@@ -150,3 +150,45 @@ export const DEFAULT_TEMPLATE = "save-the-cat";
 export function getTemplate(id: string | undefined): BeatDef[] {
   return (id && BEAT_TEMPLATES[id]) || SAVE_THE_CAT;
 }
+
+/**
+ * An act (or named part) a template divides the book into, for structure
+ * scaffolding. A beat belongs to the LAST act whose `from` ≤ its `position`
+ * (i.e. `from` is the inclusive start of the act's position range).
+ */
+export interface TemplateAct {
+  title: string;
+  from: number;
+}
+
+const THREE_ACTS = (act2From: number, act3From: number): TemplateAct[] => [
+  { title: "Act I", from: 0 },
+  { title: "Act II", from: act2From },
+  { title: "Act III", from: act3From },
+];
+
+/**
+ * Per-template act boundaries, editorially matched to each structure: Save the
+ * Cat's Break Into Two/Three *start* their acts (Brody's sheet); the 27-chapter
+ * method is literally 3 acts × 9 chapters; Romancing the Beat divides into Gwen
+ * Hayes' four named parts rather than numbered acts.
+ */
+export const TEMPLATE_ACTS: Record<string, TemplateAct[]> = {
+  "save-the-cat": THREE_ACTS(0.2, 0.8),
+  "three-act": THREE_ACTS(0.25, 0.9),
+  "heros-journey": THREE_ACTS(0.25, 0.75),
+  "seven-point": THREE_ACTS(0.15, 0.9),
+  "story-circle": THREE_ACTS(0.25, 0.8),
+  "romancing-the-beat": [
+    { title: "Setup", from: 0 },
+    { title: "Falling", from: 0.3 },
+    { title: "Retreating", from: 0.6 },
+    { title: "Fighting for Love", from: 0.88 },
+  ],
+  "twenty-seven-chapter": THREE_ACTS(9 / 26, 18 / 26),
+};
+
+/** Act definitions for a template id (Act I/II/III fallback, like getTemplate). */
+export function templateActs(id: string | undefined): TemplateAct[] {
+  return (id && TEMPLATE_ACTS[id]) || THREE_ACTS(0.25, 0.75);
+}

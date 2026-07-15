@@ -21,7 +21,8 @@ import { renderEmptyStateAction } from "../views/panel-kit";
 import { BeatSheet, DEFAULT_TEMPLATE, TEMPLATE_META } from "./beat-templates";
 import { beatProgress, mergeBeats, setAssignment } from "./beats";
 import { promptNewScene } from "./create-scene";
-import { scaffoldFromTemplate } from "./scaffold";
+import { analyzeScaffold, scaffoldFromTemplate } from "./scaffold";
+import { confirmScaffold } from "./scaffold-modal";
 import type InkswellPlugin from "../../main";
 
 export class BeatPanel {
@@ -87,15 +88,36 @@ export class BeatPanel {
     }
     tsel.onchange = () => this.setTemplate(project, tsel.value);
 
-    const scaffold = bar.createEl("button", { text: "Scaffold scenes" });
-    scaffold.setAttribute("aria-label", "Create a placeholder scene for each beat");
+    const scaffold = bar.createEl("button", { text: "Scaffold structure" });
+    scaffold.setAttribute(
+      "aria-label",
+      "Create acts, chapters, and a placeholder scene for each beat"
+    );
     scaffold.onclick = async () => {
-      const n = await tryFileOp(
-        () => scaffoldFromTemplate(this.app, this.store, project, current),
-        "Couldn't scaffold scenes."
+      // Dry-run first: the confirm dialog previews exactly what will be written.
+      const analysis = analyzeScaffold(this.app, this.store, project, current);
+      if (!analysis) return;
+      if (!analysis.structured && analysis.newScenes === 0 && analysis.willLink === 0) {
+        new Notice("Nothing to scaffold — every beat already has its scene.");
+        return;
+      }
+      const label = TEMPLATE_META.find((m) => m.id === current)?.label ?? current;
+      if (!(await confirmScaffold(this.app, analysis, label))) return;
+      const r = await tryFileOp(
+        () =>
+          scaffoldFromTemplate(this.app, this.store, this.plugin.settings, project, current, analysis),
+        "Couldn't scaffold the structure."
       );
-      if (n === null) return;
-      new Notice(n > 0 ? `Created ${n} placeholder scene(s).` : "No new scenes to create.");
+      if (r === null) return;
+      if (r.structured && r.chapters > 0) {
+        new Notice(
+          `Scaffolded ${r.chapters} chapters across ${r.acts} acts (${r.scenes} new scene${r.scenes === 1 ? "" : "s"}).`
+        );
+      } else if (r.scenes > 0) {
+        new Notice(`Created ${r.scenes} scene(s). Existing structure left unchanged.`);
+      } else {
+        new Notice("No new scenes to create.");
+      }
     };
   }
 
@@ -201,7 +223,7 @@ export class BeatPanel {
       // Accumulate across repeated "Create another" so every new scene stays
       // attached to this beat, not just the last one.
       const attachedNow = [...attached];
-      promptNewScene(this.app, this.store, project, {
+      promptNewScene(this.app, this.store, this.plugin.settings, project, {
         meta: { synopsis: beat.blurb },
         onCreated: (file) => {
           attachedNow.push(file.basename);

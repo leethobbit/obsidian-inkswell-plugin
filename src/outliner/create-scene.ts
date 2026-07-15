@@ -11,7 +11,9 @@ import { updateScenes } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project, isMultiScene } from "../projects/types";
 import { SceneMeta, writeSceneMeta } from "../scenes/scene-meta";
-import { sanitizeSegment } from "../settings/folders";
+import { sceneTemplateCandidates } from "../scenes/scene-template";
+import { FolderSettings, sanitizeSegment } from "../settings/folders";
+import { applyTemplateVars } from "../lib/template";
 import { tryFileOp } from "../lib/notify";
 
 export interface CreateSceneOptions {
@@ -27,6 +29,45 @@ export interface CreateSceneOptions {
 }
 
 /**
+ * Resolve the template note new scenes scaffold from — the project's
+ * `sceneTemplate` first, else the vault-wide `Templates/Scene.md` — or null
+ * (→ the default empty scaffold). Mirrors resolveCodexTemplate.
+ */
+export function resolveSceneTemplate(
+  app: App,
+  settings: FolderSettings,
+  draft: { sceneTemplate?: string | null }
+): TFile | null {
+  for (const path of sceneTemplateCandidates(settings, draft.sceneTemplate)) {
+    const f = app.vault.getAbstractFileByPath(normalizePath(path));
+    if (f instanceof TFile) return f;
+  }
+  return null;
+}
+
+/**
+ * Create one scene file, scaffolded from the resolved template note when one
+ * exists (`{{title}}` substituted), then merge `patch` into its frontmatter.
+ * `status: idea` applies only when neither the template nor the patch set one.
+ */
+export async function createSceneFile(
+  app: App,
+  settings: FolderSettings,
+  draft: { sceneTemplate?: string | null },
+  path: string,
+  title: string,
+  patch: Partial<SceneMeta> = {}
+): Promise<TFile> {
+  const template = resolveSceneTemplate(app, settings, draft);
+  const body = template
+    ? applyTemplateVars(await app.vault.cachedRead(template), { title })
+    : "";
+  const file = await app.vault.create(path, body);
+  await writeSceneMeta(app, file, patch, { status: "idea" });
+  return file;
+}
+
+/**
  * Create one scene and add it to the project. Returns the new TFile, or null if
  * the project isn't multi-scene, the title is empty, or a file of that name
  * already exists at the target path (callers surface a Notice).
@@ -34,17 +75,19 @@ export interface CreateSceneOptions {
 export async function createScene(
   app: App,
   store: ProjectStore,
+  settings: FolderSettings,
   project: Project,
   opts: CreateSceneOptions
 ): Promise<TFile | null> {
-  if (!isMultiScene(project.draft)) return null;
+  const draft = project.draft;
+  if (!isMultiScene(draft)) return null;
   const indexFile = app.vault.getAbstractFileByPath(project.vaultPath);
   if (!(indexFile instanceof TFile)) return null;
 
   const title = sanitizeSegment(opts.title);
   if (!title) return null;
 
-  const folder = opts.folder ?? store.resolveSceneFolder(indexFile, project.draft.sceneFolder);
+  const folder = opts.folder ?? store.resolveSceneFolder(indexFile, draft.sceneFolder);
   if (folder && folder !== "/" && !app.vault.getAbstractFileByPath(folder)) {
     try {
       await app.vault.createFolder(folder);
@@ -60,10 +103,9 @@ export async function createScene(
   }
 
   return tryFileOp(async () => {
-    const file = await app.vault.create(path, "");
-    await writeSceneMeta(app, file, { status: "idea", ...opts.meta });
+    const file = await createSceneFile(app, settings, draft, path, title, opts.meta ?? {});
 
-    await updateScenes(app, indexFile, project.draft, (scenes) => {
+    await updateScenes(app, indexFile, draft, (scenes) => {
       if (scenes.some((s) => s.title === title)) return scenes;
       if (opts.afterTitle) {
         const at = scenes.findIndex((s) => s.title === opts.afterTitle);
@@ -102,6 +144,7 @@ class NewSceneModal extends Modal {
   constructor(
     app: App,
     private store: ProjectStore,
+    private settings: FolderSettings,
     private project: Project,
     private opts: NewSceneOptions
   ) {
@@ -135,7 +178,7 @@ class NewSceneModal extends Modal {
       this.input.focus();
       return;
     }
-    const file = await createScene(this.app, this.store, this.project, {
+    const file = await createScene(this.app, this.store, this.settings, this.project, {
       title,
       afterTitle: this.opts.afterTitle,
       meta: this.opts.meta,
@@ -166,9 +209,10 @@ class NewSceneModal extends Modal {
 export function promptNewScene(
   app: App,
   store: ProjectStore,
+  settings: FolderSettings,
   project: Project,
   opts?: NewSceneOptions
 ): void {
   if (!isMultiScene(project.draft)) return;
-  new NewSceneModal(app, store, project, opts ?? {}).open();
+  new NewSceneModal(app, store, settings, project, opts ?? {}).open();
 }

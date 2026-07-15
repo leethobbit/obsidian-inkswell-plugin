@@ -10,6 +10,7 @@ import { App, Notice, PluginSettingTab, Setting, setIcon } from "obsidian";
 import { tryFileOp } from "../lib/notify";
 import type InkswellPlugin from "../../main";
 import { OutputFormat } from "../compile/types";
+import { WeekStart } from "../goals/goals";
 import { FeatureGroup, OPTIONAL_FEATURES, featureEnabled } from "../features";
 import { generateCodexTemplates, getCodexEntities } from "../codex/codex-store";
 import { CategoryDef, allCategories } from "../codex/types";
@@ -28,7 +29,7 @@ export interface InkswellSettings {
   sceneHeadingLevel: number;
   /** Daily word goal shown in the status bar / stats. */
   dailyWordGoal: number;
-  /** Weekly word goal (Mon→today). */
+  /** Weekly word goal (start of week→today). */
   weeklyWordGoal: number;
   /** Monthly word goal (1st→today). */
   monthlyWordGoal: number;
@@ -42,6 +43,8 @@ export interface InkswellSettings {
   defaultSprintWordGoal: number;
   /** Minimum words for a day to count toward a writing streak. */
   streakThreshold: number;
+  /** First day of the week for weekly goals, habit tracking, and the heatmap. */
+  weekStart: WeekStart;
   /** Parent folder new projects + the shared codex scaffold under ("" = vault root). */
   baseFolder: string;
   /** Codex subfolder name, used both for the shared codex and per-project codex. */
@@ -82,6 +85,7 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   defaultSprintMinutes: 15,
   defaultSprintWordGoal: 0,
   streakThreshold: 1,
+  weekStart: "monday",
   baseFolder: "Writing",
   codexFolder: "Codex",
   coLocateCodex: true,
@@ -274,6 +278,20 @@ export class InkswellSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Goals & sprints").setHeading();
 
     new Setting(containerEl)
+      .setName("Week starts on")
+      .setDesc("First day of the week for weekly goals, habit tracking, and the heatmap.")
+      .addDropdown((d) =>
+        d
+          .addOption("monday", "Monday")
+          .addOption("sunday", "Sunday")
+          .setValue(this.plugin.settings.weekStart)
+          .onChange(async (v) => {
+            this.plugin.settings.weekStart = v === "sunday" ? "sunday" : "monday";
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
       .setName("Daily word goal")
       .setDesc("Target words per day, shown in the status bar and stats.")
       .addText((t) =>
@@ -288,7 +306,7 @@ export class InkswellSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Weekly word goal")
-      .setDesc("Target words per week (Monday→today).")
+      .setDesc("Target words per week (start of week→today).")
       .addText((t) =>
         t.setValue(`${this.plugin.settings.weeklyWordGoal}`).onChange(async (v) => {
           this.plugin.settings.weeklyWordGoal = clampInt(v, 0, 1000000, 3500);
@@ -409,17 +427,17 @@ export class InkswellSettingTab extends PluginSettingTab {
 
     this.renderCustomCategories(containerEl);
 
-    new Setting(containerEl).setName("Codex templates").setHeading();
+    new Setting(containerEl).setName("Templates").setHeading();
 
     const templateFolder = resolveTemplateFolder(this.plugin.settings) || "(vault root)";
     new Setting(containerEl)
       .setName("Generate starter templates")
       .setDesc(
-        `Create an editable note for each codex type in "${templateFolder}". New entries ` +
-          "are scaffolded from the matching note's frontmatter and body — add your own " +
-          "tags, fields, or sections (use {{title}} for the entry name). Inkswell still " +
-          "sets codex: and scope automatically; don't add a codex: key. Delete a template " +
-          "to return to the default."
+        `Create an editable note for each codex type — plus Scene.md for new scenes — in ` +
+          `"${templateFolder}". New entries and scenes are scaffolded from the matching ` +
+          "note's frontmatter and body — add your own tags, fields, or sections (use " +
+          "{{title}} for the new note's name). Inkswell still sets codex:, scope, and a " +
+          "default scene status automatically. Delete a template to return to the default."
       )
       .addButton((b) =>
         b.setButtonText("Generate starter templates").onClick(async () => {

@@ -95,7 +95,7 @@ export class BoardPanel {
 
     if (items.length === 0) {
       renderEmptyStateAction(container, "No scenes yet — cards appear here as you create scenes.", [
-        { label: "New scene", cta: true, onClick: () => promptNewScene(this.app, this.store, project) },
+        { label: "New scene", cta: true, onClick: () => promptNewScene(this.app, this.store, this.plugin.settings, project) },
         { label: "Go to Beats", onClick: () => void this.plugin.openBeats() },
       ]);
       return;
@@ -136,7 +136,7 @@ export class BoardPanel {
 
     const add = bar.createEl("button", { text: "New scene" });
     add.setAttribute("aria-label", "Create a new scene");
-    add.onclick = () => promptNewScene(this.app, this.store, project);
+    add.onclick = () => promptNewScene(this.app, this.store, this.plugin.settings, project);
   }
 
   private renderColumn(board: HTMLElement, col: BoardColumn, project: Project): void {

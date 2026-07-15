@@ -25,7 +25,7 @@ Mirrors Longform's `Draft` shape. Inkswell reads and writes these so projects ro
 | `longform.sceneFolder` | string | Folder (relative to index) holding scene files (`scenes` format) |
 | `longform.scenes` | nested string array | Ordered scene list; nested arrays encode indent/nesting |
 | `longform.ignoredFiles` | string[] | Files in the scene folder to ignore |
-| `longform.sceneTemplate` | string \| null | Template note applied to new scenes (parsed; apply-UI deferred) |
+| `longform.sceneTemplate` | string \| null | Vault path of a template note applied to new scenes (`.md` optional). Resolution: this path first, else the vault-wide `<baseFolder>/Templates/Scene.md`, else the default empty scaffold. The note's frontmatter+body are copied (`{{title}}` substituted); Inkswell-seeded fields (e.g. a beat's synopsis) win over the template, and `status: idea` applies only when neither sets a status. Set via frontmatter; no picker UI yet. |
 
 **Multiple drafts (non-normative).** Drafts of one story are separate index notes
 that share the same `longform.title` and are distinguished by `draftTitle`; the

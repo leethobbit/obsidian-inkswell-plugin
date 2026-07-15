@@ -117,10 +117,10 @@ export class StatsPanel {
     this.section(grid, "goals", "Goals", (body) => {
       const rings = body.createDiv({ cls: "inkswell-rings" });
       this.ring(rings, this.tracker.todayWords(), s.dailyWordGoal, "Today");
-      this.ring(rings, weekToDateWords(daily), s.weeklyWordGoal, "Week");
+      this.ring(rings, weekToDateWords(daily, new Date(), s.weekStart), s.weeklyWordGoal, "Week");
       this.ring(rings, monthToDateWords(daily), s.monthlyWordGoal, "Month");
 
-      const met = habitDaysMet(daily, s.habitMinWords);
+      const met = habitDaysMet(daily, s.habitMinWords, new Date(), s.weekStart);
       body.createDiv({
         cls: "inkswell-stats__row",
         text: `Habit: ${met} / ${s.habitDaysPerWeek} days this week (≥ ${s.habitMinWords} words/day)`,
@@ -580,7 +580,7 @@ export class StatsPanel {
   }
 
   private heatmap(parent: HTMLElement, daily: Record<string, number>): void {
-    const weeks = heatmapWeeks(daily, HEAT_WEEKS);
+    const weeks = heatmapWeeks(daily, HEAT_WEEKS, new Date(), this.plugin.settings.weekStart);
     const max = Math.max(1, ...weeks.flat().map((c) => c.words));
     const grid = parent.createDiv({ cls: "inkswell-heat" });
     for (const col of weeks) {

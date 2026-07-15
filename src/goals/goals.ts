@@ -6,6 +6,14 @@
 
 import { dateKey } from "../tracking/types";
 
+/** First day of the week for week-scoped math (user setting; "monday" = ISO). */
+export type WeekStart = "monday" | "sunday";
+
+/** Days elapsed since the week started (0 = the week's first day). */
+function daysSinceWeekStart(d: Date, weekStart: WeekStart): number {
+  return weekStart === "sunday" ? d.getDay() : (d.getDay() + 6) % 7;
+}
+
 export interface StreakResult {
   current: number;
   longest: number;
@@ -99,12 +107,13 @@ export function recentDailyAverage(
   return count === 0 ? 0 : sum / count;
 }
 
-/** Words written from the start of the current week (Monday) through today. */
+/** Words written from the start of the current week through today. */
 export function weekToDateWords(
   daily: Record<string, number>,
-  today: Date = new Date()
+  today: Date = new Date(),
+  weekStart: WeekStart = "monday"
 ): number {
-  const dow = (today.getDay() + 6) % 7; // Monday = 0
+  const dow = daysSinceWeekStart(today, weekStart);
   let sum = 0;
   const cur = new Date(today);
   for (let i = 0; i <= dow; i++) {
@@ -128,13 +137,14 @@ export function monthToDateWords(
   return sum;
 }
 
-/** Days in the current week (Mon→today) that met the habit's minimum. */
+/** Days in the current week (start of week→today) that met the habit's minimum. */
 export function habitDaysMet(
   daily: Record<string, number>,
   minWords: number,
-  today: Date = new Date()
+  today: Date = new Date(),
+  weekStart: WeekStart = "monday"
 ): number {
-  const dow = (today.getDay() + 6) % 7;
+  const dow = daysSinceWeekStart(today, weekStart);
   let met = 0;
   const cur = new Date(today);
   for (let i = 0; i <= dow; i++) {
@@ -265,15 +275,16 @@ export interface HeatCell {
 }
 
 /**
- * Build a calendar heatmap as an array of week-columns (each 7 cells, Mon→Sun),
- * ending with the current week.
+ * Build a calendar heatmap as an array of week-columns (each 7 cells starting on
+ * the configured week-start day), ending with the current week.
  */
 export function heatmapWeeks(
   daily: Record<string, number>,
   weeks: number,
-  today: Date = new Date()
+  today: Date = new Date(),
+  weekStart: WeekStart = "monday"
 ): HeatCell[][] {
-  const dow = (today.getDay() + 6) % 7; // Monday = 0
+  const dow = daysSinceWeekStart(today, weekStart);
   const start = new Date(today);
   start.setDate(start.getDate() - dow - (weeks - 1) * 7);
   const cur = new Date(start);
