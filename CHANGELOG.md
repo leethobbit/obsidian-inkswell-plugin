@@ -10,6 +10,11 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-07-15
+
+### Changed
+- **README wording pass for the community-store review.** The store's automated README scan flagged the literal `TODO` strings and HTML template comments as "unfilled placeholder text". The draft-marker feature is now described by purpose (with a `[RESEARCH: …]` syntax example), and the screenshot shot-list comment moved out of the README. No plugin behavior changes.
+
 ## [1.9.0] - 2026-07-15
 
 ### Added
@@ -206,7 +211,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.9.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.9.1...HEAD
+[1.9.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.9.0...1.9.1
 [1.9.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.8.0...1.9.0
 [1.8.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.7.0...1.8.0
 [1.7.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.6.0...1.7.0
