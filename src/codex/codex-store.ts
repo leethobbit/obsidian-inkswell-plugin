@@ -11,6 +11,7 @@ import { App, TFile, normalizePath } from "obsidian";
 import { detectMentions, linkTarget } from "./codex";
 import { isEntityVisible, scopeContextForProject } from "./codex-scope";
 import { starterCodexTemplate, codexTemplatesReadme } from "./codex-template";
+import { SCENE_TEMPLATE_BASENAME, starterSceneTemplate } from "../scenes/scene-template";
 import { applyTemplateVars } from "../lib/template";
 import { Project } from "../projects/types";
 import { FolderSettings, resolveTemplateFolder, sanitizeSegment } from "../settings/folders";
@@ -236,6 +237,7 @@ export async function generateCodexTemplates(
   };
   const categories = allCategories(customs);
   for (const cat of categories) await write(cat.label, starterCodexTemplate(cat));
+  await write(SCENE_TEMPLATE_BASENAME, starterSceneTemplate());
   await write("_Inkswell Templates", codexTemplatesReadme(categories));
   return created;
 }

@@ -18,9 +18,17 @@ const daily = {
   "2026-05-31": 300, // last month
 };
 
+// Same week with a Sunday entry, to tell the two week starts apart.
+const dailyWithSunday = { ...daily, "2026-06-14": 40 }; // Sun
+
 describe("weekToDateWords", () => {
   it("sums Monday through today", () => {
     expect(weekToDateWords(daily, WED)).toBe(350);
+  });
+
+  it("respects a Sunday week start", () => {
+    expect(weekToDateWords(dailyWithSunday, WED, "monday")).toBe(350); // Sun excluded
+    expect(weekToDateWords(dailyWithSunday, WED, "sunday")).toBe(390); // Sun included
   });
 });
 
@@ -34,6 +42,11 @@ describe("habitDaysMet", () => {
   it("counts week days meeting the minimum", () => {
     expect(habitDaysMet(daily, 100, WED)).toBe(2); // Mon 100, Tue 200; Wed 50 < 100
     expect(habitDaysMet(daily, 50, WED)).toBe(3);
+  });
+
+  it("respects a Sunday week start", () => {
+    expect(habitDaysMet(dailyWithSunday, 40, WED, "monday")).toBe(3); // Mon, Tue, Wed
+    expect(habitDaysMet(dailyWithSunday, 40, WED, "sunday")).toBe(4); // + Sun
   });
 });
 
@@ -62,5 +75,11 @@ describe("heatmapWeeks", () => {
     // last column is the current week; Monday cell is 2026-06-15
     expect(cols[3][0].key).toBe("2026-06-15");
     expect(cols[3][0].words).toBe(100);
+  });
+
+  it("starts columns on Sunday when configured", () => {
+    const cols = heatmapWeeks(dailyWithSunday, 4, WED, "sunday");
+    expect(cols[3][0].key).toBe("2026-06-14");
+    expect(cols[3][0].words).toBe(40);
   });
 });

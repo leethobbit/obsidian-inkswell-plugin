@@ -211,7 +211,7 @@ export class ExplorerPanel {
       add.setAttribute("aria-label", "Create a new scene in this project");
       add.onclick = (e) => {
         e.stopPropagation();
-        promptNewScene(this.app, this.store, project, {
+        promptNewScene(this.app, this.store, this.plugin.settings, project, {
           onCreated: (file) => this.onSelectScene(file),
         });
       };

@@ -107,12 +107,15 @@ export function readSceneMeta(app: App, file: TFile): SceneMeta {
 
 /**
  * Merge a metadata patch into a scene file's frontmatter. Empty/false/undefined
- * values clear the key so cleared fields don't linger.
+ * values clear the key so cleared fields don't linger. `defaults` fill keys the
+ * file doesn't already have (and the patch doesn't set) — so a scene template's
+ * own frontmatter wins over a default like `status: idea`.
  */
 export async function writeSceneMeta(
   app: App,
   file: TFile,
-  patch: Partial<SceneMeta>
+  patch: Partial<SceneMeta>,
+  defaults?: Partial<SceneMeta>
 ): Promise<void> {
   await app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
     for (const key of FIELD_KEYS) {
@@ -126,6 +129,13 @@ export async function writeSceneMeta(
         (Array.isArray(value) && value.length === 0);
       if (empty) delete fm[key];
       else fm[key] = value;
+    }
+    if (defaults) {
+      for (const key of FIELD_KEYS) {
+        if (!(key in defaults) || key in patch || fm[key] !== undefined) continue;
+        const value = defaults[key];
+        if (value !== undefined) fm[key] = value;
+      }
     }
   });
 }

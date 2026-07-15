@@ -348,8 +348,8 @@ export class PlotGridPanel {
     const label = table.createDiv({ cls: "inkswell-plotgrid__rowlabel is-act" });
     const chev = label.createSpan({ cls: "inkswell-plotgrid__chev" });
     setIcon(chev, collapsed ? "chevron-right" : "chevron-down");
-    // Same label convention as the Outline's act rows ("Act — One").
-    label.createSpan({ text: `Act — ${title}` });
+    // Same label convention as the Outline's act rows (the bare act title).
+    label.createSpan({ text: title });
     label.onclick = () => {
       if (this.collapsedActs.has(key)) this.collapsedActs.delete(key);
       else this.collapsedActs.add(key);
@@ -514,7 +514,7 @@ export class PlotGridPanel {
           if (!this.project) return;
           // The plan-a-future-beat flow: an idea-status stub lands in the right
           // chapter and plotline in one step (works in planned chapters too).
-          promptNewScene(this.app, this.store, this.project, {
+          promptNewScene(this.app, this.store, this.plugin.settings, this.project, {
             afterTitle: row.scenes[row.scenes.length - 1]?.title,
             meta: {
               chapter: row.chapterTitle || undefined,
