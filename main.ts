@@ -15,7 +15,7 @@ import { resolveCompileConfig } from "./src/compile/config";
 import { TargetModal } from "./src/goals/target-modal";
 import { Idea, newIdeaId } from "./src/ideation/types";
 import { countWords } from "./src/lib/wordcount";
-import { openScene, promptText } from "./src/scenes/scene-actions";
+import { promptText } from "./src/scenes/scene-actions";
 import { ActiveProject, resolveActive } from "./src/projects/active-project";
 import { NewProjectModal } from "./src/projects/new-project-modal";
 import { ProjectStats } from "./src/projects/project-stats";
@@ -483,13 +483,12 @@ export default class InkswellPlugin extends Plugin {
     ).open();
   }
 
-  /** Create a new project, make it active, reveal it on Home, open its index. */
+  /** Create a new project, make it active, and land on Plan to start outlining. */
   newProject(): void {
     new NewProjectModal(this.app, this.settings, (file) => {
       this.activeProject.set(file.path);
       this.refreshExplorer();
-      void this.openProjects();
-      openScene(this.app, file);
+      void this.openInkswell("plan");
     }).open();
   }
 
