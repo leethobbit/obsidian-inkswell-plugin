@@ -1,34 +1,7 @@
-<!--
-  ───────────────────────────────────────────────────────────────────────────
-  SCREENSHOT SHOT-LIST  (capture from examples/sample-vault — "The Lamplighter's
-  Archive" — so every shot shows populated, real-looking content, not empty UI)
-  ───────────────────────────────────────────────────────────────────────────
-  assets/hero.gif    — short loop tabbing Home → Plan → Write → Track → Revise →
-                       Publish. The 4-second "look how much this does" shot.
-  assets/track.png   — Track dashboard: GitHub-style heatmap + streak + progress
-                       rings + word-history chart. Most visually arresting frame.
-  assets/home.png    — project list + nestable scene tree + project switcher.
-  assets/plan.png    — Kanban Board grouped by status, colored scene cards.
-                       (Beat sheet or a Codex character profile is a fine alt.)
-  assets/write.png   — Live-Preview editor with placeholder tokens HIGHLIGHTED
-                       ([TODO: …], [RESEARCH: …]) + sprint timer running. Annotate the
-                       token highlighting — it's invisible unless pointed at.
-  assets/revise.png  — Audit toolkit: character-arc grid or per-scene revision
-                       checklist dashboard.
-  assets/publish.png — compile/export step editor, or the Launch pre-order timeline.
-  assets/codex.png   — a Codex entry profile (e.g. a character) with its linked scenes.
-
-  Craft: crop tight to the Inkswell panel but leave a sliver of Obsidian visible;
-  use a clean common theme (default dark); keep GIF small. See examples/README.md
-  for deploying the sample vault.
-  ───────────────────────────────────────────────────────────────────────────
--->
-
 # Inkswell
 
 **A local-first writer's suite for longform fiction in [Obsidian](https://obsidian.md).** Plan, draft, track, revise, and prepare to publish with Inkswell. My goal is to build the best end-to-end plugin toolkit for writers, especially those working on large series longform projects.
 
-<!-- HERO -->
 ![Inkswell — Plan · Write · Track · Revise · Publish, all inside Obsidian](assets/hero.gif)
 
 ## Why Inkswell
@@ -46,8 +19,8 @@ Five pipeline phases — **Home · Plan · Write · Revise · Publish** — plus
 |---------|---------------|
 | **Home** | Projects, a nestable scene tree, a cover-art hero card (logline / theme / word-target progress), multiple drafts per story, ideas inbox + quick capture, and series grouping for multi-book worlds. |
 | **Plan** | Overview fields, beat sheets (7 templates incl. Save the Cat!), and **Structure** — the outline tree, a Kanban board, and a plotline × chapter grid, behind one Tree / Board / Grid switcher. |
-| **Write** | A distraction-light Live-Preview editor, writing prompts, fast-drafting placeholder tokens, and timed sprints. |
-| **Revise** | An Audit toolkit, a unified To-dos worklist (placeholder markers left in prose + logged revision decisions), and manuscript Analysis. |
+| **Write** | A distraction-light Live-Preview editor, writing prompts, fast-drafting inline markers, and timed sprints. |
+| **Revise** | An Audit toolkit, a unified To-dos worklist (draft markers left in prose + logged revision decisions), and manuscript Analysis. |
 | **Publish** | A configurable compile/export pipeline plus a self-publishing checklist and launch planner. |
 | **Codex** | A story bible — characters, locations, worlds, factions, items, events, and concepts — with scene linking and mention auto-detect. |
 | **Track** | Word goals, streaks, a GitHub-style heatmap, lifetime records, a deadline pace calculator, and milestone zones. |
@@ -56,51 +29,44 @@ Five pipeline phases — **Home · Plan · Write · Revise · Publish** — plus
 
 Projects and a nestable scene tree, an ideas inbox with quick capture, and series grouping for multi-book worlds, all behind a global project switcher. Select a project to open a **hero card** — attach cover art and see the logline, theme, and a progress bar tracking words toward the target. A story can hold **multiple drafts** (a first draft, an editor pass…), switchable from the header, each a full independent copy of the manuscript and its planning.
 
-<!-- HOME -->
 ![Home: project list, nestable scene tree, and project switcher](assets/home.png)
 
 ### Plan — structure before you draft
 
 A three-step flow: *Overview* (novel-level fields and long-form prose), *Beats* (7 outline templates incl. Save the Cat!, with scene scaffolding), and *Structure* — the same scenes seen three ways behind a **Tree | Board | Grid** switcher: the authoritative Act › Chapter › Scene outline tree, a Kanban board (by status / act / chapter / POV), and a plotline × chapter plot grid.
 
-<!-- PLAN -->
 ![Plan: Kanban board with colored scene cards grouped by status](assets/plan.png)
 
 ### Write — draft fast, fix later
 
-A distraction-light, Live-Preview manuscript editor with writing prompts and timed **sprints**. Fast-drafting **placeholder tokens** — `[TODO: …]`, `[RESEARCH: …]`, `[DIALOGUE: …]`, `[SCENE: …]`, `[NOTE: …]` — highlight as you type, so you can mark a gap and keep moving forward. Find them all later in Revise → To-dos.
+A distraction-light, Live-Preview manuscript editor with writing prompts and timed **sprints**. Five fast-drafting **inline markers** — for to-dos, research questions, dialogue gaps, missing scenes, and notes — highlight as you type (e.g. `[RESEARCH: what did 1920s lamplighters earn?]`), so you can mark a gap and keep moving forward. Find them all later in Revise → To-dos.
 
-<!-- WRITE -->
-![Write: Live-Preview editor with highlighted placeholder tokens and a running sprint timer](assets/write.png)
+![Write: Live-Preview editor with highlighted draft markers and a running sprint timer](assets/write.png)
 
 ### Revise — from draft to book
 
 - **Audit** — per-scene and project revision checklists, a scene-purpose lift-out test, scene-opening variety, a character-arc grid, a side-character roster, and a style-sheet consistency scan.
-- **To-dos** — everything left to fix in one scene-grouped worklist: every placeholder marker (`[TODO]`, `[RESEARCH]`, …) left in the prose, plus your **invisible-revision decisions** — capture *"from now on, assume X"* rulings (e.g. "the inn is now called the Gilded Wren") as typed, prioritized entries and **keep drafting forward** instead of breaking flow to backfill earlier chapters.
+- **To-dos** — everything left to fix in one scene-grouped worklist: every draft marker left in the prose (to-dos, research questions, …), plus your **invisible-revision decisions** — capture *"from now on, assume X"* rulings (e.g. "the inn is now called the Gilded Wren") as typed, prioritized entries and **keep drafting forward** instead of breaking flow to backfill earlier chapters.
 - **Analysis** — readability, overused words, echoes, and composition mix.
 
-<!-- REVISE -->
 ![Revise: the Audit toolkit — character-arc grid and revision checklists](assets/revise.png)
 
 ### Publish — manuscript to market
 
 A configurable **compile/export** pipeline (Markdown & HTML built in; `.docx` / `.pdf` / `.epub` via pandoc when installed) with a step editor, chapter grouping, and a pre-export check. Plus a self-publishing **Checklist** (master checklist + book-metadata worksheet) and a **Launch** planner — pre-order timeline, budget, cover, marketing, and ARC trackers.
 
-<!-- PUBLISH -->
 ![Publish: compile step editor and the self-publishing launch planner](assets/publish.png)
 
 ### Codex — your story bible
 
 Characters, locations, worlds, factions, items, events, and concepts, each with its own profile. Every entry automatically lists the scenes that mention it — by name or alias, for any category — so your canon stays consistent as the manuscript grows. Can be scoped for single writing projects, or shared across a series.
 
-<!-- CODEX -->
 ![Codex: a character profile in the story bible with linked scenes](assets/codex.png)
 
 ### Track — view stats, keep pace, achieve goals
 
 Daily / weekly / monthly word goals, habit streaks, a GitHub-style heatmap, lifetime records, a writing-history chart, sprint stats, a **deadline pace calculator** (required daily words, ahead / on-track / behind), draft-milestone zones, and an optional daily mood.
 
-<!-- TRACK -->
 ![Track: heatmap, streak, progress rings, and writing-history chart](assets/track.png)
 
 ## Privacy & dependencies
