@@ -112,7 +112,7 @@ export class SceneRows {
         .setIcon("indent")
         .onClick(() =>
           void tryFileOp(
-            () => updateScenes(this.app, file, project.draft, (s) => indentScene(s, index)),
+            () => this.reorder(file, project, (s) => indentScene(s, index)),
             "Couldn't indent the scene."
           )
         )
@@ -123,7 +123,7 @@ export class SceneRows {
         .setIcon("outdent")
         .onClick(() =>
           void tryFileOp(
-            () => updateScenes(this.app, file, project.draft, (s) => unindentScene(s, index)),
+            () => this.reorder(file, project, (s) => unindentScene(s, index)),
             "Couldn't unindent the scene."
           )
         )
@@ -222,7 +222,7 @@ export class SceneRows {
       // Below this row → insert before the next row; above → take this row's slot.
       const to = isAfter(e) ? index + 1 : index;
       void tryFileOp(
-        () => updateScenes(this.app, file, project.draft, (s) => moveScene(s, payload.index, to)),
+        () => this.reorder(file, project, (s) => moveScene(s, payload.index, to)),
         "Couldn't reorder the scene."
       );
     });
@@ -246,7 +246,7 @@ export class SceneRows {
           .setIcon("arrow-up")
           .onClick(() =>
             void tryFileOp(
-              () => updateScenes(this.app, file, project.draft, (s) => moveScene(s, index, index - 1)),
+              () => this.reorder(file, project, (s) => moveScene(s, index, index - 1)),
               "Couldn't move the scene."
             )
           )
@@ -259,12 +259,26 @@ export class SceneRows {
           .setIcon("arrow-down")
           .onClick(() =>
             void tryFileOp(
-              () => updateScenes(this.app, file, project.draft, (s) => moveScene(s, index, index + 1)),
+              () => this.reorder(file, project, (s) => moveScene(s, index, index + 1)),
               "Couldn't move the scene."
             )
           )
       );
     }
+  }
+
+  /**
+   * A reorder-shaped index write, marked as a self-write first so the host
+   * soft-refreshes the scene list in place — a full body rebuild would reset
+   * the dashboard's scroll position on every move.
+   */
+  private reorder(
+    file: TFile,
+    project: Project,
+    transform: Parameters<typeof updateScenes>[3]
+  ): Promise<void> {
+    this.plugin.selfWrites.mark(file.path);
+    return updateScenes(this.app, file, project.draft, transform);
   }
 
   private indexFile(project: Project): TFile | null {

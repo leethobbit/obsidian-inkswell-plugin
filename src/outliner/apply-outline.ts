@@ -15,11 +15,18 @@ import { Project } from "../projects/types";
 import { SceneMeta, readSceneMeta, writeSceneMeta } from "../scenes/scene-meta";
 import { OutlineTree, serializeOutline } from "./outline";
 
+/**
+ * `mark` (when given) records each path as a self-write right before it's
+ * written, so the host view can soft-refresh the structure panel in place
+ * instead of tearing down the whole body — which resets scroll to the top on
+ * every drag, the "move a scene, scroll back down, repeat" jank.
+ */
 export async function applyOutline(
   app: App,
   indexFile: TFile,
   project: Project,
-  tree: OutlineTree
+  tree: OutlineTree,
+  mark: (path: string) => void = () => {}
 ): Promise<void> {
   const { order, sceneChapter, sceneAct, acts, chapters } = serializeOutline(tree);
   await tryFileOp(async () => {
@@ -35,9 +42,13 @@ export async function applyOutline(
       const patch: Partial<SceneMeta> = {};
       if ((cur.chapter ?? "") !== wantChapter) patch.chapter = wantChapter;
       if ((cur.act ?? "") !== wantAct) patch.act = wantAct;
-      if (Object.keys(patch).length > 0) await writeSceneMeta(app, f, patch);
+      if (Object.keys(patch).length > 0) {
+        mark(f.path);
+        await writeSceneMeta(app, f, patch);
+      }
     }
     // 2. Reorder the manuscript to the flattened outline order.
+    mark(indexFile.path);
     await updateScenes(app, indexFile, project.draft, () => order);
     // 3. Persist the config arrays (order + actId live here).
     await persistStructure(app, indexFile, "act", acts);

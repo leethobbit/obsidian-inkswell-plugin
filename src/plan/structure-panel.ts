@@ -61,6 +61,16 @@ export class StructurePanel {
     if (this.container) this.render(this.container);
   }
 
+  /**
+   * Re-render in place after a notify caused by our own structure writes (a
+   * Tree/Board drag). The rebuild is synchronous into the still-mounted
+   * container, so the scrolling ancestor keeps its scroll position — unlike
+   * the host's full body teardown, which resets it to the top on every move.
+   */
+  softRefresh(): void {
+    if (this.container?.isConnected) this.render(this.container);
+  }
+
   /** Right-click an optional view button to hide it (re-enable in Settings). */
   private attachHideMenu(el: HTMLElement, feature: FeatureId, label: string): void {
     el.addEventListener("contextmenu", (e) => {

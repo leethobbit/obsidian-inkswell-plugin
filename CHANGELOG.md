@@ -11,10 +11,18 @@ time the version bump renames that section to the new version and date.
 ## [Unreleased]
 
 ### Added
+- **Collapse acts and chapters in the Structure Tree.** Every act and chapter row now has a chevron; collapsed groups stay collapsed while you rearrange (the state lives for the session). A collapsed act or chapter is still a drop target — drop a scene on a collapsed chapter's header to file it there. Collapsed acts show a chapter count, and collapsed chapters keep their scene/word tallies.
+- **The Write panel's scene list is now grouped by chapter.** Chapter headers in the navigator collapse and expand, so a long draft can be narrowed to just the chapter you're working in. Chapterless scenes list as before, and projects without chapters keep the plain flat list. When the scene you're editing is inside a collapsed chapter, its header is tinted so you can still see where you are.
+
 - **Choose what counts toward your word goals.** Words are now attributed by the kind of note they were written in — manuscript scenes, planning notes, codex notes, or other project notes — and a new **Settings → Goals & sprints → What counts toward goals** section lets you pick which kinds feed your daily/weekly/monthly goals, streaks, habit, heatmap, and live sprint tallies. By default only manuscript scenes count. The toggles are retroactive for everything written from this version on: words in every category keep being recorded, so flipping a toggle later re-counts them instead of losing them. All drafts of a story count together — editing two drafts in one day combines toward the same goal.
 
 ### Changed
 - **Notes outside your projects no longer count toward goals.** Previously *any* markdown edit in the vault — a daily note, a meeting note — fed the daily goal. Goals now only ever count project writing (scenes, and optionally planning/codex/other project notes). Word history from before this version is untouched and still counts in full. A one-time notice points at the new setting after upgrading.
+
+### Fixed
+- **Moving a scene no longer throws you back to the top of the page.** Dragging a scene (or chapter, or act) in the Structure Tree or Board, and reordering scenes on Home, used to rebuild the whole view and reset the scroll position on every single move — arranging a long manuscript meant re-scrolling after each drag. Those moves now refresh the list in place, keeping your scroll position (and on Home, the Inspector) where you left them.
+
+## [1.9.1] - 2026-07-15
 
 ### Changed
 - **README wording pass for the community-store review.** The store's automated README scan flagged the literal `TODO` strings and HTML template comments as "unfilled placeholder text". The draft-marker feature is now described by purpose (with a `[RESEARCH: …]` syntax example), and the screenshot shot-list comment moved out of the README. No plugin behavior changes.
