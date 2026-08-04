@@ -9,7 +9,7 @@
  * (compile, goals, revisions) lives in the project index's `inkswell` frontmatter.
  */
 
-import { Notice, Plugin, WorkspaceLeaf } from "obsidian";
+import { Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
 import { runCompile } from "./src/compile/engine";
 import { resolveCompileConfig } from "./src/compile/config";
 import { TargetModal } from "./src/goals/target-modal";
@@ -33,7 +33,8 @@ import {
 import { WelcomeModal } from "./src/help/welcome-modal";
 import { SprintController } from "./src/sprints/sprint-controller";
 import { SprintModal } from "./src/sprints/sprint-modal";
-import { WritingLogData, emptyLog } from "./src/tracking/types";
+import { buildClassifierIndex, classifyPath } from "./src/tracking/classify";
+import { WordCategory, WritingLogData, emptyLog } from "./src/tracking/types";
 import { WritingTracker } from "./src/tracking/writing-tracker";
 import { StatusBar } from "./src/views/status-bar";
 import {
@@ -61,13 +62,43 @@ export default class InkswellPlugin extends Plugin {
 
     this.store = new ProjectStore(this.app);
     this.stats = new ProjectStats(this.app);
-    this.tracker = new WritingTracker(this.app, this.writingLog, () => void this.persist());
+
+    // Word-attribution classifier: prebuilt path index (refreshed on every
+    // project-list change) + a per-call codex frontmatter check. Codex
+    // membership is the `codex:` key, never a folder.
+    let classifierIndex = buildClassifierIndex([]);
+    const classify = (path: string): WordCategory | null => {
+      const file = this.app.vault.getAbstractFileByPath(path);
+      const fm =
+        file instanceof TFile
+          ? this.app.metadataCache.getFileCache(file)?.frontmatter
+          : undefined;
+      const codexKey: unknown = fm?.["codex"];
+      const isCodex = typeof codexKey === "string" && codexKey.trim() !== "";
+      return classifyPath(path, classifierIndex, isCodex);
+    };
+
+    this.tracker = new WritingTracker(
+      this.app,
+      this.writingLog,
+      () => void this.persist(),
+      classify,
+      () => new Set(this.settings.excludedFromGoals)
+    );
     this.sprints = new SprintController(this.tracker, this.writingLog, () =>
       void this.persist()
     );
     this.addChild(this.store);
     this.addChild(this.tracker);
     this.addChild(this.sprints);
+
+    // Fires immediately and on every fingerprint change (scene add/rename,
+    // project create, planning-pointer / compile-config edits via index mtime).
+    this.register(
+      this.store.subscribe((projects) => {
+        classifierIndex = buildClassifierIndex(projects);
+      })
+    );
 
     // Persist the active project whenever it changes (survives restart).
     this.register(this.activeProject.subscribe(() => void this.persist()));
@@ -97,6 +128,21 @@ export default class InkswellPlugin extends Plugin {
     // Obsidian's own startup UI). The modal sets `welcomeSeen` on close.
     this.app.workspace.onLayoutReady(() => {
       if (!this.settings.welcomeSeen) new WelcomeModal(this.app, this).open();
+
+      // One-time upgrade notice: goals stopped counting non-project notes.
+      // Only shown to installs with existing history — fresh installs just get
+      // the new behavior. The flag is set either way so this never re-checks.
+      if (!this.settings.categoryNoticeSeen) {
+        if (Object.keys(this.writingLog.daily).length > 0) {
+          new Notice(
+            "Inkswell goals now count only project words. Choose what counts " +
+              "(scenes, planning, codex) in Settings → Inkswell.",
+            10000
+          );
+        }
+        this.settings.categoryNoticeSeen = true;
+        void this.persist();
+      }
     });
   }
 

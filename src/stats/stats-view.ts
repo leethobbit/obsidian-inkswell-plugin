@@ -32,7 +32,7 @@ import { Project, isMultiScene } from "../projects/types";
 import { SCENE_STATUSES, readSceneMeta, statusLabel } from "../scenes/scene-meta";
 import { sprintSeconds, sprintStats, sprintWpm } from "../sprints/sprint-stats";
 import { WritingTracker } from "../tracking/writing-tracker";
-import { dateKey } from "../tracking/types";
+import { dateKey, projectedDaily } from "../tracking/types";
 import type InkswellPlugin from "../../main";
 
 const HEAT_WEEKS = 26;
@@ -77,7 +77,7 @@ export class StatsPanel {
     container.empty();
     container.addClass("inkswell-stats");
 
-    const daily = this.tracker.getLog().daily;
+    const daily = this.goalDaily();
     const s = this.plugin.settings;
 
     this.renderOverview(container);
@@ -213,6 +213,15 @@ export class StatsPanel {
 
   // --- Sections ------------------------------------------------------------
 
+  /** The date→words map counting toward goals: the writing log with the
+   *  excluded categories subtracted (legacy pre-category days count fully). */
+  private goalDaily(): Record<string, number> {
+    return projectedDaily(
+      this.tracker.getLog(),
+      new Set(this.plugin.settings.excludedFromGoals)
+    );
+  }
+
   /** Writing-history bar chart + range toggle (rebuilds itself on toggle). */
   private renderHistory(host: HTMLElement): void {
     host.empty();
@@ -226,7 +235,7 @@ export class StatsPanel {
       };
     }
 
-    const series = dailySeries(this.tracker.getLog().daily, this.chartRange);
+    const series = dailySeries(this.goalDaily(), this.chartRange);
     const max = Math.max(1, ...series.map((p) => p.words));
     const chart = host.createDiv({ cls: "inkswell-chart" });
     if (series.length === 0) {

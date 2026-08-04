@@ -10,24 +10,43 @@
 
 import { App, Component, Debouncer, TAbstractFile, TFile, debounce } from "obsidian";
 import { countWords } from "../lib/wordcount";
-import { WritingLogData, applyCountToLog, dateKey } from "./types";
+import {
+  WordCategory,
+  WritingLogData,
+  applyCountToLog,
+  dateKey,
+  projectedDayWords,
+} from "./types";
 
 /** Notified with the net word delta (can be negative) and the file path. */
 export type DeltaListener = (delta: number, path: string) => void;
+
+/** What kind of project note a path is, or null for unrelated files. */
+export type PathClassifier = (path: string) => WordCategory | null;
 
 export class WritingTracker extends Component {
   private app: App;
   private log: WritingLogData;
   private persist: () => void;
+  private classify: PathClassifier;
+  private disabledCategories: () => ReadonlySet<WordCategory>;
   private listeners = new Set<DeltaListener>();
   private changeListeners = new Set<() => void>();
   private save: Debouncer<[], void>;
 
-  constructor(app: App, log: WritingLogData, persist: () => void) {
+  constructor(
+    app: App,
+    log: WritingLogData,
+    persist: () => void,
+    classify: PathClassifier,
+    disabledCategories: () => ReadonlySet<WordCategory>
+  ) {
     super();
     this.app = app;
     this.log = log;
     this.persist = persist;
+    this.classify = classify;
+    this.disabledCategories = disabledCategories;
     // Coalesce rapid edits into one save.
     this.save = debounce(() => this.persist(), 2000, false);
   }
@@ -69,9 +88,10 @@ export class WritingTracker extends Component {
     return () => this.changeListeners.delete(fn);
   }
 
-  /** Net words written today. */
+  /** Net words written today that count toward goals (disabled categories
+   * subtracted; legacy pre-category history counts fully). */
   todayWords(now: Date = new Date()): number {
-    return this.log.daily[dateKey(now)] ?? 0;
+    return projectedDayWords(this.log, dateKey(now), this.disabledCategories());
   }
 
   getLog(): WritingLogData {
@@ -125,22 +145,30 @@ export class WritingTracker extends Component {
 
   /**
    * Attribute the net change for `path` to today, given its current word count.
-   * `live` (per-keystroke) edits notify only the delta listeners — the sprint
-   * tally, which the status bar reflects — and skip the heavier change listeners
-   * that drive full re-renders, so typing in a background editor can't trigger a
-   * host rebuild on every keystroke. The eventual disk `modify` (live=false)
-   * fires the change listeners once.
+   * The path's category (scene/planning/codex/other, or null for files outside
+   * every project) decides the bucket; unrelated files only keep their baseline
+   * warm and are never attributed. `live` (per-keystroke) edits notify only the
+   * delta listeners — the sprint tally, which the status bar reflects — and skip
+   * the heavier change listeners that drive full re-renders, so typing in a
+   * background editor can't trigger a host rebuild on every keystroke. The
+   * eventual disk `modify` (live=false) fires the change listeners once.
+   * Delta listeners only hear categories that currently count toward goals, so
+   * sprints honor the same toggles with no filtering of their own.
    */
   private applyCount(path: string, count: number, live = false): void {
-    const delta = applyCountToLog(this.log, path, count);
-    // First sighting (null): baseline set only — persist it, attribute nothing.
+    const category = this.classify(path);
+    const delta = applyCountToLog(this.log, path, count, category);
+    // null: baseline-only change (first sighting, or an unrelated file) —
+    // persist the baseline, attribute nothing.
     if (delta === null) {
       this.save();
       return;
     }
     if (delta === 0) return;
 
-    for (const fn of this.listeners) fn(delta, path);
+    if (category !== null && !this.disabledCategories().has(category)) {
+      for (const fn of this.listeners) fn(delta, path);
+    }
     if (!live) for (const fn of this.changeListeners) fn();
     this.save();
   }

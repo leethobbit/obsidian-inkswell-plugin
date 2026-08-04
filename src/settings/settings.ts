@@ -11,6 +11,7 @@ import { tryFileOp } from "../lib/notify";
 import type InkswellPlugin from "../../main";
 import { OutputFormat } from "../compile/types";
 import { WeekStart } from "../goals/goals";
+import { WORD_CATEGORIES, WordCategory } from "../tracking/types";
 import { FeatureGroup, OPTIONAL_FEATURES, featureEnabled } from "../features";
 import { generateCodexTemplates, getCodexEntities } from "../codex/codex-store";
 import { CategoryDef, allCategories } from "../codex/types";
@@ -43,6 +44,15 @@ export interface InkswellSettings {
   defaultSprintWordGoal: number;
   /** Minimum words for a day to count toward a writing streak. */
   streakThreshold: number;
+  /**
+   * Word categories EXCLUDED from goals/streaks/sprints (scene/planning/codex/
+   * other). Only project notes are ever tracked; this narrows further. Excluded
+   * categories are still logged per day, so re-including one retroactively
+   * restores every word written since category tracking shipped.
+   */
+  excludedFromGoals: WordCategory[];
+  /** The one-time "goals now count project words by category" notice was shown. */
+  categoryNoticeSeen: boolean;
   /** First day of the week for weekly goals, habit tracking, and the heatmap. */
   weekStart: WeekStart;
   /** Parent folder new projects + the shared codex scaffold under ("" = vault root). */
@@ -85,6 +95,8 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   defaultSprintMinutes: 15,
   defaultSprintWordGoal: 0,
   streakThreshold: 1,
+  excludedFromGoals: ["planning", "codex", "other"],
+  categoryNoticeSeen: false,
   weekStart: "monday",
   baseFolder: "Writing",
   codexFolder: "Codex",
@@ -94,6 +106,26 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   dismissedHints: [],
   disabledFeatures: [],
   customCategories: [],
+};
+
+/** Settings-tab copy for the goal category toggles. */
+const CATEGORY_LABELS: Record<WordCategory, { name: string; desc: string }> = {
+  scene: {
+    name: "Manuscript scenes",
+    desc: "Scene files and single-note projects — the manuscript itself.",
+  },
+  planning: {
+    name: "Planning notes",
+    desc: "Each project's planning note (synopsis, plot groundwork, act sketch).",
+  },
+  codex: {
+    name: "Codex notes",
+    desc: "Notes with a codex key (characters, places, lore), wherever they live.",
+  },
+  other: {
+    name: "Other project notes",
+    desc: "The project index note and any other notes inside a project's folder.",
+  },
 };
 
 export class InkswellSettingTab extends PluginSettingTab {
@@ -379,6 +411,37 @@ export class InkswellSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
+
+    new Setting(containerEl).setName("What counts toward goals").setHeading();
+    containerEl.createEl("p", {
+      cls: "setting-item-description",
+      text:
+        "Goals, streaks, and sprints only ever count writing in project notes — " +
+        "notes elsewhere in the vault never count. Choose which kinds count. " +
+        "Changing a toggle also re-counts words already written since this " +
+        "option was introduced; older history always counts.",
+    });
+    for (const cat of WORD_CATEGORIES) {
+      const label = CATEGORY_LABELS[cat];
+      new Setting(containerEl)
+        .setName(label.name)
+        .setDesc(label.desc)
+        .addToggle((t) =>
+          t
+            .setValue(!this.plugin.settings.excludedFromGoals.includes(cat))
+            .onChange(async (counts) => {
+              const excluded = new Set(this.plugin.settings.excludedFromGoals);
+              if (counts) excluded.delete(cat);
+              else excluded.add(cat);
+              this.plugin.settings.excludedFromGoals = [...excluded];
+              await this.plugin.saveSettings();
+              // Re-project immediately — these numbers are otherwise only
+              // recomputed on the next edit or panel rebuild.
+              this.plugin.refreshStatus();
+              this.plugin.refreshView();
+            })
+        );
+    }
 
     new Setting(containerEl).setName("Folders").setHeading();
 

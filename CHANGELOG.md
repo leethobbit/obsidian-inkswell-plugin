@@ -10,7 +10,11 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
-## [1.9.1] - 2026-07-15
+### Added
+- **Choose what counts toward your word goals.** Words are now attributed by the kind of note they were written in — manuscript scenes, planning notes, codex notes, or other project notes — and a new **Settings → Goals & sprints → What counts toward goals** section lets you pick which kinds feed your daily/weekly/monthly goals, streaks, habit, heatmap, and live sprint tallies. By default only manuscript scenes count. The toggles are retroactive for everything written from this version on: words in every category keep being recorded, so flipping a toggle later re-counts them instead of losing them. All drafts of a story count together — editing two drafts in one day combines toward the same goal.
+
+### Changed
+- **Notes outside your projects no longer count toward goals.** Previously *any* markdown edit in the vault — a daily note, a meeting note — fed the daily goal. Goals now only ever count project writing (scenes, and optionally planning/codex/other project notes). Word history from before this version is untouched and still counts in full. A one-time notice points at the new setting after upgrading.
 
 ### Changed
 - **README wording pass for the community-store review.** The store's automated README scan flagged the literal `TODO` strings and HTML template comments as "unfilled placeholder text". The draft-marker feature is now described by purpose (with a `[RESEARCH: …]` syntax example), and the screenshot shot-list comment moved out of the README. No plugin behavior changes.
