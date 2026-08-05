@@ -10,6 +10,8 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-08-05
+
 ### Added
 - **Collapse acts and chapters in the Structure Tree.** Every act and chapter row now has a chevron; collapsed groups stay collapsed while you rearrange (the state lives for the session). A collapsed act or chapter is still a drop target — drop a scene on a collapsed chapter's header to file it there. Collapsed acts show a chapter count, and collapsed chapters keep their scene/word tallies.
 - **The Write panel's scene list is now grouped by chapter.** Chapter headers in the navigator collapse and expand, so a long draft can be narrowed to just the chapter you're working in. Chapterless scenes list as before, and projects without chapters keep the plain flat list. When the scene you're editing is inside a collapsed chapter, its header is tinted so you can still see where you are.
@@ -227,7 +229,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.9.1...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.10.0...HEAD
+[1.10.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.9.1...1.10.0
 [1.9.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.9.0...1.9.1
 [1.9.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.8.0...1.9.0
 [1.8.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.7.0...1.8.0
