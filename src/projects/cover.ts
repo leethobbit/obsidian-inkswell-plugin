@@ -10,6 +10,7 @@
  */
 
 import { App, FuzzySuggestModal, TFile } from "obsidian";
+import { projectFolder } from "./stories";
 import { Project } from "./types";
 
 export const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp", "avif", "bmp", "svg"];
@@ -23,12 +24,6 @@ export function resolveCoverSrc(app: App, path: string | undefined): string | nu
   if (!path) return null;
   const file = app.vault.getAbstractFileByPath(path);
   return file instanceof TFile ? app.vault.getResourcePath(file) : null;
-}
-
-/** The project's folder = the index note's parent (vault root → ""). */
-function projectFolder(project: Project): string {
-  const slash = project.vaultPath.lastIndexOf("/");
-  return slash === -1 ? "" : project.vaultPath.slice(0, slash);
 }
 
 /** True if `path` is a cover file we created (in the project folder, named `cover.*`). */

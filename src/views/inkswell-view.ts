@@ -688,6 +688,16 @@ export class InkswellView extends ItemView {
       case "write":
         // The Write fast path already absorbs metadata changes in place.
         return this.write.update();
+      case "plan":
+        // Structure writes (a Tree/Board drag → applyOutline, marked as
+        // self-writes) re-render the structure panel in its own container so
+        // the scroll position survives repeated moves. Other Plan sub-tabs
+        // (Overview, Beats) don't mark their writes and fall through.
+        if (this.effectiveSubtab("plan") === "structure") {
+          this.structure.softRefresh();
+          return true;
+        }
+        return false;
       case "revise":
         // To-dos: a decision write from the merged panel — refresh its rows in
         // place (cached marker scan + fresh decisions). Audit's checkbox/note

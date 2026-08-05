@@ -292,7 +292,10 @@ export class BoardPanel {
     const next = moveScene(tree, sceneTitle, targetChapterId);
     if (next === tree) return; // scene/chapter not found — nothing to write
     // applyOutline persists everything (scene strings, manuscript order, config)
-    // and the store notify re-renders every Structure view consistently.
-    void applyOutline(this.app, indexFile, project, next);
+    // and the store notify re-renders every Structure view consistently. The
+    // self-write marks let the host soft-refresh in place (scroll survives).
+    void applyOutline(this.app, indexFile, project, next, (p) =>
+      this.plugin.selfWrites.mark(p)
+    );
   }
 }

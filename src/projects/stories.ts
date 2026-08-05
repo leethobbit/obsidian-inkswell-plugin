@@ -50,14 +50,16 @@ export function storyOf(stories: Story[], activePath: string | null): Story | nu
   return stories.find((s) => s.drafts.some((d) => d.vaultPath === activePath)) ?? null;
 }
 
-/** Dirname of a draft's index path ("" for vault root). */
-function draftFolder(p: Project): string {
+/** A project's folder = dirname of its index path ("" for vault root). */
+export function projectFolder(p: Project): string {
   const i = p.vaultPath.lastIndexOf("/");
   return i === -1 ? "" : p.vaultPath.slice(0, i);
 }
 
-/** True if folder `a` is an ancestor of (or equal to) folder `b`. */
-function isAncestorFolder(a: string, b: string): boolean {
+/** True if folder `a` is an ancestor of (or equal to) folder `b`. NOTE: the
+ * vault root ("") is an ancestor of everything — guard callers that must not
+ * match the whole vault. */
+export function isAncestorFolder(a: string, b: string): boolean {
   return a === "" || a === b || b.startsWith(`${a}/`);
 }
 
@@ -70,8 +72,8 @@ function isAncestorFolder(a: string, b: string): boolean {
  */
 export function baseDraft(story: Story): Project {
   for (const cand of story.drafts) {
-    const cf = draftFolder(cand);
-    if (story.drafts.every((d) => isAncestorFolder(cf, draftFolder(d)))) return cand;
+    const cf = projectFolder(cand);
+    if (story.drafts.every((d) => isAncestorFolder(cf, projectFolder(d)))) return cand;
   }
   return story.drafts[0];
 }

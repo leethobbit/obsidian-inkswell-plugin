@@ -363,6 +363,12 @@ export const HELP_SECTIONS: HelpSection[] = [
       );
       p(
         el,
+        "Only project writing counts toward goals — manuscript scenes by default. " +
+          "Settings → What counts toward goals can also include planning notes, codex " +
+          "notes, or other project notes; the rest of your vault never counts."
+      );
+      p(
+        el,
         "Start a timed sprint from the rail (or the “Start a writing sprint” command) to " +
           "write against a clock and a word goal."
       );

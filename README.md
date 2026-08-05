@@ -65,7 +65,7 @@ Characters, locations, worlds, factions, items, events, and concepts, each with 
 
 ### Track — view stats, keep pace, achieve goals
 
-Daily / weekly / monthly word goals, habit streaks, a GitHub-style heatmap, lifetime records, a writing-history chart, sprint stats, a **deadline pace calculator** (required daily words, ahead / on-track / behind), draft-milestone zones, and an optional daily mood.
+Daily / weekly / monthly word goals, habit streaks, a GitHub-style heatmap, lifetime records, a writing-history chart, sprint stats, a **deadline pace calculator** (required daily words, ahead / on-track / behind), draft-milestone zones, and an optional daily mood. Goals only count writing in your projects — by default just manuscript scenes, with settings toggles to also count planning notes, codex notes, or other project notes. Notes elsewhere in the vault never count.
 
 ![Track: heatmap, streak, progress rings, and writing-history chart](assets/track.png)
 

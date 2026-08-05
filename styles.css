@@ -1577,6 +1577,40 @@
   border-right: 1px solid var(--background-modifier-border);
   padding: var(--size-4-2);
 }
+.inkswell-write__navhead {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  padding: var(--size-4-1) var(--size-4-1);
+  margin-top: var(--size-4-1);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
+}
+.inkswell-write__navhead:hover {
+  background-color: var(--background-modifier-hover);
+}
+/* The open scene is hidden inside this collapsed chapter. */
+.inkswell-write__navhead.has-active .inkswell-write__navheadname {
+  color: var(--text-accent);
+}
+.inkswell-write__navheadname {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inkswell-write__navchev {
+  display: inline-flex;
+  align-items: center;
+}
+.inkswell-write__navchev svg {
+  width: 12px;
+  height: 12px;
+}
 .inkswell-write__scene {
   display: flex;
   align-items: center;
@@ -2488,6 +2522,19 @@
   color: var(--text-faint);
   cursor: grab;
   display: inline-flex;
+}
+.inkswell-outline__chev {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.inkswell-outline__chev:hover {
+  color: var(--text-normal);
+}
+.inkswell-outline__chev svg {
+  width: 14px;
+  height: 14px;
 }
 .inkswell-outline__name {
   display: flex;

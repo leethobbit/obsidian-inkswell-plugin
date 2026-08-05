@@ -119,6 +119,9 @@ export class WritePanel {
   /** Tracks the project the editor is currently bound to, to reset on change. */
   private lastProject: string | null = null;
   private selectedScene: string | null = null;
+  /** Collapsed navigator chapter groups (by chapter label) — in-memory view
+   *  state that survives re-renders, like `activeRightPanel`. */
+  private navCollapsed = new Set<string>();
   /** Stable hosts inside the panel, re-rendered in place by {@link update}. */
   private navEl: HTMLElement | null = null;
   private inspectorHost: HTMLElement | null = null;
@@ -501,43 +504,99 @@ export class WritePanel {
     this.renderNavRows(this.navEl, project);
   }
 
+  /**
+   * Scene list, grouped by each scene's `chapter` string in manuscript order —
+   * contiguous runs become collapsible groups (the Tree keeps chapters
+   * contiguous), so long drafts can be narrowed to the chapter in hand.
+   * Chapterless scenes render ungrouped, and a project with no chapters at all
+   * keeps the plain flat list. Collapse state is in-memory (`navCollapsed`), so
+   * it survives the per-save re-renders; deliberately NOT auto-expanded for the
+   * selected scene — every notify re-renders, so auto-expanding would make it
+   * impossible to collapse the chapter you're writing in.
+   */
   private renderNavRows(nav: HTMLElement, project: Project): void {
+    const selFile =
+      this.selectedScene && this.app.vault.getAbstractFileByPath(this.selectedScene);
+    const selChapter =
+      selFile instanceof TFile ? readSceneMeta(this.app, selFile).chapter ?? "" : "";
+
+    let currentChapter = "";
     for (const scene of project.scenes) {
-      const row = nav.createDiv({ cls: "inkswell-write__scene" });
-      if (scene.path === this.selectedScene) row.addClass("is-active");
-      row.createSpan({ cls: "inkswell-scene__title", text: scene.title });
       const sceneFile = scene.path && this.app.vault.getAbstractFileByPath(scene.path);
-      if (sceneFile instanceof TFile) {
-        const file = sceneFile; // narrowed; safe to capture in the deferred menu builder
-        const meta = readSceneMeta(this.app, file);
-        if (meta.status) {
-          row.createSpan({ cls: `inkswell-status inkswell-status--${meta.status}`, text: meta.status[0].toUpperCase() });
-        }
-        // Same scene context menu as Board/Beats/Home — right-click on desktop,
-        // "⋯" on touch. Appended last so the menu button sits after the status.
-        attachRowMenu(row, row, () => {
-          const menu = new Menu();
-          addSceneMenuItems(menu, this.app, project, scene.title, file, {
-            includeOpen: true,
-            plugin: this.plugin,
-            // Rename changes the file path; selectedScene is path-keyed, so re-pin
-            // it to keep the editor on this scene (else we'd drop to the empty
-            // state). The store-driven re-render then shows the new title.
-            onRenamed: (newPath) => {
-              if (this.selectedScene === scene.path) this.selectedScene = newPath;
-            },
-          });
-          return menu;
-        });
+      const file = sceneFile instanceof TFile ? sceneFile : null;
+      const chapter = (file ? readSceneMeta(this.app, file).chapter : undefined) ?? "";
+      if (chapter !== currentChapter) {
+        currentChapter = chapter;
+        if (chapter) this.navGroupHead(nav, project, chapter, chapter === selChapter);
       }
-      row.onclick = () => {
-        if (!scene.path) return;
-        this.selectedScene = scene.path;
-        // Close the phone drawer on selection (no-op when it's a static column).
-        this.container?.removeClass("nav-open");
-        this.rerender();
-      };
+      if (chapter && this.navCollapsed.has(chapter)) continue;
+      this.navSceneRow(nav, project, scene, file);
     }
+  }
+
+  /** Collapsible chapter header in the navigator. */
+  private navGroupHead(
+    nav: HTMLElement,
+    project: Project,
+    chapter: string,
+    holdsSelection: boolean
+  ): void {
+    const collapsed = this.navCollapsed.has(chapter);
+    const head = nav.createDiv({ cls: "inkswell-write__navhead" });
+    const chev = head.createSpan({ cls: "inkswell-write__navchev" });
+    setIcon(chev, collapsed ? "chevron-right" : "chevron-down");
+    head.createSpan({ cls: "inkswell-write__navheadname", text: chapter });
+    // Hint that the open scene is hidden inside this collapsed group.
+    if (collapsed && holdsSelection) head.addClass("has-active");
+    head.onclick = () => {
+      if (collapsed) this.navCollapsed.delete(chapter);
+      else this.navCollapsed.add(chapter);
+      // Rebuild just the list — no reason to touch the live editor.
+      if (this.navEl) {
+        this.navEl.empty();
+        this.renderNavRows(this.navEl, project);
+      }
+    };
+  }
+
+  private navSceneRow(
+    nav: HTMLElement,
+    project: Project,
+    scene: Project["scenes"][number],
+    file: TFile | null
+  ): void {
+    const row = nav.createDiv({ cls: "inkswell-write__scene" });
+    if (scene.path === this.selectedScene) row.addClass("is-active");
+    row.createSpan({ cls: "inkswell-scene__title", text: scene.title });
+    if (file) {
+      const meta = readSceneMeta(this.app, file);
+      if (meta.status) {
+        row.createSpan({ cls: `inkswell-status inkswell-status--${meta.status}`, text: meta.status[0].toUpperCase() });
+      }
+      // Same scene context menu as Board/Beats/Home — right-click on desktop,
+      // "⋯" on touch. Appended last so the menu button sits after the status.
+      attachRowMenu(row, row, () => {
+        const menu = new Menu();
+        addSceneMenuItems(menu, this.app, project, scene.title, file, {
+          includeOpen: true,
+          plugin: this.plugin,
+          // Rename changes the file path; selectedScene is path-keyed, so re-pin
+          // it to keep the editor on this scene (else we'd drop to the empty
+          // state). The store-driven re-render then shows the new title.
+          onRenamed: (newPath) => {
+            if (this.selectedScene === scene.path) this.selectedScene = newPath;
+          },
+        });
+        return menu;
+      });
+    }
+    row.onclick = () => {
+      if (!scene.path) return;
+      this.selectedScene = scene.path;
+      // Close the phone drawer on selection (no-op when it's a static column).
+      this.container?.removeClass("nav-open");
+      this.rerender();
+    };
   }
 
   private renderEditor(parent: HTMLElement): void {

@@ -46,6 +46,11 @@ export class OutlinePanel {
   private active: ActiveProject;
   private tree: OutlineTree = { acts: [], looseChapters: [], unassignedScenes: [] };
   private project: Project | null = null;
+  private container: HTMLElement | null = null;
+  /** Collapsed act/chapter ids (`act:<id>` / `ch:<id>`) — in-memory view state
+   *  that survives host re-renders, because panels are constructed once
+   *  (same pattern as PlotGridPanel.collapsedActs). */
+  private collapsed = new Set<string>();
 
   constructor(app: App, plugin: InkswellPlugin, store: ProjectStore, active: ActiveProject) {
     this.app = app;
@@ -55,6 +60,7 @@ export class OutlinePanel {
   }
 
   render(container: HTMLElement): void {
+    this.container = container;
     container.empty();
     container.addClass("inkswell-outline");
 
@@ -145,14 +151,23 @@ export class OutlinePanel {
     fills: Map<string, (m: { words: number; scenes: number } | undefined) => void>
   ): void {
     const box = container.createDiv({ cls: "inkswell-outline__act" });
+    const collapsed = this.collapsed.has(`act:${act.id}`);
     const row = box.createDiv({ cls: "inkswell-outline__row is-act" });
     this.grip(row);
+    this.chevron(row, `act:${act.id}`);
     row.createSpan({ cls: "inkswell-outline__name", text: act.title });
+    if (collapsed && act.chapters.length > 0) {
+      row.createSpan({
+        cls: "inkswell-outline__meta",
+        text: `${act.chapters.length} chapter${act.chapters.length === 1 ? "" : "s"}`,
+      });
+    }
     const addCh = row.createEl("button", { cls: "inkswell-outline__mini", text: "Add chapter" });
     addCh.onclick = () => void this.addChapter(act.id);
 
     this.draggable(row, "act", act.id);
-    // Act row accepts act-reorder (above/below this one) and chapter drops (appended into this act).
+    // Act row accepts act-reorder (above/below this one) and chapter drops
+    // (appended into this act) — so a collapsed act is still a drop target.
     this.dropZone(
       row,
       (kind, id, after) => {
@@ -163,6 +178,7 @@ export class OutlinePanel {
     );
     attachRowMenu(row, row, () => this.actMenu(act));
 
+    if (collapsed) return;
     const body = box.createDiv({ cls: "inkswell-outline__children" });
     // Empty act still accepts chapter drops.
     this.dropZone(body, (kind, id) => {
@@ -181,8 +197,10 @@ export class OutlinePanel {
     fills: Map<string, (m: { words: number; scenes: number } | undefined) => void>
   ): void {
     const box = parent.createDiv({ cls: "inkswell-outline__chapter" });
+    const collapsed = this.collapsed.has(`ch:${chapter.id}`);
     const row = box.createDiv({ cls: "inkswell-outline__row is-chapter" });
     this.grip(row);
+    this.chevron(row, `ch:${chapter.id}`);
     const name = row.createDiv({ cls: "inkswell-outline__name" });
     name.createSpan({ text: chapter.title });
     const meta = name.createSpan({ cls: "inkswell-outline__meta", text: "…" });
@@ -205,7 +223,8 @@ export class OutlinePanel {
 
     this.draggable(row, "chapter", chapter.id);
     // Chapter row accepts chapter-reorder (above/below this one, same act) and
-    // scene drops (appended into this chapter).
+    // scene drops (appended into this chapter) — a collapsed chapter still
+    // accepts scene drops via its header.
     this.dropZone(
       row,
       (kind, id, after) => {
@@ -216,14 +235,16 @@ export class OutlinePanel {
     );
     attachRowMenu(row, row, () => this.chapterMenu(chapter, actId));
 
-    const body = box.createDiv({ cls: "inkswell-outline__children" });
-    this.dropZone(body, (kind, id) => {
-      if (kind === "scene") this.commit(moveScene(this.tree, id, chapter.id, null));
-    });
-    if (chapter.scenes.length === 0) {
-      body.createDiv({ cls: "inkswell-outline__empty", text: "Drop scenes here" });
+    if (!collapsed) {
+      const body = box.createDiv({ cls: "inkswell-outline__children" });
+      this.dropZone(body, (kind, id) => {
+        if (kind === "scene") this.commit(moveScene(this.tree, id, chapter.id, null));
+      });
+      if (chapter.scenes.length === 0) {
+        body.createDiv({ cls: "inkswell-outline__empty", text: "Drop scenes here" });
+      }
+      for (const s of chapter.scenes) this.renderScene(body, s, chapter.id);
     }
-    for (const s of chapter.scenes) this.renderScene(body, s, chapter.id);
 
     // Fill counts + progress once groupWords resolves (keyed by chapter title).
     fills.set(chapter.title, (m) => {
@@ -277,6 +298,24 @@ export class OutlinePanel {
 
   private grip(row: HTMLElement): void {
     setIcon(row.createSpan({ cls: "inkswell-outline__grip" }), "grip-vertical");
+  }
+
+  /** Chevron that toggles an act/chapter's collapsed state and re-renders. */
+  private chevron(row: HTMLElement, key: string): void {
+    const isCollapsed = this.collapsed.has(key);
+    const chev = row.createSpan({ cls: "inkswell-outline__chev" });
+    setIcon(chev, isCollapsed ? "chevron-right" : "chevron-down");
+    chev.setAttribute("aria-label", isCollapsed ? "Expand" : "Collapse");
+    chev.onclick = (e) => {
+      e.stopPropagation();
+      if (isCollapsed) this.collapsed.delete(key);
+      else this.collapsed.add(key);
+      this.rerender();
+    };
+  }
+
+  private rerender(): void {
+    if (this.container?.isConnected) this.render(this.container);
   }
 
   // --- Drag-and-drop primitives -------------------------------------------
@@ -340,7 +379,11 @@ export class OutlinePanel {
     const file = this.indexFile();
     if (!file || !this.project || next === this.tree) return;
     this.tree = next;
-    void applyOutline(this.app, file, this.project, next);
+    // Self-write marks → the host soft-refreshes the structure panel in place,
+    // so repeated drags don't reset the scroll position to the top each time.
+    void applyOutline(this.app, file, this.project, next, (p) =>
+      this.plugin.selfWrites.mark(p)
+    );
   }
 
   // --- Touch fallback menus ------------------------------------------------
