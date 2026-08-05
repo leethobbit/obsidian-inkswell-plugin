@@ -30,6 +30,10 @@ export class StatusBar {
     this.el.addClass("mod-clickable");
     this.el.onClickEvent(() => this.onClick());
     this.unsubs.push(this.tracker.onChange(() => this.render()));
+    // Live keystroke deltas skip the heavy change listeners (they'd rebuild
+    // whole panels per keystroke) — but this render is one setText, so listen
+    // to the delta channel too or the count only moves on disk saves.
+    this.unsubs.push(this.tracker.onDelta(() => this.render()));
     this.unsubs.push(this.sprints.onUpdate(() => this.render()));
     this.render();
   }

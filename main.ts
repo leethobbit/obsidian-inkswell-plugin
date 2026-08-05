@@ -24,6 +24,7 @@ import { SelfWriteRegistry } from "./src/lib/self-write";
 import { Project } from "./src/projects/types";
 import { RevisionModal } from "./src/revisions/revision-modal";
 import { FeatureId, featureEnabled } from "./src/features";
+import { getCodexEntities } from "./src/codex/codex-store";
 import { normalizeCustomCategories } from "./src/codex/types";
 import {
   DEFAULT_SETTINGS,
@@ -94,9 +95,18 @@ export default class InkswellPlugin extends Plugin {
 
     // Fires immediately and on every fingerprint change (scene add/rename,
     // project create, planning-pointer / compile-config edits via index mtime).
+    // After each rebuild, warm baselines for in-scope files that never got one
+    // — otherwise the first tracked edit of a pre-existing note is swallowed
+    // as its baseline and those words never count. Warm-up only reads files
+    // WITHOUT a baseline, so steady-state passes are free.
     this.register(
       this.store.subscribe((projects) => {
         classifierIndex = buildClassifierIndex(projects);
+        void this.tracker.warmBaselines([
+          ...classifierIndex.scenePaths,
+          ...classifierIndex.planningPaths,
+          ...classifierIndex.indexPaths,
+        ]);
       })
     );
 
@@ -128,6 +138,19 @@ export default class InkswellPlugin extends Plugin {
     // Obsidian's own startup UI). The modal sets `welcomeSeen` on close.
     this.app.workspace.onLayoutReady(() => {
       if (!this.settings.welcomeSeen) new WelcomeModal(this.app, this).open();
+
+      // Codex counting includes frontmatter (profile prose). One-time: rebuild
+      // codex baselines computed under the old body-only rule, then warm any
+      // codex notes that never got a baseline (both cache-read only).
+      const codexPaths = () =>
+        getCodexEntities(this.app).map((e) => e.path);
+      if (!this.settings.codexCountMigrated) {
+        this.settings.codexCountMigrated = true;
+        void this.tracker
+          .rebaseline(codexPaths())
+          .then(() => this.persist());
+      }
+      void this.tracker.warmBaselines(codexPaths());
 
       // One-time upgrade notice: goals stopped counting non-project notes.
       // Only shown to installs with existing history — fresh installs just get

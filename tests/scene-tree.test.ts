@@ -28,6 +28,15 @@ describe("moveScene", () => {
     moveScene(base, 0, 2);
     expect(base).toEqual(copy);
   });
+  it("`to` is a pre-removal slot: to = from + 1 is a no-op, so callers step down with from + 2", () => {
+    // The 'Move down' menu items rely on this contract — using from + 1 was
+    // the bug where 'Move down' silently did nothing.
+    expect(titles(moveScene(base, 0, 1))).toBe("a,b,c");
+    expect(titles(moveScene(base, 0, 2))).toBe("b,a,c");
+  });
+  it("clamps a past-the-end target to the last slot", () => {
+    expect(titles(moveScene(base, 1, 99))).toBe("a,c,b");
+  });
 });
 
 describe("indentScene", () => {

@@ -53,6 +53,13 @@ export interface InkswellSettings {
   excludedFromGoals: WordCategory[];
   /** The one-time "goals now count project words by category" notice was shown. */
   categoryNoticeSeen: boolean;
+  /**
+   * One-time migration flag: existing codex baselines were recomputed under the
+   * frontmatter-included counting rule (profile prose counts). Without this, an
+   * old body-only baseline would emit a phantom delta the size of the whole
+   * profile on the note's next edit.
+   */
+  codexCountMigrated: boolean;
   /** First day of the week for weekly goals, habit tracking, and the heatmap. */
   weekStart: WeekStart;
   /** Parent folder new projects + the shared codex scaffold under ("" = vault root). */
@@ -97,6 +104,7 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   streakThreshold: 1,
   excludedFromGoals: ["planning", "codex", "other"],
   categoryNoticeSeen: false,
+  codexCountMigrated: false,
   weekStart: "monday",
   baseFolder: "Writing",
   codexFolder: "Codex",

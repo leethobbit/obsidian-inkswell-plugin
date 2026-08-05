@@ -59,7 +59,15 @@ export class WritingTracker extends Component {
 
   onload(): void {
     this.registerEvent(
-      this.app.vault.on("modify", (file) => this.handleModify(file))
+      this.app.vault.on("modify", (file) => this.handleFile(file))
+    );
+    // Baseline files the moment they're created (a new scene, a lazily-created
+    // planning note). Creation counts as the first sighting, so the user's
+    // FIRST save into the new note attributes normally — without this, that
+    // whole first save was swallowed as the baseline and no toggle could ever
+    // recover the words.
+    this.registerEvent(
+      this.app.vault.on("create", (file) => this.handleFile(file))
     );
     // Live keystroke counting for Obsidian's own editors (the in-plugin Write
     // panel reports separately via noteLiveContent). `modify` only fires when the
@@ -70,7 +78,7 @@ export class WritingTracker extends Component {
       this.app.workspace.on("editor-change", (editor, info) => {
         const file = info.file;
         if (file instanceof TFile && file.extension === "md") {
-          this.applyCount(file.path, countWords(editor.getValue()), true);
+          this.applyText(file.path, editor.getValue(), true);
         }
       })
     );
@@ -128,19 +136,68 @@ export class WritingTracker extends Component {
    * The in-plugin Write editor defers saves to blur/switch, so disk `modify`
    * events (and thus the live sprint tally) would otherwise only fire when you
    * click away. This funnels editor edits through the SAME per-file baseline as
-   * {@link handleModify}, so a live edit and its later disk save can't
+   * {@link handleFile}, so a live edit and its later disk save can't
    * double-count: by save time the baseline already equals the count, so the
    * disk pass is a no-op. `text` should match what gets written (frontmatter +
-   * body); `countWords` strips frontmatter, so body-only text reconciles too.
+   * body) so the category-aware count reconciles with the disk pass.
    */
   noteLiveContent(path: string, text: string): void {
-    this.applyCount(path, countWords(text), true);
+    this.applyText(path, text, true);
   }
 
-  private async handleModify(file: TAbstractFile): Promise<void> {
+  private async handleFile(file: TAbstractFile): Promise<void> {
     if (!(file instanceof TFile) || file.extension !== "md") return;
     const contents = await this.app.vault.cachedRead(file);
-    this.applyCount(file.path, countWords(contents));
+    this.applyText(file.path, contents, false);
+  }
+
+  /**
+   * What a file's text is worth in words, by category. Codex entries keep
+   * their prose in frontmatter profile fields (Description, Significance, …)
+   * with the body as optional freeform notes — so codex counting includes the
+   * frontmatter. The constant parts (keys, the `codex:` tag itself) cancel out
+   * in the per-file delta, so only actual edits move the count.
+   */
+  private countFor(text: string, category: WordCategory | null): number {
+    return countWords(text, { stripFrontmatter: category !== "codex" });
+  }
+
+  /**
+   * Warm baselines for in-scope files that don't have one yet, so the "first
+   * tracked edit only sets the baseline" rule stops eating the first words
+   * written into a pre-existing scene/planning/codex note. Never touches an
+   * existing baseline (that would swallow words mid-session).
+   */
+  async warmBaselines(paths: Iterable<string>): Promise<void> {
+    let touched = false;
+    for (const path of paths) {
+      if (this.log.baselines[path] !== undefined) continue;
+      const file = this.app.vault.getAbstractFileByPath(path);
+      if (!(file instanceof TFile) || file.extension !== "md") continue;
+      const text = await this.app.vault.cachedRead(file);
+      this.log.baselines[path] = this.countFor(text, this.classify(path));
+      touched = true;
+    }
+    if (touched) this.save();
+  }
+
+  /**
+   * One-time migration: recompute EXISTING baselines for the given paths under
+   * the current counting rule. Needed when the rule changes for a category
+   * (codex now includes frontmatter) — an old body-only baseline would emit a
+   * phantom delta equal to the whole profile on the next edit.
+   */
+  async rebaseline(paths: Iterable<string>): Promise<void> {
+    let touched = false;
+    for (const path of paths) {
+      if (this.log.baselines[path] === undefined) continue;
+      const file = this.app.vault.getAbstractFileByPath(path);
+      if (!(file instanceof TFile) || file.extension !== "md") continue;
+      const text = await this.app.vault.cachedRead(file);
+      this.log.baselines[path] = this.countFor(text, this.classify(path));
+      touched = true;
+    }
+    if (touched) this.save();
   }
 
   /**
@@ -155,9 +212,9 @@ export class WritingTracker extends Component {
    * Delta listeners only hear categories that currently count toward goals, so
    * sprints honor the same toggles with no filtering of their own.
    */
-  private applyCount(path: string, count: number, live = false): void {
+  private applyText(path: string, text: string, live: boolean): void {
     const category = this.classify(path);
-    const delta = applyCountToLog(this.log, path, count, category);
+    const delta = applyCountToLog(this.log, path, this.countFor(text, category), category);
     // null: baseline-only change (first sighting, or an unrelated file) —
     // persist the baseline, attribute nothing.
     if (delta === null) {

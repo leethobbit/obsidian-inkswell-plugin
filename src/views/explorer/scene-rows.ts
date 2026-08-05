@@ -259,7 +259,10 @@ export class SceneRows {
           .setIcon("arrow-down")
           .onClick(() =>
             void tryFileOp(
-              () => this.reorder(file, project, (s) => moveScene(s, index, index + 1)),
+              // moveScene's `to` is a PRE-removal slot: to = index + 1 splices
+              // the scene right back where it was (no-op). One step down =
+              // insert before the element two slots down.
+              () => this.reorder(file, project, (s) => moveScene(s, index, index + 2)),
               "Couldn't move the scene."
             )
           )
