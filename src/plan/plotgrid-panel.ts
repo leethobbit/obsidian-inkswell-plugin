@@ -31,7 +31,7 @@ import {
   upsertPlotline,
 } from "../outliner/plotgrid";
 import { ActiveProject, resolveActive } from "../projects/active-project";
-import { persistPlotlines } from "../projects/index-writer";
+import { updatePlotlines } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project, isMultiScene } from "../projects/types";
 import { EditSceneModal } from "../scenes/edit-scene-modal";
@@ -263,7 +263,7 @@ export class PlotGridPanel {
           e.preventDefault();
           const r = head.getBoundingClientRect();
           const after = e.clientX > r.left + r.width / 2;
-          this.persist(movePlotline(this.configured(), colId, v.col.id, after));
+          this.persist((cur) => movePlotline(cur, colId, v.col.id, after));
           return;
         }
         const payload = this.scenePayload(e);
@@ -282,7 +282,7 @@ export class PlotGridPanel {
     if (isOrphanPlotline(col)) {
       menu.addItem((i) =>
         i.setTitle("Add to plotlines").setIcon("plus").onClick(() => {
-          this.persist(upsertPlotline(this.configured(), { title: col.title }));
+          this.persist((cur) => upsertPlotline(cur, { title: col.title }));
         })
       );
       menu.addItem((i) =>
@@ -303,14 +303,14 @@ export class PlotGridPanel {
     for (const c of COLORS) {
       menu.addItem((i) =>
         i.setTitle(`Color: ${COLOR_NAMES[c] ?? c}`).setChecked(col.color === c).onClick(() => {
-          this.persist(upsertPlotline(this.configured(), { id: col.id, title: col.title, color: c }));
+          this.persist((cur) => upsertPlotline(cur, { id: col.id, title: col.title, color: c }));
         })
       );
     }
     if (col.color) {
       menu.addItem((i) =>
         i.setTitle("Clear color").onClick(() => {
-          this.persist(upsertPlotline(this.configured(), { id: col.id, title: col.title, color: "" }));
+          this.persist((cur) => upsertPlotline(cur, { id: col.id, title: col.title, color: "" }));
         })
       );
     }
@@ -321,14 +321,16 @@ export class PlotGridPanel {
     if (idx > 0) {
       menu.addItem((i) =>
         i.setTitle("Move left").setIcon("arrow-left").onClick(() => {
-          this.persist(movePlotline(cfg, col.id, cfg[idx - 1].id, false));
+          const anchorId = cfg[idx - 1].id; // menu-time anchor; move applies to current
+          this.persist((cur) => movePlotline(cur, col.id, anchorId, false));
         })
       );
     }
     if (idx >= 0 && idx < cfg.length - 1) {
       menu.addItem((i) =>
         i.setTitle("Move right").setIcon("arrow-right").onClick(() => {
-          this.persist(movePlotline(cfg, col.id, cfg[idx + 1].id, true));
+          const anchorId = cfg[idx + 1].id; // menu-time anchor; move applies to current
+          this.persist((cur) => movePlotline(cur, col.id, anchorId, true));
         })
       );
     }
@@ -636,11 +638,14 @@ export class PlotGridPanel {
     return f instanceof TFile ? f : null;
   }
 
-  private persist(plotlines: Plotline[]): void {
+  /** Persist a plotline-list transform, applied to the CURRENT stored list —
+   *  never this panel's render-time `configured()` snapshot, which the host's
+   *  editing-guard deferral can keep stale (the lost-update class). */
+  private persist(transform: (current: Plotline[]) => Plotline[]): void {
     const file = this.indexFile();
-    if (!file || plotlines === this.configured()) return;
+    if (!file) return;
     void tryFileOp(
-      () => persistPlotlines(this.app, file, plotlines),
+      () => updatePlotlines(this.app, file, transform),
       "Couldn't save the plotlines."
     );
   }
@@ -696,7 +701,7 @@ export class PlotGridPanel {
     });
     const t = name?.trim();
     if (!t) return;
-    this.persist(upsertPlotline(this.configured(), { title: t }));
+    this.persist((cur) => upsertPlotline(cur, { title: t }));
   }
 
   private async renamePlotline(col: Plotline): Promise<void> {
@@ -723,10 +728,8 @@ export class PlotGridPanel {
         const next = renamePlotlineTag(readSceneMeta(this.app, f).plotlines, col.title, t);
         if (next) await writeSceneMeta(this.app, f, { plotlines: next });
       }
-      await persistPlotlines(
-        this.app,
-        file,
-        upsertPlotline(this.configured(), { id: col.id, title: t })
+      await updatePlotlines(this.app, file, (cur) =>
+        upsertPlotline(cur, { id: col.id, title: t })
       );
     }, "Couldn't rename the plotline.");
   }
@@ -744,7 +747,7 @@ export class PlotGridPanel {
     if (!file) return;
     await tryFileOp(async () => {
       await this.stripTag(col.title);
-      await persistPlotlines(this.app, file, removePlotline(this.configured(), col.id));
+      await updatePlotlines(this.app, file, (cur) => removePlotline(cur, col.id));
     }, "Couldn't delete the plotline.");
   }
 

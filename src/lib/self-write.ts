@@ -34,6 +34,16 @@ export class SelfWriteRegistry {
    * that includes even one unmarked path means something external changed,
    * so the caller must fall through to a full rebuild. An empty set never
    * counts as covered (nothing vouches for it).
+   *
+   * Matched marks are CONSUMED: one mark vouches for exactly ONE notify (the
+   * store coalesces each write's events into a single notify, so that's the
+   * right cardinality). Without consumption a mark kept vouching for the whole
+   * window — an external edit (sync, another device) landing on the same path
+   * within ~3s of our own write was misclassified as self-inflicted, softened
+   * away, and then clobbered by the panel's next save. The window now serves
+   * only as EXPIRY for marks whose notify never arrived. If a second notify
+   * for one write ever occurs, the failure mode is a spurious full rebuild —
+   * the safe direction (preserveFocus + field tags absorb it).
    */
   coveredBy(changed: ReadonlySet<string>, windowMs = DEFAULT_WINDOW_MS): boolean {
     this.prune(windowMs);
@@ -41,6 +51,7 @@ export class SelfWriteRegistry {
     for (const path of changed) {
       if (!this.marks.has(path)) return false;
     }
+    for (const path of changed) this.marks.delete(path);
     return true;
   }
 

@@ -24,7 +24,7 @@ import type { BeatAssignment, BeatSheet } from "../outliner/beat-templates";
 import { renameSceneInBeats, setAssignment } from "../outliner/beats";
 import { rebaseSceneOrder } from "../outliner/outline";
 import type { Plotline } from "../outliner/plotgrid";
-import type { StructureGroup, StructureKind } from "../outliner/structure";
+import type { StructureGroup } from "../outliner/structure";
 import type { RevisionDecision } from "../revisions/types";
 import type { ChecklistItem, ChecklistTier, RevisionChecklistData } from "../revisions/checklist";
 import { setChecklistItem } from "../revisions/checklist";
@@ -422,42 +422,22 @@ export async function persistOverview(
 }
 
 /**
- * Write the chapter/act config array to `inkswell.chapters` / `inkswell.acts`
- * (read-merge-write, like `persistPublishing`). An empty array deletes the key,
- * and an emptied `inkswell` object is pruned. `kind` picks the target key.
+ * Transform the plotline config list against its CURRENT stored state (the
+ * Plot Grid's pure ops — upsert/move/remove by stable id — compose here, so a
+ * color change and a reorder issued from the same rendered grid both land).
+ * A transform returning its input unchanged skips the write; an emptied list
+ * deletes the key.
  */
-export async function persistStructure(
+export async function updatePlotlines(
   app: App,
   indexFile: TFile,
-  kind: StructureKind,
-  groups: StructureGroup[]
+  transform: (current: Plotline[]) => Plotline[]
 ): Promise<void> {
-  const key = kind === "act" ? "acts" : "chapters";
-  await app.fileManager.processFrontMatter(indexFile, (fm: Record<string, unknown>) => {
-    const inkswell = { ...asRecord(fm["inkswell"]) };
-    if (groups.length === 0) delete inkswell[key];
-    else inkswell[key] = groups;
-    if (Object.keys(inkswell).length === 0) delete fm["inkswell"];
-    else fm["inkswell"] = inkswell;
-  });
-}
-
-/**
- * Write the plotline config array to `inkswell.plotlines` (read-merge-write,
- * like `persistStructure`). An empty array deletes the key, and an emptied
- * `inkswell` object is pruned.
- */
-export async function persistPlotlines(
-  app: App,
-  indexFile: TFile,
-  plotlines: Plotline[]
-): Promise<void> {
-  await app.fileManager.processFrontMatter(indexFile, (fm: Record<string, unknown>) => {
-    const inkswell = { ...asRecord(fm["inkswell"]) };
-    if (plotlines.length === 0) delete inkswell["plotlines"];
-    else inkswell["plotlines"] = plotlines;
-    if (Object.keys(inkswell).length === 0) delete fm["inkswell"];
-    else fm["inkswell"] = inkswell;
+  await updateInkswellKey(app, indexFile, "plotlines", (raw) => {
+    const current = asArray<Plotline>(raw);
+    const next = transform(current);
+    if (next === current) return raw; // pure-op no-op — keep what's stored
+    return next.length === 0 ? undefined : next;
   });
 }
 

@@ -92,7 +92,7 @@ export function mergeGroups(
 /**
  * Add or replace a config entry, matching an existing one by `id` (preferred) or
  * `title`. Mints an id when absent. Returns a new array (order preserved; new
- * entries appended). Callers persist the result via `persistStructure`.
+ * entries appended). Callers persist the result via `persistOutline`.
  */
 export function upsertGroup(
   configured: StructureGroup[] | undefined,

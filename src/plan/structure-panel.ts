@@ -16,6 +16,7 @@
 
 import { App, Menu, Notice } from "obsidian";
 import { FeatureId, featureEnabled } from "../features";
+import { preserveFocus } from "../lib/focus-preserve";
 import { renderHint } from "../help/hint";
 import { BoardPanel } from "../outliner/board-panel";
 import { ActiveProject } from "../projects/active-project";
@@ -66,9 +67,16 @@ export class StructurePanel {
    * Tree/Board drag). The rebuild is synchronous into the still-mounted
    * container, so the scrolling ancestor keeps its scroll position — unlike
    * the host's full body teardown, which resets it to the top on every move.
+   *
+   * Soft-path rule: this fires while a field can still be focused (the host
+   * checks self-writes BEFORE its editing guard), so the rebuild is wrapped in
+   * preserveFocus — a chapter-target edit committed while another target field
+   * held the caret must not destroy that field mid-keystroke.
    */
   softRefresh(): void {
-    if (this.container?.isConnected) this.render(this.container);
+    if (this.container?.isConnected) {
+      preserveFocus(this.container, () => this.render(this.container as HTMLElement));
+    }
   }
 
   /** Right-click an optional view button to hide it (re-enable in Settings). */

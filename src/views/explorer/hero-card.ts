@@ -6,6 +6,7 @@
  */
 
 import { App, Menu, Notice, TFile } from "obsidian";
+import { tagField } from "../../lib/focus-preserve";
 import { tryFileOp } from "../../lib/notify";
 import {
   cleanupOwnedCover,
@@ -76,6 +77,7 @@ export class HeroCard {
       const row = meta.createDiv({ cls: "inkswell-hero__field" });
       row.createDiv({ cls: "inkswell-hero__label", text: label });
       const input = row.createEl("input", { type: "text", cls: "inkswell-hero__input" });
+      tagField(input, `hero:${label.toLowerCase()}`);
       input.value = value ?? "";
       input.placeholder = placeholder;
       input.onchange = () => save(input.value.trim());
@@ -102,6 +104,7 @@ export class HeroCard {
     row.createDiv({ cls: "inkswell-hero__label", text: "Target" });
     const control = row.createDiv({ cls: "inkswell-hero__targetrow" });
     const input = control.createEl("input", { type: "number", cls: "inkswell-hero__input inkswell-hero__targetinput" });
+    tagField(input, "hero:target");
     input.value = target ? String(target) : "";
     input.placeholder = "e.g. 80000";
     input.min = "0";

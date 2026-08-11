@@ -9,9 +9,8 @@ import {
   persistDraft,
   persistDraftCreated,
   persistOverview,
-  persistPlotlines,
   persistPublishing,
-  persistStructure,
+  updatePlotlines,
   updateScenes,
   writeSeries,
 } from "../src/projects/index-writer";
@@ -192,22 +191,14 @@ describe("index-writer invariants", () => {
     expect(publishing["metadata"]).toEqual({ isbn: "978-0000000000" });
   });
 
-  it("persistStructure writes chapters; an empty array deletes the key", async () => {
-    await persistStructure(app.asApp(), app.file(INDEX_PATH), "chapter", [
-      { id: "c1", title: "One", targetWords: 4000 },
-    ]);
-    assertNothingElseChanged();
-    let inkswell = indexFm(app)["inkswell"] as Record<string, unknown>;
-    expect(inkswell["chapters"]).toEqual([{ id: "c1", title: "One", targetWords: 4000 }]);
-
-    await persistStructure(app.asApp(), app.file(INDEX_PATH), "chapter", []);
-    inkswell = indexFm(app)["inkswell"] as Record<string, unknown>;
-    expect("chapters" in inkswell).toBe(false);
-  });
-
-  it("persistPlotlines writes the list; an empty array deletes the key; siblings survive", async () => {
-    await persistPlotlines(app.asApp(), app.file(INDEX_PATH), [
+  it("updatePlotlines transforms the CURRENT list; two ops compose; siblings survive", async () => {
+    await updatePlotlines(app.asApp(), app.file(INDEX_PATH), (cur) => [
+      ...cur,
       { id: "pl-1", title: "Main", color: "#e05252" },
+    ]);
+    // A second op issued from a stale render must still see pl-1.
+    await updatePlotlines(app.asApp(), app.file(INDEX_PATH), (cur) => [
+      ...cur,
       { id: "pl-2", title: "Romance" },
     ]);
     assertNothingElseChanged();
@@ -218,7 +209,12 @@ describe("index-writer invariants", () => {
     ]);
     expect((inkswell["overview"] as Record<string, unknown>)["theme"]).toBe("Trust");
 
-    await persistPlotlines(app.asApp(), app.file(INDEX_PATH), []);
+    // An identity transform (pure-op no-op) leaves the file byte-identical.
+    const before = app.vault.raw(INDEX_PATH);
+    await updatePlotlines(app.asApp(), app.file(INDEX_PATH), (cur) => cur);
+    expect(app.vault.raw(INDEX_PATH)).toBe(before);
+
+    await updatePlotlines(app.asApp(), app.file(INDEX_PATH), () => []);
     inkswell = indexFm(app)["inkswell"] as Record<string, unknown>;
     expect("plotlines" in inkswell).toBe(false);
   });

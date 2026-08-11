@@ -5,6 +5,7 @@
  */
 
 import { App, Notice, TFile } from "obsidian";
+import { tagField } from "../lib/focus-preserve";
 import { tryFileOp } from "../lib/notify";
 import { writeConflictBackup } from "../lib/conflict-backup";
 import { OutputExistsError, runCompile, vaultHasFilesystem } from "../compile/engine";
@@ -74,6 +75,7 @@ export class CompilePanel {
     const fmtField = container.createDiv({ cls: "inkswell-publish__field" });
     fmtField.createSpan({ cls: "inkswell-stats__muted", text: "Format" });
     const fmt = fmtField.createEl("select", { cls: "dropdown" });
+    tagField(fmt, "compile:format");
     const fmtValue =
       config.format === "pandoc" ? `pandoc:${config.pandoc?.to ?? "docx"}` : config.format;
     const formatOptions: [string, string, boolean][] = [
@@ -119,6 +121,7 @@ export class CompilePanel {
     const nameField = container.createDiv({ cls: "inkswell-publish__field" });
     nameField.createSpan({ cls: "inkswell-stats__muted", text: "Output file name" });
     const name = nameField.createEl("input", { type: "text" });
+    tagField(name, "compile:name");
     name.value = config.targetBasename;
     name.onchange = () => {
       // Same sanitizer every other user-supplied filename goes through — a raw
@@ -179,6 +182,7 @@ export class CompilePanel {
     const field = parent.createDiv({ cls: "inkswell-publish__field" });
     field.createSpan({ cls: "inkswell-stats__muted", text: "Scene separator" });
     const sel = field.createEl("select", { cls: "dropdown" });
+    tagField(sel, "compile:separator");
     const presets = CompilePanel.SEP_PRESETS;
     const matched = presets.some((p) => p.value === config.separator);
     if (!matched) sel.createEl("option", { text: "Custom (frontmatter)", value: config.separator });
@@ -320,6 +324,7 @@ export class CompilePanel {
     for (const step of steps) {
       const row = group.createDiv({ cls: "inkswell-publish__step" });
       const cb = row.createEl("input", { type: "checkbox" });
+      tagField(cb, `compile:step:${key}:${step.id}`);
       cb.checked = included.has(step.id);
       row.createSpan({ text: step.description });
       cb.onchange = () => {
