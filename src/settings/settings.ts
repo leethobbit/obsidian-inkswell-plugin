@@ -7,12 +7,13 @@
  */
 
 import { App, Notice, PluginSettingTab, Setting, setIcon } from "obsidian";
+import type { SettingDefinition, SettingDefinitionItem } from "obsidian";
 import { tryFileOp } from "../lib/notify";
 import type InkswellPlugin from "../../main";
 import { OutputFormat } from "../compile/types";
 import { WeekStart } from "../goals/goals";
 import { WORD_CATEGORIES, WordCategory } from "../tracking/types";
-import { FeatureGroup, OPTIONAL_FEATURES, featureEnabled } from "../features";
+import { FeatureGroup, FeatureId, OPTIONAL_FEATURES, featureEnabled } from "../features";
 import { generateCodexTemplates, getCodexEntities } from "../codex/codex-store";
 import { CategoryDef, allCategories } from "../codex/types";
 import { CategoryModal } from "../codex/category-modal";
@@ -136,12 +137,264 @@ const CATEGORY_LABELS: Record<WordCategory, { name: string; desc: string }> = {
   },
 };
 
+/** Clamp bounds for the numeric fields — shared by the imperative tab
+ *  (`clampInt`) and the declarative `setControlValue` router so the two
+ *  rendering paths can't disagree on what a valid value is. */
+const NUMERIC_BOUNDS: Partial<
+  Record<keyof InkswellSettings, { lo: number; hi: number; fallback: number }>
+> = {
+  sceneHeadingLevel: { lo: 1, hi: 6, fallback: 1 },
+  dailyWordGoal: { lo: 0, hi: 100000, fallback: 500 },
+  weeklyWordGoal: { lo: 0, hi: 1000000, fallback: 3500 },
+  monthlyWordGoal: { lo: 0, hi: 10000000, fallback: 15000 },
+  habitDaysPerWeek: { lo: 1, hi: 7, fallback: 5 },
+  habitMinWords: { lo: 1, hi: 100000, fallback: 100 },
+  defaultSprintMinutes: { lo: 1, hi: 600, fallback: 15 },
+  defaultSprintWordGoal: { lo: 0, hi: 100000, fallback: 0 },
+  streakThreshold: { lo: 1, hi: 100000, fallback: 1 },
+};
+
 export class InkswellSettingTab extends PluginSettingTab {
   private plugin: InkswellPlugin;
 
   constructor(app: App, plugin: InkswellPlugin) {
     super(app, plugin);
     this.plugin = plugin;
+  }
+
+  /**
+   * Declarative mirror of the tab for Obsidian's settings SEARCH (1.13+).
+   * `display()` below stays the renderer on every version — this method is
+   * never called on installs older than 1.13 (the app doesn't know it), and
+   * on 1.13+ it feeds the search index plus any controls the app renders from
+   * definitions (routed through get/setControlValue). Feature and goal-category
+   * toggles aren't direct settings fields, so they use virtual keys
+   * (`feature:<id>`, `counts:<category>`) resolved by the overrides below.
+   *
+   * KEEP IN LOCKSTEP with display(): same names, descriptions, and controls.
+   */
+  getSettingDefinitions(): SettingDefinitionItem[] {
+    const s = this.plugin.settings;
+    const items: SettingDefinitionItem[] = [
+      {
+        name: "Default compile format",
+        desc: "Format pre-selected when you open the compile dialog.",
+        control: {
+          type: "dropdown",
+          key: "defaultCompileFormat",
+          options: { md: "Markdown", html: "HTML", pandoc: "Pandoc (docx/pdf/epub)" },
+          defaultValue: "md",
+        },
+      },
+      {
+        name: "Show word counts",
+        desc: "Display per-scene and per-project word counts in the explorer.",
+        control: { type: "toggle", key: "showWordCounts", defaultValue: true },
+      },
+      {
+        name: "Scene heading level",
+        desc: "Heading level (1–6) for the optional 'prepend title' compile step.",
+        control: { type: "slider", key: "sceneHeadingLevel", min: 1, max: 6, step: 1 },
+      },
+    ];
+
+    // Features — one group per feature area, mirroring the tab's sub-headings.
+    let group: { type: "group"; heading: string; items: SettingDefinition[] } | null = null;
+    let lastGroup: FeatureGroup | null = null;
+    for (const f of OPTIONAL_FEATURES) {
+      if (f.group !== lastGroup) {
+        group = { type: "group", heading: f.group, items: [] };
+        items.push(group);
+        lastGroup = f.group;
+      }
+      group?.items.push({
+        name: f.label,
+        desc: f.desc,
+        control: { type: "toggle", key: `feature:${f.id}`, defaultValue: true },
+      });
+    }
+
+    items.push(
+      {
+        type: "group",
+        heading: "Goals & sprints",
+        items: [
+          {
+            name: "Week starts on",
+            desc: "First day of the week for weekly goals, habit tracking, and the heatmap.",
+            control: {
+              type: "dropdown",
+              key: "weekStart",
+              options: { monday: "Monday", sunday: "Sunday" },
+              defaultValue: "monday",
+            },
+          },
+          numberDef("Daily word goal", "Target words per day, shown in the status bar and stats.", "dailyWordGoal"),
+          numberDef("Weekly word goal", "Target words per week (start of week→today).", "weeklyWordGoal"),
+          numberDef("Monthly word goal", "Target words per month (1st→today).", "monthlyWordGoal"),
+          numberDef("Habit: days per week", "How many days a week you aim to write.", "habitDaysPerWeek"),
+          numberDef("Habit: minimum words/day", "Minimum words for a day to count toward the habit.", "habitMinWords"),
+          numberDef("Default sprint length", "Default sprint duration in minutes.", "defaultSprintMinutes"),
+          numberDef("Default sprint word goal", "Word goal pre-filled in the sprint dialog. 0 = no goal.", "defaultSprintWordGoal"),
+          numberDef("Streak threshold", "Minimum words in a day for it to extend your writing streak.", "streakThreshold"),
+        ],
+      },
+      {
+        type: "group",
+        heading: "What counts toward goals",
+        items: WORD_CATEGORIES.map((cat) => ({
+          name: CATEGORY_LABELS[cat].name,
+          desc: CATEGORY_LABELS[cat].desc,
+          control: { type: "toggle" as const, key: `counts:${cat}` },
+        })),
+      },
+      {
+        type: "group",
+        heading: "Folders",
+        items: [
+          {
+            name: "Base folder",
+            desc:
+              "Folder new projects and the shared codex scaffold under. Blank = vault root. " +
+              "This only sets where new content is created — existing projects and codex " +
+              "anywhere in the vault still work.",
+            control: { type: "folder", key: "baseFolder", placeholder: "(vault root)" },
+          },
+          {
+            name: "Codex folder name",
+            desc: "Subfolder name used for codex notes (shared and per-project).",
+            control: { type: "text", key: "codexFolder", defaultValue: "Codex" },
+          },
+          {
+            name: "Co-locate codex with projects",
+            desc:
+              "Book-scoped entries are created in their project's own codex folder; " +
+              "series and global entries go to the shared base codex. Organization only — " +
+              "visibility is set per-entry by its Scope field, not by where the note lives.",
+            control: { type: "toggle", key: "coLocateCodex", defaultValue: true },
+          },
+        ],
+      },
+      {
+        type: "group",
+        heading: "Custom Codex types",
+        items: [
+          ...s.customCategories.map((cat) => ({
+            name: cat.label,
+            desc: `${cat.plural} · codex: ${cat.id}`,
+            action: () => this.openCategoryModal(cat),
+          })),
+          {
+            name: "Add custom type",
+            desc: "Add your own codex types (creatures, spells, ships…) next to the built-in seven.",
+            action: () => this.openCategoryModal(null),
+          },
+        ],
+      },
+      {
+        type: "group",
+        heading: "Templates",
+        items: [
+          {
+            name: "Generate starter templates",
+            desc:
+              "Create an editable note for each codex type — plus Scene.md for new scenes. " +
+              "New entries and scenes are scaffolded from the matching note's frontmatter and body.",
+            action: () => void this.generateTemplates(),
+          },
+        ],
+      },
+      {
+        type: "group",
+        heading: "Help",
+        items: [
+          {
+            name: "Show contextual tips",
+            desc:
+              'Show the dismissible "How this works" callouts at the top of panels. ' +
+              "Tips you dismiss stay hidden until you reset them below.",
+            control: { type: "toggle", key: "showHelpHints", defaultValue: true },
+          },
+          {
+            name: "Reset tips & replay welcome",
+            desc: "Re-enable every dismissed tip and show the welcome screen again.",
+            action: () => void this.resetTips(),
+          },
+        ],
+      }
+    );
+    return items;
+  }
+
+  /** Resolve a definition key — virtual (`feature:`/`counts:`) or a settings field. */
+  getControlValue(key: string): unknown {
+    if (key.startsWith("feature:")) {
+      return featureEnabled(this.plugin.settings.disabledFeatures, key.slice(8) as FeatureId);
+    }
+    if (key.startsWith("counts:")) {
+      return !this.plugin.settings.excludedFromGoals.includes(key.slice(7) as WordCategory);
+    }
+    return this.plugin.settings[key as keyof InkswellSettings];
+  }
+
+  /** Persist a definition-driven edit with the SAME clamping and side effects
+   *  as the imperative tab (the two paths must never disagree). */
+  async setControlValue(key: string, value: unknown): Promise<void> {
+    const s = this.plugin.settings;
+    if (key.startsWith("feature:")) {
+      await this.plugin.setFeatureEnabled(key.slice(8) as FeatureId, !!value);
+      return;
+    }
+    if (key.startsWith("counts:")) {
+      const cat = key.slice(7) as WordCategory;
+      const excluded = new Set(s.excludedFromGoals);
+      if (value) excluded.delete(cat);
+      else excluded.add(cat);
+      s.excludedFromGoals = [...excluded];
+      await this.plugin.saveSettings();
+      this.plugin.refreshStatus();
+      this.plugin.refreshView();
+      return;
+    }
+    switch (key) {
+      case "defaultCompileFormat":
+        s.defaultCompileFormat = value as OutputFormat;
+        break;
+      case "showWordCounts":
+        s.showWordCounts = !!value;
+        break;
+      case "weekStart":
+        s.weekStart = value === "sunday" ? "sunday" : "monday";
+        break;
+      case "baseFolder":
+        s.baseFolder = trimSlashes(typeof value === "string" ? value : "");
+        break;
+      case "codexFolder":
+        s.codexFolder = (typeof value === "string" ? value : "").trim() || "Codex";
+        break;
+      case "coLocateCodex":
+        s.coLocateCodex = !!value;
+        break;
+      case "showHelpHints":
+        s.showHelpHints = !!value;
+        break;
+      default: {
+        const bounds = NUMERIC_BOUNDS[key as keyof InkswellSettings];
+        if (!bounds) return; // unknown key — never write blind
+        // Number controls hand us a number; anything else falls back via clamp.
+        const raw = typeof value === "number" || typeof value === "string" ? `${value}` : "";
+        (s as unknown as Record<string, number>)[key] = clampInt(
+          raw,
+          bounds.lo,
+          bounds.hi,
+          bounds.fallback
+        );
+        break;
+      }
+    }
+    await this.plugin.saveSettings();
+    if (key === "showWordCounts" || key === "showHelpHints") this.plugin.refreshExplorer();
+    if (key === "dailyWordGoal") this.plugin.refreshStatus();
   }
 
   /**
@@ -192,38 +445,12 @@ export class InkswellSettingTab extends PluginSettingTab {
         "frontmatter you add there is kept on every entry.",
     });
 
-    const upsert = async (def: CategoryDef): Promise<void> => {
-      const list = this.plugin.settings.customCategories;
-      const i = list.findIndex((c) => c.id === def.id);
-      if (i >= 0) list[i] = def;
-      else list.push(def);
-      await this.plugin.saveSettings();
-      this.plugin.refreshView();
-      this.rerender();
-    };
-    /** Ids/labels a new or edited type may not collide with (excludes itself). */
-    const taken = (except: CategoryDef | null) => {
-      const others = allCategories(this.plugin.settings.customCategories).filter(
-        (c) => c.id !== except?.id
-      );
-      return {
-        takenIds: others.map((c) => c.id),
-        takenLabels: others.map((c) => c.label.toLowerCase()),
-      };
-    };
-
     for (const cat of this.plugin.settings.customCategories) {
       const row = new Setting(containerEl)
         .setName(cat.label)
         .setDesc(`${cat.plural} · codex: ${cat.id}`)
         .addButton((b) =>
-          b.setButtonText("Edit").onClick(() => {
-            new CategoryModal(this.app, {
-              existing: cat,
-              ...taken(cat),
-              onSubmit: upsert,
-            }).open();
-          })
+          b.setButtonText("Edit").onClick(() => this.openCategoryModal(cat))
         )
         .addExtraButton((b) =>
           b
@@ -253,14 +480,58 @@ export class InkswellSettingTab extends PluginSettingTab {
       b
         .setButtonText("Add custom type")
         .setCta()
-        .onClick(() => {
-          new CategoryModal(this.app, {
-            existing: null,
-            ...taken(null),
-            onSubmit: upsert,
-          }).open();
-        })
+        .onClick(() => this.openCategoryModal(null))
     );
+  }
+
+  /** Add-or-edit a custom codex type (shared by the tab and settings search). */
+  private openCategoryModal(existing: CategoryDef | null): void {
+    // Ids/labels a new or edited type may not collide with (excludes itself).
+    const others = allCategories(this.plugin.settings.customCategories).filter(
+      (c) => c.id !== existing?.id
+    );
+    new CategoryModal(this.app, {
+      existing,
+      takenIds: others.map((c) => c.id),
+      takenLabels: others.map((c) => c.label.toLowerCase()),
+      onSubmit: async (def: CategoryDef): Promise<void> => {
+        const list = this.plugin.settings.customCategories;
+        const i = list.findIndex((c) => c.id === def.id);
+        if (i >= 0) list[i] = def;
+        else list.push(def);
+        await this.plugin.saveSettings();
+        this.plugin.refreshView();
+        this.rerender();
+      },
+    }).open();
+  }
+
+  /** Generate the starter template notes (shared by the tab and settings search). */
+  private async generateTemplates(): Promise<void> {
+    const templateFolder = resolveTemplateFolder(this.plugin.settings) || "(vault root)";
+    const created = await tryFileOp(
+      () =>
+        generateCodexTemplates(
+          this.app,
+          this.plugin.settings,
+          this.plugin.settings.customCategories
+        ),
+      "Couldn't generate the starter templates."
+    );
+    if (created === null) return;
+    new Notice(
+      created.length > 0
+        ? `Created ${created.length} template${created.length === 1 ? "" : "s"} in "${templateFolder}".`
+        : "Templates already exist — nothing to create."
+    );
+  }
+
+  /** Reset dismissed tips + replay the welcome modal (shared by tab and search). */
+  private async resetTips(): Promise<void> {
+    await resetHelpState(this.plugin);
+    this.plugin.refreshExplorer();
+    new Notice("Tips reset.");
+    new WelcomeModal(this.app, this.plugin).open();
   }
 
   display(): void {
@@ -511,23 +782,7 @@ export class InkswellSettingTab extends PluginSettingTab {
           "default scene status automatically. Delete a template to return to the default."
       )
       .addButton((b) =>
-        b.setButtonText("Generate starter templates").onClick(async () => {
-          const created = await tryFileOp(
-            () =>
-              generateCodexTemplates(
-                this.app,
-                this.plugin.settings,
-                this.plugin.settings.customCategories
-              ),
-            "Couldn't generate the starter templates."
-          );
-          if (created === null) return;
-          new Notice(
-            created.length > 0
-              ? `Created ${created.length} template${created.length === 1 ? "" : "s"} in "${templateFolder}".`
-              : "Templates already exist — nothing to create."
-          );
-        })
+        b.setButtonText("Generate starter templates").onClick(() => void this.generateTemplates())
       );
 
     new Setting(containerEl).setName("Help").setHeading();
@@ -549,15 +804,28 @@ export class InkswellSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Reset tips & replay welcome")
       .setDesc("Re-enable every dismissed tip and show the welcome screen again.")
-      .addButton((b) =>
-        b.setButtonText("Reset").onClick(async () => {
-          await resetHelpState(this.plugin);
-          this.plugin.refreshExplorer();
-          new Notice("Tips reset.");
-          new WelcomeModal(this.app, this.plugin).open();
-        })
-      );
+      .addButton((b) => b.setButtonText("Reset").onClick(() => void this.resetTips()));
   }
+}
+
+/** A number-control definition backed by a NUMERIC_BOUNDS entry. */
+function numberDef(
+  name: string,
+  desc: string,
+  key: keyof InkswellSettings
+): SettingDefinition {
+  const bounds = NUMERIC_BOUNDS[key];
+  return {
+    name,
+    desc,
+    control: {
+      type: "number",
+      key,
+      min: bounds?.lo,
+      max: bounds?.hi,
+      defaultValue: bounds?.fallback,
+    },
+  };
 }
 
 /** Trim leading/trailing slashes and surrounding whitespace from a folder path. */
