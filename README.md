@@ -76,6 +76,23 @@ Daily / weekly / monthly word goals, habit streaks, a GitHub-style heatmap, life
 - **Optional pandoc.** Exporting to `.docx` / `.pdf` / `.epub` shells out to a [pandoc](https://pandoc.org/) binary on your machine. It's feature-detected and disabled gracefully when pandoc isn't present; Markdown and HTML export need nothing extra.
 - **Runs on mobile.** Inkswell installs on Obsidian mobile. On tablets and iPad the full suite is available with a responsive layout; on phones it focuses on drafting (a single-column editor with a slide-in scene list), while the planning/reference/publish surfaces point you to a larger screen. The only desktop-only piece is pandoc-based `.docx` / `.pdf` / `.epub` export, which disables itself gracefully elsewhere.
 
+## Where your data lives — backups & recovery
+
+Everything Inkswell stores is plain text you can inspect, sync, and back up like any other note:
+
+| Data | Where it lives |
+|------|----------------|
+| Scene prose | Ordinary notes in your project's scene folder |
+| Plan data — beats, outline structure, goals, revision log, audit checklists, compile & publishing settings | Frontmatter of the **project index note** (the note named after your project) |
+| Codex entries | Ordinary notes with a `codex` frontmatter key |
+| Plugin settings, writing history, sprints, ideas inbox | The plugin's `data.json` (inside `.obsidian/plugins/inkswell/`) |
+
+Recovery options, should anything ever go wrong:
+
+- **Obsidian's File Recovery** (Settings → File Recovery → *View*) keeps periodic snapshots of every note that changes — including plugin-written ones. The search is by **file name**: for plan data (beats, goals, revision log), search for your **project's name** and look at the index note's snapshots; for prose, search the scene's name.
+- **The "Inkswell conflicts" folder**: whenever Inkswell must displace a version of your text (resolving an editor/disk conflict, or overwriting a file during compile at your request), the displaced version is saved there first — nothing is ever silently discarded.
+- **Daily `data.json` backups**: on each load, Inkswell keeps a daily copy of its `data.json` in `.obsidian/plugins/inkswell/backups/` (the last 7 days). To restore one: disable Inkswell, copy the backup over `data.json`, re-enable.
+
 ## Install
 
 **Requirements:** Obsidian 1.7.4+ (pandoc optional, for `.docx` / `.pdf` / `.epub`).

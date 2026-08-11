@@ -14,6 +14,7 @@ import { runCompile } from "./src/compile/engine";
 import { resolveCompileConfig } from "./src/compile/config";
 import { TargetModal } from "./src/goals/target-modal";
 import { Idea, newIdeaId } from "./src/ideation/types";
+import { backupPluginData } from "./src/lib/data-backup";
 import { countWords } from "./src/lib/wordcount";
 import { promptText } from "./src/scenes/scene-actions";
 import { ActiveProject, resolveActive } from "./src/projects/active-project";
@@ -60,6 +61,11 @@ export default class InkswellPlugin extends Plugin {
 
   async onload(): Promise<void> {
     await this.loadPersisted();
+    // Daily rolling backup of data.json (settings, writing log, sprints,
+    // ideas) — File Recovery never sees files outside the vault, so this is
+    // that data's only safety net. Runs right after load so it captures the
+    // pre-session state, before anything this session writes.
+    if (this.manifest.dir) void backupPluginData(this.app, this.manifest.dir);
 
     this.store = new ProjectStore(this.app);
     this.stats = new ProjectStats(this.app);
