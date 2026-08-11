@@ -660,8 +660,8 @@ class ReplaceConfirmModal extends FormModal {
       text: `Replace ${this.opts.matches} occurrence${this.opts.matches === 1 ? "" : "s"} in ${this.opts.scenes} scene${this.opts.scenes === 1 ? "" : "s"}.`,
     });
     const table = el.createDiv({ cls: "inkswell-search__confirm" });
-    table.createEl("div", { text: `Find: “${this.opts.find}”` });
-    table.createEl("div", {
+    table.createDiv({ text: `Find: “${this.opts.find}”` });
+    table.createDiv({
       text: this.opts.replace ? `Replace: “${this.opts.replace}”` : "Replace: (delete)",
     });
     el.createEl("p", {

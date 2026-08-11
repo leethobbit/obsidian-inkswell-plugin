@@ -12,6 +12,9 @@ time the version bump renames that section to the new version and date.
 
 ## [1.10.2] - 2026-08-11
 
+### Added
+- **Inkswell's settings now appear in Obsidian's settings search** (Obsidian 1.13+): every option — compile format, goals, feature toggles, folders, custom codex types, templates, help — is indexed by name and description, and actions like "Generate starter templates" work straight from a search result. Nothing changes on older Obsidian versions.
+
 ### Fixed
 - **Compile can no longer silently overwrite a note that isn't its own output.** Compiled manuscripts now carry an invisible ownership marker; recompiling replaces a previous compile as before, but if the configured output name points at any other note (say, a hand-written `manuscript.md`, or a name typed with a `/` in it), Inkswell now refuses from the command palette and asks first in the Compile panel — backing the existing note up to "Inkswell conflicts" before overwriting. Output names are also run through the same filename sanitizer as every other name field.
 - **A scene that opens with a `---` divider no longer loses its opening passage.** A body-leading `---` scene break (a common novelist's divider) was mistaken for YAML frontmatter, which made everything above the second `---` invisible in the Write editor, unsearchable, uncounted toward goals, and silently missing from compiled output. Frontmatter is now only recognized when it actually parses as YAML metadata — matching Obsidian's own rule — so divider-led prose shows, counts, and compiles. (If you have such scenes, expect a small one-time uptick in their word counts.)
