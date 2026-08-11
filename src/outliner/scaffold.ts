@@ -16,13 +16,12 @@
  */
 
 import { App, TFile, normalizePath } from "obsidian";
-import { persistStructure, updateBeats, updateScenes } from "../projects/index-writer";
+import { persistScaffoldIndex } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project, isMultiScene } from "../projects/types";
 import { readSceneMeta, writeSceneMeta } from "../scenes/scene-meta";
 import { FolderSettings, sanitizeSegment } from "../settings/folders";
 import { BeatAssignment, getTemplate, templateActs } from "./beat-templates";
-import { setAssignment } from "./beats";
 import { buildOutline } from "./outline";
 import { ScaffoldPlan, planScaffold } from "./scaffold-plan";
 import { createSceneFile } from "./create-scene";
@@ -172,50 +171,33 @@ export async function scaffoldFromTemplate(
     beatScene.set(item.beatId, item.title);
   }
 
-  let createdCount = 0;
-  await updateScenes(app, indexFile, draft, (scenes) => {
-    const have = new Set(scenes.map((s) => s.title));
-    const additions = a.items
-      .filter((it) => !have.has(it.title))
-      .map((it) => ({ title: it.title, indent: 0 }));
-    createdCount = additions.length;
-    return [...scenes, ...additions];
-  });
-
-  // Persist the acts/chapters config (empty outline ⇒ writing whole arrays is
-  // safe — there is nothing to merge with). Appending scenes in template order
-  // above already leaves the manuscript act→chapter→scene contiguous.
-  if (plan) {
-    const actGroups = plan.acts.map((act) => ({ id: newStructureId(), title: act.title }));
-    const chapterGroups = plan.chapters.map((c) => ({
-      id: newStructureId(),
-      title: c.title,
-      actId: actGroups[c.actIndex].id,
-    }));
-    await persistStructure(app, indexFile, "act", actGroups);
-    await persistStructure(app, indexFile, "chapter", chapterGroups);
-  }
-
-  // Link each beat to its scene (both modes) — but never clobber an assignment
-  // that already points at scenes (including the legacy single-`scene` form).
-  // "Already assigned" is checked against the CURRENT sheet inside the write,
-  // so a beat note or link saved while the scaffold ran is never overwritten.
-  await updateBeats(app, indexFile, (current) => {
-    let sheet = current ?? { template: templateId, assignments: {} };
-    let linked = false;
-    for (const [beatId, title] of beatScene) {
-      const cur = sheet.assignments[beatId] as
-        | (BeatAssignment & { scene?: string })
-        | undefined;
-      if (cur?.scenes?.length || cur?.scene) continue;
-      sheet = setAssignment(sheet, beatId, { scenes: [title] });
-      linked = true;
-    }
-    return linked ? sheet : null;
+  // ONE index transaction: append the new scenes (dup-guarded against the
+  // CURRENT list), write the acts/chapters config (empty outline precondition
+  // makes whole arrays safe — nothing to merge with), and link each beat to its
+  // scene where the CURRENT assignment is empty — a beat note or link saved
+  // while the scaffold ran is never overwritten. Appending scenes in template
+  // order leaves the manuscript act→chapter→scene contiguous.
+  const actGroups = plan
+    ? plan.acts.map((act) => ({ id: newStructureId(), title: act.title }))
+    : undefined;
+  const chapterGroups =
+    plan && actGroups
+      ? plan.chapters.map((c) => ({
+          id: newStructureId(),
+          title: c.title,
+          actId: actGroups[c.actIndex].id,
+        }))
+      : undefined;
+  const { addedScenes } = await persistScaffoldIndex(app, indexFile, {
+    additions: a.items.map((it) => ({ title: it.title, indent: 0 })),
+    acts: actGroups,
+    chapters: chapterGroups,
+    beatLinks: beatScene,
+    templateId,
   });
 
   return {
-    scenes: createdCount,
+    scenes: addedScenes,
     chapters: plan?.chapters.length ?? 0,
     acts: plan?.acts.length ?? 0,
     structured: a.structured,

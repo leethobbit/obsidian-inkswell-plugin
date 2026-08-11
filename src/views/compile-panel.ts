@@ -6,7 +6,8 @@
 
 import { App, Notice, TFile } from "obsidian";
 import { tryFileOp } from "../lib/notify";
-import { runCompile, vaultHasFilesystem } from "../compile/engine";
+import { writeConflictBackup } from "../lib/conflict-backup";
+import { OutputExistsError, runCompile, vaultHasFilesystem } from "../compile/engine";
 import {
   PandocSupport,
   generateReferenceDoc,
@@ -15,29 +16,23 @@ import {
 } from "../compile/pandoc";
 import { preflight, SceneText } from "../compile/preflight";
 import { BUILTIN_STEPS } from "../compile/steps";
-import { resolveCompileConfig } from "../compile/config";
-import { countWords } from "../lib/wordcount";
-import { openScene } from "../scenes/scene-actions";
 import {
-  CompileConfig,
-  ConfiguredStep,
-  OutputFormat,
-} from "../compile/types";
+  EXCLUSIVE_HEADING_STEPS,
+  applyStepToggle,
+  resolveCompileConfig,
+} from "../compile/config";
+import { countWords } from "../lib/wordcount";
+import { confirmDestructive, openScene } from "../scenes/scene-actions";
+import { CompileConfig, OutputFormat } from "../compile/types";
 import { resolveActive } from "../projects/active-project";
-import { unsafeReplaceInkswellKeys } from "../projects/index-writer";
+import { updateCompile } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
+import { sanitizeSegment } from "../settings/folders";
 import type InkswellPlugin from "../../main";
 
 const SCENE_STEPS = BUILTIN_STEPS.filter((s) => s.kind === "scene");
 const MANUSCRIPT_STEPS = BUILTIN_STEPS.filter((s) => s.kind === "manuscript");
-
-/**
- * Scene steps that each emit a heading per scene/chapter. Enabling both stacks
- * two headings (e.g. "# One" then "# 01 - Scene title"), so they're mutually
- * exclusive — turning one on turns the others off.
- */
-const EXCLUSIVE_HEADING_STEPS = ["prepend-title", "group-by-chapter"];
 
 export class CompilePanel {
   private app: App;
@@ -98,16 +93,18 @@ export class CompilePanel {
     }
     this.renderFormatNote(fmtField, config, support, hasFs);
     fmt.onchange = () => {
-      if (fmt.value.startsWith("pandoc:")) {
-        const to = fmt.value.split(":")[1];
-        config.format = "pandoc";
-        // Preserve extra args (e.g. --reference-doc) across pandoc subtype changes.
-        config.pandoc = { to, extension: to, extraArgs: config.pandoc?.extraArgs ?? [] };
-      } else {
-        config.format = fmt.value as OutputFormat;
-        config.pandoc = undefined;
-      }
-      this.save(project, config);
+      const value = fmt.value;
+      this.update(project, (cfg) => {
+        if (value.startsWith("pandoc:")) {
+          const to = value.split(":")[1];
+          cfg.format = "pandoc";
+          // Preserve extra args (e.g. --reference-doc) across pandoc subtype changes.
+          cfg.pandoc = { to, extension: to, extraArgs: cfg.pandoc?.extraArgs ?? [] };
+        } else {
+          cfg.format = value as OutputFormat;
+          delete cfg.pandoc;
+        }
+      });
     };
 
     // Steps
@@ -124,21 +121,19 @@ export class CompilePanel {
     const name = nameField.createEl("input", { type: "text" });
     name.value = config.targetBasename;
     name.onchange = () => {
-      config.targetBasename = name.value.trim() || "manuscript";
-      this.save(project, config);
+      // Same sanitizer every other user-supplied filename goes through — a raw
+      // value containing "/" would resolve the compile output to a SIBLING
+      // path, where writeOutput could overwrite an unrelated note.
+      const cleaned = sanitizeSegment(name.value) || "manuscript";
+      name.value = cleaned;
+      this.update(project, (cfg) => {
+        cfg.targetBasename = cleaned;
+      });
     };
 
     // Compile
     const run = container.createEl("button", { cls: "mod-cta", text: "Compile" });
-    run.onclick = async () => {
-      try {
-        const result = await runCompile(this.app, project, this.configFor(project));
-        const words = countWords(result.wordCountSource);
-        new Notice(`Compiled ${words.toLocaleString()} words to ${result.outputPath}`);
-      } catch (e) {
-        new Notice(`Compile failed: ${(e as Error).message}`, 8000);
-      }
-    };
+    run.onclick = () => void this.compile(project);
 
     // Pre-export check.
     this.renderPreflight(container, project);
@@ -193,8 +188,10 @@ export class CompilePanel {
     }
     sel.value = config.separator;
     sel.onchange = () => {
-      config.separator = sel.value;
-      this.save(project, config);
+      const value = sel.value;
+      this.update(project, (cfg) => {
+        cfg.separator = value;
+      });
     };
   }
 
@@ -209,10 +206,13 @@ export class CompilePanel {
       row.createSpan({ text: current.replace("--reference-doc=", "") });
       const clear = row.createEl("button", { text: "Clear" });
       clear.onclick = () => {
-        if (config.pandoc) {
-          config.pandoc.extraArgs = args.filter((a) => !a.startsWith("--reference-doc="));
-        }
-        this.save(project, config);
+        this.update(project, (cfg) => {
+          if (cfg.pandoc) {
+            cfg.pandoc.extraArgs = cfg.pandoc.extraArgs.filter(
+              (a) => !a.startsWith("--reference-doc=")
+            );
+          }
+        });
       };
     }
 
@@ -234,13 +234,14 @@ export class CompilePanel {
           : "";
         const rel = folder ? `${folder}/reference.docx` : "reference.docx";
         await generateReferenceDoc(this.app, rel);
-        if (config.pandoc) {
-          config.pandoc.extraArgs = [
-            ...args.filter((a) => !a.startsWith("--reference-doc=")),
-            `--reference-doc=${rel}`,
-          ];
-        }
-        this.save(project, config);
+        this.update(project, (cfg) => {
+          if (cfg.pandoc) {
+            cfg.pandoc.extraArgs = [
+              ...cfg.pandoc.extraArgs.filter((a) => !a.startsWith("--reference-doc=")),
+              `--reference-doc=${rel}`,
+            ];
+          }
+        });
         new Notice(`Reference doc created: ${rel}. Edit its styles in Word.`);
       } catch (e) {
         new Notice(`Couldn't generate reference doc: ${(e as Error).message}`, 8000);
@@ -322,33 +323,15 @@ export class CompilePanel {
       cb.checked = included.has(step.id);
       row.createSpan({ text: step.description });
       cb.onchange = () => {
-        if (cb.checked) {
-          included.add(step.id);
-          // Heading steps are mutually exclusive — enabling one turns the others
-          // off, so we never stack two headings (chapter + scene title).
-          if (EXCLUSIVE_HEADING_STEPS.includes(step.id)) {
-            for (const other of EXCLUSIVE_HEADING_STEPS) {
-              if (other !== step.id) included.delete(other);
-            }
-          }
-        } else included.delete(step.id);
-        // Rebuild in registry order, preserving any options.
-        config[key] = steps
-          .filter((s) => included.has(s.id))
-          .map<ConfiguredStep>((s) => {
-            const prev = config[key].find((c) => c.id === s.id);
-            if (s.id === "prepend-title" && !prev) {
-              return { id: s.id, options: { level: this.plugin.settings.sceneHeadingLevel } };
-            }
-            if (s.id === "group-by-chapter" && !prev) {
-              return {
-                id: s.id,
-                options: { level: this.plugin.settings.sceneHeadingLevel, sceneBreak: "* * *" },
-              };
-            }
-            return { id: s.id, options: prev?.options ?? {} };
-          });
-        this.save(project, config);
+        // The toggle (heading exclusivity, registry-order rebuild, option
+        // seeding) is applied to the CURRENT stored config inside the write —
+        // ticking several steps in a row composes instead of clobbering.
+        const enabled = cb.checked;
+        this.update(project, (cfg) =>
+          applyStepToggle(cfg, key, steps.map((s) => s.id), step.id, enabled, {
+            sceneHeadingLevel: this.plugin.settings.sceneHeadingLevel,
+          })
+        );
       };
     }
     if (EXCLUSIVE_HEADING_STEPS.every((id) => steps.some((s) => s.id === id))) {
@@ -364,16 +347,64 @@ export class CompilePanel {
     return resolveCompileConfig(project, this.plugin.settings.defaultCompileFormat);
   }
 
-  private save(project: Project, config: CompileConfig): void {
-    // Persisting rewrites the index frontmatter → store refresh re-renders this
-    // panel from the saved config (no immediate rerender — avoids stale flicker).
-    // KNOWN residual (stale-snapshot class, low risk): `config` is the panel's
-    // working copy, replacing `inkswell.compile` whole — the delta API for
-    // compile (updateCompile + applyStepToggle) is the scheduled follow-up.
+  /**
+   * Run the compile. When the output path holds a file Inkswell didn't produce
+   * (no compile marker — e.g. a hand-written note sharing the configured name),
+   * the engine refuses; we then ask, and on confirmation back the displaced
+   * note up to "Inkswell conflicts" before overwriting. Marker-bearing previous
+   * compiles are replaced silently, as always.
+   */
+  private async compile(project: Project): Promise<void> {
+    try {
+      const result = await runCompile(this.app, project, this.configFor(project));
+      const words = countWords(result.wordCountSource);
+      new Notice(`Compiled ${words.toLocaleString()} words to ${result.outputPath}`);
+    } catch (e) {
+      if (e instanceof OutputExistsError) {
+        await this.confirmOverwriteAndCompile(project, e.path);
+        return;
+      }
+      new Notice(`Compile failed: ${(e as Error).message}`, 8000);
+    }
+  }
+
+  private async confirmOverwriteAndCompile(project: Project, path: string): Promise<void> {
+    const ok = await confirmDestructive(
+      this.app,
+      `"${path}" already exists and doesn't look like a previous Inkswell compile. ` +
+        `Overwrite it? A backup of the current file will be saved to "Inkswell conflicts" first.`,
+      "Overwrite"
+    );
+    if (!ok) return;
+    try {
+      const existing = this.app.vault.getAbstractFileByPath(path);
+      if (existing instanceof TFile) {
+        await writeConflictBackup(
+          this.app,
+          existing.basename,
+          "disk version",
+          await this.app.vault.cachedRead(existing)
+        );
+      }
+      const result = await runCompile(this.app, project, this.configFor(project), {
+        allowOverwrite: true,
+      });
+      const words = countWords(result.wordCountSource);
+      new Notice(`Compiled ${words.toLocaleString()} words to ${result.outputPath}`);
+    } catch (e) {
+      new Notice(`Compile failed: ${(e as Error).message}`, 8000);
+    }
+  }
+
+  /** Mutate the compile config against its CURRENT stored value (delta write —
+   *  never replaces the whole object with the panel's rendered copy). The index
+   *  write triggers a store refresh, which re-renders this panel. */
+  private update(project: Project, mutate: (cfg: CompileConfig) => void): void {
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
     if (file instanceof TFile) {
       void tryFileOp(
-        () => unsafeReplaceInkswellKeys(this.app, file, { compile: config }),
+        () =>
+          updateCompile(this.app, file, this.plugin.settings.defaultCompileFormat, mutate),
         "Couldn't save the compile settings."
       );
     }

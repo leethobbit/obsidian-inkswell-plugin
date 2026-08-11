@@ -102,3 +102,24 @@ export function preserveFocus(scope: HTMLElement, rebuild: () => void): void {
   rebuild();
   if (saved) restore(scope, saved);
 }
+
+/**
+ * Commit the focused field's pending edit before `scope` is torn down: if the
+ * active element is an input/textarea/select inside `scope`, blur it, which
+ * fires its `change` event synchronously when the value differs. Needed for
+ * autosave-on-change forms hosted in modals — Escape / backdrop-click empties
+ * the modal DOM without a blur, silently dropping whatever was typed into the
+ * still-focused field. (Explicit-submit dialogs where Escape means CANCEL must
+ * NOT call this.)
+ */
+export function commitFocusedField(scope: HTMLElement): void {
+  const ae = scope.doc.activeElement;
+  if (!ae?.instanceOf(HTMLElement) || !scope.contains(ae)) return;
+  if (
+    ae.instanceOf(HTMLInputElement) ||
+    ae.instanceOf(HTMLTextAreaElement) ||
+    ae.instanceOf(HTMLSelectElement)
+  ) {
+    ae.blur();
+  }
+}

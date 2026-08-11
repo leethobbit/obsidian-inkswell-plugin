@@ -7,9 +7,8 @@
 
 import { App, MarkdownView, Menu, Modal, Notice, Setting, TFile, normalizePath } from "obsidian";
 import { FormModal } from "../lib/form-modal";
-import { updateBeats, updateScenes } from "../projects/index-writer";
+import { renameSceneInIndex, updateScenes } from "../projects/index-writer";
 import { expectInAppRename } from "../projects/rename-heal";
-import { renameSceneInBeats } from "../outliner/beats";
 import { removeScene } from "../projects/scene-tree";
 import { Project } from "../projects/types";
 import { tryFileOp } from "../lib/notify";
@@ -59,7 +58,12 @@ class PromptModal extends FormModal {
 
 class ConfirmModal extends Modal {
   private ok = false;
-  constructor(app: App, private message: string, private cb: (ok: boolean) => void) {
+  constructor(
+    app: App,
+    private message: string,
+    private cb: (ok: boolean) => void,
+    private cta = "Delete"
+  ) {
     super(app);
   }
   onOpen(): void {
@@ -74,7 +78,7 @@ class ConfirmModal extends Modal {
       // ourselves — floor-safe, no deprecated API. Switch to `setDestructive()` if
       // minAppVersion ever rises to ≥1.13.0.
       .addButton((b) => {
-        b.setButtonText("Delete").onClick(() => {
+        b.setButtonText(this.cta).onClick(() => {
           this.ok = true;
           this.close();
         });
@@ -100,6 +104,11 @@ export function promptText(
 
 export function confirmDelete(app: App, message: string): Promise<boolean> {
   return new Promise((resolve) => new ConfirmModal(app, message, resolve).open());
+}
+
+/** Same warning-styled confirm dialog with a custom action label (e.g. "Overwrite"). */
+export function confirmDestructive(app: App, message: string, cta: string): Promise<boolean> {
+  return new Promise((resolve) => new ConfirmModal(app, message, resolve, cta).open());
 }
 
 /**
@@ -173,14 +182,10 @@ export async function renameScene(
     await app.fileManager.renameFile(file, newPath);
     const indexFile = app.vault.getAbstractFileByPath(project.vaultPath);
     if (indexFile instanceof TFile) {
-      await updateScenes(app, indexFile, project.draft, (scenes) =>
-        scenes.map((s) => (s.title === oldTitle ? { ...s, title: next } : s))
-      );
-      // Beats link scenes by title in a separate frontmatter structure, so rewrite
-      // those links too — otherwise the rename orphans the beat's scene chip.
-      // Delta against the CURRENT sheet (renameSceneInBeats returns null when
-      // nothing referenced the old title, which skips the write).
-      await updateBeats(app, indexFile, (cur) => renameSceneInBeats(cur, oldTitle, next));
+      // One transaction rewrites the scene title AND the beat links (beats
+      // store scene titles in a separate frontmatter structure — without this
+      // the rename orphans the beat's scene chip), all against current state.
+      await renameSceneInIndex(app, indexFile, oldTitle, next);
     }
   }, `Couldn't rename "${oldTitle}".`);
   if (ok === null) return null;
@@ -201,7 +206,7 @@ export async function deleteScene(
   await tryFileOp(async () => {
     const indexFile = app.vault.getAbstractFileByPath(project.vaultPath);
     if (indexFile instanceof TFile) {
-      await updateScenes(app, indexFile, project.draft, (scenes) => removeScene(scenes, title));
+      await updateScenes(app, indexFile, (scenes) => removeScene(scenes, title));
     }
     await app.fileManager.trashFile(file);
   }, `Couldn't delete "${title}".`);

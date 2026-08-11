@@ -12,7 +12,6 @@ import {
   persistPlotlines,
   persistPublishing,
   persistStructure,
-  unsafeReplaceInkswellKeys,
   updateScenes,
   writeSeries,
 } from "../src/projects/index-writer";
@@ -111,8 +110,7 @@ describe("index-writer invariants", () => {
   }
 
   it("updateScenes reorders/indents in frontmatter only, preserving the nested encoding", async () => {
-    const draft = draftOf(app);
-    await updateScenes(app.asApp(), app.file(INDEX_PATH), draft, (scenes) => {
+    await updateScenes(app.asApp(), app.file(INDEX_PATH), () => {
       // Gamma promoted to top level and moved first; Beta stays nested under Alpha.
       return [
         { title: "Gamma", indent: 0 },
@@ -147,19 +145,20 @@ describe("index-writer invariants", () => {
     expect(draftOf(app)).toEqual(draft);
   });
 
-  it("unsafeReplaceInkswellKeys merges top-level keys without touching longform", async () => {
-    const before = draftOf(app);
-    await unsafeReplaceInkswellKeys(app.asApp(), app.file(INDEX_PATH), {
-      arcTracked: ["[[Mara]]"],
-    });
-    assertNothingElseChanged();
-    expect(draftOf(app)).toEqual(before);
-    const inkswell = indexFm(app)["inkswell"] as Record<string, unknown>;
-    expect(inkswell["arcTracked"]).toEqual(["[[Mara]]"]);
-    // Shallow-merge preserved the existing sub-objects.
-    expect((inkswell["overview"] as Record<string, unknown>)["logline"]).toBe(
-      "A tale of trust."
+  it("updateScenes reads the CURRENT stored list, not a caller snapshot", async () => {
+    // A transform computed before Delta existed must still see it: append Delta,
+    // then run a rename-shaped map. Delta survives — the lost-update regression.
+    await updateScenes(app.asApp(), app.file(INDEX_PATH), (scenes) => [
+      ...scenes,
+      { title: "Delta", indent: 0 },
+    ]);
+    await updateScenes(app.asApp(), app.file(INDEX_PATH), (scenes) =>
+      scenes.map((s) => (s.title === "Alpha" ? { ...s, title: "Alpha Prime" } : s))
     );
+    assertNothingElseChanged();
+    const lf = indexFm(app)["longform"] as Record<string, unknown>;
+    const titles = parseScenes(lf["scenes"]).map((s) => s.title);
+    expect(titles).toEqual(["Alpha Prime", "Beta", "Gamma", "Delta"]);
   });
 
   it("persistOverview patches one field without clobbering overview siblings", async () => {
@@ -236,9 +235,8 @@ describe("index-writer invariants", () => {
   });
 
   it("survives a burst of mixed writes with every body still byte-identical", async () => {
-    const draft = draftOf(app);
     await Promise.all([
-      updateScenes(app.asApp(), app.file(INDEX_PATH), draft, (s) => [...s].reverse()),
+      updateScenes(app.asApp(), app.file(INDEX_PATH), (s) => [...s].reverse()),
       persistOverview(app.asApp(), app.file(INDEX_PATH), { genre: "Fantasy" }),
       writeSeries(app.asApp(), app.file(INDEX_PATH), { name: "The Cycle" }),
     ]);

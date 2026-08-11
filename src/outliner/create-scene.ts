@@ -105,7 +105,7 @@ export async function createScene(
   return tryFileOp(async () => {
     const file = await createSceneFile(app, settings, draft, path, title, opts.meta ?? {});
 
-    await updateScenes(app, indexFile, draft, (scenes) => {
+    await updateScenes(app, indexFile, (scenes) => {
       if (scenes.some((s) => s.title === title)) return scenes;
       if (opts.afterTitle) {
         const at = scenes.findIndex((s) => s.title === opts.afterTitle);

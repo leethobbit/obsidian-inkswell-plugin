@@ -4,13 +4,15 @@
  * (denormalized `act`/`chapter` strings), which that module deliberately never does.
  *
  * One guarded op writes, in order: (1) each scene's `chapter`/`act` string, but
- * only where it changed; (2) the reordered `longform.scenes`; (3) the acts +
- * chapters config arrays. Scene bodies are never touched — frontmatter only.
+ * only where it changed; (2) the reordered `longform.scenes` plus the acts +
+ * chapters config arrays, as ONE index transaction (`persistOutline`, which
+ * rebases the order onto the current scene list). Scene bodies are never
+ * touched — frontmatter only.
  */
 
 import { App, TFile } from "obsidian";
 import { tryFileOp } from "../lib/notify";
-import { persistStructure, updateScenes } from "../projects/index-writer";
+import { persistOutline } from "../projects/index-writer";
 import { Project } from "../projects/types";
 import { SceneMeta, readSceneMeta, writeSceneMeta } from "../scenes/scene-meta";
 import { OutlineTree, serializeOutline } from "./outline";
@@ -47,11 +49,10 @@ export async function applyOutline(
         await writeSceneMeta(app, f, patch);
       }
     }
-    // 2. Reorder the manuscript to the flattened outline order.
+    // 2. Reorder the manuscript + persist the config arrays in ONE index write.
+    //    The order is rebased onto the CURRENT scene list inside the write, so a
+    //    drag applied from a stale tree can't drop a concurrently-created scene.
     mark(indexFile.path);
-    await updateScenes(app, indexFile, project.draft, () => order);
-    // 3. Persist the config arrays (order + actId live here).
-    await persistStructure(app, indexFile, "act", acts);
-    await persistStructure(app, indexFile, "chapter", chapters);
+    await persistOutline(app, indexFile, { order, acts, chapters });
   }, "Couldn't update the outline.");
 }

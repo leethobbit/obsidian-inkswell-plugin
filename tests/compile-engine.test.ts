@@ -5,7 +5,7 @@
  * separately in compile-assemble.test.ts.
  */
 import { describe, expect, it } from "vitest";
-import { runCompile } from "../src/compile/engine";
+import { OutputExistsError, runCompile } from "../src/compile/engine";
 import { CompileConfig, DEFAULT_COMPILE_CONFIG } from "../src/compile/types";
 import { Project } from "../src/projects/types";
 import { TFile } from "./fakes/obsidian";
@@ -56,9 +56,14 @@ describe("runCompile (md)", () => {
     const out = app.vault.getAbstractFileByPath("Book/manuscript.md");
     expect(out).toBeInstanceOf(TFile);
     const content = app.vault.raw("Book/manuscript.md") ?? "";
-    // trim-blank-lines (default manuscript step) collapses the join to one blank line.
-    expect(content).toBe("Scene one prose.\n\nScene two prose, no frontmatter.\n");
+    // First line: the ownership marker that lets the next compile recognize its
+    // own output; trim-blank-lines then collapses the join to one blank line.
+    expect(content).toBe(
+      "<!-- inkswell:compile -->\nScene one prose.\n\nScene two prose, no frontmatter.\n"
+    );
     expect(content).not.toContain("status: draft"); // strip-frontmatter ran
+    // The marker never inflates the word count (it's not in wordCountSource).
+    expect(result.wordCountSource).not.toContain("inkswell:compile");
   });
 
   it("overwrites the previous compile in place (same file identity, no duplicate)", async () => {
@@ -72,8 +77,10 @@ describe("runCompile (md)", () => {
     await runCompile(app.asApp(), p, CONFIG);
 
     const second = app.vault.getAbstractFileByPath("Book/manuscript.md");
-    expect(second).toBe(first); // modified, not recreated
-    expect(app.vault.raw("Book/manuscript.md")).toBe("Rewritten prose.\n");
+    expect(second).toBe(first); // modified, not recreated — the marker vouched for it
+    expect(app.vault.raw("Book/manuscript.md")).toBe(
+      "<!-- inkswell:compile -->\nRewritten prose.\n"
+    );
   });
 
   it("skips scenes whose file is missing instead of failing the whole compile", async () => {
@@ -85,7 +92,9 @@ describe("runCompile (md)", () => {
     ]);
 
     const result = await runCompile(app.asApp(), p, CONFIG);
-    expect(app.vault.raw(result.outputPath)).toBe("Scene one prose.\n");
+    expect(app.vault.raw(result.outputPath)).toBe(
+      "<!-- inkswell:compile -->\nScene one prose.\n"
+    );
   });
 
   it("compiles a single-scene draft from the index note itself", async () => {
@@ -108,7 +117,9 @@ describe("runCompile (md)", () => {
 
     const result = await runCompile(app.asApp(), p, CONFIG);
     expect(result.outputPath).toBe("manuscript.md"); // index at vault root
-    expect(app.vault.raw("manuscript.md")).toBe("The whole story.\n");
+    expect(app.vault.raw("manuscript.md")).toBe(
+      "<!-- inkswell:compile -->\nThe whole story.\n"
+    );
   });
 
   it("throws the no-scenes error when nothing resolves to content", async () => {
@@ -126,6 +137,34 @@ describe("runCompile (md)", () => {
     await expect(runCompile(app.asApp(), p, CONFIG)).rejects.toThrow(
       /folder with that name exists/
     );
+  });
+
+  it("refuses to overwrite a marker-less note at the output path (H1 guard)", async () => {
+    const app = seededApp();
+    app.vault.seed("Book/manuscript.md", "A hand-written note that shares the name.\n");
+    const p = project(app, [{ title: "One", path: "Book/Scenes/One.md" }]);
+
+    await expect(runCompile(app.asApp(), p, CONFIG)).rejects.toThrow(OutputExistsError);
+    // The note was NOT touched.
+    expect(app.vault.raw("Book/manuscript.md")).toBe(
+      "A hand-written note that shares the name.\n"
+    );
+
+    // The confirmed path replaces it (the panel backs it up first).
+    await runCompile(app.asApp(), p, CONFIG, { allowOverwrite: true });
+    expect(app.vault.raw("Book/manuscript.md")).toContain("Scene one prose.");
+  });
+
+  it("sanitizes a path-escaping output name instead of resolving a sibling path", async () => {
+    const app = seededApp();
+    const p = project(app, [{ title: "One", path: "Book/Scenes/One.md" }]);
+    const cfg: CompileConfig = { ...CONFIG, targetBasename: "Scenes/One" };
+
+    const result = await runCompile(app.asApp(), p, cfg);
+    // The "/" is neutralized by the same sanitizer every filename input uses —
+    // the output lands in the project folder, and the SCENE FILE is untouched.
+    expect(result.outputPath).toBe("Book/Scenes-One.md");
+    expect(app.vault.raw("Book/Scenes/One.md")).toContain("Scene one prose.");
   });
 
   it("never modifies the scene files it reads", async () => {

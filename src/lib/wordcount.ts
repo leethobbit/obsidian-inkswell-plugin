@@ -6,7 +6,8 @@
  * parity with other tools matters less than internal consistency.
  */
 
-const FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/;
+import { stripFrontmatter as stripLeadingFrontmatter } from "./frontmatter";
+
 const FENCED_CODE_RE = /```[\s\S]*?```/g;
 const INLINE_CODE_RE = /`[^`]*`/g;
 const OBSIDIAN_COMMENT_RE = /%%[\s\S]*?%%/g;
@@ -32,7 +33,9 @@ export function stripMarkdown(
 ): string {
   let out = text;
   if (options.stripFrontmatter !== false) {
-    out = out.replace(FRONTMATTER_RE, "");
+    // The ONE splitter (lib/frontmatter): a body-leading `---` scene divider is
+    // prose and its words count — only a real YAML mapping is stripped.
+    out = stripLeadingFrontmatter(out);
   }
   out = out
     .replace(OBSIDIAN_COMMENT_RE, " ")

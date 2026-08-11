@@ -20,9 +20,8 @@ import {
   parseYaml,
 } from "obsidian";
 import { tryFileOp } from "../lib/notify";
-import { renameSceneInBeats } from "../outliner/beats";
 import { parseDraft } from "./draft-serialization";
-import { updateBeats, updateScenes } from "./index-writer";
+import { renameSceneInIndex } from "./index-writer";
 import { consumeExpectedRename, planSceneRename } from "./rename-heal";
 import {
   Draft,
@@ -139,20 +138,15 @@ export class ProjectStore extends Component {
     const plan = planSceneRename(this.projects, oldPath, file.path);
     if (!plan) return;
     const indexFile = this.app.vault.getAbstractFileByPath(plan.indexPath);
-    const project = this.getProject(plan.indexPath);
-    if (indexFile instanceof TFile && project) {
+    if (indexFile instanceof TFile) {
       // Fired from a vault rename event, so a throw here would be an unhandled
-      // rejection — surface it like every other I/O entry point.
-      await tryFileOp(async () => {
-        await updateScenes(this.app, indexFile, project.draft, (scenes) =>
-          scenes.map((s) => (s.title === plan.oldTitle ? { ...s, title: plan.newTitle } : s))
-        );
-        // Keep beat→scene links (stored by title) in sync with the healed rename —
-        // a delta against the CURRENT sheet (null result skips the write).
-        await updateBeats(this.app, indexFile, (cur) =>
-          renameSceneInBeats(cur, plan.oldTitle, plan.newTitle)
-        );
-      }, `Couldn't update the project index for the renamed scene "${plan.newTitle}".`);
+      // rejection — surface it like every other I/O entry point. One
+      // transaction rewrites the scene title AND the beat links against
+      // current state (no window where beats point at a dead title).
+      await tryFileOp(
+        () => renameSceneInIndex(this.app, indexFile, plan.oldTitle, plan.newTitle),
+        `Couldn't update the project index for the renamed scene "${plan.newTitle}".`
+      );
     }
   }
 

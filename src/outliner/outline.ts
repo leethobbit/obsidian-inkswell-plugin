@@ -299,6 +299,27 @@ function insertRelative<T>(list: T[], item: T, isAnchor: (x: T) => boolean, afte
   else list.splice(after ? i + 1 : i, 0, item);
 }
 
+/**
+ * Rebase a desired manuscript order onto the CURRENT stored scene list, so an
+ * outline computed from a (possibly stale) tree can never lose scenes created
+ * or resurrect scenes deleted while the user was dragging:
+ *  - desired entries whose title no longer exists are dropped (concurrently
+ *    deleted — a reorder must not re-add them);
+ *  - current entries the desired order doesn't know are appended at the end,
+ *    keeping their stored indent (concurrently created — they survive, showing
+ *    up as loose scenes for the next render to place).
+ */
+export function rebaseSceneOrder(
+  desired: IndentedScene[],
+  current: IndentedScene[]
+): IndentedScene[] {
+  const currentTitles = new Set(current.map((s) => s.title));
+  const desiredTitles = new Set(desired.map((s) => s.title));
+  const kept = desired.filter((s) => currentTitles.has(s.title));
+  const appended = current.filter((s) => !desiredTitles.has(s.title));
+  return [...kept, ...appended];
+}
+
 /** A fresh empty chapter node (for "+ Add chapter"). */
 export function newChapterNode(title: string): ChapterNode {
   return { id: newStructureId(), title, scenes: [] };

@@ -163,7 +163,7 @@ export class SceneRows {
         .onClick(() => {
           if (scene?.title) {
             void tryFileOp(
-              () => updateScenes(this.app, file, project.draft, (s) => removeScene(s, scene.title)),
+              () => updateScenes(this.app, file, (s) => removeScene(s, scene.title)),
               "Couldn't remove the scene from the project."
             );
           }
@@ -278,10 +278,10 @@ export class SceneRows {
   private reorder(
     file: TFile,
     project: Project,
-    transform: Parameters<typeof updateScenes>[3]
+    transform: Parameters<typeof updateScenes>[2]
   ): Promise<void> {
     this.plugin.selfWrites.mark(file.path);
-    return updateScenes(this.app, file, project.draft, transform);
+    return updateScenes(this.app, file, transform);
   }
 
   private indexFile(project: Project): TFile | null {

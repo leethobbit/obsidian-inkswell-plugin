@@ -10,6 +10,13 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Fixed
+- **Compile can no longer silently overwrite a note that isn't its own output.** Compiled manuscripts now carry an invisible ownership marker; recompiling replaces a previous compile as before, but if the configured output name points at any other note (say, a hand-written `manuscript.md`, or a name typed with a `/` in it), Inkswell now refuses from the command palette and asks first in the Compile panel — backing the existing note up to "Inkswell conflicts" before overwriting. Output names are also run through the same filename sanitizer as every other name field.
+- **A scene that opens with a `---` divider no longer loses its opening passage.** A body-leading `---` scene break (a common novelist's divider) was mistaken for YAML frontmatter, which made everything above the second `---` invisible in the Write editor, unsearchable, uncounted toward goals, and silently missing from compiled output. Frontmatter is now only recognized when it actually parses as YAML metadata — matching Obsidian's own rule — so divider-led prose shows, counts, and compiles. (If you have such scenes, expect a small one-time uptick in their word counts.)
+- **The rest of the stale-state write paths are now delta-based (continuing 1.10.1's fix).** Manuscript reorders, scene renames, relinks, removals, "ignore file", draft renames, beat-scaffolding, compile settings, and the Inspector's character/plotline chips all now apply their change against the file's current contents — a scene created while you were dragging the outline survives the drop, a rename updates its beat links in the same atomic write, and two Inspector chip edits in a row can't undo each other.
+- **Escape no longer discards the field you were typing in the "Edit scene" dialog.** Closing it with Escape or a backdrop click now commits the focused field's pending change first (these fields autosave on change; footer buttons already did this implicitly).
+- **An interrupted drag can no longer freeze the plugin's panels.** A mouse released outside the window could leave the view refresh loop waiting forever (and its retry timer running after the view closed); the timer is now tracked, cleaned up, and guarded.
+
 ## [1.10.1] - 2026-08-11
 
 ### Fixed

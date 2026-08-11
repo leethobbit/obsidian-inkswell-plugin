@@ -22,6 +22,7 @@ import {
   SceneMeta,
   readSceneMeta,
   statusLabel,
+  updateSceneList,
   writeSceneMeta,
 } from "./scene-meta";
 
@@ -68,6 +69,18 @@ export function renderSceneMetaFields(
   const save = (patch: Partial<SceneMeta>) => {
     markWrite?.(file.path);
     void tryFileOp(() => writeSceneMeta(app, file, patch), "Couldn't save the scene change.");
+  };
+  // Chip lists persist as list OPS against the file's CURRENT value — a value
+  // patch built from this render's `meta` would overwrite links added since.
+  const saveList = (
+    key: "characters" | "plotlines",
+    transform: (current: string[]) => string[]
+  ) => {
+    markWrite?.(file.path);
+    void tryFileOp(
+      () => updateSceneList(app, file, key, transform),
+      "Couldn't save the scene change."
+    );
   };
   const entities = filterToScope(getCodexEntities(app), scopeContextForProject(project));
 
@@ -129,7 +142,7 @@ export function renderSceneMetaFields(
     for (const link of current) {
       const chip = chips.createSpan({ cls: "inkswell-chip", text: linkTarget(link) });
       const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
-      x.onclick = () => save({ characters: current.filter((c) => c !== link) });
+      x.onclick = () => saveList("characters", (cur) => cur.filter((c) => c !== link));
     }
     const chars = entities.filter((e) => e.category === "character");
     const remaining = chars.filter(
@@ -142,7 +155,10 @@ export function renderSceneMetaFields(
       for (const c of remaining) add.createEl("option", { text: c.name, value: c.name });
       add.value = "";
       add.onchange = () => {
-        if (add.value) save({ characters: [...current, toLink(add.value)] });
+        const link = add.value ? toLink(add.value) : "";
+        if (link) {
+          saveList("characters", (cur) => (cur.includes(link) ? cur : [...cur, link]));
+        }
       };
     } else if (chars.length === 0) {
       host.createSpan({ cls: "inkswell-stats__muted", text: "No characters in codex." });
@@ -206,7 +222,7 @@ export function renderSceneMetaFields(
     for (const title of current) {
       const chip = chips.createSpan({ cls: "inkswell-chip", text: title });
       const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
-      x.onclick = () => save({ plotlines: current.filter((t) => t !== title) });
+      x.onclick = () => saveList("plotlines", (cur) => cur.filter((t) => t !== title));
     }
     const configured = (project?.inkswell?.plotlines ?? []).map((p) => p.title);
     const remaining = configured.filter((t) => !current.includes(t));
@@ -217,7 +233,10 @@ export function renderSceneMetaFields(
       for (const t of remaining) add.createEl("option", { text: t, value: t });
       add.value = "";
       add.onchange = () => {
-        if (add.value) save({ plotlines: [...current, add.value] });
+        const title = add.value;
+        if (title) {
+          saveList("plotlines", (cur) => (cur.includes(title) ? cur : [...cur, title]));
+        }
       };
     } else if (configured.length === 0 && current.length === 0) {
       host.createSpan({
