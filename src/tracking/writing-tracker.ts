@@ -54,6 +54,11 @@ export class WritingTracker extends Component {
   onunload(): void {
     // Flush a pending debounced save so words counted in the final ~2s before
     // the plugin unloads (or Obsidian quits) aren't dropped.
+    this.flushPendingSave();
+  }
+
+  /** Run a pending debounced log save NOW (quit-time flush; idempotent). */
+  flushPendingSave(): void {
     this.save.run();
   }
 

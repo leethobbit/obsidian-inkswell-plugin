@@ -16,7 +16,7 @@
  */
 
 import { App, TFile, normalizePath } from "obsidian";
-import { persistInkswellData, persistStructure, updateScenes } from "../projects/index-writer";
+import { persistStructure, updateBeats, updateScenes } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project, isMultiScene } from "../projects/types";
 import { readSceneMeta, writeSceneMeta } from "../scenes/scene-meta";
@@ -198,17 +198,21 @@ export async function scaffoldFromTemplate(
 
   // Link each beat to its scene (both modes) — but never clobber an assignment
   // that already points at scenes (including the legacy single-`scene` form).
-  let sheet = project.inkswell?.beats ?? { template: templateId, assignments: {} };
-  let linked = false;
-  for (const [beatId, title] of beatScene) {
-    const cur = sheet.assignments[beatId] as
-      | (BeatAssignment & { scene?: string })
-      | undefined;
-    if (cur?.scenes?.length || cur?.scene) continue;
-    sheet = setAssignment(sheet, beatId, { scenes: [title] });
-    linked = true;
-  }
-  if (linked) await persistInkswellData(app, indexFile, { beats: sheet });
+  // "Already assigned" is checked against the CURRENT sheet inside the write,
+  // so a beat note or link saved while the scaffold ran is never overwritten.
+  await updateBeats(app, indexFile, (current) => {
+    let sheet = current ?? { template: templateId, assignments: {} };
+    let linked = false;
+    for (const [beatId, title] of beatScene) {
+      const cur = sheet.assignments[beatId] as
+        | (BeatAssignment & { scene?: string })
+        | undefined;
+      if (cur?.scenes?.length || cur?.scene) continue;
+      sheet = setAssignment(sheet, beatId, { scenes: [title] });
+      linked = true;
+    }
+    return linked ? sheet : null;
+  });
 
   return {
     scenes: createdCount,

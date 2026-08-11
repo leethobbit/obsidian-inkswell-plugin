@@ -4,15 +4,18 @@
  * scene's body. Right: the Scene Inspector for that scene. Stays in the Inkswell
  * tab so you write without losing your planning context.
  *
- * Saves happen on blur / scene-switch / unmount (NOT per keystroke) so a store
- * refresh never rebuilds the editor mid-type. Frontmatter is preserved: only the
- * body is rewritten, atomically via `vault.process` so concurrent Inspector
- * edits aren't clobbered. The editor is a custom CM6 Live-Preview surface
+ * Saving is owned by a per-scene {@link SceneSession}: debounced autosave (~2s)
+ * plus blur / scene-switch / unmount flushes. Only the body is rewritten,
+ * atomically via `vault.process`, and NEVER over disk text the session hasn't
+ * seen — an external change (sync, the same note open in a normal tab) reloads
+ * in place when the editor is clean and raises a conflict banner when it's
+ * dirty, with both resolutions backing the displaced version up to the
+ * "Inkswell conflicts" folder. The editor is a custom CM6 Live-Preview surface
  * (see scene-editor.ts); embedding Obsidian's own editor remains deferred.
  */
 
 import { EditorView } from "@codemirror/view";
-import { App, FuzzySuggestModal, Menu, Notice, TFile, setIcon } from "obsidian";
+import { App, EventRef, FuzzySuggestModal, Menu, Notice, TFile, setIcon } from "obsidian";
 import { featureEnabled } from "../features";
 import { isPhone } from "../lib/platform";
 import { attachRowMenu } from "../lib/row-menu";
@@ -20,9 +23,9 @@ import { addSceneMenuItems } from "../scenes/scene-actions";
 import { PromptModal } from "../ideation/prompt-modal";
 import { RevisionModal } from "../revisions/revision-modal";
 import { renderEmptyState } from "./panel-kit";
+import { SceneSession } from "./scene-session";
 import { createSceneEditor, flashRange, insertPlaceholder } from "./scene-editor";
 import { PlaceholderKind, scanPlaceholders } from "../lib/placeholders";
-import { splitFrontmatter } from "../lib/frontmatter";
 import { PromptCategory, PromptPhase } from "../ideation/prompts";
 import { countWords } from "../lib/wordcount";
 import { resolveActive } from "../projects/active-project";
@@ -130,10 +133,15 @@ export class WritePanel {
   /** Bumped each render; a stale async scene-load checks it and bails. */
   private editorToken = 0;
   private currentFile: TFile | null = null;
-  private loadedBody = "";
-  /** Frontmatter of the loaded scene, kept so the live word count reconciles
-   *  with the on-disk count (which includes it). */
-  private loadedFrontmatter = "";
+  /** Owner of the loaded scene's baselines, autosave, and conflict state. */
+  private session: SceneSession | null = null;
+  /** The outgoing session's final flush; the next scene load awaits it so a
+   *  rebuilt editor can never be seeded from pre-save bytes. */
+  private teardown: Promise<unknown> = Promise.resolve();
+  /** Conflict banner host inside the editor column (rebuilt per render). */
+  private bannerEl: HTMLElement | null = null;
+  /** Vault modify subscription driving external-change handling. */
+  private modifyRef: EventRef | null = null;
   private countEl: HTMLElement | null = null;
   private unsub: (() => void) | null = null;
   /** While true, an editor blur does NOT trigger a save. Set when the Insert
@@ -160,6 +168,15 @@ export class WritePanel {
       this.jumpToRevision(path, from, to)
     );
     this.rightPanels = [this.inspector, revision];
+    // External-change detection for the open scene: every modify of its file is
+    // classified by the session (own write ⇒ ignore; clean ⇒ silent reload;
+    // dirty ⇒ conflict banner). This is what stops a sync / second-tab edit
+    // from being silently clobbered by the next save.
+    this.modifyRef = this.app.vault.on("modify", (f) => {
+      if (f instanceof TFile && this.session && f.path === this.session.file.path) {
+        void this.session.handleExternalModify();
+      }
+    });
   }
 
   /**
@@ -191,33 +208,65 @@ export class WritePanel {
    * so the open scene's latest content is what replace re-reads (never a stale
    * on-disk copy). No-op when nothing is dirty.
    */
-  flushPendingSave(): Promise<void> {
-    return this.saveBody();
+  async flushPendingSave(): Promise<void> {
+    await this.session?.flush();
   }
 
   /**
-   * Drop the live editor WITHOUT saving — its buffer predates an external write
-   * (a find & replace), so saving it would clobber the replacement. The next
-   * render re-reads the scene fresh from disk. If the panel is currently visible,
-   * re-render now; otherwise the editor is simply invalidated and the next natural
-   * render rebuilds it.
+   * An external write landed on `path` (e.g. a find & replace). Route it
+   * through the session's content-compare: a clean editor reloads in place
+   * (nothing typed, nothing lost); a dirty one raises the conflict banner —
+   * the user's words stay in the buffer instead of being silently discarded.
+   * (The vault-modify subscription usually gets there first; this direct call
+   * makes the replace flow deterministic and is idempotent.)
    */
-  reloadCurrentScene(): void {
+  handleExternalChange(path: string): void {
+    if (this.session && this.session.file.path === path) {
+      void this.session.handleExternalModify();
+    }
+  }
+
+  /**
+   * Leaving the Write destination (mode switch, phone navigation): capture and
+   * flush the editor NOW, before the host empties the body and orphans the CM6
+   * DOM. The capture is synchronous, so the background write can't lose text
+   * even though navigation doesn't await it.
+   */
+  flushForNavigation(): void {
+    void this.detachSession();
+  }
+
+  /**
+   * Retire the current session + editor: capture the doc synchronously, queue
+   * the final save, and tear the editor down. Returns the flush promise —
+   * `renderEditor` awaits it before re-reading the file (kills the save→re-seed
+   * race), and `dispose` awaits it on view close/quit.
+   */
+  private detachSession(): Promise<unknown> {
+    const s = this.session;
+    if (!s) {
+      this.editor?.destroy();
+      this.editor = null;
+      return Promise.resolve();
+    }
+    const flushed = s.flush(); // synchronous doc capture — safe to destroy next
+    s.dispose();
+    this.session = null;
     this.editor?.destroy();
     this.editor = null;
-    this.loadedBody = "";
-    if (this.container && this.container.isConnected) this.render(this.container);
+    return flushed;
   }
 
   /**
    * Collapsed-topbar Insert control: an Obsidian menu with the same actions as the
    * inline insert row (the five marker types + Find to-dos + Log issue).
    *
-   * Opening a menu blurs the editor, which would normally fire saveBody → store
-   * refresh → panel rebuild and destroy the live editor mid-insert. We suppress
-   * that one save for the life of the menu; CodeMirror keeps its selection across
-   * the blur, so insertPlaceholder still lands the marker at the real caret. The
-   * flag clears on hide, after any blur the open caused has already passed.
+   * Opening a menu blurs the editor, which would normally fire a blur-save →
+   * store refresh → panel rebuild and destroy the live editor mid-insert. We
+   * suppress that one save for the life of the menu (the session's autosave
+   * still covers the text); CodeMirror keeps its selection across the blur, so
+   * insertPlaceholder still lands the marker at the real caret. The flag clears
+   * on hide, after any blur the open caused has already passed.
    */
   private openInsertMenu(e: MouseEvent): void {
     if (!this.editor) return;
@@ -261,13 +310,10 @@ export class WritePanel {
   }
 
   render(container: HTMLElement): void {
-    // Flush + tear down any live editor before we rebuild the DOM. saveBody reads
-    // the doc synchronously, so calling it before destroy() captures the content.
-    if (this.editor) {
-      void this.saveBody();
-      this.editor.destroy();
-      this.editor = null;
-    }
+    // Retire the outgoing session before we rebuild the DOM: the doc is captured
+    // synchronously and the final write is chained into `teardown`, which the
+    // next scene load awaits before reading the file.
+    this.teardown = this.detachSession();
 
     this.container = container;
     container.empty();
@@ -467,7 +513,7 @@ export class WritePanel {
       for (const { kind, label } of TODO_TYPES) {
         const btn = insertGroup.createEl("button", { text: label });
         // Insert WITHOUT stealing focus from the editor. If the button took focus,
-        // the editor would blur → saveBody → store refresh → the host rebuilds the
+        // the editor would blur → blur-save → store refresh → the host rebuilds the
         // Write panel, destroying the live editor mid-insert (cursor resets to 0,
         // the next clicks misfire). preventDefault on mousedown keeps the caret in
         // the editor so every click inserts where the cursor actually is.
@@ -592,6 +638,13 @@ export class WritePanel {
     }
     row.onclick = () => {
       if (!scene.path) return;
+      // Re-clicking the open scene must NOT rebuild the editor — the old
+      // save-then-immediately-re-read path could show pre-save text and invert
+      // the dirty check (retyping then blurring destroyed the original words).
+      if (scene.path === this.selectedScene) {
+        this.container?.removeClass("nav-open");
+        return;
+      }
       this.selectedScene = scene.path;
       // Close the phone drawer on selection (no-op when it's a static column).
       this.container?.removeClass("nav-open");
@@ -623,31 +676,107 @@ export class WritePanel {
       this.inspector.render(details.createDiv(), file);
     }
 
-    // Read async, then build the editor seeded with the body. Seeding the initial
-    // state (vs. dispatching after) keeps the undo history clean and avoids a
-    // load→empty undo step. The token guards against a stale read landing after
-    // the user has already switched scenes.
+    // Conflict banner slot — populated by the session's state callback whenever
+    // the scene changed on disk under unsaved edits. Above the CM host so it
+    // can't be missed; the in-place update() never touches it.
+    this.bannerEl = wrap.createDiv({ cls: "inkswell-write__conflict" });
+
+    // Await the OUTGOING session's flush, then load + build the editor seeded
+    // with the body. Awaiting the flush first means the read below can never
+    // return pre-save bytes (the old fire-and-forget save → immediate re-read
+    // race showed stale text and inverted the dirty check). Seeding the initial
+    // state (vs. dispatching after) keeps the undo history clean. The token
+    // guards against a stale load landing after another scene switch.
     const host = wrap.createDiv({ cls: "inkswell-write__cm" });
-    void this.app.vault.cachedRead(file).then((content) => {
-      if (token !== this.editorToken) return;
-      const { frontmatter, body } = splitFrontmatter(content);
-      this.loadedBody = body;
-      this.loadedFrontmatter = frontmatter;
+    const handoff = this.teardown;
+    void (async () => {
+      await handoff.catch(() => {});
+      let session: SceneSession;
+      try {
+        session = await SceneSession.load({
+          app: this.app,
+          file,
+          // Null once this session is no longer the panel's (or the editor is
+          // gone): an orphaned session then acts only on its flush-time capture.
+          getDoc: () =>
+            this.session === session && this.editor
+              ? this.editor.state.doc.toString()
+              : null,
+          onStateChange: () => this.renderConflictBanner(),
+          onReloaded: (body) => {
+            if (this.session !== session || !this.editor) return;
+            // In-place reseed: the editor instance (scroll, focus) survives;
+            // the reload becomes one undo step.
+            this.editor.dispatch({
+              changes: { from: 0, to: this.editor.state.doc.length, insert: body },
+            });
+            this.updateCount();
+          },
+        });
+      } catch (e) {
+        console.error("[Inkswell] Failed to load scene", e);
+        if (token === this.editorToken) this.emptyState(wrap, "Couldn't read this scene file.");
+        return;
+      }
+      if (token !== this.editorToken) {
+        session.dispose();
+        return;
+      }
+      this.session = session;
       this.editor = createSceneEditor({
         parent: host,
-        doc: body,
+        doc: session.loadedBody,
         onChange: () => this.onEditorChange(),
         onBlur: () => {
           // The Insert dropdown suppresses this save while open (see openInsertMenu).
-          if (!this.suppressBlurSave) void this.saveBody();
+          if (!this.suppressBlurSave) void this.session?.save();
         },
         onLogIssue: () => this.logIssue(),
       });
+      this.renderConflictBanner();
       this.updateCount();
       // Prime the tracker baseline for this scene so the first word typed in a
       // not-yet-seen file isn't lost to first-sight baselining.
       this.reportLiveCount();
-      this.applyPendingHighlight(body);
+      this.applyPendingHighlight(session.loadedBody);
+    })();
+  }
+
+  /** Show/refresh the conflict banner from the session's state. */
+  private renderConflictBanner(): void {
+    const banner = this.bannerEl;
+    if (!banner || !banner.isConnected) return;
+    banner.empty();
+    const session = this.session;
+    if (!session || session.state !== "conflict") {
+      banner.removeClass("is-visible");
+      return;
+    }
+    banner.addClass("is-visible");
+    banner.createSpan({
+      cls: "inkswell-write__conflicttext",
+      text: "This scene changed on disk while you were editing.",
+    });
+    const actions = banner.createDiv({ cls: "inkswell-write__conflictactions" });
+    const loadDisk = actions.createEl("button", { text: "Load disk version" });
+    loadDisk.onclick = () =>
+      void session
+        .resolveReloadFromDisk()
+        .then((backup) => {
+          if (backup) new Notice(`Your unsaved text was backed up to "${backup}".`);
+        })
+        .catch(() => new Notice("Couldn't resolve the conflict — nothing was changed."));
+    const keepMine = actions.createEl("button", { cls: "mod-cta", text: "Keep my version" });
+    keepMine.onclick = () =>
+      void session
+        .resolveKeepMine()
+        .then((backup) => {
+          if (backup) new Notice(`The disk version was backed up to "${backup}".`);
+        })
+        .catch(() => new Notice("Couldn't resolve the conflict — nothing was changed."));
+    banner.createDiv({
+      cls: "inkswell-stats__muted",
+      text: "Either way, the other version is backed up to the “Inkswell conflicts” folder.",
     });
   }
 
@@ -691,42 +820,23 @@ export class WritePanel {
     }
   }
 
-  /** A live document edit: refresh the visible count and feed the live word
-   *  count to the tracker so the sprint tally ticks up as you type (not just on
-   *  blur/save). */
+  /** A live document edit: refresh the visible count, feed the live word count
+   *  to the tracker, and (re)arm the session's autosave — typed text reaches
+   *  disk within ~2s even if the editor is never blurred again. */
   private onEditorChange(): void {
     this.updateCount();
     this.reportLiveCount();
+    this.session?.noteChange();
   }
 
   /** Report the editor's current word count to the tracker for the active scene. */
   private reportLiveCount(): void {
     if (!this.editor || !this.currentFile) return;
     const body = this.editor.state.doc.toString();
-    this.plugin.tracker.noteLiveContent(this.currentFile.path, this.loadedFrontmatter + body);
-  }
-
-  private async saveBody(): Promise<void> {
-    const file = this.currentFile;
-    const ed = this.editor;
-    if (!file || !ed) return;
-    const body = ed.state.doc.toString();
-    if (body === this.loadedBody) return;
-    try {
-      // Atomic read-modify-write: the current frontmatter is re-read inside the
-      // transform, so a concurrent Inspector/processFrontMatter write can't land
-      // between a read and a modify and get clobbered.
-      await this.app.vault.process(file, (cur) => splitFrontmatter(cur).frontmatter + body);
-      this.loadedBody = body;
-    } catch (e) {
-      // Never advance loadedBody on failure, so the next blur/save retries. The
-      // editor still holds the text — say so, since a torn-down editor could
-      // otherwise lose it silently.
-      console.error("[Inkswell] Failed to save scene body", e);
-      new Notice(
-        `Inkswell couldn't save "${file.basename}". Your text is still in the editor — copy it out if this keeps happening.`
-      );
-    }
+    this.plugin.tracker.noteLiveContent(
+      this.currentFile.path,
+      (this.session?.loadedFrontmatter ?? "") + body
+    );
   }
 
   private emptyState(parent: HTMLElement, text: string): void {
@@ -803,11 +913,16 @@ export class WritePanel {
     if (this.container) this.render(this.container);
   }
 
-  dispose(): void {
-    void this.saveBody();
-    this.editor?.destroy();
-    this.editor = null;
+  /** Tear down, AWAITING the final save — the host awaits this in onClose, and
+   *  the plugin's quit-time flush awaits it so an in-flight write isn't cut off. */
+  async dispose(): Promise<void> {
+    const flushed = this.detachSession();
     this.unsub?.();
     this.unsub = null;
+    if (this.modifyRef) {
+      this.app.vault.offref(this.modifyRef);
+      this.modifyRef = null;
+    }
+    await flushed;
   }
 }

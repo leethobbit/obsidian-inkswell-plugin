@@ -129,11 +129,17 @@ export class RevisionSidebar implements RightPanel {
   private rowContext(): DecisionRowContext {
     return {
       app: this.app,
-      persist: (project, list) => this.persist(project, list),
+      persist: (project, transform) => this.persist(project, transform),
     };
   }
 
-  private persist(project: Project, list: RevisionDecision[]): void {
-    void tryFileOp(() => persistRevisions(this.app, project, list), "Couldn't save the revision log.");
+  private persist(
+    project: Project,
+    transform: (current: RevisionDecision[]) => RevisionDecision[]
+  ): void {
+    void tryFileOp(
+      () => persistRevisions(this.app, project, transform),
+      "Couldn't save the revision log."
+    );
   }
 }

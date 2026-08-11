@@ -12,9 +12,13 @@ import { ProjectStore } from "../../projects/project-store";
 import { baseDraftFor } from "../../projects/stories";
 import {
   BudgetItem,
+  CoverComp,
   PublishingData,
+  addRow,
   budgetTotals,
   newPublishingId,
+  patchRow,
+  removeRow,
 } from "../../publishing/publishing-data";
 import {
   PreorderStrategy,
@@ -22,7 +26,7 @@ import {
   computeMilestones,
   milestoneStatus,
 } from "../../publishing/preorder";
-import { TrackerRow, renderTrackerSection } from "./tracker-section";
+import { TrackerConfig, TrackerRow, renderTrackerSection } from "./tracker-section";
 import type InkswellPlugin from "../../../main";
 
 export class LaunchPanel {
@@ -154,11 +158,13 @@ export class LaunchPanel {
       newRow: () => ({ id: newPublishingId(), label: "", category: "need" }),
       addLabel: "+ Budget line",
       emptyText: "Track what this book costs — needs vs. wants.",
-      onChange: (rows) =>
-        this.saveSub(file, (pub) => {
-          pub.budget = { items: rows as unknown as BudgetItem[] };
+      ...this.trackerOps(file, {
+        get: (pub) => (pub.budget?.items ?? []) as unknown as TrackerRow[],
+        set: (pub, rows) => {
           if (rows.length === 0) delete pub.budget;
-        }),
+          else pub.budget = { items: rows as unknown as BudgetItem[] };
+        },
+      }),
     });
     const t = budgetTotals(data?.budget?.items);
     if ((data?.budget?.items ?? []).length > 0) {
@@ -196,11 +202,16 @@ export class LaunchPanel {
       rows: comps,
       newRow: () => ({ id: newPublishingId(), title: "" }),
       addLabel: "+ Comp cover",
-      onChange: (rows) =>
-        this.saveSub(file, (pub) => {
-          pub.cover = { ...pub.cover, comps: rows as never };
-          if (!pub.cover.plan && rows.length === 0) delete pub.cover;
-        }),
+      ...this.trackerOps(file, {
+        get: (pub) => (pub.cover?.comps ?? []) as unknown as TrackerRow[],
+        set: (pub, rows) => {
+          const cover = { ...pub.cover };
+          if (rows.length === 0) delete cover.comps;
+          else cover.comps = rows as unknown as CoverComp[];
+          if (!cover.plan && !cover.comps?.length) delete pub.cover;
+          else pub.cover = cover;
+        },
+      }),
     });
   }
 
@@ -218,11 +229,13 @@ export class LaunchPanel {
       newRow: () => ({ id: newPublishingId(), strategy: "" }),
       addLabel: "+ Marketing action",
       emptyText: "Plan launch actions; record results to learn for the next book.",
-      onChange: (rows) =>
-        this.saveSub(file, (pub) => {
-          pub.marketing = { items: rows as never };
+      ...this.trackerOps(file, {
+        get: (pub) => (pub.marketing?.items ?? []) as unknown as TrackerRow[],
+        set: (pub, rows) => {
           if (rows.length === 0) delete pub.marketing;
-        }),
+          else pub.marketing = { items: rows as never };
+        },
+      }),
     });
   }
 
@@ -240,15 +253,40 @@ export class LaunchPanel {
       newRow: () => ({ id: newPublishingId(), name: "" }),
       addLabel: "+ ARC reader",
       emptyText: "Track who got an advance copy and who has reviewed.",
-      onChange: (rows) =>
-        this.saveSub(file, (pub) => {
-          pub.arcs = { readers: rows as never };
+      ...this.trackerOps(file, {
+        get: (pub) => (pub.arcs?.readers ?? []) as unknown as TrackerRow[],
+        set: (pub, rows) => {
           if (rows.length === 0) delete pub.arcs;
-        }),
+          else pub.arcs = { readers: rows as never };
+        },
+      }),
     });
   }
 
   // --- Persistence ---------------------------------------------------------
+
+  /**
+   * Op-based persistence for one tracker grid: each op reads the CURRENT rows
+   * via `lens.get` inside the `persistPublishing` mutator, applies the by-id
+   * patch/add/remove, and writes back via `lens.set`. Cells edited from the
+   * same rendered grid therefore compose — a stale render can no longer
+   * overwrite sibling cells or rows (the stale-snapshot data-loss class).
+   */
+  private trackerOps(
+    file: TFile,
+    lens: {
+      get: (pub: PublishingData) => TrackerRow[];
+      set: (pub: PublishingData, rows: TrackerRow[]) => void;
+    }
+  ): Pick<TrackerConfig, "onEdit" | "onAdd" | "onRemove"> {
+    const apply = (op: (rows: TrackerRow[]) => TrackerRow[]) =>
+      this.saveSub(file, (pub) => lens.set(pub, op(lens.get(pub))));
+    return {
+      onEdit: (rowId, key, value) => apply((rows) => patchRow(rows, rowId, key, value)),
+      onAdd: (row) => apply((rows) => addRow(rows, row)),
+      onRemove: (rowId) => apply((rows) => removeRow(rows, rowId)),
+    };
+  }
 
   private saveLaunch(file: TFile, patch: Partial<PublishingData["launch"]>): void {
     this.saveSub(file, (pub) => {

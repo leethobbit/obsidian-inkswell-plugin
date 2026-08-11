@@ -7,11 +7,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   persistDraft,
-  persistInkswellData,
+  persistDraftCreated,
   persistOverview,
   persistPlotlines,
   persistPublishing,
   persistStructure,
+  unsafeReplaceInkswellKeys,
   updateScenes,
   writeSeries,
 } from "../src/projects/index-writer";
@@ -146,9 +147,9 @@ describe("index-writer invariants", () => {
     expect(draftOf(app)).toEqual(draft);
   });
 
-  it("persistInkswellData merges top-level keys without touching longform", async () => {
+  it("unsafeReplaceInkswellKeys merges top-level keys without touching longform", async () => {
     const before = draftOf(app);
-    await persistInkswellData(app.asApp(), app.file(INDEX_PATH), {
+    await unsafeReplaceInkswellKeys(app.asApp(), app.file(INDEX_PATH), {
       arcTracked: ["[[Mara]]"],
     });
     assertNothingElseChanged();
@@ -241,9 +242,7 @@ describe("index-writer invariants", () => {
       persistOverview(app.asApp(), app.file(INDEX_PATH), { genre: "Fantasy" }),
       writeSeries(app.asApp(), app.file(INDEX_PATH), { name: "The Cycle" }),
     ]);
-    await persistInkswellData(app.asApp(), app.file(INDEX_PATH), {
-      draftCreated: "2026-07-04T00:00:00Z",
-    });
+    await persistDraftCreated(app.asApp(), app.file(INDEX_PATH), "2026-07-04T00:00:00Z");
     assertNothingElseChanged();
     // The index still parses as a valid Longform draft.
     expect(draftOf(app).format).toBe("scenes");

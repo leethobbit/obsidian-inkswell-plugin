@@ -113,6 +113,16 @@ export default class InkswellPlugin extends Plugin {
     // Persist the active project whenever it changes (survives restart).
     this.register(this.activeProject.subscribe(() => void this.persist()));
 
+    // Quit-time flush: Obsidian awaits these tasks before the window closes, so
+    // the Write editor's unsaved prose, an in-flight sprint, the tracker's
+    // debounced log save, and the data.json chain all land instead of being
+    // abandoned mid-write. (View onClose isn't reliably awaited on quit.)
+    this.registerEvent(
+      this.app.workspace.on("quit", (tasks) => {
+        tasks.add(() => this.flushAllPending());
+      })
+    );
+
     this.registerView(
       VIEW_TYPE_INKSWELL,
       (leaf) => new InkswellView(leaf, this, this.store, this.stats, this.tracker)
@@ -400,6 +410,25 @@ export default class InkswellPlugin extends Plugin {
   /** Back-compat alias used by the settings tab. */
   async saveSettings(): Promise<void> {
     await this.persist();
+  }
+
+  /**
+   * Drain every pending write before the app closes: Write-editor sessions
+   * across all Inkswell leaves, the in-flight sprint (recorded, silently), the
+   * tracker's debounced log save, and finally the data.json persist chain.
+   * Registered as a workspace "quit" task so Obsidian awaits it.
+   */
+  async flushAllPending(): Promise<void> {
+    const flushes: Promise<unknown>[] = [];
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_INKSWELL)) {
+      if (leaf.view instanceof InkswellView) {
+        flushes.push(leaf.view.flushWrites().catch(() => {}));
+      }
+    }
+    if (this.sprints.isActive()) this.sprints.finish({ silent: true });
+    this.tracker.flushPendingSave();
+    await Promise.all(flushes);
+    await this.persist(); // snapshots final state AND drains the chain
   }
 
   refreshExplorer(): void {

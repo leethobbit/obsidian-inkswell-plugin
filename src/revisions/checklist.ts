@@ -1,8 +1,9 @@
 /**
  * Pure operations on a project's Story-level and Prose-level revision checklists
  * (no Obsidian imports — unit-testable). Persistence is handled by the AuditPanel
- * via `persistInkswellData`, which writes `inkswell.revisionChecklist`. The prose
- * tier's stored key stays "page" for back-compat (see audit.ts).
+ * via `persistChecklistItem` (a delta applied to the CURRENT stored
+ * `inkswell.revisionChecklist`). The prose tier's stored key stays "page" for
+ * back-compat (see audit.ts).
  *
  * Checkpoint definitions (the item ids + labels) live in `audit.ts`; this module
  * only manages the stored per-item state (done + freeform note).

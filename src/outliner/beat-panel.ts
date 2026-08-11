@@ -4,13 +4,15 @@
  * with an overall progress bar. Rendered inside the Inkswell host view.
  *
  * Reads/writes `inkswell.beats` on the project index frontmatter (never scene
- * bodies), via persistInkswellData.
+ * bodies), via updateBeats — every write is a delta applied to the CURRENT
+ * stored sheet, never the render-time snapshot (which the host's editing-guard
+ * deferral can keep stale for a whole typing session).
  */
 
 import { App, Menu, Notice, TFile } from "obsidian";
 import { attachRowMenu } from "../lib/row-menu";
 import { ActiveProject, resolveActive } from "../projects/active-project";
-import { persistInkswellData } from "../projects/index-writer";
+import { updateBeats } from "../projects/index-writer";
 import { tryFileOp } from "../lib/notify";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
@@ -122,14 +124,18 @@ export class BeatPanel {
   }
 
   private setTemplate(project: Project, templateId: string): void {
-    const sheet = project.inkswell?.beats;
-    const next: BeatSheet = {
-      template: templateId,
-      assignments: sheet?.assignments ?? {},
-    };
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
     if (file instanceof TFile) {
-      void tryFileOp(() => persistInkswellData(this.app, file, { beats: next }), "Couldn't switch the beat template.");
+      // Delta against the CURRENT sheet: switching templates must never drop
+      // assignments saved since this panel last rendered.
+      void tryFileOp(
+        () =>
+          updateBeats(this.app, file, (cur) => ({
+            template: templateId,
+            assignments: cur?.assignments ?? {},
+          })),
+        "Couldn't switch the beat template."
+      );
     }
   }
 
@@ -185,7 +191,7 @@ export class BeatPanel {
       const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
       x.setAttribute("aria-label", `Remove ${t}`);
       x.onclick = () =>
-        this.update(project, beat.id, { scenes: attached.filter((s) => s !== t) });
+        this.updateSceneLinks(project, beat.id, (scenes) => scenes.filter((s) => s !== t));
 
       // Scene menu — right-click on desktop, "⋯" tap on touch — for parity with
       // the Board's scene cards. Appended last so "⋯" sits after the × remove.
@@ -207,7 +213,12 @@ export class BeatPanel {
       for (const t of remaining) add.createEl("option", { text: t, value: t });
       add.value = "";
       add.onchange = () => {
-        if (add.value) this.update(project, beat.id, { scenes: [...attached, add.value] });
+        const title = add.value;
+        if (title) {
+          this.updateSceneLinks(project, beat.id, (scenes) =>
+            scenes.includes(title) ? scenes : [...scenes, title]
+          );
+        }
       };
     }
 
@@ -220,14 +231,14 @@ export class BeatPanel {
     });
     create.setAttribute("aria-label", "Create a new scene attached to this beat");
     create.onclick = () => {
-      // Accumulate across repeated "Create another" so every new scene stays
-      // attached to this beat, not just the last one.
-      const attachedNow = [...attached];
+      // Each created scene appends to the beat's CURRENT scene list, so
+      // repeated "Create another" attaches every new scene, not just the last.
       promptNewScene(this.app, this.store, this.plugin.settings, project, {
         meta: { synopsis: beat.blurb },
         onCreated: (file) => {
-          attachedNow.push(file.basename);
-          this.update(project, beat.id, { scenes: attachedNow });
+          this.updateSceneLinks(project, beat.id, (scenes) =>
+            scenes.includes(file.basename) ? scenes : [...scenes, file.basename]
+          );
         },
       });
     };
@@ -251,18 +262,52 @@ export class BeatPanel {
     }
   }
 
+  /**
+   * Apply a value patch (note/done) to one beat against the CURRENT stored
+   * sheet. The transform runs inside `processFrontMatter`, so edits saved to
+   * OTHER beats since this panel last rendered are never overwritten — the
+   * render-time snapshot is only used to locate the beat, never as write state.
+   */
   private update(
     project: Project,
     beatId: string,
     patch: Partial<BeatSheet["assignments"][string]>
   ): void {
-    const next = setAssignment(project.inkswell?.beats, beatId, patch);
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
     if (file instanceof TFile) {
       // The frontmatter write triggers a store refresh, which re-renders this
       // panel via the host's subscription — no immediate rerender (avoids a
       // flicker from the stale snapshot and preserves textarea focus).
-      void tryFileOp(() => persistInkswellData(this.app, file, { beats: next }), "Couldn't save the beat change.");
+      void tryFileOp(
+        () => updateBeats(this.app, file, (cur) => setAssignment(cur, beatId, patch)),
+        "Couldn't save the beat change."
+      );
+    }
+  }
+
+  /**
+   * Transform one beat's scene-link list against its CURRENT stored state
+   * (folding in a legacy single-`scene` link), expressed as a list op so
+   * concurrent adds/removes on the same beat compose instead of clobbering.
+   */
+  private updateSceneLinks(
+    project: Project,
+    beatId: string,
+    op: (currentScenes: string[]) => string[]
+  ): void {
+    const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
+    if (file instanceof TFile) {
+      void tryFileOp(
+        () =>
+          updateBeats(this.app, file, (cur) => {
+            const raw = (cur?.assignments[beatId] ?? {}) as BeatSheet["assignments"][string] & {
+              scene?: string;
+            };
+            const scenes = raw.scenes ?? (raw.scene ? [raw.scene] : []);
+            return setAssignment(cur, beatId, { scenes: op(scenes) });
+          }),
+        "Couldn't save the beat change."
+      );
     }
   }
 }

@@ -9,7 +9,7 @@ function project(compile?: unknown): Project {
 }
 
 describe("resolveCompileConfig", () => {
-  it("returns the saved config verbatim when present", () => {
+  it("returns an equal but CLONED config when one is saved", () => {
     const saved = {
       sceneSteps: [{ id: "strip-frontmatter", options: {} }],
       manuscriptSteps: [],
@@ -17,7 +17,16 @@ describe("resolveCompileConfig", () => {
       targetBasename: "my-book",
       format: "html",
     };
-    expect(resolveCompileConfig(project(saved))).toBe(saved);
+    const resolved = resolveCompileConfig(project(saved));
+    expect(resolved).toEqual(saved);
+    // Never the same object: `saved` is the ProjectStore's shared cached parse,
+    // and the compile panel mutates the resolved config in place. Returning the
+    // cache by reference corrupted it (UI showed unsaved changes as applied).
+    expect(resolved).not.toBe(saved);
+    resolved.separator = "***";
+    resolved.sceneSteps[0].options["x"] = true;
+    expect(saved.separator).toBe("\n\n");
+    expect(saved.sceneSteps[0].options).toEqual({});
   });
 
   it("saved format wins over the fallback", () => {

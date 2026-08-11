@@ -3,7 +3,8 @@
  * All per-book, all optional; stored under `inkswell.publishing` on the project
  * index. Checklist/launch state keys off the stable IDs in checklist-def.ts /
  * preorder.ts. Persistence uses the read-merge-write `persistPublishing` helper
- * (because `persistInkswellData` shallow-merges and would clobber sub-objects).
+ * (a top-level shallow merge would clobber sub-objects), with tracker-grid rows
+ * applied as by-id ops (patchRow/addRow/removeRow) against current state.
  */
 
 import { PUBLISHING_CHECKLIST } from "./checklist-def";
@@ -147,4 +148,40 @@ export function categoriesOk(cats: PublishingMetadata["categories"]): boolean {
 
 export function newPublishingId(): string {
   return `p-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
+}
+
+// --- Tracker-row list ops (applied against CURRENT stored rows) --------------
+// The Publish tracker grids report edits as per-row ops; these pure helpers
+// apply an op to the row list read inside the persist mutator, so concurrent
+// cell edits / adds / removes compose instead of overwriting each other.
+
+/**
+ * Patch one field of the row with `rowId`. If no row carries that id anymore
+ * (deleted concurrently), the edit is DROPPED — resurrecting a whole row from
+ * one cell edit would be worse than losing the keystroke. `undefined` deletes
+ * the field.
+ */
+export function patchRow<T extends { id: string }>(
+  rows: T[],
+  rowId: string,
+  key: string,
+  value: unknown
+): T[] {
+  return rows.map((r) => {
+    if (r.id !== rowId) return r;
+    const next: Record<string, unknown> = { ...r };
+    if (value === undefined) delete next[key];
+    else next[key] = value;
+    return next as T;
+  });
+}
+
+/** Append a row unless its id is already present (double-click / re-notify safe). */
+export function addRow<T extends { id: string }>(rows: T[], row: T): T[] {
+  return rows.some((r) => r.id === row.id) ? rows : [...rows, row];
+}
+
+/** Remove the row with `rowId` (no-op when already gone). */
+export function removeRow<T extends { id: string }>(rows: T[], rowId: string): T[] {
+  return rows.filter((r) => r.id !== rowId);
 }

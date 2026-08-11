@@ -15,6 +15,7 @@ import { projectSeries } from "../../series/series";
 import { PUBLISHING_CHECKLIST } from "../../publishing/checklist-def";
 import {
   ChecklistTaskState,
+  FormatInfo,
   PublishingData,
   PublishingMetadata,
   categoriesOk,
@@ -195,10 +196,10 @@ export class ChecklistPanel {
     kwInput.addEventListener("input", updateKwHint);
 
     text("Main category (BISAC)", m.categories?.main, (v) =>
-      this.saveMeta(file, { categories: { ...m.categories, main: v } })
+      this.saveCategories(file, { main: v })
     );
     text("Sub-categories", (m.categories?.sub ?? []).join(", "), (v) =>
-      this.saveMeta(file, { categories: { ...m.categories, sub: splitList(v) } }), "≤3, comma-separated"
+      this.saveCategories(file, { sub: splitList(v) }), "≤3, comma-separated"
     );
     if (m.categories && !categoriesOk(m.categories)) {
       host.createDiv({ cls: "inkswell-stats__muted", text: "Categories: set 1 main + up to 3 sub." });
@@ -227,16 +228,14 @@ export class ChecklistPanel {
       const isbn = row.createEl("input", { type: "text", cls: "inkswell-publishing__isbn" });
       isbn.value = info.isbn ?? "";
       isbn.placeholder = "ISBN";
+      // All three cells are read live from the DOM at commit time; only THIS
+      // format's entry is replaced — sibling formats merge against current
+      // metadata inside the write (saveFormat), never the render-time `m`.
       const saveFmt = () =>
-        this.saveMeta(file, {
-          formats: {
-            ...m.formats,
-            [f.key]: {
-              enabled: enabled.checked,
-              price: price.value ? Number(price.value) : undefined,
-              isbn: isbn.value || undefined,
-            },
-          },
+        this.saveFormat(file, f.key, {
+          enabled: enabled.checked,
+          price: price.value ? Number(price.value) : undefined,
+          isbn: isbn.value || undefined,
         });
       enabled.onchange = saveFmt;
       price.onchange = saveFmt;
@@ -250,6 +249,40 @@ export class ChecklistPanel {
         persistPublishing(this.app, file, (raw) => {
           const pub = raw as PublishingData;
           pub.metadata = { ...(pub.metadata ?? {}), ...patch };
+        }),
+      "Couldn't save the book metadata."
+    );
+  }
+
+  /** Merge a categories patch against CURRENT metadata (never the render-time
+   *  snapshot) so editing main and sub from the same rendered form composes. */
+  private saveCategories(
+    file: TFile,
+    patch: Partial<NonNullable<PublishingMetadata["categories"]>>
+  ): void {
+    void tryFileOp(
+      () =>
+        persistPublishing(this.app, file, (raw) => {
+          const pub = raw as PublishingData;
+          const meta = pub.metadata ?? (pub.metadata = {});
+          meta.categories = { ...meta.categories, ...patch };
+        }),
+      "Couldn't save the book metadata."
+    );
+  }
+
+  /** Replace ONE format's entry, merging sibling formats against current state. */
+  private saveFormat(
+    file: TFile,
+    key: "ebook" | "paperback" | "hardcover",
+    info: FormatInfo
+  ): void {
+    void tryFileOp(
+      () =>
+        persistPublishing(this.app, file, (raw) => {
+          const pub = raw as PublishingData;
+          const meta = pub.metadata ?? (pub.metadata = {});
+          meta.formats = { ...meta.formats, [key]: info };
         }),
       "Couldn't save the book metadata."
     );

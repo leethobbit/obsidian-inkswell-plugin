@@ -12,7 +12,7 @@
 import { App, TFile } from "obsidian";
 import { tryFileOp } from "../../lib/notify";
 import { renameSceneInBeats } from "../../outliner/beats";
-import { persistDraft, persistInkswellData, updateScenes } from "../../projects/index-writer";
+import { persistDraft, updateBeats, updateScenes } from "../../projects/index-writer";
 import { reconcileSuggestions } from "../../projects/rename-heal";
 import { addScene, removeScene } from "../../projects/scene-tree";
 import { Project, isMultiScene } from "../../projects/types";
@@ -83,8 +83,10 @@ export class ReconcileBanner {
         scenes.map((s) => (s.title === oldTitle ? { ...s, title: newBasename } : s))
       );
       // Beats link scenes by title; keep them pointing at the relinked scene.
-      const beats = renameSceneInBeats(project.inkswell?.beats, oldTitle, newBasename);
-      if (beats) await persistInkswellData(this.app, file, { beats });
+      // Delta against the CURRENT sheet (null result skips the write).
+      await updateBeats(this.app, file, (cur) =>
+        renameSceneInBeats(cur, oldTitle, newBasename)
+      );
     }, "Couldn't relink the scene.");
   }
 

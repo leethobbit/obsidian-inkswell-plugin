@@ -1641,6 +1641,29 @@
 .inkswell-write__editortitle {
   font-weight: var(--font-semibold);
 }
+/* Conflict banner: the scene changed on disk under unsaved edits. Hidden until
+   the session flips to "conflict"; sits above the CM host so it can't be missed. */
+.inkswell-write__conflict {
+  display: none;
+}
+.inkswell-write__conflict.is-visible {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-1);
+  padding: var(--size-4-2) var(--size-4-3);
+  margin-bottom: var(--size-4-2);
+  border: 1px solid var(--color-orange);
+  border-radius: var(--radius-m);
+  background: color-mix(in srgb, var(--color-orange) 12%, var(--background-primary));
+}
+.inkswell-write__conflicttext {
+  font-weight: var(--font-semibold);
+}
+.inkswell-write__conflictactions {
+  display: flex;
+  gap: var(--size-4-2);
+}
+
 /* CodeMirror manuscript editor surface */
 .inkswell-write__cm {
   flex: 1;
