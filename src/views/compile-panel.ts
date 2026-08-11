@@ -24,7 +24,7 @@ import {
   OutputFormat,
 } from "../compile/types";
 import { resolveActive } from "../projects/active-project";
-import { persistInkswellData } from "../projects/index-writer";
+import { unsafeReplaceInkswellKeys } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
 import type InkswellPlugin from "../../main";
@@ -367,10 +367,13 @@ export class CompilePanel {
   private save(project: Project, config: CompileConfig): void {
     // Persisting rewrites the index frontmatter → store refresh re-renders this
     // panel from the saved config (no immediate rerender — avoids stale flicker).
+    // KNOWN residual (stale-snapshot class, low risk): `config` is the panel's
+    // working copy, replacing `inkswell.compile` whole — the delta API for
+    // compile (updateCompile + applyStepToggle) is the scheduled follow-up.
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
     if (file instanceof TFile) {
       void tryFileOp(
-        () => persistInkswellData(this.app, file, { compile: config }),
+        () => unsafeReplaceInkswellKeys(this.app, file, { compile: config }),
         "Couldn't save the compile settings."
       );
     }

@@ -4,8 +4,8 @@
  *
  *  - Story-level (18) and Prose-level (32, grouped) checklists are project state
  *    under `inkswell.revisionChecklist`, edited here and persisted via
- *    `persistInkswellData`. (The prose tier's stored key is "page" for back-compat;
- *    only the display label changed.)
+ *    `persistChecklistItem` (per-item deltas against current state). (The prose
+ *    tier's stored key is "page" for back-compat; only the display label changed.)
  *  - The per-scene 14-point checklist (scene frontmatter) is summarised as rows,
  *    each expandable to edit inline via the shared `renderSceneAuditFields`.
  *
@@ -21,7 +21,11 @@ import { linkTarget } from "../codex/codex";
 import { getCodexEntities } from "../codex/codex-store";
 import { filterToScope, scopeContextForProject } from "../codex/codex-scope";
 import { ActiveProject, resolveActive } from "../projects/active-project";
-import { persistInkswellData } from "../projects/index-writer";
+import {
+  persistChecklistItem,
+  updateArcTracked,
+  updateStyleEntries,
+} from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
 import { openScene } from "../scenes/scene-actions";
@@ -57,7 +61,6 @@ import {
   ChecklistState,
   ChecklistTier,
   checklistProgress,
-  setChecklistItem,
   tierState,
 } from "./checklist";
 
@@ -201,13 +204,14 @@ export class AuditPanel {
     id: string,
     patch: { done?: boolean; note?: string }
   ): void {
-    const next = setChecklistItem(project.inkswell?.revisionChecklist, tier, id, patch);
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
     // Persist only — the index-frontmatter write triggers a store refresh, which
     // re-renders this panel (open sections are restored from `this.sections`).
+    // The patch is applied against the CURRENT stored checklist inside the
+    // write, so ticking several boxes in a row never loses earlier ticks.
     if (file instanceof TFile) {
       void tryFileOp(
-        () => persistInkswellData(this.app, file, { revisionChecklist: next }),
+        () => persistChecklistItem(this.app, file, tier, id, patch),
         "Couldn't save the checklist change."
       );
     }
@@ -361,7 +365,7 @@ export class AuditPanel {
     for (const name of tracked) {
       const chip = picker.createSpan({ cls: "inkswell-chip", text: name });
       const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
-      x.onclick = () => this.saveTracked(project, tracked.filter((t) => t !== name));
+      x.onclick = () => this.saveTracked(project, (names) => names.filter((t) => t !== name));
     }
     const untracked = available.filter((n) => !tracked.includes(n));
     if (untracked.length > 0) {
@@ -370,7 +374,12 @@ export class AuditPanel {
       for (const n of untracked) add.createEl("option", { text: n, value: n });
       add.value = "";
       add.onchange = () => {
-        if (add.value) this.saveTracked(project, [...tracked, add.value]);
+        const name = add.value;
+        if (name) {
+          this.saveTracked(project, (names) =>
+            names.includes(name) ? names : [...names, name]
+          );
+        }
       };
     }
 
@@ -431,12 +440,17 @@ export class AuditPanel {
     return parts.join(" · ");
   }
 
-  private saveTracked(project: Project, next: string[]): void {
+  private saveTracked(project: Project, op: (currentNames: string[]) => string[]): void {
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
-    // Store as wikilinks so renames follow; `next` holds plain names from the picker.
+    // Stored as wikilinks so renames follow; the op works in plain names against
+    // the CURRENT stored list, so add/remove compose instead of clobbering.
     if (file instanceof TFile) {
       void tryFileOp(
-        () => persistInkswellData(this.app, file, { arcTracked: serializeTracked(next) }),
+        () =>
+          updateArcTracked(this.app, file, op, {
+            parse: parseTracked,
+            serialize: serializeTracked,
+          }),
         "Couldn't save the tracked characters."
       );
     }
@@ -544,7 +558,7 @@ export class AuditPanel {
       }
       const del = row.createSpan({ cls: "inkswell-chip__x", text: "×" });
       del.setAttribute("aria-label", `Remove ${e.canonical}`);
-      del.onclick = () => this.saveStyle(project, entries.filter((x) => x.id !== e.id));
+      del.onclick = () => this.saveStyle(project, (cur) => cur.filter((x) => x.id !== e.id));
     }
 
     // Add form.
@@ -565,7 +579,7 @@ export class AuditPanel {
         variants: variants.value.split(",").map((v) => v.trim()).filter(Boolean),
         kind: kind.value as StyleKind,
       };
-      this.saveStyle(project, [...entries, next]);
+      this.saveStyle(project, (cur) => [...cur, next]);
     };
 
     // Scan.
@@ -622,11 +636,13 @@ export class AuditPanel {
     }
   }
 
-  private saveStyle(project: Project, entries: StyleEntry[]): void {
+  private saveStyle(project: Project, op: (current: StyleEntry[]) => StyleEntry[]): void {
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
+    // List op against the CURRENT stored entries (by stable id), so an add and
+    // a remove issued from the same rendered list both land.
     if (file instanceof TFile) {
       void tryFileOp(
-        () => persistInkswellData(this.app, file, { styleSheet: { entries } }),
+        () => updateStyleEntries(this.app, file, op),
         "Couldn't save the style sheet."
       );
     }

@@ -1,6 +1,7 @@
 /**
  * Pure beat-sheet operations (no Obsidian imports — unit-testable). Persistence
- * is handled by the BeatPanel via `persistInkswellData` (writes `inkswell.beats`).
+ * is handled by the BeatPanel via `updateBeats` (a delta applied to the CURRENT
+ * stored `inkswell.beats` inside processFrontMatter — never a panel snapshot).
  */
 
 import {

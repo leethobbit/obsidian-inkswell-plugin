@@ -84,8 +84,8 @@ export class SprintController extends Component {
     this.emit();
   }
 
-  /** End the sprint, record it, and notify. */
-  finish(): void {
+  /** End the sprint, record it, and notify (silent on unload/quit paths). */
+  finish(opts?: { silent?: boolean }): void {
     if (!this.active) return;
     const a = this.active;
     const elapsedSec = Math.min(
@@ -102,16 +102,21 @@ export class SprintController extends Component {
     this.log.sprints.push(record);
     this.persist();
     this.teardown();
-    const metGoal = a.goal != null && a.words >= a.goal;
-    new Notice(
-      `Sprint complete! ${a.words} words` +
-        (a.goal ? ` (goal ${a.goal}${metGoal ? " ✓" : ""})` : "")
-    );
+    if (!opts?.silent) {
+      const metGoal = a.goal != null && a.words >= a.goal;
+      new Notice(
+        `Sprint complete! ${a.words} words` +
+          (a.goal ? ` (goal ${a.goal}${metGoal ? " ✓" : ""})` : "")
+      );
+    }
     this.emit();
   }
 
   onunload(): void {
-    this.teardown();
+    // An in-flight sprint is real writing — record it instead of discarding it
+    // (plugin disable, app quit). Silent: no Notice during teardown.
+    if (this.active) this.finish({ silent: true });
+    else this.teardown();
   }
 
   private teardown(): void {

@@ -14,7 +14,7 @@ import { App, Menu } from "obsidian";
 import { attachRowMenu } from "../lib/row-menu";
 import { GapHit, PLACEHOLDER_LABEL } from "../lib/placeholders";
 import { Project } from "../projects/types";
-import { decisionType, decisionsOf, removeDecision, setDecisionStatus } from "./decisions";
+import { decisionType, removeDecision, setDecisionStatus } from "./decisions";
 import { RevisionModal } from "./revision-modal";
 import { REVISION_TYPES, RevisionDecision } from "./types";
 import { RevisionGroup } from "./revision-work";
@@ -24,8 +24,15 @@ export type MarkerJump = (path: string, from: number, to: number) => void;
 
 export interface DecisionRowContext {
   app: App;
-  /** Persist an updated decision list (the surface adds any follow-up, e.g. selfWrites marking). */
-  persist: (project: Project, list: RevisionDecision[]) => void;
+  /**
+   * Persist a decision-list transform (applied against the CURRENT stored list,
+   * never a render-time snapshot). The surface adds any follow-up, e.g.
+   * selfWrites marking.
+   */
+  persist: (
+    project: Project,
+    transform: (current: RevisionDecision[]) => RevisionDecision[]
+  ) => void;
   /** Threaded into the modal so its saves get the same follow-up. */
   markWrite?: (path: string) => void;
 }
@@ -61,9 +68,8 @@ export function renderDecisionRow(
   check.checked = d.status === "applied";
   check.setAttribute("aria-label", d.status === "applied" ? "Reopen" : "Mark applied");
   check.onchange = () =>
-    ctx.persist(
-      project,
-      setDecisionStatus(decisionsOf(project), d.id, check.checked ? "applied" : "pending")
+    ctx.persist(project, (cur) =>
+      setDecisionStatus(cur, d.id, check.checked ? "applied" : "pending")
     );
 
   const openEdit = () =>
@@ -94,7 +100,7 @@ export function renderDecisionRow(
       i
         .setTitle("Delete")
         .setIcon("trash")
-        .onClick(() => ctx.persist(project, removeDecision(decisionsOf(project), d.id)))
+        .onClick(() => ctx.persist(project, (cur) => removeDecision(cur, d.id)))
     );
     return menu;
   });

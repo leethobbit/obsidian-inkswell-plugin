@@ -22,7 +22,7 @@ import {
 import { tryFileOp } from "../lib/notify";
 import { renameSceneInBeats } from "../outliner/beats";
 import { parseDraft } from "./draft-serialization";
-import { persistInkswellData, updateScenes } from "./index-writer";
+import { updateBeats, updateScenes } from "./index-writer";
 import { consumeExpectedRename, planSceneRename } from "./rename-heal";
 import {
   Draft,
@@ -147,9 +147,11 @@ export class ProjectStore extends Component {
         await updateScenes(this.app, indexFile, project.draft, (scenes) =>
           scenes.map((s) => (s.title === plan.oldTitle ? { ...s, title: plan.newTitle } : s))
         );
-        // Keep beat→scene links (stored by title) in sync with the healed rename.
-        const beats = renameSceneInBeats(project.inkswell?.beats, plan.oldTitle, plan.newTitle);
-        if (beats) await persistInkswellData(this.app, indexFile, { beats });
+        // Keep beat→scene links (stored by title) in sync with the healed rename —
+        // a delta against the CURRENT sheet (null result skips the write).
+        await updateBeats(this.app, indexFile, (cur) =>
+          renameSceneInBeats(cur, plan.oldTitle, plan.newTitle)
+        );
       }, `Couldn't update the project index for the renamed scene "${plan.newTitle}".`);
     }
   }

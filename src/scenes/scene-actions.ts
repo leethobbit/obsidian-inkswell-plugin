@@ -7,7 +7,7 @@
 
 import { App, MarkdownView, Menu, Modal, Notice, Setting, TFile, normalizePath } from "obsidian";
 import { FormModal } from "../lib/form-modal";
-import { persistInkswellData, updateScenes } from "../projects/index-writer";
+import { updateBeats, updateScenes } from "../projects/index-writer";
 import { expectInAppRename } from "../projects/rename-heal";
 import { renameSceneInBeats } from "../outliner/beats";
 import { removeScene } from "../projects/scene-tree";
@@ -178,8 +178,9 @@ export async function renameScene(
       );
       // Beats link scenes by title in a separate frontmatter structure, so rewrite
       // those links too — otherwise the rename orphans the beat's scene chip.
-      const beats = renameSceneInBeats(project.inkswell?.beats, oldTitle, next);
-      if (beats) await persistInkswellData(app, indexFile, { beats });
+      // Delta against the CURRENT sheet (renameSceneInBeats returns null when
+      // nothing referenced the old title, which skips the write).
+      await updateBeats(app, indexFile, (cur) => renameSceneInBeats(cur, oldTitle, next));
     }
   }, `Couldn't rename "${oldTitle}".`);
   if (ok === null) return null;

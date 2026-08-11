@@ -1,8 +1,11 @@
 /**
  * A small editable row-list renderer reused by the Publish trackers (budget,
- * cover comps, marketing, ARCs). Each row is an object with an `id`; columns are
- * typed (text/number/checkbox/select/date). Edits and add/remove call `onChange`
- * with the full new row array, which the caller persists.
+ * cover comps, marketing, ARCs). Each row is an object with a stable `id`;
+ * columns are typed (text/number/checkbox/select/date). Edits are reported as
+ * per-row OPS (`onEdit`/`onAdd`/`onRemove` by row id), never as a whole new
+ * array — the caller applies each op against the CURRENT stored rows inside
+ * its persist mutator, so cells edited from the same rendered grid can't
+ * overwrite each other (the stale-snapshot data-loss class).
  */
 
 export type ColType = "text" | "number" | "checkbox" | "select" | "date";
@@ -24,7 +27,12 @@ export interface TrackerConfig {
   columns: ColDef[];
   rows: TrackerRow[];
   newRow: () => TrackerRow;
-  onChange: (rows: TrackerRow[]) => void;
+  /** One cell changed. Apply as a by-id patch against current rows. */
+  onEdit: (rowId: string, key: string, value: unknown) => void;
+  /** A new row was added. Append (if its id is absent) to current rows. */
+  onAdd: (row: TrackerRow) => void;
+  /** A row was removed. Filter by id from current rows. */
+  onRemove: (rowId: string) => void;
   addLabel?: string;
   emptyText?: string;
 }
@@ -39,18 +47,15 @@ export function renderTrackerSection(host: HTMLElement, cfg: TrackerConfig): voi
     for (const col of cfg.columns) renderCell(el, col, row, cfg);
     const del = el.createSpan({ cls: "inkswell-chip__x", text: "×" });
     del.setAttribute("aria-label", "Remove row");
-    del.onclick = () => cfg.onChange(cfg.rows.filter((r) => r.id !== row.id));
+    del.onclick = () => cfg.onRemove(row.id);
   }
 
   const add = host.createEl("button", { text: cfg.addLabel ?? "+ Add" });
-  add.onclick = () => cfg.onChange([...cfg.rows, cfg.newRow()]);
+  add.onclick = () => cfg.onAdd(cfg.newRow());
 }
 
 function renderCell(parent: HTMLElement, col: ColDef, row: TrackerRow, cfg: TrackerConfig): void {
-  const commit = (value: unknown) => {
-    const next = cfg.rows.map((r) => (r.id === row.id ? { ...r, [col.key]: value } : r));
-    cfg.onChange(next);
-  };
+  const commit = (value: unknown) => cfg.onEdit(row.id, col.key, value);
 
   if (col.type === "checkbox") {
     const label = parent.createEl("label", { cls: "inkswell-tracker__cell inkswell-audit__check" });

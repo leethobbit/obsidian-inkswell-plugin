@@ -13,7 +13,7 @@ import {
   resolveCoverSrc,
   setCoverFromUpload,
 } from "../../projects/cover";
-import { persistInkswellData, persistOverview } from "../../projects/index-writer";
+import { persistGoalsPatch, persistOverview } from "../../projects/index-writer";
 import { TargetModal } from "../../goals/target-modal";
 import { ProjectStats } from "../../projects/project-stats";
 import { ProjectStore } from "../../projects/project-store";
@@ -109,8 +109,11 @@ export class HeroCard {
       if (!indexFile) return;
       const n = Math.floor(Number(input.value));
       const val = Number.isFinite(n) && n > 0 ? n : undefined;
+      // Field-level patch merged against the CURRENT stored goals — never
+      // writes the render-time snapshot, so a deadline set in the TargetModal
+      // meanwhile survives this inline edit.
       void tryFileOp(
-        () => persistInkswellData(this.app, indexFile, { goals: { ...base.inkswell?.goals, target: val } }),
+        () => persistGoalsPatch(this.app, indexFile, { target: val }),
         "Couldn't save the word target."
       );
     };

@@ -7,7 +7,7 @@
 
 import { App, Modal, Notice, Setting } from "obsidian";
 import { Project } from "../projects/types";
-import { decisionsOf, persistRevisions, upsertDecision } from "./revisions";
+import { persistRevisions, upsertDecision } from "./revisions";
 import {
   RevisionDecision,
   RevisionPriority,
@@ -127,11 +127,9 @@ export class RevisionModal extends Modal {
       priority: this.priority || undefined,
     };
     this.markWrite?.(this.project.vaultPath);
-    await persistRevisions(
-      this.app,
-      this.project,
-      upsertDecision(decisionsOf(this.project), decision)
-    );
+    // Upsert by id against the CURRENT stored list — this modal can sit open
+    // for a long time, so its construction-time snapshot must never be written.
+    await persistRevisions(this.app, this.project, (cur) => upsertDecision(cur, decision));
     new Notice(this.existing ? "Revision decision updated." : "Revision decision logged.");
     this.close();
   }

@@ -11,7 +11,7 @@ import { App, Notice, TFile, normalizePath } from "obsidian";
 import { tryFileOp } from "../lib/notify";
 import { confirmDelete } from "../scenes/scene-actions";
 import { planDraftCopy } from "./draft-plan";
-import { persistDraft, persistInkswellData } from "./index-writer";
+import { persistDraft, persistDraftCreated } from "./index-writer";
 import { Project } from "./types";
 
 /** Create a folder and any missing ancestors (mkdir -p), swallowing races. */
@@ -63,7 +63,7 @@ export async function createDraft(
     await persistDraft(app, index, plan.newDraft);
     // The copy inherited the source's `inkswell` block (byte copy above), so overwrite
     // draftCreated with *now* — otherwise the new draft would carry the source's stamp.
-    await persistInkswellData(app, index, { draftCreated: new Date().toISOString() });
+    await persistDraftCreated(app, index, new Date().toISOString());
 
     // Copy each scene file (prose + scene frontmatter preserved verbatim).
     for (const c of plan.sceneCopies) {
@@ -81,7 +81,7 @@ export async function createDraft(
       // Backfill the original's creation stamp only if it never had one — never
       // clobber a real earlier value. Absent stays absent (pre-existing/unknown).
       if (!source.inkswell?.draftCreated) {
-        await persistInkswellData(app, sourceIndex, { draftCreated: new Date().toISOString() });
+        await persistDraftCreated(app, sourceIndex, new Date().toISOString());
       }
     }
     return index;

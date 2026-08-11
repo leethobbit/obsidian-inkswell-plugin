@@ -19,7 +19,13 @@ export function resolveCompileConfig(
   fallbackFormat: OutputFormat = "md"
 ): CompileConfig {
   const saved = project.inkswell?.compile;
-  if (saved && Array.isArray(saved.sceneSteps)) return saved;
+  // Deep clone — `saved` is the ProjectStore's cached parse, shared across
+  // refreshes and documented immutable. The compile panel mutates the resolved
+  // config in place, which must never corrupt the store's cache (a failed
+  // write would otherwise leave the UI showing the change as applied).
+  if (saved && Array.isArray(saved.sceneSteps)) {
+    return JSON.parse(JSON.stringify(saved)) as CompileConfig;
+  }
 
   const config = JSON.parse(JSON.stringify(DEFAULT_COMPILE_CONFIG)) as CompileConfig;
   config.format = fallbackFormat;

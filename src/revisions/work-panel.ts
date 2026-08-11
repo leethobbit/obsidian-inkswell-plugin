@@ -146,12 +146,12 @@ export class RevisionWorkPanel {
   private rowContext(): DecisionRowContext {
     return {
       app: this.app,
-      persist: (project, list) => {
+      persist: (project, transform) => {
         // Mark BEFORE the write so the store notify it produces is recognized
         // as self-inflicted and softened to softRefresh() by the host.
         this.markWrite(project.vaultPath);
         void tryFileOp(
-          () => persistRevisions(this.app, project, list),
+          () => persistRevisions(this.app, project, transform),
           "Couldn't save the revision log."
         );
       },

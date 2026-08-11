@@ -6,7 +6,7 @@
 import { App, Notice, Setting, TFile } from "obsidian";
 import { FormModal } from "../lib/form-modal";
 import { tryFileOp } from "../lib/notify";
-import { persistInkswellData } from "../projects/index-writer";
+import { persistGoalsPatch } from "../projects/index-writer";
 import { Project } from "../projects/types";
 
 export class TargetModal extends FormModal {
@@ -62,15 +62,14 @@ export class TargetModal extends FormModal {
       new Notice("Project index not found.");
       return false;
     }
+    // Field-level patch against the CURRENT stored goals (this modal edits all
+    // three fields, so all three are in the patch; undefined clears a field).
     const ok = await tryFileOp(
       () =>
-        persistInkswellData(this.app, file, {
-          goals: {
-            ...this.project.inkswell?.goals,
-            target: this.value || undefined,
-            deadline: this.deadline || undefined,
-            daysPerWeek: this.daysPerWeek === 7 ? undefined : this.daysPerWeek,
-          },
+        persistGoalsPatch(this.app, file, {
+          target: this.value || undefined,
+          deadline: this.deadline || undefined,
+          daysPerWeek: this.daysPerWeek === 7 ? undefined : this.daysPerWeek,
         }),
       "Couldn't save the word target."
     );

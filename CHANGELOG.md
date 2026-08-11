@@ -10,6 +10,17 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.10.1] - 2026-08-11
+
+### Fixed
+- **Critical: beat-sheet notes (and similar panel edits) could be silently erased.** Filling in several beat boxes in one sitting — moving straight from one box to the next — could leave only the last-edited beats on disk while the screen still showed everything; switching tabs then revealed the loss. Every save was writing the panel's *remembered* copy of the whole beat sheet over the file, and that copy could go stale for an entire editing session. All beat saves (notes, done ticks, scene links, template switches, scaffold links, rename healing) now change only the edited beat against the file's current contents, so edits can never overwrite each other. If you were bitten by this: Settings → File Recovery keeps snapshots of the project index note — your beats may be recoverable from the `inkswell: beats:` block in a snapshot from your writing session.
+- **The same silent-overwrite pattern fixed everywhere it existed.** The Revise → Audit checklists (ticking several boxes in a row kept only the last), style-sheet entries, tracked arc characters, revision decisions (including edits from a long-open modal), word-count goals (an inline target edit could wipe a deadline set meanwhile), the Publish launch trackers (tabbing across a row's cells kept only the last cell), publish metadata categories/formats, and the compile panel (which could also corrupt in-memory project state on a failed save) all now write field-level changes against the file's current contents.
+- **Prose in the Write editor is now guarded against every known loss path.**
+  - **Autosave:** typed text reaches disk within ~2 seconds — previously nothing was saved until you clicked away, so a crash, quit, or forced reload could lose an entire unblurred session.
+  - **External changes are detected instead of overwritten:** if the open scene changes on disk (sync, the same note edited in a regular Obsidian tab), a clean editor reloads in place; one with unsaved edits shows a conflict banner — *Load disk version / Keep my version* — and whichever version you displace is first backed up to an "Inkswell conflicts" folder. Previously the next save silently overwrote the newer disk text.
+  - **Scene switches can no longer resurrect pre-save text:** switching scenes (or re-clicking the open scene) used to save-and-immediately-re-read in a race that could show old text and then write it back over your newer words. The re-read now waits for the save, and re-clicking the open scene leaves the live editor alone.
+  - **Quitting, closing the view, or navigating away always lands the last write:** teardown saves are now awaited (including via Obsidian's quit hook), leaving Write for another tab flushes first, an in-flight sprint is recorded instead of discarded, and a failed teardown save backs your text up and names the backup file instead of claiming it's "still in the editor".
+
 ## [1.10.0] - 2026-08-05
 
 ### Added
@@ -229,7 +240,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.10.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.10.1...HEAD
+[1.10.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.10.0...1.10.1
 [1.10.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.9.1...1.10.0
 [1.9.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.9.0...1.9.1
 [1.9.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.8.0...1.9.0

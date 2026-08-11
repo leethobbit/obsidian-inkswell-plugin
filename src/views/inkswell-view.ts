@@ -148,11 +148,13 @@ export class InkswellView extends ItemView {
       onOpenInWrite: (path, hl) => this.openSceneInWrite(path, hl),
       // Flush the open scene's unsaved text before replace re-reads from disk.
       beforeReplace: () => this.write.flushPendingSave(),
-      // If the editor is bound to a scene that just changed, reload it from disk
-      // so its stale buffer can't clobber the replacement on a later blur.
+      // If the editor is bound to a scene that just changed, hand the change to
+      // its session: a clean editor reloads in place (lossless); one the user
+      // typed into during the replace raises the conflict banner instead of
+      // silently discarding their words.
       afterReplace: (changedPaths) => {
         const open = this.write.currentScenePath();
-        if (open && changedPaths.includes(open)) this.write.reloadCurrentScene();
+        if (open && changedPaths.includes(open)) this.write.handleExternalChange(open);
       },
     });
     this.help = new HelpPanel(this.app, plugin);
@@ -407,7 +409,9 @@ export class InkswellView extends ItemView {
   async onClose(): Promise<void> {
     this.unsubs.forEach((u) => u());
     this.unsubs = [];
-    this.write.dispose();
+    // Await the Write editor's final save — the vault API outlives the view, so
+    // even a close-during-typing lands its last write instead of abandoning it.
+    await this.write.dispose();
   }
 
   /** Switch destination (and optionally a sub-tab within it). */
@@ -515,6 +519,12 @@ export class InkswellView extends ItemView {
     this.write.promptInsertTodo();
   }
 
+  /** Flush unsaved Write-editor text to disk (quit-time safety). The editor
+   *  stays live — this only drains the pending save. */
+  flushWrites(): Promise<void> {
+    return this.write.flushPendingSave();
+  }
+
   /** Force a re-render (e.g. after a settings change). */
   refresh(): void {
     this.renderActive();
@@ -578,6 +588,14 @@ export class InkswellView extends ItemView {
       this.write.update()
     ) {
       return;
+    }
+
+    // Leaving Write: capture + flush the live editor BEFORE body.empty()
+    // orphans its DOM. Programmatic navigation (openTodos, phone tabs, deep
+    // links) doesn't blur the editor, so without this the typed text lived only
+    // in a detached EditorView until the next visit — gone on quit/reload.
+    if (this.renderedMode === "write" && this.mode !== "write") {
+      this.write.flushForNavigation();
     }
 
     // Safety net for a rebuild that fires while a field is somehow still
