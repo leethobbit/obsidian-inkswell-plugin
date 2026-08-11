@@ -5,6 +5,7 @@
  */
 
 import { App, TFile } from "obsidian";
+import { tagField } from "../../lib/focus-preserve";
 import { tryFileOp } from "../../lib/notify";
 import { resolveActive } from "../../projects/active-project";
 import { persistPublishing } from "../../projects/index-writer";
@@ -93,12 +94,14 @@ export class LaunchPanel {
     const dateF = ctl.createDiv({ cls: "inkswell-inspector__field" });
     dateF.createDiv({ cls: "inkswell-inspector__label", text: "Release date" });
     const date = dateF.createEl("input", { type: "date" });
+    tagField(date, "pub:launch:date");
     date.value = launch.releaseDate ?? "";
     date.onchange = () => this.saveLaunch(file, { releaseDate: date.value || undefined });
 
     const stratF = ctl.createDiv({ cls: "inkswell-inspector__field" });
     stratF.createDiv({ cls: "inkswell-inspector__label", text: "Strategy" });
     const strat = stratF.createEl("select", { cls: "dropdown" });
+    tagField(strat, "pub:launch:strategy");
     strat.createEl("option", { text: "— none —", value: "" });
     for (const s of Object.values(STRATEGIES)) strat.createEl("option", { text: s.label, value: s.id });
     strat.value = launch.strategy ?? "";
@@ -120,6 +123,7 @@ export class LaunchPanel {
       const status = milestoneStatus(ms.date, !!st.done, today);
       const row = host.createDiv({ cls: "inkswell-publishing__milestone" });
       const cb = row.createEl("input", { type: "checkbox" });
+      tagField(cb, `pub:ms:${ms.id}`);
       cb.checked = !!st.done;
       cb.onchange = () => this.saveMilestone(file, ms.id, { done: cb.checked });
       row.createSpan({ cls: `inkswell-publishing__mstatus is-${status}`, text: status });
@@ -156,6 +160,7 @@ export class LaunchPanel {
       ],
       rows: items,
       newRow: () => ({ id: newPublishingId(), label: "", category: "need" }),
+      keyPrefix: "pub:budget",
       addLabel: "+ Budget line",
       emptyText: "Track what this book costs — needs vs. wants.",
       ...this.trackerOps(file, {
@@ -182,6 +187,7 @@ export class LaunchPanel {
     const plan = planF.createDiv({ cls: "inkswell-inspector__control" }).createEl("textarea", {
       cls: "inkswell-inspector__textarea",
     });
+    tagField(plan, "pub:cover:plan");
     plan.rows = 2;
     plan.value = cover.plan ?? "";
     plan.placeholder = "Mood, designer, package…";
@@ -201,6 +207,7 @@ export class LaunchPanel {
       ],
       rows: comps,
       newRow: () => ({ id: newPublishingId(), title: "" }),
+      keyPrefix: "pub:comps",
       addLabel: "+ Comp cover",
       ...this.trackerOps(file, {
         get: (pub) => (pub.cover?.comps ?? []) as unknown as TrackerRow[],
@@ -227,6 +234,7 @@ export class LaunchPanel {
       ],
       rows: items,
       newRow: () => ({ id: newPublishingId(), strategy: "" }),
+      keyPrefix: "pub:marketing",
       addLabel: "+ Marketing action",
       emptyText: "Plan launch actions; record results to learn for the next book.",
       ...this.trackerOps(file, {
@@ -251,6 +259,7 @@ export class LaunchPanel {
       ],
       rows: readers,
       newRow: () => ({ id: newPublishingId(), name: "" }),
+      keyPrefix: "pub:arcs",
       addLabel: "+ ARC reader",
       emptyText: "Track who got an advance copy and who has reviewed.",
       ...this.trackerOps(file, {

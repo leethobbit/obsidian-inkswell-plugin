@@ -5,6 +5,8 @@
  * it without new coupling.
  */
 
+import { tagField } from "../lib/focus-preserve";
+
 /**
  * Whole-panel empty state: a single muted line, e.g. "No project yet."
  * Mirrors the `inkswell-stats__muted` convention hand-rolled across panels.
@@ -13,6 +15,48 @@
  */
 export function renderEmptyState(parent: HTMLElement, text: string): HTMLElement {
   return parent.createDiv({ cls: "inkswell-stats__muted", text });
+}
+
+// --- Tagged form fields ------------------------------------------------------
+// Every editable field a panel re-creates on rebuild should carry a stable
+// `tagField` key so `preserveFocus` can re-find it and carry focus, caret, and
+// UNCOMMITTED text across the rebuild. An untagged field focused during a
+// rebuild loses whatever was typed since its last `change` event. Keys follow
+// the `panel:name` convention (e.g. `beats:note:catalyst`) and must be unique
+// within the rebuilt subtree. Prefer these helpers over raw `createEl` for
+// inputs in panel code.
+
+/** `createEl("input")` + `tagField` in one call. */
+export function taggedInput(
+  parent: HTMLElement,
+  key: string,
+  o?: DomElementInfo
+): HTMLInputElement {
+  const el = parent.createEl("input", o);
+  tagField(el, key);
+  return el;
+}
+
+/** `createEl("textarea")` + `tagField` in one call. */
+export function taggedTextarea(
+  parent: HTMLElement,
+  key: string,
+  o?: DomElementInfo
+): HTMLTextAreaElement {
+  const el = parent.createEl("textarea", o);
+  tagField(el, key);
+  return el;
+}
+
+/** `createEl("select")` + `tagField` in one call (focus-only restore). */
+export function taggedSelect(
+  parent: HTMLElement,
+  key: string,
+  o?: DomElementInfo
+): HTMLSelectElement {
+  const el = parent.createEl("select", o);
+  tagField(el, key);
+  return el;
 }
 
 /** One action button in an onboarding empty state. `cta` styles it as the primary. */

@@ -4,6 +4,7 @@
  * empty "no projects yet" state.
  */
 
+import { tagField } from "../../lib/focus-preserve";
 import type InkswellPlugin from "../../../main";
 
 /** Story ideas inbox (capture without leaving Home). */
@@ -14,6 +15,8 @@ export function renderIdeas(parent: HTMLElement, plugin: InkswellPlugin): void {
     cls: "inkswell-ideas__input",
     placeholder: "Capture an idea… (Enter)",
   });
+  // Commits only on Enter — a rebuild mid-typing would otherwise drop the text.
+  tagField(input, "ideas:capture");
   input.onkeydown = (e) => {
     if (e.key === "Enter" && input.value.trim()) {
       plugin.addIdea(input.value);

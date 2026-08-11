@@ -17,6 +17,7 @@ import {
 } from "obsidian";
 import { Project, isMultiScene } from "../projects/types";
 import { readSceneMeta } from "../scenes/scene-meta";
+import { sanitizeSegment } from "../settings/folders";
 import { assembleManuscript } from "./assemble";
 import { runPandoc } from "./pandoc";
 import { CompileConfig, CompileScene } from "./types";
@@ -29,11 +30,36 @@ export interface CompileResult {
 
 export { assembleManuscript };
 
+/**
+ * Ownership marker stamped on the first line of md/html compile output, so a
+ * later compile can distinguish "my previous output — replace it" from a
+ * hand-written note that happens to share the configured name (which must
+ * never be silently destroyed). Invisible in rendered Markdown and in browsers.
+ */
+export const COMPILE_MARKER = "<!-- inkswell:compile -->";
+
+/** The compile output would overwrite a note Inkswell didn't produce. */
+export class OutputExistsError extends Error {
+  constructor(readonly path: string) {
+    super(
+      `"${path}" already exists and doesn't look like a previous Inkswell compile. ` +
+        `Rename the output (Publish → Compile → Output file name) or confirm the overwrite there.`
+    );
+  }
+}
+
+export interface CompileOptions {
+  /** Replace even a marker-less existing file (the user confirmed; the caller
+   *  is responsible for backing the displaced note up first). */
+  allowOverwrite?: boolean;
+}
+
 /** Load scene contents, assemble, render, and write. Returns the output path. */
 export async function runCompile(
   app: App,
   project: Project,
-  config: CompileConfig
+  config: CompileConfig,
+  opts: CompileOptions = {}
 ): Promise<CompileResult> {
   const scenes = await loadScenes(app, project);
   if (scenes.length === 0) {
@@ -41,25 +67,28 @@ export async function runCompile(
   }
   const manuscript = assembleManuscript(scenes, config);
 
+  // Defense in depth: the panel sanitizes on input, but the config is
+  // hand-editable frontmatter — a name containing "/" would resolve the output
+  // to a SIBLING path (e.g. a scene file) instead of a note in the project folder.
+  const basename = sanitizeSegment(config.targetBasename) || "manuscript";
   const indexFolder = folderOf(project.vaultPath);
-  const base = normalizePath(
-    indexFolder ? `${indexFolder}/${config.targetBasename}` : config.targetBasename
-  );
+  const base = normalizePath(indexFolder ? `${indexFolder}/${basename}` : basename);
 
   if (config.format === "md") {
     const path = `${base}.md`;
-    await writeOutput(app, path, manuscript);
+    await writeOutput(app, path, `${COMPILE_MARKER}\n${manuscript}`, opts);
     return { outputPath: path, wordCountSource: manuscript };
   }
 
   if (config.format === "html") {
     const html = await renderHtml(app, manuscript, project.vaultPath);
     const path = `${base}.html`;
-    await writeOutput(app, path, html);
+    await writeOutput(app, path, html, opts);
     return { outputPath: path, wordCountSource: manuscript };
   }
 
-  // pandoc
+  // pandoc — writes binary output itself (docx/pdf/epub, never .md), so the
+  // vault-note overwrite guard doesn't apply on this path.
   if (!config.pandoc) {
     throw new Error("Pandoc output selected but no pandoc options configured.");
   }
@@ -69,13 +98,23 @@ export async function runCompile(
 
 /**
  * Write compile output through the vault API (NOT `adapter.write`) so the file
- * shows up in Obsidian's file index and metadata cache immediately. The compile
- * output path is explicit per-project config, so an existing file at that path
- * is a previous compile and is replaced.
+ * shows up in Obsidian's file index and metadata cache immediately. An existing
+ * file is replaced ONLY when it carries the compile marker (it's our previous
+ * output) or the caller explicitly allowed the overwrite after confirmation —
+ * a hand-written note at the configured path throws instead of being destroyed.
  */
-async function writeOutput(app: App, path: string, content: string): Promise<TFile> {
+async function writeOutput(
+  app: App,
+  path: string,
+  content: string,
+  opts: CompileOptions
+): Promise<TFile> {
   const existing = app.vault.getAbstractFileByPath(path);
   if (existing instanceof TFile) {
+    if (!opts.allowOverwrite) {
+      const head = (await app.vault.cachedRead(existing)).slice(0, 300);
+      if (!head.includes("inkswell:compile")) throw new OutputExistsError(path);
+    }
     await app.vault.modify(existing, content);
     return existing;
   }
@@ -119,7 +158,9 @@ async function renderHtml(
     // it serializes MarkdownRenderer's already-sanitized output into the
     // exported HTML string. Not an injection sink.
     const body = container.innerHTML;
-    return `<!doctype html>\n<html>\n<head>\n<meta charset="utf-8">\n</head>\n<body>\n${body}\n</body>\n</html>\n`;
+    // The compile marker rides in the head slice so writeOutput can recognize
+    // this file as a previous compile on the next run.
+    return `<!doctype html>\n${COMPILE_MARKER}\n<html>\n<head>\n<meta charset="utf-8">\n</head>\n<body>\n${body}\n</body>\n</html>\n`;
   } finally {
     component.unload();
   }

@@ -6,6 +6,7 @@
  */
 
 import { App, Modal, Setting, TFile } from "obsidian";
+import { commitFocusedField } from "../lib/focus-preserve";
 import { Project } from "../projects/types";
 import { openScene } from "./scene-actions";
 import { renderSceneMetaFields } from "./scene-meta-form";
@@ -64,6 +65,11 @@ export class EditSceneModal extends Modal {
   }
 
   onClose(): void {
+    // These fields autosave on `change` — Escape / backdrop-click closes the
+    // modal without blurring the focused field, so its pending edit would be
+    // silently dropped with the DOM. Blur it first: `change` fires
+    // synchronously and the field's own handler queues the write.
+    commitFocusedField(this.contentEl);
     this.contentEl.empty();
   }
 }

@@ -23,6 +23,7 @@ import { addSceneMenuItems } from "../scenes/scene-actions";
 import { PromptModal } from "../ideation/prompt-modal";
 import { RevisionModal } from "../revisions/revision-modal";
 import { renderEmptyState } from "./panel-kit";
+import { preserveFocus, tagField } from "../lib/focus-preserve";
 import { SceneSession } from "./scene-session";
 import { createSceneEditor, flashRange, insertPlaceholder } from "./scene-editor";
 import { PlaceholderKind, scanPlaceholders } from "../lib/placeholders";
@@ -379,12 +380,19 @@ export class WritePanel {
     // removal invalidates the editor binding — rebuild).
     if (!project.scenes.some((s) => s.path === this.selectedScene)) return false;
 
-    this.renderTopbar();
-    if (this.navEl) {
-      this.navEl.empty();
-      this.renderNavRows(this.navEl, project);
-    }
-    if (this.inspectorHost) this.renderRightColumn();
+    // Soft-path rule: this fast path can fire while a field OUTSIDE the CM6
+    // editor is focused (an Inspector field's own save triggers the notify that
+    // lands here), so the rebuilt columns are wrapped in preserveFocus — the
+    // Inspector's tagged fields keep caret + uncommitted text across the
+    // rebuild instead of being recreated from (older) frontmatter.
+    preserveFocus(this.container, () => {
+      this.renderTopbar();
+      if (this.navEl) {
+        this.navEl.empty();
+        this.renderNavRows(this.navEl, project);
+      }
+      if (this.inspectorHost) this.renderRightColumn();
+    });
     // A highlight requested for the already-open scene (Todos → same scene).
     if (this.pendingHighlight) {
       this.applyPendingHighlight(this.editor.state.doc.toString());
@@ -892,6 +900,7 @@ export class WritePanel {
     const card = container.createDiv({ cls: "inkswell-write__nextup" });
     card.createSpan({ cls: "inkswell-stats__muted", text: "Next up:" });
     const input = card.createEl("input", { type: "text", cls: "inkswell-write__nextupinput" });
+    tagField(input, "write:next-up");
     input.value = this.plugin.tracker.getNextUp();
     input.placeholder = "Leave yourself a note for next session…";
     input.onchange = () => this.plugin.tracker.setNextUp(input.value);

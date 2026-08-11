@@ -5,6 +5,7 @@
  */
 
 import { App, TFile } from "obsidian";
+import { tagField } from "../../lib/focus-preserve";
 import { tryFileOp } from "../../lib/notify";
 import { resolveActive } from "../../projects/active-project";
 import { persistPublishing } from "../../projects/index-writer";
@@ -105,6 +106,7 @@ export class ChecklistPanel {
     const row = host.createDiv({ cls: "inkswell-publishing__task" });
     const label = row.createEl("label", { cls: "inkswell-audit__check" });
     const cb = label.createEl("input", { type: "checkbox" });
+    tagField(cb, `pub:task:${phaseId}:${task.id}:done`);
     cb.checked = !!state?.done;
     cb.onchange = () => this.saveTask(file, phaseId, task.id, { done: cb.checked });
     label.createSpan({ text: task.label + (task.optional ? " (optional)" : "") });
@@ -115,10 +117,12 @@ export class ChecklistPanel {
     }
 
     const date = row.createEl("input", { type: "date", cls: "inkswell-publishing__date" });
+    tagField(date, `pub:task:${phaseId}:${task.id}:date`);
     date.value = state?.date ?? "";
     date.onchange = () => this.saveTask(file, phaseId, task.id, { date: date.value });
 
     const notes = row.createEl("input", { type: "text", cls: "inkswell-publishing__notes" });
+    tagField(notes, `pub:task:${phaseId}:${task.id}:notes`);
     notes.value = state?.notes ?? "";
     notes.placeholder = "notes…";
     notes.onchange = () => this.saveTask(file, phaseId, task.id, { notes: notes.value });
@@ -157,6 +161,7 @@ export class ChecklistPanel {
       const f = host.createDiv({ cls: "inkswell-inspector__field" });
       f.createDiv({ cls: "inkswell-inspector__label", text: label });
       const input = f.createDiv({ cls: "inkswell-inspector__control" }).createEl("input", { type: "text" });
+      tagField(input, `pub:meta:${label}`);
       input.value = value ?? "";
       if (ph) input.placeholder = ph;
       input.onchange = () => save(input.value);
@@ -174,6 +179,7 @@ export class ChecklistPanel {
     const blurb = blurbF.createDiv({ cls: "inkswell-inspector__control" }).createEl("textarea", {
       cls: "inkswell-inspector__textarea",
     });
+    tagField(blurb, "pub:meta:blurb");
     blurb.rows = 4;
     blurb.value = m.blurb ?? "";
     blurb.onchange = () => this.saveMeta(file, { blurb: blurb.value });
@@ -209,6 +215,7 @@ export class ChecklistPanel {
     const kuF = host.createDiv({ cls: "inkswell-inspector__field" });
     const kuLabel = kuF.createEl("label", { cls: "inkswell-inspector__toggle" });
     const ku = kuLabel.createEl("input", { type: "checkbox" });
+    tagField(ku, "pub:meta:ku");
     ku.checked = !!m.kuExclusive;
     ku.onchange = () => this.saveMeta(file, { kuExclusive: ku.checked });
     kuLabel.createSpan({ text: "Kindle Unlimited exclusive (Amazon-only eBook)" });
@@ -220,12 +227,15 @@ export class ChecklistPanel {
       const row = host.createDiv({ cls: "inkswell-publishing__format" });
       const en = row.createEl("label", { cls: "inkswell-audit__check" });
       const enabled = en.createEl("input", { type: "checkbox" });
+      tagField(enabled, `pub:fmt:${f.key}:enabled`);
       enabled.checked = !!info.enabled;
       en.createSpan({ text: f.label });
       const price = row.createEl("input", { type: "number", cls: "inkswell-publishing__price" });
+      tagField(price, `pub:fmt:${f.key}:price`);
       price.value = info.price != null ? String(info.price) : "";
       price.placeholder = "price";
       const isbn = row.createEl("input", { type: "text", cls: "inkswell-publishing__isbn" });
+      tagField(isbn, `pub:fmt:${f.key}:isbn`);
       isbn.value = info.isbn ?? "";
       isbn.placeholder = "ISBN";
       // All three cells are read live from the DOM at commit time; only THIS

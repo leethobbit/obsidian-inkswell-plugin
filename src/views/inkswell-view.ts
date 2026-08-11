@@ -95,6 +95,10 @@ export class InkswellView extends ItemView {
   private pendingRender = false;
   /** Timer id for the pending-render safety sweep (0 = none scheduled). */
   private pendingSweep = 0;
+  /** Timer id for the mid-click flush retry (0 = none scheduled). Tracked so a
+   *  wedged pointerDown (pointerup lost to a drag ending off-window) can't
+   *  leave a self-rescheduling 50ms timer running past onClose. */
+  private pendingFlush = 0;
   /** Destination the body was last FULLY built for (gates the Write fast path). */
   private renderedMode: InkswellMode | null = null;
   /** True between pointerdown and pointerup — a deferred rebuild must not fire
@@ -235,6 +239,7 @@ export class InkswellView extends ItemView {
       window.setTimeout(() => this.flushPendingRender(), 0);
     });
     this.register(() => window.clearTimeout(this.pendingSweep));
+    this.register(() => window.clearTimeout(this.pendingFlush));
     // Phone: keep the focused field visible once the soft keyboard settles
     // (the webview doesn't reliably scroll fields inside nested flex columns).
     this.registerDomEvent(this.body, "focusin", (e) => {
@@ -666,8 +671,10 @@ export class InkswellView extends ItemView {
    *  never rebuild mid-click — the click's target would be torn down. */
   private flushPendingRender(): void {
     if (!this.pendingRender) return;
+    if (!this.body?.isConnected) return; // view closed while a flush was queued
     if (this.pointerDown) {
-      window.setTimeout(() => this.flushPendingRender(), 50);
+      window.clearTimeout(this.pendingFlush);
+      this.pendingFlush = window.setTimeout(() => this.flushPendingRender(), 50);
       return;
     }
     if (this.isEditingInBody()) return; // moved to another field; next focusout retries

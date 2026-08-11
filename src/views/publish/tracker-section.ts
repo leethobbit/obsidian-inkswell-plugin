@@ -8,6 +8,8 @@
  * overwrite each other (the stale-snapshot data-loss class).
  */
 
+import { tagField } from "../../lib/focus-preserve";
+
 export type ColType = "text" | "number" | "checkbox" | "select" | "date";
 
 export interface ColDef {
@@ -33,6 +35,9 @@ export interface TrackerConfig {
   onAdd: (row: TrackerRow) => void;
   /** A row was removed. Filter by id from current rows. */
   onRemove: (rowId: string) => void;
+  /** tagField key prefix for this grid's cells (e.g. "pub:budget") so
+   *  preserveFocus can carry a focused cell across a rebuild. */
+  keyPrefix: string;
   addLabel?: string;
   emptyText?: string;
 }
@@ -56,10 +61,12 @@ export function renderTrackerSection(host: HTMLElement, cfg: TrackerConfig): voi
 
 function renderCell(parent: HTMLElement, col: ColDef, row: TrackerRow, cfg: TrackerConfig): void {
   const commit = (value: unknown) => cfg.onEdit(row.id, col.key, value);
+  const key = `${cfg.keyPrefix}:${row.id}:${col.key}`;
 
   if (col.type === "checkbox") {
     const label = parent.createEl("label", { cls: "inkswell-tracker__cell inkswell-audit__check" });
     const cb = label.createEl("input", { type: "checkbox" });
+    tagField(cb, key);
     cb.checked = !!row[col.key];
     cb.onchange = () => commit(cb.checked);
     label.createSpan({ text: col.label });
@@ -68,6 +75,7 @@ function renderCell(parent: HTMLElement, col: ColDef, row: TrackerRow, cfg: Trac
 
   if (col.type === "select") {
     const sel = parent.createEl("select", { cls: "dropdown inkswell-tracker__cell" });
+    tagField(sel, key);
     for (const o of col.options ?? []) sel.createEl("option", { text: o.label, value: o.value });
     sel.value = String(row[col.key] ?? col.options?.[0]?.value ?? "");
     sel.onchange = () => commit(sel.value);
@@ -75,6 +83,7 @@ function renderCell(parent: HTMLElement, col: ColDef, row: TrackerRow, cfg: Trac
   }
 
   const input = parent.createEl("input", { cls: "inkswell-tracker__cell" });
+  tagField(input, key);
   input.type = col.type === "number" ? "number" : col.type === "date" ? "date" : "text";
   input.placeholder = col.placeholder ?? col.label;
   const cur = row[col.key];

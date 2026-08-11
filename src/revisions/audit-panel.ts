@@ -15,6 +15,7 @@
  */
 
 import { App, TFile } from "obsidian";
+import { tagField } from "../lib/focus-preserve";
 import { tryFileOp } from "../lib/notify";
 import { SectionState } from "../views/panel-kit";
 import { linkTarget } from "../codex/codex";
@@ -185,6 +186,7 @@ export class AuditPanel {
     const row = host.createDiv({ cls: "inkswell-audit__item" });
     const label = row.createEl("label", { cls: "inkswell-audit__check" });
     const cb = label.createEl("input", { type: "checkbox" });
+    tagField(cb, `audit:check:${tier}:${cp.id}`);
     cb.checked = !!item.done;
     cb.onchange = () => this.saveItem(project, tier, cp.id, { done: cb.checked });
     label.createSpan({ text: cp.label });
@@ -192,6 +194,7 @@ export class AuditPanel {
     // Reveal a note field once the item is engaged (checked or already noted).
     if (item.done || item.note) {
       const note = row.createEl("input", { type: "text", cls: "inkswell-audit__note" });
+      tagField(note, `audit:note:${tier}:${cp.id}`);
       note.value = item.note ?? "";
       note.placeholder = "note…";
       note.onchange = () => this.saveItem(project, tier, cp.id, { note: note.value });
@@ -564,10 +567,13 @@ export class AuditPanel {
     // Add form.
     const form = host.createDiv({ cls: "inkswell-audit__styleadd" });
     const canon = form.createEl("input", { type: "text" });
+    tagField(canon, "audit:style-canon");
     canon.placeholder = "Preferred form";
     const variants = form.createEl("input", { type: "text" });
+    tagField(variants, "audit:style-variants");
     variants.placeholder = "Avoid (comma-separated)";
     const kind = form.createEl("select", { cls: "dropdown" });
+    tagField(kind, "audit:style-kind");
     for (const k of STYLE_KINDS) kind.createEl("option", { text: k.label, value: k.id });
     const add = form.createEl("button", { text: "Add" });
     add.onclick = () => {

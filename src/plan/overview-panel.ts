@@ -10,6 +10,7 @@
  */
 
 import { App, TFile } from "obsidian";
+import { tagField } from "../lib/focus-preserve";
 import { tryFileOp } from "../lib/notify";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { persistOverview } from "../projects/index-writer";
@@ -87,6 +88,7 @@ export class OverviewPanel {
       const row = grid.createDiv({ cls: "inkswell-overview__field" });
       row.createDiv({ cls: "inkswell-overview__label", text: f.label });
       const input = row.createEl("input", { type: "text", cls: "inkswell-overview__input" });
+      tagField(input, `overview:${f.key}`);
       input.placeholder = f.placeholder;
       input.value = (overview[f.key] as string) ?? "";
       input.onchange = () => {
@@ -121,6 +123,7 @@ export class OverviewPanel {
       const block = sec.createDiv({ cls: "inkswell-overview__section" });
       block.createDiv({ cls: "inkswell-overview__label", text: heading });
       const ta = block.createEl("textarea", { cls: "inkswell-overview__textarea" });
+      tagField(ta, `overview:section:${heading}`);
       ta.rows = heading === "Synopsis" || heading === "Plot groundwork" ? 5 : 3;
       ta.placeholder = SECTION_PROMPTS[heading] ?? `${heading}…`;
       ta.onchange = () => void this.saveSection(project, heading, ta.value);

@@ -11,8 +11,7 @@
 
 import { App, TFile } from "obsidian";
 import { tryFileOp } from "../../lib/notify";
-import { renameSceneInBeats } from "../../outliner/beats";
-import { persistDraft, updateBeats, updateScenes } from "../../projects/index-writer";
+import { renameSceneInIndex, updateDraftFields, updateScenes } from "../../projects/index-writer";
 import { reconcileSuggestions } from "../../projects/rename-heal";
 import { addScene, removeScene } from "../../projects/scene-tree";
 import { Project, isMultiScene } from "../../projects/types";
@@ -78,23 +77,19 @@ export class ReconcileBanner {
   private async relink(project: Project, oldTitle: string, newBasename: string): Promise<void> {
     const file = this.indexFile(project);
     if (!file) return;
-    await tryFileOp(async () => {
-      await updateScenes(this.app, file, project.draft, (scenes) =>
-        scenes.map((s) => (s.title === oldTitle ? { ...s, title: newBasename } : s))
-      );
-      // Beats link scenes by title; keep them pointing at the relinked scene.
-      // Delta against the CURRENT sheet (null result skips the write).
-      await updateBeats(this.app, file, (cur) =>
-        renameSceneInBeats(cur, oldTitle, newBasename)
-      );
-    }, "Couldn't relink the scene.");
+    // One transaction rewrites the scene title AND any beat links pointing at
+    // it, both computed against the file's current state.
+    await tryFileOp(
+      () => renameSceneInIndex(this.app, file, oldTitle, newBasename),
+      "Couldn't relink the scene."
+    );
   }
 
   private async removeFromProject(project: Project, title: string): Promise<void> {
     const file = this.indexFile(project);
     if (!file) return;
     await tryFileOp(
-      () => updateScenes(this.app, file, project.draft, (scenes) => removeScene(scenes, title)),
+      () => updateScenes(this.app, file, (scenes) => removeScene(scenes, title)),
       "Couldn't remove the scene from the project."
     );
   }
@@ -103,7 +98,7 @@ export class ReconcileBanner {
     const file = this.indexFile(project);
     if (!file) return;
     await tryFileOp(
-      () => updateScenes(this.app, file, project.draft, (scenes) => addScene(scenes, basename)),
+      () => updateScenes(this.app, file, (scenes) => addScene(scenes, basename)),
       "Couldn't add the scene."
     );
   }
@@ -112,11 +107,15 @@ export class ReconcileBanner {
   private async ignoreFile(project: Project, basename: string): Promise<void> {
     const file = this.indexFile(project);
     if (!file || !isMultiScene(project.draft)) return;
-    // Capture the narrowed draft: inside the closure TS would re-widen
-    // `project.draft` to the Draft union and lose `ignoredFiles`.
-    const draft = project.draft;
+    // Field-level transform of the CURRENT draft — never a whole-draft snapshot
+    // write, which would rewrite `longform.scenes` from stale state too.
     await tryFileOp(
-      () => persistDraft(this.app, file, { ...draft, ignoredFiles: [...draft.ignoredFiles, basename] }),
+      () =>
+        updateDraftFields(this.app, file, (d) =>
+          isMultiScene(d) && !d.ignoredFiles.includes(basename)
+            ? { ...d, ignoredFiles: [...d.ignoredFiles, basename] }
+            : d
+        ),
       "Couldn't ignore the file."
     );
   }

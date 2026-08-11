@@ -111,6 +111,33 @@ export function readSceneMeta(app: App, file: TFile): SceneMeta {
  * file doesn't already have (and the patch doesn't set) — so a scene template's
  * own frontmatter wins over a default like `status: idea`.
  */
+/**
+ * Transform one of a scene's link-list keys (`characters` / `plotlines`)
+ * against its CURRENT stored value, inside `processFrontMatter`. Chip add /
+ * remove ops therefore compose — a chip added elsewhere (Plot-grid drag,
+ * another Inspector) since this form rendered is never dropped by the next
+ * chip edit. An emptied list deletes the key; a legacy single-string value is
+ * folded into a one-element list on read.
+ */
+export async function updateSceneList(
+  app: App,
+  file: TFile,
+  key: "characters" | "plotlines",
+  transform: (current: string[]) => string[]
+): Promise<void> {
+  await app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+    const raw = fm[key];
+    const current = Array.isArray(raw)
+      ? raw.filter((x: unknown): x is string => typeof x === "string")
+      : typeof raw === "string" && raw
+        ? [raw]
+        : [];
+    const next = transform(current);
+    if (next.length === 0) delete fm[key];
+    else fm[key] = next;
+  });
+}
+
 export async function writeSceneMeta(
   app: App,
   file: TFile,

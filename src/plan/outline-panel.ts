@@ -14,6 +14,7 @@
  */
 
 import { App, Menu, TFile, setIcon } from "obsidian";
+import { tagField } from "../lib/focus-preserve";
 import { attachRowMenu } from "../lib/row-menu";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
@@ -210,6 +211,7 @@ export class OutlinePanel {
     if (!chapter.targetWords) bar.addClass("is-empty");
 
     const target = row.createEl("input", { type: "number", cls: "inkswell-outline__target" });
+    tagField(target, `outline:target:${chapter.id}`);
     target.min = "0";
     target.placeholder = "Target";
     target.value = chapter.targetWords ? String(chapter.targetWords) : "";

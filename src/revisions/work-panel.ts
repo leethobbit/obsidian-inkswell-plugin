@@ -13,6 +13,7 @@
  */
 
 import { App, setIcon } from "obsidian";
+import { preserveFocus } from "../lib/focus-preserve";
 import { tryFileOp } from "../lib/notify";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
@@ -120,11 +121,16 @@ export class RevisionWorkPanel {
   /**
    * In-place refresh after one of this panel's own decision writes: fresh
    * decisions from the store, cached marker scan, no async, no pane teardown.
+   * Soft-path rule: fires before the host's editing guard, so the row rebuild
+   * is wrapped in preserveFocus to carry any focused field across.
    */
   softRefresh(): void {
-    if (!this.listEl?.isConnected) return;
-    this.renderChips();
-    this.renderList();
+    const list = this.listEl;
+    if (!list?.isConnected) return;
+    preserveFocus(list, () => {
+      this.renderChips();
+      this.renderList();
+    });
   }
 
   // --- Data --------------------------------------------------------------------

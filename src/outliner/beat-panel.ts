@@ -10,6 +10,7 @@
  */
 
 import { App, Menu, Notice, TFile } from "obsidian";
+import { tagField } from "../lib/focus-preserve";
 import { attachRowMenu } from "../lib/row-menu";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { updateBeats } from "../projects/index-writer";
@@ -84,6 +85,7 @@ export class BeatPanel {
 
     const current = project.inkswell?.beats?.template ?? DEFAULT_TEMPLATE;
     const tsel = bar.createEl("select", { cls: "dropdown" });
+    tagField(tsel, "beats:template");
     for (const meta of TEMPLATE_META) {
       const o = tsel.createEl("option", { text: meta.label, value: meta.id });
       if (meta.id === current) o.selected = true;
@@ -150,6 +152,7 @@ export class BeatPanel {
 
     const header = row.createDiv({ cls: "inkswell-beat__header" });
     const done = header.createEl("input", { type: "checkbox" });
+    tagField(done, `beats:done:${beat.id}`);
     done.checked = !!beat.assignment.done;
     done.setAttribute("aria-label", "Mark beat done");
     done.onchange = () => this.update(project, beat.id, { done: done.checked });
@@ -160,6 +163,9 @@ export class BeatPanel {
     row.createDiv({ cls: "inkswell-beat__blurb", text: beat.blurb });
 
     const note = row.createEl("textarea", { cls: "inkswell-beat__note" });
+    // Stable identity so preserveFocus can carry focus + UNCOMMITTED text across
+    // a rebuild that lands mid-typing (the safety net under the editing guard).
+    tagField(note, `beats:note:${beat.id}`);
     note.rows = 2;
     note.placeholder = "What happens at this beat…";
     note.value = beat.assignment.note ?? "";

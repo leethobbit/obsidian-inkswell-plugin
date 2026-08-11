@@ -5,19 +5,22 @@
  * see AGENTS.md "Adding a compile step".
  */
 
+import { stripFrontmatter as stripLeadingFrontmatter } from "../lib/frontmatter";
 import { stripPlaceholders } from "../lib/placeholders";
 import { CompileScene, CompileStep, ManuscriptStep, SceneStep } from "./types";
 
-const FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/;
 const OBSIDIAN_COMMENT_RE = /%%[\s\S]*?%%/g;
 
-/** Remove a leading YAML frontmatter block from each scene. */
+/** Remove a leading YAML frontmatter block from each scene. Shares the ONE
+ *  splitter (lib/frontmatter), which requires the block to parse as a YAML
+ *  mapping — a scene opening with a `---` divider keeps its opening prose in
+ *  the compiled manuscript instead of losing it as fake "frontmatter". */
 const stripFrontmatter: SceneStep = {
   id: "strip-frontmatter",
   description: "Strip YAML frontmatter from each scene",
   kind: "scene",
   run: (scenes) =>
-    scenes.map((s) => ({ ...s, contents: s.contents.replace(FRONTMATTER_RE, "") })),
+    scenes.map((s) => ({ ...s, contents: stripLeadingFrontmatter(s.contents) })),
 };
 
 /** Remove Obsidian `%% ... %%` comments from each scene. */

@@ -11,7 +11,7 @@ import { App, Notice, TFile, normalizePath } from "obsidian";
 import { tryFileOp } from "../lib/notify";
 import { confirmDelete } from "../scenes/scene-actions";
 import { planDraftCopy } from "./draft-plan";
-import { persistDraft, persistDraftCreated } from "./index-writer";
+import { persistDraft, persistDraftCreated, updateDraftFields } from "./index-writer";
 import { Project } from "./types";
 
 /** Create a folder and any missing ancestors (mkdir -p), swallowing races. */
@@ -96,13 +96,15 @@ export async function createDraft(
 export async function renameDraft(app: App, project: Project, newName: string): Promise<void> {
   const index = app.vault.getAbstractFileByPath(project.vaultPath);
   if (!(index instanceof TFile)) return;
+  // Field-level transform of the CURRENT draft — a whole-draft write from the
+  // panel snapshot would rewrite `longform.scenes` from stale state too.
   await tryFileOp(
     () =>
-      persistDraft(app, index, {
-        ...project.draft,
+      updateDraftFields(app, index, (d) => ({
+        ...d,
         draftTitle: newName.trim(),
         titleInFrontmatter: true,
-      }),
+      })),
     "Couldn't rename the draft."
   );
 }

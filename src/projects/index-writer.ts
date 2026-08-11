@@ -9,25 +9,34 @@
 
 import { App, TFile } from "obsidian";
 import { asRecord } from "../lib/frontmatter";
-import { writeDraftToFrontmatter } from "./draft-serialization";
+import { resolveCompileValue } from "../compile/config";
+import type { CompileConfig, OutputFormat } from "../compile/types";
+import { parseDraft, writeDraftToFrontmatter } from "./draft-serialization";
 import {
   Draft,
   IndentedScene,
-  MultipleSceneDraft,
   InkswellProjectData,
   ProjectGoals,
   ProjectOverview,
   SeriesInfo,
 } from "./types";
-import type { BeatSheet } from "../outliner/beat-templates";
+import type { BeatAssignment, BeatSheet } from "../outliner/beat-templates";
+import { renameSceneInBeats, setAssignment } from "../outliner/beats";
+import { rebaseSceneOrder } from "../outliner/outline";
 import type { Plotline } from "../outliner/plotgrid";
-import type { StructureGroup, StructureKind } from "../outliner/structure";
+import type { StructureGroup } from "../outliner/structure";
 import type { RevisionDecision } from "../revisions/types";
 import type { ChecklistItem, ChecklistTier, RevisionChecklistData } from "../revisions/checklist";
 import { setChecklistItem } from "../revisions/checklist";
 import type { StyleEntry } from "../revisions/stylesheet";
 
-/** Write a full draft object to the index note's `longform` frontmatter. */
+/**
+ * Write a full draft object to the index note's `longform` frontmatter.
+ * CREATE-TIME ONLY: this replaces the whole block with a caller-built draft, so
+ * it's correct for brand-new index notes (new project, draft copy) and nothing
+ * else. Live edits go through {@link updateScenes} / {@link updateDraftFields},
+ * which transform the CURRENT stored draft.
+ */
 export async function persistDraft(
   app: App,
   indexFile: TFile,
@@ -39,44 +48,174 @@ export async function persistDraft(
 }
 
 /**
- * Apply a transform to a multi-scene draft's scene list and persist the result.
- * No-op (and resolves) if the index isn't a multi-scene draft.
+ * Parse the CURRENT draft out of a frontmatter object (inside a
+ * processFrontMatter callback), or null when the note isn't a Longform index.
+ */
+function currentDraft(fm: Record<string, unknown>, indexFile: TFile): Draft | null {
+  return parseDraft(fm["longform"], indexFile.basename);
+}
+
+/**
+ * Apply a transform to the multi-scene draft's scene list and persist the
+ * result. The draft — scene list included — is parsed from the file's CURRENT
+ * frontmatter inside `processFrontMatter`, never taken from a caller snapshot:
+ * a transform computed from a stale panel can therefore mis-position an entry
+ * at worst, but can no longer drop scenes created (or resurrect scenes
+ * deleted) since the panel rendered. No-op when the index isn't multi-scene.
  */
 export async function updateScenes(
   app: App,
   indexFile: TFile,
-  draft: Draft,
   transform: (scenes: IndentedScene[]) => IndentedScene[]
 ): Promise<void> {
-  if (draft.format !== "scenes") return;
-  const updated: MultipleSceneDraft = {
-    ...draft,
-    scenes: transform(draft.scenes),
-  };
-  await persistDraft(app, indexFile, updated);
+  await app.fileManager.processFrontMatter(indexFile, (fm: Record<string, unknown>) => {
+    const draft = currentDraft(fm, indexFile);
+    if (!draft || draft.format !== "scenes") return;
+    writeDraftToFrontmatter(fm, { ...draft, scenes: transform(draft.scenes) });
+  });
 }
 
 /**
- * Merge a partial Inkswell data object into the index note's `inkswell` frontmatter
- * key, leaving `longform` and other keys untouched.
- *
- * UNSAFE for panel writes: this replaces each patched sub-key WHOLESALE with a
- * value the caller built earlier — usually from a render-time `project` snapshot
- * that the host's editing-guard deferral keeps stale for an entire typing
- * session. Writing such a snapshot silently erases every sibling edit saved
- * under the same key since the panel last rendered (the beats data-loss bug).
- * Use the delta writers below (`updateBeats`, `persistChecklistItem`, …), which
- * compute against the CURRENT file state inside `processFrontMatter`. Remaining
- * callers are legacy sites scheduled for migration — do not add new ones.
+ * Transform the CURRENT stored draft's non-structural fields (title, draftTitle,
+ * ignoredFiles, …). Replaces whole-draft `persistDraft` calls from render-time
+ * snapshots, which rewrote `longform.scenes` from stale state as a side effect.
  */
-export async function unsafeReplaceInkswellKeys(
+export async function updateDraftFields(
   app: App,
   indexFile: TFile,
-  patch: Partial<InkswellProjectData>
+  transform: (current: Draft) => Draft
 ): Promise<void> {
   await app.fileManager.processFrontMatter(indexFile, (fm: Record<string, unknown>) => {
-    fm["inkswell"] = { ...asRecord(fm["inkswell"]), ...patch };
+    const draft = currentDraft(fm, indexFile);
+    if (!draft) return;
+    writeDraftToFrontmatter(fm, transform(draft));
   });
+}
+
+/**
+ * Rename a scene everywhere the index refers to it — the `longform.scenes`
+ * title and any beat→scene links — in ONE processFrontMatter transaction, all
+ * computed against current state. Replaces the old two-write sequences
+ * (scenes map, then beats), which left a window where a concurrent write could
+ * interleave and where beats briefly pointed at a dead title.
+ */
+export async function renameSceneInIndex(
+  app: App,
+  indexFile: TFile,
+  oldTitle: string,
+  newTitle: string
+): Promise<void> {
+  await app.fileManager.processFrontMatter(indexFile, (fm: Record<string, unknown>) => {
+    const draft = currentDraft(fm, indexFile);
+    if (draft && draft.format === "scenes") {
+      writeDraftToFrontmatter(fm, {
+        ...draft,
+        scenes: draft.scenes.map((s) => (s.title === oldTitle ? { ...s, title: newTitle } : s)),
+      });
+    }
+    const inkswell = { ...asRecord(fm["inkswell"]) };
+    const raw = inkswell["beats"];
+    const sheet = raw && typeof raw === "object" ? (raw as BeatSheet) : undefined;
+    const next = renameSceneInBeats(sheet, oldTitle, newTitle);
+    if (next) {
+      inkswell["beats"] = next;
+      fm["inkswell"] = inkswell;
+    }
+  });
+}
+
+/**
+ * Persist a full outline (manuscript order + acts + chapters config) in ONE
+ * processFrontMatter transaction. The desired order is rebased onto the CURRENT
+ * scene list ({@link rebaseSceneOrder}), so an outline serialized from a stale
+ * tree can't drop concurrently-created scenes or resurrect deleted ones. The
+ * acts/chapters arrays are whole-array by design — the outline editor owns
+ * them; the single transaction is the mitigation for that residual.
+ */
+export async function persistOutline(
+  app: App,
+  indexFile: TFile,
+  outline: { order: IndentedScene[]; acts: StructureGroup[]; chapters: StructureGroup[] }
+): Promise<void> {
+  await app.fileManager.processFrontMatter(indexFile, (fm: Record<string, unknown>) => {
+    const draft = currentDraft(fm, indexFile);
+    if (draft && draft.format === "scenes") {
+      writeDraftToFrontmatter(fm, {
+        ...draft,
+        scenes: rebaseSceneOrder(outline.order, draft.scenes),
+      });
+    }
+    const inkswell = { ...asRecord(fm["inkswell"]) };
+    if (outline.acts.length === 0) delete inkswell["acts"];
+    else inkswell["acts"] = outline.acts;
+    if (outline.chapters.length === 0) delete inkswell["chapters"];
+    else inkswell["chapters"] = outline.chapters;
+    if (Object.keys(inkswell).length === 0) delete fm["inkswell"];
+    else fm["inkswell"] = inkswell;
+  });
+}
+
+/**
+ * Persist a beat-scaffold's index changes — appended scenes, optional
+ * acts/chapters config, and beat→scene links — in ONE transaction (previously
+ * four sequential writes). Everything is checked against CURRENT state: scene
+ * additions are dup-guarded by title, and a beat link is only applied where the
+ * current assignment is empty (a note or link saved while the scaffold ran is
+ * never overwritten). Returns how many scenes were actually appended.
+ */
+export async function persistScaffoldIndex(
+  app: App,
+  indexFile: TFile,
+  patch: {
+    additions: IndentedScene[];
+    acts?: StructureGroup[];
+    chapters?: StructureGroup[];
+    /** beat id → scene title to link (skipped where already assigned). */
+    beatLinks: ReadonlyMap<string, string>;
+    /** Template id for a sheet created from scratch by the links. */
+    templateId: string;
+  }
+): Promise<{ addedScenes: number }> {
+  let addedScenes = 0;
+  await app.fileManager.processFrontMatter(indexFile, (fm: Record<string, unknown>) => {
+    const draft = currentDraft(fm, indexFile);
+    if (draft && draft.format === "scenes") {
+      const have = new Set(draft.scenes.map((s) => s.title));
+      const additions = patch.additions.filter((s) => !have.has(s.title));
+      addedScenes = additions.length;
+      writeDraftToFrontmatter(fm, { ...draft, scenes: [...draft.scenes, ...additions] });
+    }
+
+    const inkswell = { ...asRecord(fm["inkswell"]) };
+    if (patch.acts) {
+      if (patch.acts.length === 0) delete inkswell["acts"];
+      else inkswell["acts"] = patch.acts;
+    }
+    if (patch.chapters) {
+      if (patch.chapters.length === 0) delete inkswell["chapters"];
+      else inkswell["chapters"] = patch.chapters;
+    }
+
+    const raw = inkswell["beats"];
+    let sheet: BeatSheet =
+      raw && typeof raw === "object"
+        ? (raw as BeatSheet)
+        : { template: patch.templateId, assignments: {} };
+    let linked = false;
+    for (const [beatId, title] of patch.beatLinks) {
+      const cur = sheet.assignments[beatId] as
+        | (BeatAssignment & { scene?: string })
+        | undefined;
+      if (cur?.scenes?.length || cur?.scene) continue;
+      sheet = setAssignment(sheet, beatId, { scenes: [title] });
+      linked = true;
+    }
+    if (linked) inkswell["beats"] = sheet;
+
+    if (Object.keys(inkswell).length === 0) delete fm["inkswell"];
+    else fm["inkswell"] = inkswell;
+  });
+  return { addedScenes };
 }
 
 /**
@@ -105,6 +244,25 @@ async function updateInkswellKey(
 /** Narrow an unknown frontmatter value to an array (empty if not one). */
 function asArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
+}
+
+/**
+ * Mutate the compile config against its CURRENT stored value (or a fresh
+ * default seeded with `fallbackFormat`). The mutator receives a clone, edits it
+ * in place, and the result is written back — two panel edits issued from the
+ * same rendered state therefore compose instead of overwriting each other.
+ */
+export async function updateCompile(
+  app: App,
+  indexFile: TFile,
+  fallbackFormat: OutputFormat,
+  mutate: (config: CompileConfig) => void
+): Promise<void> {
+  await updateInkswellKey(app, indexFile, "compile", (raw) => {
+    const config = resolveCompileValue(raw, fallbackFormat);
+    mutate(config);
+    return config;
+  });
 }
 
 /** Stamp the draft's creation time (a scalar leaf — always safe to set). */
@@ -264,42 +422,22 @@ export async function persistOverview(
 }
 
 /**
- * Write the chapter/act config array to `inkswell.chapters` / `inkswell.acts`
- * (read-merge-write, like `persistPublishing`). An empty array deletes the key,
- * and an emptied `inkswell` object is pruned. `kind` picks the target key.
+ * Transform the plotline config list against its CURRENT stored state (the
+ * Plot Grid's pure ops — upsert/move/remove by stable id — compose here, so a
+ * color change and a reorder issued from the same rendered grid both land).
+ * A transform returning its input unchanged skips the write; an emptied list
+ * deletes the key.
  */
-export async function persistStructure(
+export async function updatePlotlines(
   app: App,
   indexFile: TFile,
-  kind: StructureKind,
-  groups: StructureGroup[]
+  transform: (current: Plotline[]) => Plotline[]
 ): Promise<void> {
-  const key = kind === "act" ? "acts" : "chapters";
-  await app.fileManager.processFrontMatter(indexFile, (fm: Record<string, unknown>) => {
-    const inkswell = { ...asRecord(fm["inkswell"]) };
-    if (groups.length === 0) delete inkswell[key];
-    else inkswell[key] = groups;
-    if (Object.keys(inkswell).length === 0) delete fm["inkswell"];
-    else fm["inkswell"] = inkswell;
-  });
-}
-
-/**
- * Write the plotline config array to `inkswell.plotlines` (read-merge-write,
- * like `persistStructure`). An empty array deletes the key, and an emptied
- * `inkswell` object is pruned.
- */
-export async function persistPlotlines(
-  app: App,
-  indexFile: TFile,
-  plotlines: Plotline[]
-): Promise<void> {
-  await app.fileManager.processFrontMatter(indexFile, (fm: Record<string, unknown>) => {
-    const inkswell = { ...asRecord(fm["inkswell"]) };
-    if (plotlines.length === 0) delete inkswell["plotlines"];
-    else inkswell["plotlines"] = plotlines;
-    if (Object.keys(inkswell).length === 0) delete fm["inkswell"];
-    else fm["inkswell"] = inkswell;
+  await updateInkswellKey(app, indexFile, "plotlines", (raw) => {
+    const current = asArray<Plotline>(raw);
+    const next = transform(current);
+    if (next === current) return raw; // pure-op no-op — keep what's stored
+    return next.length === 0 ? undefined : next;
   });
 }
 

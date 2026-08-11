@@ -13,6 +13,7 @@
  */
 
 import { App, Notice, TFile } from "obsidian";
+import { tagField } from "../lib/focus-preserve";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
@@ -156,6 +157,7 @@ export class SearchPanel {
       cls: "inkswell-search__query",
       attr: { placeholder: `Search ${sceneCount} scene${sceneCount === 1 ? "" : "s"}…` },
     });
+    tagField(input, "search:query");
     input.value = this.query;
     input.oninput = () => {
       this.query = input.value;
@@ -170,6 +172,7 @@ export class SearchPanel {
       cls: "inkswell-search__replace",
       attr: { placeholder: "Replace with… (leave empty to delete)" },
     });
+    tagField(repl, "search:replace");
     repl.value = this.replacement;
     repl.oninput = () => {
       this.replacement = repl.value;

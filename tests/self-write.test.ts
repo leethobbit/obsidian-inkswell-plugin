@@ -1,7 +1,10 @@
 /**
  * SelfWriteRegistry: a notify is "covered" only when every changed path was
  * marked as a self-write inside the freshness window — partial coverage or a
- * stale mark must fall through to a full rebuild.
+ * stale mark must fall through to a full rebuild. Matched marks are CONSUMED
+ * (one mark = one notify), so an external edit landing on the same path
+ * moments after our own write can never ride a leftover mark into the soft
+ * path and get silently clobbered.
  */
 import { describe, expect, it } from "vitest";
 import { SelfWriteRegistry } from "../src/lib/self-write";
@@ -38,12 +41,22 @@ describe("SelfWriteRegistry", () => {
     expect(reg.coveredBy(new Set(["Codex/Mina.md"]))).toBe(false);
   });
 
-  it("keeps marks inside the window across multiple checks", () => {
+  it("CONSUMES a matched mark — one mark vouches for exactly one notify", () => {
     const { reg, tick } = withClock();
     reg.mark("Codex/Mina.md");
-    tick(2000);
-    expect(reg.coveredBy(new Set(["Codex/Mina.md"]))).toBe(true);
     tick(500);
+    expect(reg.coveredBy(new Set(["Codex/Mina.md"]))).toBe(true);
+    // A second notify on the same path within the window is an EXTERNAL change
+    // (sync, another device) — it must fall through to a full rebuild, not be
+    // softened away and later clobbered by the panel's stale save.
+    tick(500);
+    expect(reg.coveredBy(new Set(["Codex/Mina.md"]))).toBe(false);
+  });
+
+  it("a rejected mixed batch does not burn the marked path's mark", () => {
+    const { reg } = withClock();
+    reg.mark("Codex/Mina.md");
+    expect(reg.coveredBy(new Set(["Codex/Mina.md", "Books/Alpha/Alpha.md"]))).toBe(false);
     expect(reg.coveredBy(new Set(["Codex/Mina.md"]))).toBe(true);
   });
 
