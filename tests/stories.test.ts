@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { baseDraft, baseDraftFor, draftLabel, groupIntoStories, storyOf } from "../src/projects/stories";
+import {
+  baseDraft,
+  baseDraftFor,
+  draftLabel,
+  groupIntoStories,
+  representativeDrafts,
+  storyOf,
+} from "../src/projects/stories";
 import { Project } from "../src/projects/types";
 
 function project(path: string, title: string, draftTitle: string | null = null): Project {
@@ -107,5 +114,26 @@ describe("baseDraftFor", () => {
   it("returns the project itself when it isn't in the list", () => {
     const stray = project("gone/G.md", "Ghost");
     expect(baseDraftFor([origin, editor], stray)).toBe(stray);
+  });
+});
+
+describe("representativeDrafts", () => {
+  const origin = project("Book/Novel/Novel.md", "Novel", "Draft 1");
+  const editor = project("Book/Novel/Drafts/Editor/Novel — Editor.md", "Novel", "Editor");
+  const other = project("z/Other.md", "Other");
+  const all = [origin, editor, other];
+
+  it("picks the ACTIVE draft for its own story, the base for the rest", () => {
+    const reps = representativeDrafts(all, editor.vaultPath);
+    expect(reps.map((p) => p.vaultPath)).toEqual([editor.vaultPath, other.vaultPath]);
+  });
+
+  it("picks the base draft everywhere when nothing is active", () => {
+    const reps = representativeDrafts(all, null);
+    expect(reps.map((p) => p.vaultPath)).toEqual([origin.vaultPath, other.vaultPath]);
+  });
+
+  it("an ungrouped project represents itself", () => {
+    expect(representativeDrafts([other], null)).toEqual([other]);
   });
 });

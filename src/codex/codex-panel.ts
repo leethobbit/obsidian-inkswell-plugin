@@ -41,6 +41,7 @@ import { CategoryDef, CodexEntity, EntityScope, allCategories, categoryLabel } f
 import { CategoryModal } from "./category-modal";
 import { Project } from "../projects/types";
 import { groupIntoSeries } from "../series/series";
+import { baseDraft, baseDraftFor, groupIntoStories } from "../projects/stories";
 import type InkswellPlugin from "../../main";
 
 export class CodexPanel {
@@ -176,7 +177,16 @@ export class CodexPanel {
             this.app,
             def.id,
             name,
-            resolveCodexFolder(this.plugin.settings, createScope, active?.vaultPath),
+            // Co-located codex lands in the STORY's folder (base draft), never
+            // inside a Drafts/<name>/ copy — otherwise deleting that draft
+            // strands the entity files in an abandoned folder.
+            resolveCodexFolder(
+              this.plugin.settings,
+              createScope,
+              active
+                ? baseDraftFor(this.plugin.store.getProjects(), active).vaultPath
+                : undefined
+            ),
             createScope,
             resolveCodexTemplate(this.app, this.plugin.settings, def)
           ),
@@ -348,7 +358,12 @@ export class CodexPanel {
     const token = ++this.appearsToken;
     this.field(host, "Appears in", (control) => {
       control.createSpan({ cls: "inkswell-stats__muted", text: "Scanning scenes…" });
-      void scenesForEntity(this.app, this.plugin.store.getProjects(), entity).then((scenes) => {
+      void scenesForEntity(
+        this.app,
+        this.plugin.store.getProjects(),
+        entity,
+        this.plugin.activeProject.get()
+      ).then((scenes) => {
         if (token !== this.appearsToken) return;
         control.empty();
         if (scenes.length === 0) {
@@ -549,7 +564,13 @@ export class CodexPanel {
   private renderScopeField(host: HTMLElement, file: TFile, entity: CodexEntity): void {
     const projects = this.plugin.store.getProjects();
     const seriesNames = groupIntoSeries(projects).series.map((s) => s.name);
-    const books = projects.map((p) => projectName(p)).sort((a, b) => a.localeCompare(b));
+    // One option per STORY (not per draft): the label is the story title, the
+    // value its base draft's basename — the canonical scope every draft of the
+    // story resolves (a legacy value naming another draft falls through to the
+    // "— current" branch below and normalizes the next time the user picks).
+    const books = groupIntoStories(projects)
+      .map((s) => ({ label: s.title, value: projectName(baseDraft(s)) }))
+      .sort((a, b) => a.label.localeCompare(b.label));
 
     const scope = entity.scope ?? {};
     const current = scope.series ? `s:${scope.series}` : scope.project ? `p:${scope.project}` : "";
@@ -566,7 +587,7 @@ export class CodexPanel {
       if (books.length) {
         const grp = sel.createEl("optgroup");
         grp.label = "Books";
-        for (const name of books) grp.createEl("option", { text: name, value: `p:${name}` });
+        for (const b of books) grp.createEl("option", { text: b.label, value: `p:${b.value}` });
       }
       if (current && !Array.from(sel.options).some((o) => o.value === current)) {
         const label = scope.series ? `${scope.series} (series)` : `${scope.project} (book)`;
