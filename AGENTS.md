@@ -89,6 +89,7 @@ Cut `1.0.0` only once the Longform-compatible frontmatter format is stable enoug
 5. `npm run build` — REQUIRED after the bump so the bundle + new `manifest.json` are current (auto-deploys to the dev vault). (Reload Obsidian to pick it up.)
 6. `git add -A && git commit -m "X.Y.Z: <summary>"` (include the Co-authored-by trailer; `-A` so new files are caught).
 7. `git tag X.Y.Z` — **no `v` prefix.** Obsidian resolves a release's assets by the exact `manifest.json` version, so the tag must equal it verbatim (`1.0.0`, not `v1.0.0`). Pushing the tag triggers `.github/workflows/release.yml`, which builds and drafts the GitHub release (with the matching CHANGELOG section as its body); publish that draft to distribute.
+8. **PR `develop` → `main` and merge it.** The community store reads `manifest.json` from the repo's **default branch** (`main`) — until main carries the new version, users are never offered the update, even with the release published. `gh pr create --base main --head develop`, wait for checks, merge (merge commit, matching prior release PRs). Verify: `git show origin/main:manifest.json` reports the new version.
 
 ## Gotchas
 1. **Scene indent encoding** — symptom: Longform stops recognizing a project after Inkswell edits it. Cause: serializing `scenes` as flat strings with indent ints instead of nested arrays. Fix: use the ported `indentedScenesToArrays`.
