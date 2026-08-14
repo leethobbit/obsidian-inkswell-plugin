@@ -369,7 +369,10 @@ export class AuditPanel {
     const tracked = parseTracked(project.inkswell?.arcTracked);
     const inData = new Set<string>();
     for (const s of sceneArc) for (const name of Object.keys(s.arc)) inData.add(name);
-    const codexChars = filterToScope(getCodexEntities(this.app), scopeContextForProject(project))
+    const codexChars = filterToScope(
+      getCodexEntities(this.app),
+      scopeContextForProject(project, this.store.getProjects())
+    )
       .filter((e) => e.category === "character")
       .map((e) => e.name);
     const available = Array.from(new Set([...codexChars, ...inData])).sort();
@@ -491,7 +494,7 @@ export class AuditPanel {
 
     const chars = filterToScope(
       getCodexEntities(this.app),
-      scopeContextForProject(project)
+      scopeContextForProject(project, this.store.getProjects())
     ).filter((e) => e.category === "character");
     if (chars.length === 0) {
       host.createDiv({

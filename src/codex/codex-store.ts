@@ -116,7 +116,7 @@ export async function scenesForEntity(
   const files: TFile[] = [];
   const seen = new Set<string>();
   for (const project of projects) {
-    if (!isEntityVisible(entity, scopeContextForProject(project))) continue;
+    if (!isEntityVisible(entity, scopeContextForProject(project, projects))) continue;
     for (const scene of project.scenes) {
       if (!scene.path || seen.has(scene.path)) continue;
       const f = app.vault.getAbstractFileByPath(scene.path);

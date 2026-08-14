@@ -158,7 +158,7 @@ export class CodexPanel {
     const newBtn = bar.createEl("button", { cls: "mod-cta", text: "New" });
     // New entries inherit the active project's scope: its series if it belongs to
     // one, else the book itself. With no active project they are created global.
-    const createScope = defaultScopeForProject(active);
+    const createScope = defaultScopeForProject(active, this.plugin.store.getProjects());
     newBtn.setAttribute("aria-label", this.scopeHint(active, createScope));
     newBtn.onclick = async () => {
       const def = this.categories().find((c) => c.id === catSel.value);
@@ -204,7 +204,10 @@ export class CodexPanel {
     const scoped =
       this.showAll || !active
         ? getCodexEntities(this.app)
-        : filterToScope(getCodexEntities(this.app), scopeContextForProject(active));
+        : filterToScope(
+            getCodexEntities(this.app),
+            scopeContextForProject(active, this.plugin.store.getProjects())
+          );
 
     const q = this.search.trim().toLowerCase();
     const all = scoped.filter((e) =>
