@@ -733,12 +733,24 @@ export class InkswellView extends ItemView {
         }
         return false;
       }
-      case "revise":
+      case "revise": {
         // To-dos: a decision write from the merged panel — refresh its rows in
-        // place (cached marker scan + fresh decisions). Audit's checkbox/note
-        // writes keep updating their own badges via onChange.
-        if (this.effectiveSubtab("revise") === "todos") this.todos.softRefresh();
-        return true;
+        // place (cached marker scan + fresh decisions). Audit: checklist/style/
+        // arc writes re-render the panel in place so progress counters update.
+        // Anything else (Analysis) has no self-writes of its own — return
+        // false so a covered notify still gets a real rebuild instead of being
+        // silently swallowed with no refresh at all.
+        const sub = this.effectiveSubtab("revise");
+        if (sub === "todos") {
+          this.todos.softRefresh();
+          return true;
+        }
+        if (sub === "audit") {
+          this.audit.softRefresh();
+          return true;
+        }
+        return false;
+      }
       default:
         return false;
     }

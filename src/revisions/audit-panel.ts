@@ -15,7 +15,7 @@
  */
 
 import { App, TFile } from "obsidian";
-import { tagField } from "../lib/focus-preserve";
+import { preserveFocus, tagField } from "../lib/focus-preserve";
 import { tryFileOp } from "../lib/notify";
 import { SectionState } from "../views/panel-kit";
 import { linkTarget } from "../codex/codex";
@@ -82,6 +82,15 @@ export class AuditPanel {
     this.app = app;
     this.store = store;
     this.active = active;
+  }
+
+  /** Re-render in place after a notify caused by our own writes (checklist
+   *  ticks, style entries, tracked arcs — all marked via markWrite), so the
+   *  progress counters update without a full body teardown. */
+  softRefresh(): void {
+    if (this.container?.isConnected) {
+      preserveFocus(this.container, () => this.render(this.container as HTMLElement));
+    }
   }
 
   render(container: HTMLElement): void {
@@ -209,10 +218,12 @@ export class AuditPanel {
   ): void {
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
     // Persist only — the index-frontmatter write triggers a store refresh, which
-    // re-renders this panel (open sections are restored from `this.sections`).
-    // The patch is applied against the CURRENT stored checklist inside the
-    // write, so ticking several boxes in a row never loses earlier ticks.
+    // soft-refreshes this panel (self-write mark; open sections are restored
+    // from `this.sections`). The patch is applied against the CURRENT stored
+    // checklist inside the write, so ticking several boxes in a row never
+    // loses earlier ticks.
     if (file instanceof TFile) {
+      this.markWrite?.(file.path);
       void tryFileOp(
         () => persistChecklistItem(this.app, file, tier, id, patch),
         "Couldn't save the checklist change."
@@ -448,6 +459,7 @@ export class AuditPanel {
     // Stored as wikilinks so renames follow; the op works in plain names against
     // the CURRENT stored list, so add/remove compose instead of clobbering.
     if (file instanceof TFile) {
+      this.markWrite?.(file.path);
       void tryFileOp(
         () =>
           updateArcTracked(this.app, file, op, {
@@ -647,6 +659,7 @@ export class AuditPanel {
     // List op against the CURRENT stored entries (by stable id), so an add and
     // a remove issued from the same rendered list both land.
     if (file instanceof TFile) {
+      this.markWrite?.(file.path);
       void tryFileOp(
         () => updateStyleEntries(this.app, file, op),
         "Couldn't save the style sheet."
