@@ -14,6 +14,7 @@
 
 import { App, Menu, Notice, TFile, setIcon } from "obsidian";
 import { tryFileOp } from "../lib/notify";
+import { tagScroller } from "../lib/scroll-preserve";
 import { attachRowMenu } from "../lib/row-menu";
 import { promptNewScene } from "../outliner/create-scene";
 import {
@@ -142,6 +143,7 @@ export class PlotGridPanel {
     this.renderToolbar(container, grid);
 
     const scroller = container.createDiv({ cls: "inkswell-plotgrid__scroll" });
+    tagScroller(scroller, "plotgrid");
     const table = scroller.createDiv({ cls: "inkswell-plotgrid__table" });
     table.style.setProperty("--plotgrid-cols", String(this.visible.length));
 

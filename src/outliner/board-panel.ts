@@ -14,6 +14,7 @@ import { ActiveProject, resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
 import { tryFileOp } from "../lib/notify";
+import { tagScroller } from "../lib/scroll-preserve";
 import { addSceneMenuItems } from "../scenes/scene-actions";
 import { promptNewScene } from "./create-scene";
 import { EditSceneModal } from "../scenes/edit-scene-modal";
@@ -107,6 +108,7 @@ export class BoardPanel {
         : buildColumns(items, this.field);
     this.columns = cols;
     const board = container.createDiv({ cls: "inkswell-board__cols" });
+    tagScroller(board, "board-cols");
     for (const col of cols) this.renderColumn(board, col, project);
   }
 
