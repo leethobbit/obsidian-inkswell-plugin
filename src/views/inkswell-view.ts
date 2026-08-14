@@ -14,7 +14,7 @@ import { isPhone, renderPhoneRedirect } from "../lib/platform";
 import { preserveFocus } from "../lib/focus-preserve";
 import { KeyboardWatcher } from "./phone/keyboard-watch";
 import { createDraft, deleteDraft, renameDraft } from "../projects/draft-actions";
-import { draftLabel, groupIntoStories, Story, storyOf } from "../projects/stories";
+import { baseDraftFor, draftLabel, groupIntoStories, Story, storyOf } from "../projects/stories";
 import { promptText } from "../scenes/scene-actions";
 import { Project } from "../projects/types";
 import { NewDraftModal } from "./drafts-modal";
@@ -380,12 +380,15 @@ export class InkswellView extends ItemView {
   }
 
   private newDraftAction(source: Project): void {
+    // Placement anchor: the story's base draft, so a draft created FROM a
+    // copied draft still lands in the story's flat Drafts/ folder.
+    const anchor = baseDraftFor(this.plugin.store.getProjects(), source);
     new NewDraftModal(
       this.app,
       { title: source.draft.title, isFirstSplit: source.draft.draftTitle == null },
       (res) => {
         if (!res) return;
-        void createDraft(this.app, source, res.newName, res.originalName).then((file) => {
+        void createDraft(this.app, source, anchor, res.newName, res.originalName).then((file) => {
           if (file) this.plugin.activeProject.set(file.path);
         });
       }
@@ -713,22 +716,63 @@ export class InkswellView extends ItemView {
       case "write":
         // The Write fast path already absorbs metadata changes in place.
         return this.write.update();
-      case "plan":
-        // Structure writes (a Tree/Board drag → applyOutline, marked as
-        // self-writes) re-render the structure panel in its own container so
-        // the scroll position survives repeated moves. Other Plan sub-tabs
-        // (Overview, Beats) don't mark their writes and fall through.
-        if (this.effectiveSubtab("plan") === "structure") {
+      case "plan": {
+        // Each Plan sub-tab's own writes (all marked as self-writes) re-render
+        // that panel in its own container so the scrolling ancestor — and, via
+        // preserveUi/preserveFocus, any inner scroller or focused field —
+        // survives instead of a full body teardown.
+        const sub = this.effectiveSubtab("plan");
+        if (sub === "structure") {
           this.structure.softRefresh();
           return true;
         }
+        if (sub === "overview") {
+          this.overview.softRefresh();
+          return true;
+        }
+        if (sub === "beats") {
+          this.beats.softRefresh();
+          return true;
+        }
         return false;
-      case "revise":
+      }
+      case "revise": {
         // To-dos: a decision write from the merged panel — refresh its rows in
-        // place (cached marker scan + fresh decisions). Audit's checkbox/note
-        // writes keep updating their own badges via onChange.
-        if (this.effectiveSubtab("revise") === "todos") this.todos.softRefresh();
-        return true;
+        // place (cached marker scan + fresh decisions). Audit: checklist/style/
+        // arc writes re-render the panel in place so progress counters update.
+        // Anything else (Analysis) has no self-writes of its own — return
+        // false so a covered notify still gets a real rebuild instead of being
+        // silently swallowed with no refresh at all.
+        const sub = this.effectiveSubtab("revise");
+        if (sub === "todos") {
+          this.todos.softRefresh();
+          return true;
+        }
+        if (sub === "audit") {
+          this.audit.softRefresh();
+          return true;
+        }
+        return false;
+      }
+      case "publish": {
+        // Checklist ticks, launch-tracker cells, and compile-config edits all
+        // autosave on blur — refresh the sub-panel in place so the long forms
+        // keep their scroll position and open sections.
+        const sub = this.effectiveSubtab("publish");
+        if (sub === "checklist") {
+          this.checklist.softRefresh();
+          return true;
+        }
+        if (sub === "launch") {
+          this.launch.softRefresh();
+          return true;
+        }
+        if (sub === "compile") {
+          this.compile.softRefresh();
+          return true;
+        }
+        return false;
+      }
       default:
         return false;
     }

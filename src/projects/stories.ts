@@ -85,3 +85,15 @@ export function baseDraftFor(projects: Project[], project: Project): Project {
   );
   return story ? baseDraft(story) : project;
 }
+
+/**
+ * ONE draft per story: the active draft when that story is active, else the
+ * base. The dedup rule for anything that would otherwise process a story once
+ * per draft — the Home project list, the codex "Appears in" scan, series-wide
+ * search — where every draft's scenes share titles and (deliberately) content.
+ */
+export function representativeDrafts(projects: Project[], activePath: string | null): Project[] {
+  return groupIntoStories(projects).map(
+    (s) => s.drafts.find((d) => d.vaultPath === activePath) ?? baseDraft(s)
+  );
+}

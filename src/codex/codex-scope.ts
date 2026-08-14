@@ -2,22 +2,29 @@
  * Codex scoping (pure, Obsidian-free, unit-tested). Decides whether an entity is
  * visible from a given project's vantage point.
  *
- * An entity is visible when it is global (no scope), or its `project` scope is the
- * active book, or its `series` scope is the active book's series. Series membership
- * is derived from the active project — there is no separate "series selector"; the
- * codex is shared across a series exactly because every book in it resolves to the
- * same series name. See {@link ../series/series}.
+ * An entity is visible when it is global (no scope), or its `project` scope names
+ * any draft of the active STORY (drafts sharing one `longform.title` — a codex
+ * describes the book, not one draft of it), or its `series` scope is the active
+ * story's series. Series membership is derived from the active project — there is
+ * no separate "series selector"; the codex is shared across a series exactly
+ * because every book in it resolves to the same series name. See
+ * {@link ../series/series}.
+ *
+ * New entities are scoped to the story's BASE draft basename (see
+ * {@link ../projects/stories}), so writes stay canonical while reads tolerate
+ * legacy values that name any sibling draft.
  */
 
 import { Project } from "../projects/types";
+import { baseDraftFor, groupIntoStories } from "../projects/stories";
 import { projectSeries } from "../series/series";
 import { CodexEntity, EntityScope } from "./types";
 
 /** The vantage point a visibility check is made from. */
 export interface ScopeContext {
-  /** Index-note basename of the active/owning project (null = no project). */
-  projectName: string | null;
-  /** Series name the active project belongs to, if any. */
+  /** Index-note basenames of ALL drafts of the active story ([] = no project). */
+  projectNames: string[];
+  /** Series name the active story belongs to, if any. */
   seriesName: string | null;
 }
 
@@ -27,22 +34,51 @@ export function projectName(project: Project): string {
   return base.replace(/\.md$/i, "");
 }
 
+/** All drafts of the story containing `project` (or just `project` if ungrouped). */
+function storyDrafts(project: Project, allProjects: Project[]): Project[] {
+  const story = groupIntoStories(allProjects).find((s) =>
+    s.drafts.some((d) => d.vaultPath === project.vaultPath)
+  );
+  return story ? story.drafts : [project];
+}
+
+/** The story's series: the base draft's wins (a byte-copied sibling can carry a
+ *  stale `inkswell.series`), falling back to the first sibling that has one. */
+function storySeries(project: Project, allProjects: Project[]): string | null {
+  const base = baseDraftFor(allProjects, project);
+  const fromBase = projectSeries(base)?.name;
+  if (fromBase) return fromBase;
+  for (const d of storyDrafts(project, allProjects)) {
+    const s = projectSeries(d)?.name;
+    if (s) return s;
+  }
+  return null;
+}
+
 /** Build the scope vantage point for a project (or a global one when null). */
-export function scopeContextForProject(project: Project | null): ScopeContext {
-  if (!project) return { projectName: null, seriesName: null };
+export function scopeContextForProject(
+  project: Project | null,
+  allProjects: Project[]
+): ScopeContext {
+  if (!project) return { projectNames: [], seriesName: null };
   return {
-    projectName: projectName(project),
-    seriesName: projectSeries(project)?.name ?? null,
+    projectNames: storyDrafts(project, allProjects).map(projectName),
+    seriesName: storySeries(project, allProjects),
   };
 }
 
-/** The scope a NEW entity should inherit when created with `project` active. */
-export function defaultScopeForProject(project: Project | null): EntityScope {
+/** The scope a NEW entity should inherit when created with `project` active.
+ *  Project scope is normalized to the story's BASE draft, so entities created
+ *  while a later draft is active still name the canonical index note. */
+export function defaultScopeForProject(
+  project: Project | null,
+  allProjects: Project[]
+): EntityScope {
   if (!project) return {};
-  const series = projectSeries(project)?.name;
   // Series wins: most entities in a series book are shared across the series.
+  const series = storySeries(project, allProjects);
   if (series) return { series };
-  return { project: projectName(project) };
+  return { project: projectName(baseDraftFor(allProjects, project)) };
 }
 
 /** Whether `scope` carries any actual constraint (vs. global). */
@@ -52,12 +88,13 @@ export function isGlobalScope(scope: EntityScope | undefined): boolean {
 
 /**
  * Is `entity` visible from `ctx`? Global entities are always visible; scoped ones
- * only when their project or series matches the vantage point.
+ * only when their project names a draft of the vantage story, or their series
+ * matches the vantage series.
  */
 export function isEntityVisible(entity: CodexEntity, ctx: ScopeContext): boolean {
   const scope = entity.scope;
   if (isGlobalScope(scope)) return true;
-  if (scope?.project && ctx.projectName && scope.project === ctx.projectName) return true;
+  if (scope?.project && ctx.projectNames.includes(scope.project)) return true;
   if (scope?.series && ctx.seriesName && scope.series === ctx.seriesName) return true;
   return false;
 }
@@ -72,8 +109,8 @@ export function filterToScope(entities: CodexEntity[], ctx: ScopeContext): Codex
  * candidates to what that entity can actually see (a series-scoped character must
  * not link a character from another series it can't even see). Returns null for a
  * global entity: it has no scope to constrain by, so candidates aren't filtered. A
- * project-scoped entity resolves its series from `projects` so its series-mates
- * stay linkable.
+ * project-scoped entity resolves its owning STORY from `projects` — matching any
+ * draft's basename — so its story- and series-mates stay linkable.
  */
 export function scopeContextForEntity(
   entity: CodexEntity,
@@ -81,10 +118,12 @@ export function scopeContextForEntity(
 ): ScopeContext | null {
   const scope = entity.scope;
   if (isGlobalScope(scope)) return null;
-  if (scope?.series) return { projectName: null, seriesName: scope.series };
+  if (scope?.series) return { projectNames: [], seriesName: scope.series };
   const owner = projects.find((p) => projectName(p) === scope?.project);
-  return {
-    projectName: scope?.project ?? null,
-    seriesName: owner ? projectSeries(owner)?.name ?? null : null,
-  };
+  if (!owner) {
+    // Scoped to a draft that no longer exists: keep the recorded name so
+    // same-scoped entities stay linkable, but no story/series to widen to.
+    return { projectNames: scope?.project ? [scope.project] : [], seriesName: null };
+  }
+  return scopeContextForProject(owner, projects);
 }

@@ -40,7 +40,8 @@ export class EditSceneModal extends Modal {
       this.file,
       this.project,
       this.plugin?.settings.disabledFeatures ?? [],
-      (path) => this.plugin?.selfWrites.mark(path)
+      (path) => this.plugin?.selfWrites.mark(path),
+      this.plugin?.store.getProjects() ?? (this.project ? [this.project] : [])
     );
 
     new Setting(contentEl)

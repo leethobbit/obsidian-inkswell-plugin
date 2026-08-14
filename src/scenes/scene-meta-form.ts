@@ -63,7 +63,9 @@ export function renderSceneMetaFields(
   file: TFile,
   project: Project | null = null,
   disabledFeatures: readonly string[] = [],
-  markWrite?: (path: string) => void
+  markWrite?: (path: string) => void,
+  /** Full project list — needed to widen the scope vantage to the whole story. */
+  allProjects: Project[] = project ? [project] : []
 ): void {
   const meta = readSceneMeta(app, file);
   const save = (patch: Partial<SceneMeta>) => {
@@ -82,7 +84,10 @@ export function renderSceneMetaFields(
       "Couldn't save the scene change."
     );
   };
-  const entities = filterToScope(getCodexEntities(app), scopeContextForProject(project));
+  const entities = filterToScope(
+    getCodexEntities(app),
+    scopeContextForProject(project, allProjects)
+  );
 
   // Status
   field(container, "Status", (host) => {

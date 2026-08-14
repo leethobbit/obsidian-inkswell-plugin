@@ -14,6 +14,7 @@ import { ActiveProject, resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
 import { tryFileOp } from "../lib/notify";
+import { tagScroller } from "../lib/scroll-preserve";
 import { addSceneMenuItems } from "../scenes/scene-actions";
 import { promptNewScene } from "./create-scene";
 import { EditSceneModal } from "../scenes/edit-scene-modal";
@@ -107,6 +108,7 @@ export class BoardPanel {
         : buildColumns(items, this.field);
     this.columns = cols;
     const board = container.createDiv({ cls: "inkswell-board__cols" });
+    tagScroller(board, "board-cols");
     for (const col of cols) this.renderColumn(board, col, project);
   }
 
@@ -248,7 +250,9 @@ export class BoardPanel {
     const value = key || undefined;
     const patch =
       this.field === "status" ? { status: value as BoardItem["status"] } : { pov: value };
-    // Writing the scene frontmatter triggers a store refresh → host re-renders.
+    // Self-write mark → the host soft-refreshes Structure in place (the column
+    // strip keeps its scroll) instead of tearing the body down.
+    this.plugin.selfWrites.mark(file.path);
     void tryFileOp(() => writeSceneMeta(this.app, file, patch), "Couldn't move the card.");
   }
 

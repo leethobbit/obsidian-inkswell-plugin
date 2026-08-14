@@ -31,17 +31,21 @@ async function ensureFolderDeep(app: App, path: string): Promise<void> {
 }
 
 /**
- * Create a new draft of `source` named `newName` (a full copy). `originalName`
- * names the original draft when it had no `draftTitle` yet (the lone original
- * being split). Returns the new index note, or null if it couldn't be created.
+ * Create a new draft of `source` named `newName` (a full copy). `anchor` is the
+ * story's base draft — the copy is placed under ITS folder's `Drafts/`, so
+ * creating a draft from a copied draft never nests (`Drafts/A/Drafts/B/…`).
+ * `originalName` names the original draft when it had no `draftTitle` yet (the
+ * lone original being split). Returns the new index note, or null if it
+ * couldn't be created.
  */
 export async function createDraft(
   app: App,
   source: Project,
+  anchor: Project,
   newName: string,
   originalName: string
 ): Promise<TFile | null> {
-  const plan = planDraftCopy(source, newName, originalName);
+  const plan = planDraftCopy(source, anchor, newName, originalName);
 
   if (app.vault.getAbstractFileByPath(plan.indexPath)) {
     new Notice(`A draft note already exists at "${plan.indexPath}".`);

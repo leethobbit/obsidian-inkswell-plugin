@@ -14,6 +14,8 @@ import { runCompile } from "./src/compile/engine";
 import { resolveCompileConfig } from "./src/compile/config";
 import { TargetModal } from "./src/goals/target-modal";
 import { Idea, newIdeaId } from "./src/ideation/types";
+import { baseDraftFor } from "./src/projects/stories";
+import { backupPluginData } from "./src/lib/data-backup";
 import { countWords } from "./src/lib/wordcount";
 import { promptText } from "./src/scenes/scene-actions";
 import { ActiveProject, resolveActive } from "./src/projects/active-project";
@@ -60,6 +62,11 @@ export default class InkswellPlugin extends Plugin {
 
   async onload(): Promise<void> {
     await this.loadPersisted();
+    // Daily rolling backup of data.json (settings, writing log, sprints,
+    // ideas) — File Recovery never sees files outside the vault, so this is
+    // that data's only safety net. Runs right after load so it captures the
+    // pre-session state, before anything this session writes.
+    if (this.manifest.dir) void backupPluginData(this.app, this.manifest.dir);
 
     this.store = new ProjectStore(this.app);
     this.stats = new ProjectStats(this.app);
@@ -279,7 +286,17 @@ export default class InkswellPlugin extends Plugin {
     this.addCommand({
       id: "set-word-target",
       name: "Set word target for the active project",
-      callback: () => this.withActiveProject((p) => new TargetModal(this.app, p).open()),
+      callback: () =>
+        this.withActiveProject((p) =>
+          // Goals are story-level: write the BASE draft, like the Home hero
+          // card — writing the active copy would silently change nothing the
+          // progress views read.
+          new TargetModal(
+            this.app,
+            baseDraftFor(this.store.getProjects(), p),
+            (path) => this.selfWrites.mark(path)
+          ).open()
+        ),
     });
     this.addCommand({
       id: "log-revision",

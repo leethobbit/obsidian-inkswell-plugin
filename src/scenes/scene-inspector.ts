@@ -55,7 +55,15 @@ export class SceneInspector implements RightPanel {
 
     const disabled = this.plugin.settings.disabledFeatures;
     const markWrite = (path: string) => this.plugin.selfWrites.mark(path);
-    renderSceneMetaFields(container, this.app, file, ctx.project, disabled, markWrite);
+    renderSceneMetaFields(
+      container,
+      this.app,
+      file,
+      ctx.project,
+      disabled,
+      markWrite,
+      this.plugin.store.getProjects()
+    );
 
     // Revision audit — collapsed by default so it doesn't crowd the drafting
     // metadata. The 14-point scene checklist (Revise → Audit) lives here too.

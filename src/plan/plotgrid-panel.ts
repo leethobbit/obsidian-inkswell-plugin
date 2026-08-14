@@ -14,6 +14,7 @@
 
 import { App, Menu, Notice, TFile, setIcon } from "obsidian";
 import { tryFileOp } from "../lib/notify";
+import { tagScroller } from "../lib/scroll-preserve";
 import { attachRowMenu } from "../lib/row-menu";
 import { promptNewScene } from "../outliner/create-scene";
 import {
@@ -142,6 +143,7 @@ export class PlotGridPanel {
     this.renderToolbar(container, grid);
 
     const scroller = container.createDiv({ cls: "inkswell-plotgrid__scroll" });
+    tagScroller(scroller, "plotgrid");
     const table = scroller.createDiv({ cls: "inkswell-plotgrid__table" });
     table.style.setProperty("--plotgrid-cols", String(this.visible.length));
 
@@ -638,12 +640,21 @@ export class PlotGridPanel {
     return f instanceof TFile ? f : null;
   }
 
+  /** Mark a write as our own so the host soft-refreshes in place (scroll and
+   *  focus survive) instead of tearing the body down. Multi-file operations
+   *  must mark EVERY path they touch — one unmarked path in the notify batch
+   *  voids coverage for the whole refresh. */
+  private mark(path: string): void {
+    this.plugin.selfWrites.mark(path);
+  }
+
   /** Persist a plotline-list transform, applied to the CURRENT stored list —
    *  never this panel's render-time `configured()` snapshot, which the host's
    *  editing-guard deferral can keep stale (the lost-update class). */
   private persist(transform: (current: Plotline[]) => Plotline[]): void {
     const file = this.indexFile();
     if (!file) return;
+    this.mark(file.path);
     void tryFileOp(
       () => updatePlotlines(this.app, file, transform),
       "Couldn't save the plotlines."
@@ -689,6 +700,7 @@ export class PlotGridPanel {
       patch.chapter = toChapter || undefined;
     }
     if (Object.keys(patch).length === 0) return;
+    this.mark(file.path);
     await tryFileOp(() => writeSceneMeta(this.app, file, patch), "Couldn't move the scene.");
   }
 
@@ -726,8 +738,12 @@ export class PlotGridPanel {
         const f = this.app.vault.getAbstractFileByPath(s.path);
         if (!(f instanceof TFile)) continue;
         const next = renamePlotlineTag(readSceneMeta(this.app, f).plotlines, col.title, t);
-        if (next) await writeSceneMeta(this.app, f, { plotlines: next });
+        if (next) {
+          this.mark(f.path);
+          await writeSceneMeta(this.app, f, { plotlines: next });
+        }
       }
+      this.mark(file.path);
       await updatePlotlines(this.app, file, (cur) =>
         upsertPlotline(cur, { id: col.id, title: t })
       );
@@ -747,6 +763,7 @@ export class PlotGridPanel {
     if (!file) return;
     await tryFileOp(async () => {
       await this.stripTag(col.title);
+      this.mark(file.path);
       await updatePlotlines(this.app, file, (cur) => removePlotline(cur, col.id));
     }, "Couldn't delete the plotline.");
   }
@@ -776,7 +793,10 @@ export class PlotGridPanel {
   private async stripTag(title: string): Promise<void> {
     for (const f of this.taggedScenes(title)) {
       const next = removePlotlineTag(readSceneMeta(this.app, f).plotlines, title);
-      if (next) await writeSceneMeta(this.app, f, { plotlines: next });
+      if (next) {
+        this.mark(f.path);
+        await writeSceneMeta(this.app, f, { plotlines: next });
+      }
     }
   }
 }

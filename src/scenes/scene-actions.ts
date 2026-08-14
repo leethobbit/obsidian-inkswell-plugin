@@ -130,7 +130,12 @@ export function openScene(app: App, file: TFile): void {
   void leaf.openFile(file, { active: true });
 }
 
-export async function editSynopsis(app: App, file: TFile): Promise<void> {
+export async function editSynopsis(
+  app: App,
+  file: TFile,
+  /** Marks the write as the app's own so the host soft-refreshes in place. */
+  mark: (path: string) => void = () => {}
+): Promise<void> {
   const current = readSceneMeta(app, file).synopsis ?? "";
   const value = await promptText(app, {
     title: `Synopsis — ${file.basename}`,
@@ -139,6 +144,7 @@ export async function editSynopsis(app: App, file: TFile): Promise<void> {
     cta: "Save",
   });
   if (value !== null) {
+    mark(file.path);
     await tryFileOp(() => writeSceneMeta(app, file, { synopsis: value }), "Couldn't save the synopsis.");
   }
 }
@@ -152,7 +158,9 @@ export async function renameScene(
   app: App,
   project: Project,
   oldTitle: string,
-  file: TFile
+  file: TFile,
+  /** Marks the writes as the app's own so the host soft-refreshes in place. */
+  mark: (path: string) => void = () => {}
 ): Promise<string | null> {
   const input = await promptText(app, {
     title: "Rename scene",
@@ -178,6 +186,13 @@ export async function renameScene(
   // Tell the store's rename-heal this rename is app-initiated — we update the
   // index below, so the heal must not also fire (a redundant/racing write).
   expectInAppRename(newPath);
+  // The store fingerprints this operation as exactly these three paths: the
+  // scene under its old path (S| entry removed), its new path (S| added), and
+  // the index (I|/P| — renameSceneInIndex below). Mark all three so the whole
+  // notify batch is covered; a leftover mark expires in the registry window.
+  mark(file.path);
+  mark(newPath);
+  mark(project.vaultPath);
   const ok = await tryFileOp(async () => {
     await app.fileManager.renameFile(file, newPath);
     const indexFile = app.vault.getAbstractFileByPath(project.vaultPath);
@@ -227,6 +242,9 @@ export function addSceneMenuItems(
     onRenamed?: (newPath: string) => void;
   } = {}
 ): void {
+  // Self-write marking rides the plugin handle when the caller has one; menus
+  // opened without it (no plugin in scope) fall back to a full rebuild.
+  const mark = (p: string): void => opts.plugin?.selfWrites.mark(p);
   if (opts.includeOpen) {
     menu.addItem((i) =>
       i.setTitle("Open").setIcon("file-text").onClick(() => openScene(app, file))
@@ -236,11 +254,11 @@ export function addSceneMenuItems(
     i.setTitle("Edit scene…").setIcon("settings-2").onClick(() => new EditSceneModal(app, file, project, opts.plugin ?? null).open())
   );
   menu.addItem((i) =>
-    i.setTitle("Edit synopsis…").setIcon("text").onClick(() => void editSynopsis(app, file))
+    i.setTitle("Edit synopsis…").setIcon("text").onClick(() => void editSynopsis(app, file, mark))
   );
   menu.addItem((i) =>
     i.setTitle("Rename…").setIcon("pencil").onClick(async () => {
-      const newPath = await renameScene(app, project, title, file);
+      const newPath = await renameScene(app, project, title, file, mark);
       if (newPath) opts.onRenamed?.(newPath);
     })
   );

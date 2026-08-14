@@ -13,6 +13,7 @@ import { isEntityVisible, scopeContextForProject } from "./codex-scope";
 import { starterCodexTemplate, codexTemplatesReadme } from "./codex-template";
 import { SCENE_TEMPLATE_BASENAME, starterSceneTemplate } from "../scenes/scene-template";
 import { applyTemplateVars } from "../lib/template";
+import { representativeDrafts } from "../projects/stories";
 import { Project } from "../projects/types";
 import { FolderSettings, resolveTemplateFolder, sanitizeSegment } from "../settings/folders";
 import {
@@ -105,18 +106,22 @@ function referencesByFrontmatter(app: App, file: TFile, entityName: string): boo
  *
  * Scoped to scenes the entity can see: a global entity scans every project; a
  * project/series-scoped one only its own book(s), so a same-named entity in an
- * unrelated book doesn't cross-match. Body text is read via `cachedRead`
- * (Obsidian-cached), so re-scans on a panel re-render are cheap.
+ * unrelated book doesn't cross-match. Stories are collapsed to ONE draft each
+ * (the active one, else the base) — every draft copies the same scene titles,
+ * so scanning them all would list each appearance once per draft. Body text is
+ * read via `cachedRead` (Obsidian-cached), so re-scans on a panel re-render
+ * are cheap.
  */
 export async function scenesForEntity(
   app: App,
   projects: Project[],
-  entity: CodexEntity
+  entity: CodexEntity,
+  activePath: string | null = null
 ): Promise<TFile[]> {
   const files: TFile[] = [];
   const seen = new Set<string>();
-  for (const project of projects) {
-    if (!isEntityVisible(entity, scopeContextForProject(project))) continue;
+  for (const project of representativeDrafts(projects, activePath)) {
+    if (!isEntityVisible(entity, scopeContextForProject(project, projects))) continue;
     for (const scene of project.scenes) {
       if (!scene.path || seen.has(scene.path)) continue;
       const f = app.vault.getAbstractFileByPath(scene.path);

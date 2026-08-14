@@ -16,7 +16,7 @@
 
 import { App, Menu, Notice } from "obsidian";
 import { FeatureId, featureEnabled } from "../features";
-import { preserveFocus } from "../lib/focus-preserve";
+import { preserveUi } from "../lib/scroll-preserve";
 import { renderHint } from "../help/hint";
 import { BoardPanel } from "../outliner/board-panel";
 import { ActiveProject } from "../projects/active-project";
@@ -70,12 +70,14 @@ export class StructurePanel {
    *
    * Soft-path rule: this fires while a field can still be focused (the host
    * checks self-writes BEFORE its editing guard), so the rebuild is wrapped in
-   * preserveFocus — a chapter-target edit committed while another target field
-   * held the caret must not destroy that field mid-keystroke.
+   * preserveUi — a chapter-target edit committed while another target field
+   * held the caret must not destroy that field mid-keystroke, and the Grid's /
+   * Board's own scrollers (recreated by their render()) must keep their
+   * positions.
    */
   softRefresh(): void {
     if (this.container?.isConnected) {
-      preserveFocus(this.container, () => this.render(this.container as HTMLElement));
+      preserveUi(this.container, () => this.render(this.container as HTMLElement));
     }
   }
 

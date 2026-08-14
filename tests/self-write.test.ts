@@ -69,6 +69,30 @@ describe("SelfWriteRegistry", () => {
     expect(reg.coveredBy(new Set(["Codex/Mina.md"]))).toBe(true);
   });
 
+  it("covers a multi-path batch when EVERY path is marked, consuming all marks", () => {
+    // The contract multi-file panel ops rely on (plotline rename: N scene
+    // writes + the index write in one notify batch).
+    const { reg } = withClock();
+    reg.mark("Book/Scenes/01.md");
+    reg.mark("Book/Scenes/02.md");
+    reg.mark("Book/Book.md");
+    const batch = new Set(["Book/Scenes/01.md", "Book/Scenes/02.md", "Book/Book.md"]);
+    expect(reg.coveredBy(batch)).toBe(true);
+    // All three marks were consumed together.
+    expect(reg.coveredBy(new Set(["Book/Scenes/01.md"]))).toBe(false);
+    expect(reg.coveredBy(new Set(["Book/Book.md"]))).toBe(false);
+  });
+
+  it("double-marking one path still vouches for exactly one notify", () => {
+    // Two writes coalescing into one store notify: both mark() calls collapse
+    // to one Map entry, which the single notify consumes.
+    const { reg } = withClock();
+    reg.mark("Codex/Mina.md");
+    reg.mark("Codex/Mina.md");
+    expect(reg.coveredBy(new Set(["Codex/Mina.md"]))).toBe(true);
+    expect(reg.coveredBy(new Set(["Codex/Mina.md"]))).toBe(false);
+  });
+
   it("honors a custom window", () => {
     const { reg, tick } = withClock();
     reg.mark("Codex/Mina.md");

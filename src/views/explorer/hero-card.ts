@@ -51,6 +51,7 @@ export class HeroCard {
     const indexFile = this.indexFile(base);
     const saveOverview = (patch: Partial<typeof overview>) => {
       if (indexFile) {
+        this.plugin.selfWrites.mark(indexFile.path);
         void tryFileOp(() => persistOverview(this.app, indexFile, patch), "Couldn't save the change.");
       }
     };
@@ -115,6 +116,7 @@ export class HeroCard {
       // Field-level patch merged against the CURRENT stored goals — never
       // writes the render-time snapshot, so a deadline set in the TargetModal
       // meanwhile survives this inline edit.
+      this.plugin.selfWrites.mark(indexFile.path);
       void tryFileOp(
         () => persistGoalsPatch(this.app, indexFile, { target: val }),
         "Couldn't save the word target."
@@ -123,7 +125,8 @@ export class HeroCard {
     control.createSpan({ cls: "inkswell-hero__unit", text: "words" });
     const more = control.createEl("button", { cls: "inkswell-hero__more", text: "⋯" });
     more.setAttribute("aria-label", "Deadline & pace");
-    more.onclick = () => new TargetModal(this.app, base).open();
+    more.onclick = () =>
+      new TargetModal(this.app, base, (p) => this.plugin.selfWrites.mark(p)).open();
 
     if (!this.plugin.settings.showWordCounts) return;
     const bar = meta.createDiv({ cls: "inkswell-progress inkswell-hero__bar" });
@@ -170,6 +173,7 @@ export class HeroCard {
       if (!indexFile) return;
       try {
         const path = await setCoverFromUpload(this.app, project, file);
+        this.plugin.selfWrites.mark(indexFile.path);
         await persistOverview(this.app, indexFile, { cover: path });
       } catch (e) {
         console.error(e);
@@ -184,6 +188,7 @@ export class HeroCard {
     if (!file) return;
     const indexFile = this.indexFile(project);
     if (indexFile) {
+      this.plugin.selfWrites.mark(indexFile.path);
       await tryFileOp(() => persistOverview(this.app, indexFile, { cover: file.path }), "Couldn't set the cover image.");
     }
   }
@@ -192,7 +197,10 @@ export class HeroCard {
     await tryFileOp(async () => {
       await cleanupOwnedCover(this.app, project);
       const indexFile = this.indexFile(project);
-      if (indexFile) await persistOverview(this.app, indexFile, { cover: "" });
+      if (indexFile) {
+        this.plugin.selfWrites.mark(indexFile.path);
+        await persistOverview(this.app, indexFile, { cover: "" });
+      }
     }, "Couldn't remove the cover image.");
   }
 

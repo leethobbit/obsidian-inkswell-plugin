@@ -17,7 +17,7 @@ import { attachRowMenu } from "../../lib/row-menu";
 import { ProjectStats } from "../../projects/project-stats";
 import { ProjectStore } from "../../projects/project-store";
 import { Project, isMultiScene } from "../../projects/types";
-import { baseDraftFor, groupIntoStories } from "../../projects/stories";
+import { baseDraftFor, groupIntoStories, representativeDrafts } from "../../projects/stories";
 import { Series, groupIntoSeries, projectSeries } from "../../series/series";
 import { promptNewScene } from "../../outliner/create-scene";
 import { HeroCard } from "./hero-card";
@@ -60,7 +60,7 @@ export class ExplorerPanel {
     this.onSelectScene = onSelectScene;
 
     this.hero = new HeroCard(app, plugin, store, stats);
-    this.reconcile = new ReconcileBanner(app);
+    this.reconcile = new ReconcileBanner(app, (p) => plugin.selfWrites.mark(p));
     this.seriesMenu = new SeriesMenu(app, store);
     this.sceneRows = new SceneRows(app, plugin, stats, onSelectScene);
   }
@@ -106,14 +106,12 @@ export class ExplorerPanel {
     }
 
     // Collapse drafts: a story (projects sharing a `longform.title`) lists once,
-    // represented by the active draft when one is in focus, else its first draft.
+    // represented by the active draft when one is in focus, else its base draft.
     // The `⋯` drafts menu + draft dropdown in the header switch between drafts.
     const activePath = this.plugin.activeProject.get();
     const stories = groupIntoStories(projects);
     this.storyCounts = new Map(stories.map((s) => [s.title, s.drafts.length]));
-    const representatives = stories.map(
-      (s) => s.drafts.find((d) => d.vaultPath === activePath) ?? s.drafts[0]
-    );
+    const representatives = representativeDrafts(projects, activePath);
 
     const { series, standalone } = groupIntoSeries(representatives);
 

@@ -407,4 +407,43 @@ export const HELP_SECTIONS: HelpSection[] = [
       );
     },
   },
+  {
+    phase: "Your data & backups",
+    icon: "shield-check",
+    summary: "Where everything is stored, and how to recover it.",
+    body: (el) => {
+      p(
+        el,
+        "Everything Inkswell stores is plain text. Scene prose is ordinary notes in your " +
+          "project's scene folder. Plan data — beats, outline structure, goals, the " +
+          "revision log, audit checklists, compile and publishing settings — lives in the " +
+          "frontmatter of your PROJECT INDEX NOTE: the note named after your project, next " +
+          "to your scenes. Codex entries are ordinary notes with a codex key. Plugin " +
+          "settings, writing history, sprints, and the ideas inbox live in the plugin's " +
+          "data.json."
+      );
+      el.createEl("h4", { text: "If something goes wrong" });
+      p(
+        el,
+        "Obsidian's File Recovery (Settings → File Recovery → View) keeps periodic " +
+          "snapshots of every note that changes, including ones Inkswell writes. Its " +
+          "search matches FILE NAMES: for plan data, search for your project's name and " +
+          "open the index note's snapshots; for prose, search the scene's name."
+      );
+      p(
+        el,
+        "Whenever Inkswell must displace a version of your text — resolving an " +
+          "editor-vs-disk conflict, or overwriting a file during compile at your request " +
+          "— the displaced version is saved to the “Inkswell conflicts” folder first. " +
+          "Nothing is silently discarded."
+      );
+      p(
+        el,
+        "Inkswell also keeps a daily backup of data.json (the last 7 days) in a " +
+          "backups folder next to it — inside the plugin's own folder under your " +
+          "vault's configuration directory. To restore one: disable Inkswell, copy " +
+          "the backup over data.json, and re-enable."
+      );
+    },
+  },
 ];

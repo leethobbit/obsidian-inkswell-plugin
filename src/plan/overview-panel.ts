@@ -10,7 +10,7 @@
  */
 
 import { App, TFile } from "obsidian";
-import { tagField } from "../lib/focus-preserve";
+import { preserveFocus, tagField } from "../lib/focus-preserve";
 import { tryFileOp } from "../lib/notify";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { persistOverview } from "../projects/index-writer";
@@ -59,6 +59,15 @@ export class OverviewPanel {
     this.active = active;
   }
 
+  /** Re-render in place after a notify caused by our own field writes (marked
+   *  as self-writes), so the host's `.inkswell-content` scroller — and the
+   *  field being edited — survive instead of a full body teardown. */
+  softRefresh(): void {
+    if (this.container?.isConnected) {
+      preserveFocus(this.container, () => this.render(this.container as HTMLElement));
+    }
+  }
+
   render(container: HTMLElement): void {
     this.container = container;
     container.empty();
@@ -93,6 +102,7 @@ export class OverviewPanel {
       input.value = (overview[f.key] as string) ?? "";
       input.onchange = () => {
         if (indexFile) {
+          this.plugin.selfWrites.mark(indexFile.path);
           void tryFileOp(
             () => persistOverview(this.app, indexFile, { [f.key]: input.value.trim() }),
             `Couldn't save the ${f.label.toLowerCase()}.`
@@ -161,7 +171,12 @@ export class OverviewPanel {
   private async rememberNote(project: Project, file: TFile): Promise<void> {
     if (project.inkswell?.overview?.planningNote === file.path) return;
     const indexFile = this.indexFile(project);
-    if (indexFile) await persistOverview(this.app, indexFile, { planningNote: file.path });
+    if (indexFile) {
+      // Mark only the index write — the planning note itself carries no
+      // `longform` key, so the store never fingerprints it into a notify.
+      this.plugin.selfWrites.mark(indexFile.path);
+      await persistOverview(this.app, indexFile, { planningNote: file.path });
+    }
   }
 
   private indexFile(project: Project): TFile | null {

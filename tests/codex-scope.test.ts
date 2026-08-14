@@ -26,9 +26,25 @@ function project(title: string, series?: Partial<SeriesInfo> | null, path?: stri
   };
 }
 
+/** A named draft of a story (same `title`, its own path + draftTitle). */
+function draft(
+  title: string,
+  draftTitle: string,
+  path: string,
+  series?: Partial<SeriesInfo> | null
+): Project {
+  const p = project(title, series, path);
+  return { ...p, draft: { ...p.draft, draftTitle, titleInFrontmatter: true } };
+}
+
 function entity(name: string, scope?: EntityScope): CodexEntity {
   return { path: `Codex/${name}.md`, name, category: "character", aliases: [], scope };
 }
+
+/** The canonical two-draft story: base at the story root, copy under Drafts/. */
+const NOVEL_BASE = draft("Novel", "First Draft", "Books/Novel/Novel.md");
+const NOVEL_D2 = draft("Novel", "Second Draft", "Books/Novel/Drafts/Second/Novel — Second.md");
+const TWO_DRAFTS = [NOVEL_BASE, NOVEL_D2];
 
 describe("projectName", () => {
   it("is the index-note basename without extension or folders", () => {
@@ -39,68 +55,99 @@ describe("projectName", () => {
 
 describe("scopeContextForProject", () => {
   it("derives series from the active project", () => {
-    expect(scopeContextForProject(project("Book One", { name: "Saga" }))).toEqual({
-      projectName: "Book One",
+    const p = project("Book One", { name: "Saga" });
+    expect(scopeContextForProject(p, [p])).toEqual({
+      projectNames: ["Book One"],
       seriesName: "Saga",
     });
   });
 
-  it("leaves series null for a standalone project, and both null for none", () => {
-    expect(scopeContextForProject(project("Solo"))).toEqual({
-      projectName: "Solo",
+  it("leaves series null for a standalone project, and empty for none", () => {
+    const p = project("Solo");
+    expect(scopeContextForProject(p, [p])).toEqual({
+      projectNames: ["Solo"],
       seriesName: null,
     });
-    expect(scopeContextForProject(null)).toEqual({ projectName: null, seriesName: null });
+    expect(scopeContextForProject(null, [p])).toEqual({ projectNames: [], seriesName: null });
+  });
+
+  it("carries EVERY draft of the active story, from either draft's vantage", () => {
+    const names = ["Novel", "Novel — Second"];
+    expect(scopeContextForProject(NOVEL_BASE, TWO_DRAFTS).projectNames).toEqual(names);
+    expect(scopeContextForProject(NOVEL_D2, TWO_DRAFTS).projectNames).toEqual(names);
+  });
+
+  it("resolves series from the base draft when a sibling copy carries a stale one", () => {
+    const base = draft("Novel", "First", "Books/Novel/Novel.md", { name: "Saga" });
+    const copy = draft("Novel", "Second", "Books/Novel/Drafts/S/Novel — S.md", {
+      name: "Old Saga Name",
+    });
+    expect(scopeContextForProject(copy, [base, copy]).seriesName).toBe("Saga");
   });
 });
 
 describe("defaultScopeForProject", () => {
   it("prefers the series when the active book belongs to one", () => {
-    expect(defaultScopeForProject(project("Book One", { name: "Saga" }))).toEqual({
-      series: "Saga",
-    });
+    const p = project("Book One", { name: "Saga" });
+    expect(defaultScopeForProject(p, [p])).toEqual({ series: "Saga" });
   });
 
   it("falls back to the book for a standalone project", () => {
-    expect(defaultScopeForProject(project("Solo"))).toEqual({ project: "Solo" });
+    const p = project("Solo");
+    expect(defaultScopeForProject(p, [p])).toEqual({ project: "Solo" });
   });
 
   it("is global when no project is active", () => {
-    expect(defaultScopeForProject(null)).toEqual({});
+    expect(defaultScopeForProject(null, [])).toEqual({});
+  });
+
+  it("normalizes to the BASE draft's basename when a later draft is active", () => {
+    expect(defaultScopeForProject(NOVEL_D2, TWO_DRAFTS)).toEqual({ project: "Novel" });
   });
 });
 
 describe("isEntityVisible", () => {
-  const sagaCtx = { projectName: "Book One", seriesName: "Saga" };
+  const sagaCtx = { projectNames: ["Book One"], seriesName: "Saga" };
 
   it("shows untagged (global) entities everywhere", () => {
     expect(isEntityVisible(entity("Narrator"), sagaCtx)).toBe(true);
     expect(isEntityVisible(entity("Narrator", {}), sagaCtx)).toBe(true);
-    expect(isEntityVisible(entity("Narrator"), { projectName: null, seriesName: null })).toBe(true);
+    expect(isEntityVisible(entity("Narrator"), { projectNames: [], seriesName: null })).toBe(true);
   });
 
   it("shows a series-tagged entity to any book in that series", () => {
     expect(isEntityVisible(entity("Aragorn", { series: "Saga" }), sagaCtx)).toBe(true);
     expect(isEntityVisible(entity("Aragorn", { series: "Saga" }), {
-      projectName: "Book Two",
+      projectNames: ["Book Two"],
       seriesName: "Saga",
     })).toBe(true);
   });
 
   it("hides a series-tagged entity from a different (or no) series", () => {
     expect(isEntityVisible(entity("Aragorn", { series: "Saga" }), {
-      projectName: "Thriller",
+      projectNames: ["Thriller"],
       seriesName: "Crime",
     })).toBe(false);
     expect(isEntityVisible(entity("Aragorn", { series: "Saga" }), {
-      projectName: "Solo",
+      projectNames: ["Solo"],
       seriesName: null,
     })).toBe(false);
   });
 
-  it("shows a project-tagged entity only to that exact book", () => {
+  it("shows a project-tagged entity only to its own story", () => {
     expect(isEntityVisible(entity("Vance", { project: "Book One" }), sagaCtx)).toBe(true);
     expect(isEntityVisible(entity("Vance", { project: "Book Two" }), sagaCtx)).toBe(false);
+  });
+
+  it("the user-reported bug: base-scoped entity is visible from a NEW draft (and vice versa)", () => {
+    const fromD2 = scopeContextForProject(NOVEL_D2, TWO_DRAFTS);
+    const fromBase = scopeContextForProject(NOVEL_BASE, TWO_DRAFTS);
+    // Entity created under the original draft, viewed from the copy…
+    expect(isEntityVisible(entity("Alice", { project: "Novel" }), fromD2)).toBe(true);
+    // …and a legacy entity that was scoped to the copy, viewed from the original.
+    expect(isEntityVisible(entity("Bob", { project: "Novel — Second" }), fromBase)).toBe(true);
+    // A different story's entity stays invisible from both.
+    expect(isEntityVisible(entity("Eve", { project: "Other Book" }), fromD2)).toBe(false);
   });
 });
 
@@ -113,7 +160,7 @@ describe("filterToScope", () => {
       entity("OtherBook", { project: "Book Two" }),
       entity("OtherSeries", { series: "Crime" }),
     ];
-    const kept = filterToScope(entities, { projectName: "Book One", seriesName: "Saga" }).map(
+    const kept = filterToScope(entities, { projectNames: ["Book One"], seriesName: "Saga" }).map(
       (e) => e.name
     );
     expect(kept).toEqual(["Global", "SagaWide", "BookOnly"]);
@@ -130,27 +177,35 @@ describe("scopeContextForEntity", () => {
 
   it("scopes a series entity to its series", () => {
     expect(scopeContextForEntity(entity("Aragorn", { series: "Saga" }), projects)).toEqual({
-      projectName: null,
+      projectNames: [],
       seriesName: "Saga",
     });
   });
 
   it("scopes a project entity to its book AND resolves its series so series-mates stay linkable", () => {
     expect(scopeContextForEntity(entity("Vance", { project: "Book One" }), projects)).toEqual({
-      projectName: "Book One",
+      projectNames: ["Book One"],
       seriesName: "Saga",
     });
   });
 
   it("leaves series null for a standalone-project entity or an unknown project", () => {
     expect(scopeContextForEntity(entity("X", { project: "Solo" }), projects)).toEqual({
-      projectName: "Solo",
+      projectNames: ["Solo"],
       seriesName: null,
     });
     expect(scopeContextForEntity(entity("X", { project: "Ghost" }), projects)).toEqual({
-      projectName: "Ghost",
+      projectNames: ["Ghost"],
       seriesName: null,
     });
+  });
+
+  it("expands a project-scoped entity to its owning story's drafts", () => {
+    const ctx = scopeContextForEntity(entity("Alice", { project: "Novel" }), TWO_DRAFTS);
+    expect(ctx).toEqual({ projectNames: ["Novel", "Novel — Second"], seriesName: null });
+    // Even when the entity's recorded scope names the NON-base draft.
+    const legacy = scopeContextForEntity(entity("Bob", { project: "Novel — Second" }), TWO_DRAFTS);
+    expect(legacy?.projectNames).toEqual(["Novel", "Novel — Second"]);
   });
 
   it("a series entity's candidates exclude other series but include globals (integration)", () => {
