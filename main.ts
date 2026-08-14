@@ -14,6 +14,7 @@ import { runCompile } from "./src/compile/engine";
 import { resolveCompileConfig } from "./src/compile/config";
 import { TargetModal } from "./src/goals/target-modal";
 import { Idea, newIdeaId } from "./src/ideation/types";
+import { baseDraftFor } from "./src/projects/stories";
 import { backupPluginData } from "./src/lib/data-backup";
 import { countWords } from "./src/lib/wordcount";
 import { promptText } from "./src/scenes/scene-actions";
@@ -287,7 +288,14 @@ export default class InkswellPlugin extends Plugin {
       name: "Set word target for the active project",
       callback: () =>
         this.withActiveProject((p) =>
-          new TargetModal(this.app, p, (path) => this.selfWrites.mark(path)).open()
+          // Goals are story-level: write the BASE draft, like the Home hero
+          // card — writing the active copy would silently change nothing the
+          // progress views read.
+          new TargetModal(
+            this.app,
+            baseDraftFor(this.store.getProjects(), p),
+            (path) => this.selfWrites.mark(path)
+          ).open()
         ),
     });
     this.addCommand({

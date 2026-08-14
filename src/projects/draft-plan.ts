@@ -6,11 +6,14 @@
  * unit-testable. The Obsidian I/O that executes the plan lives beside it in
  * {@link ./draft-actions} (the pure/wrapper split the codebase enforces).
  *
- * A new draft lives at `<storyFolder>/Drafts/<name>/` with its own index note
- * (`<Title> — <name>.md`, a unique basename — the store groups drafts by the
- * frontmatter `title`, never the filename) and a `Scenes/` subfolder. Scene files
- * keep their titles/basenames, so the index's `scenes` list and any title-keyed
- * Inkswell data (revision log, beat assignments) still resolve in the copy.
+ * A new draft lives at `<storyFolder>/Drafts/<name>/` — where `<storyFolder>`
+ * is the STORY's base-draft folder, so every draft lands in one flat `Drafts/`
+ * regardless of which draft it was copied from (copying from a copy must not
+ * nest `Drafts/A/Drafts/B/…`). It gets its own index note (`<Title> — <name>.md`,
+ * a unique basename — the store groups drafts by the frontmatter `title`, never
+ * the filename) and a `Scenes/` subfolder. Scene files keep their
+ * titles/basenames, so the index's `scenes` list and any title-keyed Inkswell
+ * data (revision log, beat assignments) still resolve in the copy.
  */
 
 import { joinPath, parentFolder, sanitizeSegment as sanitize } from "../settings/folders";
@@ -40,14 +43,18 @@ export interface DraftCopyPlan {
 
 /**
  * Build the plan for copying `source` into a new draft named `newName`.
- * `originalName` is applied to the original draft only when it has no `draftTitle`.
+ * `anchor` is the story's base draft — CONTENT comes from `source` (the draft
+ * being copied), PLACEMENT from the anchor's folder, so sibling drafts never
+ * nest inside each other. `originalName` is applied to the original draft only
+ * when it has no `draftTitle`.
  */
 export function planDraftCopy(
   source: Project,
+  anchor: Project,
   newName: string,
   originalName: string
 ): DraftCopyPlan {
-  const storyFolder = parentFolder(source.vaultPath);
+  const storyFolder = parentFolder(anchor.vaultPath);
   const draftFolder = joinPath(storyFolder, "Drafts", sanitize(newName));
   const indexPath = joinPath(draftFolder, `${sanitize(`${source.draft.title} — ${newName}`)}.md`);
 

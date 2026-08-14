@@ -14,7 +14,7 @@ import { isPhone, renderPhoneRedirect } from "../lib/platform";
 import { preserveFocus } from "../lib/focus-preserve";
 import { KeyboardWatcher } from "./phone/keyboard-watch";
 import { createDraft, deleteDraft, renameDraft } from "../projects/draft-actions";
-import { draftLabel, groupIntoStories, Story, storyOf } from "../projects/stories";
+import { baseDraftFor, draftLabel, groupIntoStories, Story, storyOf } from "../projects/stories";
 import { promptText } from "../scenes/scene-actions";
 import { Project } from "../projects/types";
 import { NewDraftModal } from "./drafts-modal";
@@ -380,12 +380,15 @@ export class InkswellView extends ItemView {
   }
 
   private newDraftAction(source: Project): void {
+    // Placement anchor: the story's base draft, so a draft created FROM a
+    // copied draft still lands in the story's flat Drafts/ folder.
+    const anchor = baseDraftFor(this.plugin.store.getProjects(), source);
     new NewDraftModal(
       this.app,
       { title: source.draft.title, isFirstSplit: source.draft.draftTitle == null },
       (res) => {
         if (!res) return;
-        void createDraft(this.app, source, res.newName, res.originalName).then((file) => {
+        void createDraft(this.app, source, anchor, res.newName, res.originalName).then((file) => {
           if (file) this.plugin.activeProject.set(file.path);
         });
       }

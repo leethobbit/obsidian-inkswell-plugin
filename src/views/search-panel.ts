@@ -17,7 +17,7 @@ import { tagField } from "../lib/focus-preserve";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
-import { groupIntoStories, storyOf } from "../projects/stories";
+import { baseDraftFor, groupIntoStories, representativeDrafts, storyOf } from "../projects/stories";
 import { groupIntoSeries, projectSeries } from "../series/series";
 import { readSceneMeta, statusLabel, SCENE_STATUSES } from "../scenes/scene-meta";
 import { splitFrontmatter, stripFrontmatter } from "../lib/frontmatter";
@@ -296,9 +296,13 @@ export class SearchPanel {
         return story ? story.drafts : [active];
       }
       case "series": {
-        const info = projectSeries(active);
+        // Series membership lives on the story's base draft (a copied draft
+        // may carry a stale tag or none), and the series search covers ONE
+        // draft per book — "story" scope is where all drafts are wanted.
+        const info = projectSeries(baseDraftFor(projects, active)) ?? projectSeries(active);
         if (!info) return [active];
-        const match = groupIntoSeries(projects).series.find((s) => s.name === info.name);
+        const reps = representativeDrafts(projects, this.active.get());
+        const match = groupIntoSeries(reps).series.find((s) => s.name === info.name);
         return match ? match.books : [active];
       }
       case "vault":

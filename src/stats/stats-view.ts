@@ -487,11 +487,18 @@ export class StatsPanel {
   }
 
   private renderTargets(body: HTMLElement, daily: Record<string, number>): void {
-    // Targets are story-level: one row per story, read off its base draft (not
-    // one row per draft, which would duplicate the shared goal).
+    // Targets are story-level: one row per story, the TARGET read off its base
+    // draft (not one row per draft, which would duplicate the shared goal) but
+    // the WORDS counted from the draft being written — the focused draft when
+    // this story is active, else the base. Matches the Home hero card, and
+    // keeps the bar moving when all the writing happens in a revision draft.
+    const activePath = this.plugin.activeProject.get();
     const withTargets = groupIntoStories(this.store.getProjects())
-      .map((s) => baseDraft(s))
-      .filter((p) => p.inkswell?.goals?.target && p.inkswell.goals.target > 0);
+      .map((s) => ({
+        base: baseDraft(s),
+        counted: s.drafts.find((d) => d.vaultPath === activePath) ?? baseDraft(s),
+      }))
+      .filter((p) => p.base.inkswell?.goals?.target && p.base.inkswell.goals.target > 0);
     if (withTargets.length === 0) {
       body.createDiv({
         cls: "inkswell-stats__muted",
@@ -500,13 +507,13 @@ export class StatsPanel {
       return;
     }
     const rate = recentDailyAverage(daily, PROJECTION_WINDOW);
-    for (const project of withTargets) {
+    for (const { base: project, counted } of withTargets) {
       const target = project.inkswell!.goals!.target!;
       const row = body.createDiv({ cls: "inkswell-stats__project" });
       row.createDiv({ cls: "inkswell-stats__project-title", text: project.draft.title });
       const detail = row.createDiv({ cls: "inkswell-stats__muted" });
       const goals = project.inkswell!.goals!;
-      void this.stats.projectWords(project).then((words) => {
+      void this.stats.projectWords(counted).then((words) => {
         const p = projectFinish(words, target, rate);
         this.progressBar(row, words, target);
         if (p.done) {

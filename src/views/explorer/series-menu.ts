@@ -8,6 +8,7 @@ import { App, Menu, TFile } from "obsidian";
 import { tryFileOp } from "../../lib/notify";
 import { writeSeries } from "../../projects/index-writer";
 import { ProjectStore } from "../../projects/project-store";
+import { baseDraftFor } from "../../projects/stories";
 import { Project } from "../../projects/types";
 import { projectSeries } from "../../series/series";
 import { promptText } from "../../scenes/scene-actions";
@@ -22,8 +23,13 @@ export class SeriesMenu {
   }
 
   /** Right-click menu on a project header: series membership. */
-  projectMenu(project: Project): Menu {
+  projectMenu(row: Project): Menu {
     const menu = new Menu();
+    // Series membership is STORY-level (it describes the book): always read
+    // and write the base draft, whichever draft the row currently represents —
+    // a series tag written to a copy vanishes the moment the story unfocuses,
+    // and breaks series codex scoping from the base draft's vantage.
+    const project = baseDraftFor(this.store.getProjects(), row);
     const file = this.indexFile(project);
     if (!file) return menu;
     const info = projectSeries(project);
@@ -67,9 +73,14 @@ export class SeriesMenu {
     }
     // A book that's alone in its series is Book 1 by default; joining a series
     // that already has other books keeps any existing number (set via the menu).
-    const others = this.store
-      .getProjects()
-      .filter((p) => p.vaultPath !== project.vaultPath && projectSeries(p)?.name === trimmed);
+    // "Other books" means other STORIES — a sibling draft of this story that
+    // byte-copied the series tag must not count as another book.
+    const projects = this.store.getProjects();
+    const others = projects.filter(
+      (p) =>
+        baseDraftFor(projects, p).vaultPath !== project.vaultPath &&
+        projectSeries(p)?.name === trimmed
+    );
     const order = others.length === 0 ? 1 : cur?.order;
     await tryFileOp(() => writeSeries(this.app, file, { name: trimmed, order }), "Couldn't update the series.");
   }
