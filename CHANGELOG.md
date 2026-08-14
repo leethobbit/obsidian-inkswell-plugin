@@ -10,6 +10,8 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-08-13
+
 ### Fixed
 - **Your codex now follows you into new drafts.** Creating a new draft no longer presents an empty codex: characters, concepts, locations, and every other entry scoped to the book are visible from all of its drafts (the codex describes the story, not one draft of it). This also works retroactively — entries that "disappeared" after making a draft reappear on update, with no changes to your files. Entries created while a later draft was active are likewise visible from the original, and the scene inspector's character/location pickers offer them from any draft.
 - **New drafts no longer nest inside each other.** Creating a draft while a copied draft was active used to bury it at `Drafts/Draft 2/Drafts/Draft 3/…`; every new draft now lands in the story's one flat `Drafts/` folder, whichever draft you copied it from. Existing nested drafts keep working where they are.
@@ -266,7 +268,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.10.2...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.11.0...HEAD
+[1.11.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.10.2...1.11.0
 [1.10.2]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.10.1...1.10.2
 [1.10.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.10.0...1.10.1
 [1.10.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.9.1...1.10.0
