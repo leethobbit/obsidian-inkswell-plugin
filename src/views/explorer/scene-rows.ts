@@ -145,13 +145,17 @@ export class SceneRows {
         i
           .setTitle("Edit synopsis…")
           .setIcon("text")
-          .onClick(() => void editSynopsis(this.app, sceneFile))
+          .onClick(() => void editSynopsis(this.app, sceneFile, (p) => this.plugin.selfWrites.mark(p)))
       );
       menu.addItem((i) =>
         i
           .setTitle("Rename…")
           .setIcon("pencil")
-          .onClick(() => void renameScene(this.app, project, scene.title, sceneFile))
+          .onClick(() =>
+            void renameScene(this.app, project, scene.title, sceneFile, (p) =>
+              this.plugin.selfWrites.mark(p)
+            )
+          )
       );
     }
 
@@ -162,6 +166,11 @@ export class SceneRows {
         .setIcon("link-2-off")
         .onClick(() => {
           if (scene?.title) {
+            // Removing a scene from the index also drops its own fingerprint
+            // entry, so the notify batch names BOTH paths — mark both or the
+            // coverage check voids the soft refresh.
+            this.plugin.selfWrites.mark(file.path);
+            if (scene.path) this.plugin.selfWrites.mark(scene.path);
             void tryFileOp(
               () => updateScenes(this.app, file, (s) => removeScene(s, scene.title)),
               "Couldn't remove the scene from the project."

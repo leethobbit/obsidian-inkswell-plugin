@@ -24,7 +24,11 @@ function plural(n: number, noun: string): string {
 export class ReconcileBanner {
   private app: App;
 
-  constructor(app: App) {
+  constructor(
+    app: App,
+    /** Marks index writes as the app's own so the host soft-refreshes in place. */
+    private markWrite: (path: string) => void = () => {}
+  ) {
     this.app = app;
   }
 
@@ -79,6 +83,9 @@ export class ReconcileBanner {
     if (!file) return;
     // One transaction rewrites the scene title AND any beat links pointing at
     // it, both computed against the file's current state.
+    // NOT marked as a self-write: relinking makes the scene file resolve, so
+    // the notify batch also names the newly-resolved path (which we can't
+    // compute here) — a partial mark never covers and would only linger.
     await tryFileOp(
       () => renameSceneInIndex(this.app, file, oldTitle, newBasename),
       "Couldn't relink the scene."
@@ -88,6 +95,9 @@ export class ReconcileBanner {
   private async removeFromProject(project: Project, title: string): Promise<void> {
     const file = this.indexFile(project);
     if (!file) return;
+    // Index-only write (the removed scene is MISSING, so it has no resolved
+    // fingerprint entry of its own) — safe to mark for a soft refresh.
+    this.markWrite(file.path);
     await tryFileOp(
       () => updateScenes(this.app, file, (scenes) => removeScene(scenes, title)),
       "Couldn't remove the scene from the project."
@@ -97,6 +107,8 @@ export class ReconcileBanner {
   private async addAsScene(project: Project, basename: string): Promise<void> {
     const file = this.indexFile(project);
     if (!file) return;
+    // NOT marked: adding the scene makes its file resolve, so the notify batch
+    // also names that path — a partial mark never covers (see relink note).
     await tryFileOp(
       () => updateScenes(this.app, file, (scenes) => addScene(scenes, basename)),
       "Couldn't add the scene."
@@ -109,6 +121,7 @@ export class ReconcileBanner {
     if (!file || !isMultiScene(project.draft)) return;
     // Field-level transform of the CURRENT draft — never a whole-draft snapshot
     // write, which would rewrite `longform.scenes` from stale state too.
+    this.markWrite(file.path);
     await tryFileOp(
       () =>
         updateDraftFields(this.app, file, (d) =>

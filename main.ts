@@ -285,7 +285,10 @@ export default class InkswellPlugin extends Plugin {
     this.addCommand({
       id: "set-word-target",
       name: "Set word target for the active project",
-      callback: () => this.withActiveProject((p) => new TargetModal(this.app, p).open()),
+      callback: () =>
+        this.withActiveProject((p) =>
+          new TargetModal(this.app, p, (path) => this.selfWrites.mark(path)).open()
+        ),
     });
     this.addCommand({
       id: "log-revision",

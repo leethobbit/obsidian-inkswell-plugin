@@ -15,7 +15,12 @@ export class TargetModal extends FormModal {
   private deadline: string;
   private daysPerWeek: number;
 
-  constructor(app: App, project: Project) {
+  constructor(
+    app: App,
+    project: Project,
+    /** Marks the write as the app's own so the host soft-refreshes in place. */
+    private markWrite: (path: string) => void = () => {}
+  ) {
     super(app);
     this.project = project;
     this.value = project.inkswell?.goals?.target ?? 0;
@@ -64,6 +69,7 @@ export class TargetModal extends FormModal {
     }
     // Field-level patch against the CURRENT stored goals (this modal edits all
     // three fields, so all three are in the patch; undefined clears a field).
+    this.markWrite(file.path);
     const ok = await tryFileOp(
       () =>
         persistGoalsPatch(this.app, file, {
