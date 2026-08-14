@@ -5,7 +5,7 @@
  */
 
 import { App, Notice, TFile } from "obsidian";
-import { tagField } from "../lib/focus-preserve";
+import { preserveFocus, tagField } from "../lib/focus-preserve";
 import { tryFileOp } from "../lib/notify";
 import { writeConflictBackup } from "../lib/conflict-backup";
 import { OutputExistsError, runCompile, vaultHasFilesystem } from "../compile/engine";
@@ -49,6 +49,14 @@ export class CompilePanel {
 
   private rerender(): void {
     if (this.container) this.render(this.container);
+  }
+
+  /** Re-render in place after a notify caused by our own config writes (marked
+   *  as self-writes), keeping scroll and the field being edited alive. */
+  softRefresh(): void {
+    if (this.container?.isConnected) {
+      preserveFocus(this.container, () => this.render(this.container as HTMLElement));
+    }
   }
 
   render(container: HTMLElement): void {
@@ -407,6 +415,7 @@ export class CompilePanel {
   private update(project: Project, mutate: (cfg: CompileConfig) => void): void {
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
     if (file instanceof TFile) {
+      this.plugin.selfWrites.mark(file.path);
       void tryFileOp(
         () =>
           updateCompile(this.app, file, this.plugin.settings.defaultCompileFormat, mutate),

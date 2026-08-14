@@ -751,6 +751,25 @@ export class InkswellView extends ItemView {
         }
         return false;
       }
+      case "publish": {
+        // Checklist ticks, launch-tracker cells, and compile-config edits all
+        // autosave on blur — refresh the sub-panel in place so the long forms
+        // keep their scroll position and open sections.
+        const sub = this.effectiveSubtab("publish");
+        if (sub === "checklist") {
+          this.checklist.softRefresh();
+          return true;
+        }
+        if (sub === "launch") {
+          this.launch.softRefresh();
+          return true;
+        }
+        if (sub === "compile") {
+          this.compile.softRefresh();
+          return true;
+        }
+        return false;
+      }
       default:
         return false;
     }

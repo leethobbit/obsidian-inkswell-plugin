@@ -5,7 +5,7 @@
  */
 
 import { App, TFile } from "obsidian";
-import { tagField } from "../../lib/focus-preserve";
+import { preserveFocus, tagField } from "../../lib/focus-preserve";
 import { tryFileOp } from "../../lib/notify";
 import { resolveActive } from "../../projects/active-project";
 import { persistPublishing } from "../../projects/index-writer";
@@ -37,6 +37,7 @@ export class ChecklistPanel {
   private plugin: InkswellPlugin;
   private store: ProjectStore;
   private open = new Set<string>();
+  private container: HTMLElement | null = null;
 
   constructor(app: App, plugin: InkswellPlugin, store: ProjectStore) {
     this.app = app;
@@ -44,7 +45,17 @@ export class ChecklistPanel {
     this.store = store;
   }
 
+  /** Re-render in place after a notify caused by our own writes (marked as
+   *  self-writes), so a checkbox/notes autosave doesn't tear down the body and
+   *  reset the checklist's scroll position. Open sections restore from `open`. */
+  softRefresh(): void {
+    if (this.container?.isConnected) {
+      preserveFocus(this.container, () => this.render(this.container as HTMLElement));
+    }
+  }
+
   render(container: HTMLElement): void {
+    this.container = container;
     container.empty();
     container.addClass("inkswell-publishing");
 
@@ -134,6 +145,7 @@ export class ChecklistPanel {
     taskId: string,
     patch: Partial<ChecklistTaskState>
   ): void {
+    this.plugin.selfWrites.mark(file.path);
     void tryFileOp(
       () =>
         persistPublishing(this.app, file, (raw) => {
@@ -254,6 +266,7 @@ export class ChecklistPanel {
   }
 
   private saveMeta(file: TFile, patch: Partial<PublishingMetadata>): void {
+    this.plugin.selfWrites.mark(file.path);
     void tryFileOp(
       () =>
         persistPublishing(this.app, file, (raw) => {
@@ -270,6 +283,7 @@ export class ChecklistPanel {
     file: TFile,
     patch: Partial<NonNullable<PublishingMetadata["categories"]>>
   ): void {
+    this.plugin.selfWrites.mark(file.path);
     void tryFileOp(
       () =>
         persistPublishing(this.app, file, (raw) => {
@@ -287,6 +301,7 @@ export class ChecklistPanel {
     key: "ebook" | "paperback" | "hardcover",
     info: FormatInfo
   ): void {
+    this.plugin.selfWrites.mark(file.path);
     void tryFileOp(
       () =>
         persistPublishing(this.app, file, (raw) => {
