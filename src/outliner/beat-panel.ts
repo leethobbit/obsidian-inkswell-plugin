@@ -10,7 +10,7 @@
  */
 
 import { App, Menu, Notice, TFile } from "obsidian";
-import { tagField } from "../lib/focus-preserve";
+import { preserveFocus, tagField } from "../lib/focus-preserve";
 import { attachRowMenu } from "../lib/row-menu";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { updateBeats } from "../projects/index-writer";
@@ -44,6 +44,15 @@ export class BeatPanel {
 
   private rerender(): void {
     if (this.container) this.render(this.container);
+  }
+
+  /** Re-render in place after a notify caused by our own beat writes (marked
+   *  as self-writes), so the host's scroller and the field being edited
+   *  survive instead of a full body teardown. */
+  softRefresh(): void {
+    if (this.container?.isConnected) {
+      preserveFocus(this.container, () => this.render(this.container as HTMLElement));
+    }
   }
 
   render(container: HTMLElement): void {
@@ -130,6 +139,7 @@ export class BeatPanel {
     if (file instanceof TFile) {
       // Delta against the CURRENT sheet: switching templates must never drop
       // assignments saved since this panel last rendered.
+      this.plugin.selfWrites.mark(file.path);
       void tryFileOp(
         () =>
           updateBeats(this.app, file, (cur) => ({
@@ -281,9 +291,10 @@ export class BeatPanel {
   ): void {
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
     if (file instanceof TFile) {
-      // The frontmatter write triggers a store refresh, which re-renders this
-      // panel via the host's subscription — no immediate rerender (avoids a
-      // flicker from the stale snapshot and preserves textarea focus).
+      // The frontmatter write triggers a store refresh; the self-write mark
+      // routes it to softRefresh so the sheet re-renders in place (scroll and
+      // the focused textarea survive).
+      this.plugin.selfWrites.mark(file.path);
       void tryFileOp(
         () => updateBeats(this.app, file, (cur) => setAssignment(cur, beatId, patch)),
         "Couldn't save the beat change."
@@ -303,6 +314,7 @@ export class BeatPanel {
   ): void {
     const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
     if (file instanceof TFile) {
+      this.plugin.selfWrites.mark(file.path);
       void tryFileOp(
         () =>
           updateBeats(this.app, file, (cur) => {
