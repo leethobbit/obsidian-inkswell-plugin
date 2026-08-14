@@ -10,6 +10,9 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Fixed
+- **The plot grid no longer jumps back to the top when you tag a scene.** Tagging or untagging a scene, dragging a chip, renaming/recoloring/deleting a plotline, or dropping a card on the Board now refreshes the grid in place — scroll position (vertical and horizontal) and any focused field survive, instead of the whole panel rebuilding and landing you back at the top.
+
 ### Added
 - **Daily backups of the plugin's own data file.** Obsidian's File Recovery protects your notes but never sees the plugin's `data.json` — which holds your settings, writing history, sprints, and ideas inbox. Inkswell now keeps a daily copy (the last 7 days) in `.obsidian/plugins/inkswell/backups/`, captured at load before the session writes anything. To restore one: disable Inkswell, copy the backup over `data.json`, re-enable.
 - **A "Your data & backups" section in Help (and the README)** documenting where everything is stored — most importantly that plan data (beats, goals, revision log, checklists) lives in the *project index note's* frontmatter, so File Recovery searches for it by your **project's name** — plus the "Inkswell conflicts" folder and the new `data.json` backups.

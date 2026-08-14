@@ -250,7 +250,9 @@ export class BoardPanel {
     const value = key || undefined;
     const patch =
       this.field === "status" ? { status: value as BoardItem["status"] } : { pov: value };
-    // Writing the scene frontmatter triggers a store refresh → host re-renders.
+    // Self-write mark → the host soft-refreshes Structure in place (the column
+    // strip keeps its scroll) instead of tearing the body down.
+    this.plugin.selfWrites.mark(file.path);
     void tryFileOp(() => writeSceneMeta(this.app, file, patch), "Couldn't move the card.");
   }
 
