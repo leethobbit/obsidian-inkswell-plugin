@@ -26,6 +26,8 @@
       "PowerShell(gh run view:*)",
       "PowerShell(gh run watch:*)",
       "PowerShell(gh release view:*)",
+      "Bash(git push origin develop)",
+      "PowerShell(git push origin develop)",
       "PowerShell(git add .claude/settings.json)"
     ],
     "additionalDirectories": [
