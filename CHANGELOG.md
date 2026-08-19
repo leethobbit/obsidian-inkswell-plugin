@@ -10,6 +10,8 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-08-19
+
 ### Added
 - **Chinese, Japanese, and Korean writing now counts correctly — everywhere.** Word counting is CJK-aware: each Han, kana, or Hangul character counts as one unit (the 字数/文字数 convention used in CJK publishing), and space-delimited words count as before, so mixed-script text just works. Because every number in Inkswell flows through the one counter, this applies to scene/chapter/manuscript/project totals, daily-weekly-monthly goals, heatmaps, streaks, sprints, deadline pace, and draft milestones — and the Analysis panel's word counts and sentence detection (。！？) now agree with it. Codex "Appears in" auto-detection also finds names inside unspaced CJK prose (and Latin names flanked by CJK characters). English counts are unchanged. Existing tracked files are re-baselined once on update so the new rule doesn't show up as a phantom writing-day; history recorded before the update keeps its old (under-counted) numbers.
 - **A Ten-Point Outline beat template** (Diane Duane's method: list the ten things that must happen in your story). The beats are deliberately generic numbered points — your ten "things" go in each beat's note, and each can be broken down further by linking the scenes that deliver it.
@@ -276,7 +278,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.11.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.12.0...HEAD
+[1.12.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.11.0...1.12.0
 [1.11.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.10.2...1.11.0
 [1.10.2]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.10.1...1.10.2
 [1.10.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.10.0...1.10.1
