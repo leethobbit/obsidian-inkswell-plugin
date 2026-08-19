@@ -170,6 +170,17 @@ export default class InkswellPlugin extends Plugin {
       }
       void this.tracker.warmBaselines(codexPaths());
 
+      // Counting became CJK-aware (each Han/kana/Hangul grapheme = one word).
+      // One-time: rebuild ALL baselines under the new rule so a CJK note's
+      // next edit doesn't emit a phantom whole-file delta. English baselines
+      // recompute to the same value. History is left as-is (old text is gone).
+      if (!this.settings.cjkCountMigrated) {
+        this.settings.cjkCountMigrated = true;
+        void this.tracker
+          .rebaseline(Object.keys(this.writingLog.baselines))
+          .then(() => this.persist());
+      }
+
       // One-time upgrade notice: goals stopped counting non-project notes.
       // Only shown to installs with existing history — fresh installs just get
       // the new behavior. The flag is set either way so this never re-checks.

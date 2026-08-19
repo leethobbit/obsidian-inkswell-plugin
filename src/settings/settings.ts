@@ -63,6 +63,13 @@ export interface InkswellSettings {
    * profile on the note's next edit.
    */
   codexCountMigrated: boolean;
+  /**
+   * One-time migration flag: all baselines were recomputed under the CJK-aware
+   * counting rule (each Han/kana/Hangul grapheme = one word). Without this, a
+   * CJK manuscript's next edit would emit a phantom delta the size of the
+   * whole file. English counts are identical under both rules.
+   */
+  cjkCountMigrated: boolean;
   /** First day of the week for weekly goals, habit tracking, and the heatmap. */
   weekStart: WeekStart;
   /** Parent folder new projects + the shared codex scaffold under ("" = vault root). */
@@ -116,6 +123,7 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   excludedFromGoals: ["planning", "codex", "other"],
   categoryNoticeSeen: false,
   codexCountMigrated: false,
+  cjkCountMigrated: false,
   weekStart: "monday",
   baseFolder: "Writing",
   codexFolder: "Codex",

@@ -4,9 +4,9 @@
  * detection. Operates on prose with markdown stripped (via wordcount.stripMarkdown).
  */
 
-import { stripMarkdown } from "../lib/wordcount";
+import { CJK_SRC, stripMarkdown, tokenizeWords } from "../lib/wordcount";
 
-const WORD_RE = /[\p{L}\p{N}'’]+/gu;
+const CJK_TOKEN_RE = new RegExp(`^[${CJK_SRC}]$`, "u");
 
 const STOPWORDS = new Set(
   ("a an the and or but if then else of to in on at by for with from as is are was were be been being " +
@@ -39,9 +39,9 @@ export interface Readability {
 
 export function readability(text: string): Readability {
   const prose = stripMarkdown(text);
-  const words = prose.match(WORD_RE) || [];
+  const words = tokenizeWords(prose);
   const wordCount = words.length;
-  const sentences = Math.max(1, (prose.match(/[.!?]+/g) || []).length);
+  const sentences = Math.max(1, (prose.match(/[.!?。！？]+/g) || []).length);
   if (wordCount === 0) return { words: 0, sentences, grade: 0, ease: 0 };
   const syllables = words.reduce((s, w) => s + countSyllables(w), 0);
   const wps = wordCount / sentences;
@@ -63,8 +63,9 @@ export interface Freq {
 export function wordFrequency(text: string, topN = 20): Freq[] {
   const prose = stripMarkdown(text).toLowerCase();
   const counts = new Map<string, number>();
-  for (const w of prose.match(WORD_RE) || []) {
-    if (w.length <= 2 || STOPWORDS.has(w)) continue;
+  for (const w of tokenizeWords(prose)) {
+    // Single CJK graphemes are morphemes — the length gate is Latin-only.
+    if ((w.length <= 2 && !CJK_TOKEN_RE.test(w)) || STOPWORDS.has(w)) continue;
     counts.set(w, (counts.get(w) ?? 0) + 1);
   }
   return [...counts.entries()]
@@ -80,7 +81,7 @@ export interface Echo {
 
 /** Repeated n-word phrases (default trigrams) occurring at least `min` times. */
 export function findEchoes(text: string, n = 3, min = 2, topN = 15): Echo[] {
-  const words = (stripMarkdown(text).toLowerCase().match(WORD_RE) || []);
+  const words = tokenizeWords(stripMarkdown(text).toLowerCase());
   const counts = new Map<string, number>();
   for (let i = 0; i + n <= words.length; i++) {
     const phrase = words.slice(i, i + n).join(" ");

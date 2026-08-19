@@ -81,6 +81,19 @@ describe("detectMentions", () => {
     expect(m).not.toContain("Anna");
   });
 
+  it("matches a CJK name inside unspaced CJK prose (CJK neighbors are boundaries)", () => {
+    const cjk: CodexEntity[] = [
+      { path: "Codex/明轩.md", name: "明轩", category: "character", aliases: [] },
+    ];
+    expect(detectMentions("她对明轩说了实话。", cjk).map((x) => x.name)).toEqual(["明轩"]);
+  });
+
+  it("matches a Latin name flanked by CJK characters without spaces", () => {
+    expect(detectMentions("我和Anna说话。", entities).map((x) => x.name)).toContain("Anna");
+    // But a Latin neighbor still blocks the boundary.
+    expect(detectMentions("我和Annas说话。", entities).map((x) => x.name)).not.toContain("Anna");
+  });
+
   it("respects unicode word boundaries for accented names", () => {
     const accented: CodexEntity[] = [
       { path: "Codex/Zoe.md", name: "Zoë", category: "character", aliases: [] },
@@ -130,5 +143,18 @@ describe("firstMentionOffset", () => {
   it("does not match a substring inside a larger word", () => {
     // 'Erik' inside 'Erikson' must not produce a bogus offset.
     expect(firstMentionOffset("The Erikson estate.", erik)).toBeNull();
+  });
+
+  it("returns offsets for a CJK name with a consumed CJK boundary char", () => {
+    const ming: CodexEntity = {
+      path: "Codex/明轩.md",
+      name: "明轩",
+      category: "character",
+      aliases: [],
+    };
+    const text = "她对明轩说了实话。";
+    const hit = firstMentionOffset(text, ming)!;
+    expect(text.slice(hit.from, hit.to)).toBe("明轩");
+    expect(hit.from).toBe(text.indexOf("明轩"));
   });
 });
