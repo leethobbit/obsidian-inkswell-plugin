@@ -21,7 +21,8 @@ import { ProjectStore } from "../projects/project-store";
 import { Project, isMultiScene } from "../projects/types";
 import { readSceneMeta, writeSceneMeta } from "../scenes/scene-meta";
 import { FolderSettings, sanitizeSegment } from "../settings/folders";
-import { BeatAssignment, getTemplate, templateActs } from "./beat-templates";
+import { BeatAssignment, templateActs } from "./beat-templates";
+import { BeatTemplateDef, resolveTemplate } from "./custom-templates";
 import { buildOutline } from "./outline";
 import { ScaffoldPlan, planScaffold } from "./scaffold-plan";
 import { createSceneFile } from "./create-scene";
@@ -56,15 +57,18 @@ export interface ScaffoldAnalysis {
 /**
  * Dry-run: what would scaffolding this template do right now? Cache-only reads,
  * no writes. Returns null when the project can't be scaffolded (single-scene
- * format or missing index note).
+ * format, missing index note, or a template id unknown on this device).
  */
 export function analyzeScaffold(
   app: App,
   store: ProjectStore,
   project: Project,
-  templateId: string
+  templateId: string,
+  customs: BeatTemplateDef[]
 ): ScaffoldAnalysis | null {
   if (!isMultiScene(project.draft)) return null;
+  const template = resolveTemplate(templateId, customs);
+  if (!template) return null;
   const indexFile = app.vault.getAbstractFileByPath(project.vaultPath);
   if (!(indexFile instanceof TFile)) return null;
 
@@ -82,7 +86,6 @@ export function analyzeScaffold(
   const tree = buildOutline(project.inkswell?.acts, project.inkswell?.chapters, metas);
   const structured = tree.acts.length === 0 && tree.looseChapters.length === 0;
 
-  const template = getTemplate(templateId);
   // planScaffold emits one entry per beat, so plan.scenes[i] pairs with template[i].
   const plan: ScaffoldPlan | null = structured
     ? planScaffold(template, templateActs(templateId))
@@ -134,11 +137,12 @@ export async function scaffoldFromTemplate(
   settings: FolderSettings,
   project: Project,
   templateId: string,
+  customs: BeatTemplateDef[],
   analysis?: ScaffoldAnalysis | null
 ): Promise<ScaffoldResult> {
   const draft = project.draft;
   if (!isMultiScene(draft)) return NOTHING;
-  const a = analysis ?? analyzeScaffold(app, store, project, templateId);
+  const a = analysis ?? analyzeScaffold(app, store, project, templateId, customs);
   if (!a) return NOTHING;
   const indexFile = app.vault.getAbstractFileByPath(project.vaultPath);
   if (!(indexFile instanceof TFile)) return NOTHING;

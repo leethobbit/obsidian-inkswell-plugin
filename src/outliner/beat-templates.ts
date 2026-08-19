@@ -124,6 +124,23 @@ export const TWENTY_SEVEN_CHAPTER: BeatDef[] = TWENTY_SEVEN_LABELS.map((name, i)
   blurb: "",
 }));
 
+/**
+ * Diane Duane's ten-point outline: list the ten things that MUST happen in the
+ * story, then break each down. The method is content-agnostic, so the beats are
+ * generic numbered points — the user's "thing" goes in each beat's note.
+ */
+export const TEN_POINT: BeatDef[] = Array.from({ length: 10 }, (_, i) => ({
+  id: `point-${i + 1}`,
+  name: `Point ${i + 1}`,
+  position: i / 9,
+  blurb:
+    i === 0
+      ? "The first thing that must happen — where the story opens."
+      : i === 9
+        ? "The last thing that must happen — where the story lands."
+        : "",
+}));
+
 export const BEAT_TEMPLATES: Record<string, BeatDef[]> = {
   "save-the-cat": SAVE_THE_CAT,
   "three-act": THREE_ACT,
@@ -132,9 +149,11 @@ export const BEAT_TEMPLATES: Record<string, BeatDef[]> = {
   "story-circle": STORY_CIRCLE,
   "romancing-the-beat": ROMANCING_THE_BEAT,
   "twenty-seven-chapter": TWENTY_SEVEN_CHAPTER,
+  "ten-point": TEN_POINT,
 };
 
-/** Templates for the picker, in display order. */
+/** Built-in templates for the picker, in display order (customs are appended
+ *  at render time via allTemplateMeta — see custom-templates.ts). */
 export const TEMPLATE_META: { id: string; label: string }[] = [
   { id: "save-the-cat", label: "Save the Cat (15)" },
   { id: "three-act", label: "Three-Act (7)" },
@@ -143,13 +162,10 @@ export const TEMPLATE_META: { id: string; label: string }[] = [
   { id: "story-circle", label: "Story Circle (8)" },
   { id: "romancing-the-beat", label: "Romancing the Beat (14)" },
   { id: "twenty-seven-chapter", label: "27-Chapter (27)" },
+  { id: "ten-point", label: "Ten-Point Outline (10)" },
 ];
 
 export const DEFAULT_TEMPLATE = "save-the-cat";
-
-export function getTemplate(id: string | undefined): BeatDef[] {
-  return (id && BEAT_TEMPLATES[id]) || SAVE_THE_CAT;
-}
 
 /**
  * An act (or named part) a template divides the book into, for structure
@@ -186,9 +202,11 @@ export const TEMPLATE_ACTS: Record<string, TemplateAct[]> = {
     { title: "Fighting for Love", from: 0.88 },
   ],
   "twenty-seven-chapter": THREE_ACTS(9 / 26, 18 / 26),
+  "ten-point": THREE_ACTS(0.25, 0.75), // points 1–3 / 4–7 / 8–10
 };
 
-/** Act definitions for a template id (Act I/II/III fallback, like getTemplate). */
+/** Act definitions for a template id. Unknown ids (including custom templates,
+ *  which have no act config) fall back to a generic Act I/II/III split. */
 export function templateActs(id: string | undefined): TemplateAct[] {
   return (id && TEMPLATE_ACTS[id]) || THREE_ACTS(0.25, 0.75);
 }

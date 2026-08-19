@@ -9,17 +9,20 @@ import {
 
 describe("mergeBeats", () => {
   it("returns the full template in order with empty assignments by default", () => {
-    const beats = mergeBeats(undefined);
+    const beats = mergeBeats(undefined, SAVE_THE_CAT);
     expect(beats).toHaveLength(SAVE_THE_CAT.length);
     expect(beats[0].id).toBe("opening-image");
     expect(beats[0].assignment).toEqual({});
   });
 
   it("overlays assignments onto the template by beat id", () => {
-    const beats = mergeBeats({
-      template: "save-the-cat",
-      assignments: { midpoint: { note: "false win", done: true } },
-    });
+    const beats = mergeBeats(
+      {
+        template: "save-the-cat",
+        assignments: { midpoint: { note: "false win", done: true } },
+      },
+      SAVE_THE_CAT
+    );
     const mid = beats.find((b) => b.id === "midpoint")!;
     expect(mid.assignment.note).toBe("false win");
     expect(mid.assignment.done).toBe(true);
@@ -28,14 +31,17 @@ describe("mergeBeats", () => {
 
 describe("beatProgress", () => {
   it("counts done and started", () => {
-    const beats = mergeBeats({
-      template: "save-the-cat",
-      assignments: {
-        "opening-image": { done: true },
-        catalyst: { note: "inciting event" }, // started, not done
-        midpoint: { scenes: ["Ch 8"] }, // started, not done
+    const beats = mergeBeats(
+      {
+        template: "save-the-cat",
+        assignments: {
+          "opening-image": { done: true },
+          catalyst: { note: "inciting event" }, // started, not done
+          midpoint: { scenes: ["Ch 8"] }, // started, not done
+        },
       },
-    });
+      SAVE_THE_CAT
+    );
     const p = beatProgress(beats);
     expect(p.total).toBe(15);
     expect(p.done).toBe(1);
@@ -70,11 +76,14 @@ describe("setAssignment", () => {
   });
 
   it("migrates a legacy single `scene` to `scenes` on read", () => {
-    const beats = mergeBeats({
-      template: "save-the-cat",
-      // legacy shape from before multi-scene support
-      assignments: { catalyst: { scene: "Ch 1" } as never },
-    });
+    const beats = mergeBeats(
+      {
+        template: "save-the-cat",
+        // legacy shape from before multi-scene support
+        assignments: { catalyst: { scene: "Ch 1" } as never },
+      },
+      SAVE_THE_CAT
+    );
     expect(beats.find((b) => b.id === "catalyst")!.assignment.scenes).toEqual(["Ch 1"]);
   });
 });

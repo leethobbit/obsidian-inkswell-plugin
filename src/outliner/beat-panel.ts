@@ -1,5 +1,6 @@
 /**
- * Beat-sheet panel: the Save the Cat 15-beat outline for a project. Each beat
+ * Beat-sheet panel: a template-driven structural outline for a project (built-in
+ * templates plus the user's custom ones from settings). Each beat
  * shows its purpose, a planning note, an optional scene link, and a done toggle,
  * with an overall progress bar. Rendered inside the Inkswell host view.
  *
@@ -21,7 +22,8 @@ import { EditSceneModal } from "../scenes/edit-scene-modal";
 import { addSceneMenuItems } from "../scenes/scene-actions";
 import { readSceneMeta, statusLabel } from "../scenes/scene-meta";
 import { renderEmptyStateAction } from "../views/panel-kit";
-import { BeatSheet, DEFAULT_TEMPLATE, TEMPLATE_META } from "./beat-templates";
+import { BeatSheet, DEFAULT_TEMPLATE } from "./beat-templates";
+import { allTemplateMeta, resolveTemplate, synthesizeBeats } from "./custom-templates";
 import { beatProgress, mergeBeats, setAssignment } from "./beats";
 import { promptNewScene } from "./create-scene";
 import { analyzeScaffold, scaffoldFromTemplate } from "./scaffold";
@@ -68,10 +70,25 @@ export class BeatPanel {
       return;
     }
 
-    this.renderHeader(container, project);
-
     const sheet = project.inkswell?.beats;
-    const beats = mergeBeats(sheet);
+    const resolved = resolveTemplate(sheet?.template, this.plugin.settings.customBeatTemplates);
+    this.renderHeader(container, project, resolved !== null);
+
+    // Missing template (deleted custom, or data.json didn't sync here): degrade
+    // to rows synthesized from the assignment keys — same beat-id keyspace, so
+    // notes stay visible/editable and reattach when the template comes back.
+    // NEVER fall back to another template's beats over these assignments.
+    if (resolved === null) {
+      container.createDiv({
+        cls: "inkswell-beats__warning",
+        text:
+          `Template "${sheet?.template ?? ""}" isn't available on this device — it may have ` +
+          "been deleted under Settings → Beat sheet templates. Your beat notes are preserved " +
+          "below; re-create the template (same name) or pick another to continue.",
+      });
+    }
+    const template = resolved ?? synthesizeBeats(sheet?.assignments ?? {});
+    const beats = mergeBeats(sheet, template);
     const progress = beatProgress(beats);
 
     const head = container.createDiv({ cls: "inkswell-beats__progress" });
@@ -81,7 +98,7 @@ export class BeatPanel {
     });
     const bar = head.createDiv({ cls: "inkswell-progress" });
     bar.createDiv({ cls: "inkswell-progress__fill" }).style.width =
-      `${(progress.done / progress.total) * 100}%`;
+      `${progress.total > 0 ? (progress.done / progress.total) * 100 : 0}%`;
 
     const sceneTitles = project.scenes.map((s) => s.title);
     for (const beat of beats) {
@@ -89,36 +106,55 @@ export class BeatPanel {
     }
   }
 
-  private renderHeader(root: HTMLElement, project: Project): void {
+  private renderHeader(root: HTMLElement, project: Project, templateAvailable: boolean): void {
     const bar = root.createDiv({ cls: "inkswell-beats__toolbar" });
 
+    const customs = this.plugin.settings.customBeatTemplates;
     const current = project.inkswell?.beats?.template ?? DEFAULT_TEMPLATE;
     const tsel = bar.createEl("select", { cls: "dropdown" });
     tagField(tsel, "beats:template");
-    for (const meta of TEMPLATE_META) {
+    const metas = allTemplateMeta(customs);
+    for (const meta of metas) {
       const o = tsel.createEl("option", { text: meta.label, value: meta.id });
       if (meta.id === current) o.selected = true;
+    }
+    if (!templateAvailable) {
+      // The sheet names a template this device doesn't have: show it selected
+      // (marked) so switching away is an explicit act, never a side effect.
+      const o = tsel.createEl("option", { text: `${current} (missing)`, value: current });
+      o.selected = true;
     }
     tsel.onchange = () => this.setTemplate(project, tsel.value);
 
     const scaffold = bar.createEl("button", { text: "Scaffold structure" });
     scaffold.setAttribute(
       "aria-label",
-      "Create acts, chapters, and a placeholder scene for each beat"
+      templateAvailable
+        ? "Create acts, chapters, and a placeholder scene for each beat"
+        : "Unavailable — the sheet's template is missing on this device"
     );
+    scaffold.disabled = !templateAvailable;
     scaffold.onclick = async () => {
       // Dry-run first: the confirm dialog previews exactly what will be written.
-      const analysis = analyzeScaffold(this.app, this.store, project, current);
+      const analysis = analyzeScaffold(this.app, this.store, project, current, customs);
       if (!analysis) return;
       if (!analysis.structured && analysis.newScenes === 0 && analysis.willLink === 0) {
         new Notice("Nothing to scaffold — every beat already has its scene.");
         return;
       }
-      const label = TEMPLATE_META.find((m) => m.id === current)?.label ?? current;
+      const label = metas.find((m) => m.id === current)?.label ?? current;
       if (!(await confirmScaffold(this.app, analysis, label))) return;
       const r = await tryFileOp(
         () =>
-          scaffoldFromTemplate(this.app, this.store, this.plugin.settings, project, current, analysis),
+          scaffoldFromTemplate(
+            this.app,
+            this.store,
+            this.plugin.settings,
+            project,
+            current,
+            customs,
+            analysis
+          ),
         "Couldn't scaffold the structure."
       );
       if (r === null) return;

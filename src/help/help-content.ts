@@ -82,7 +82,7 @@ export const HINTS: Record<string, HintEntry> = {
       p(
         el,
         "A structural outline for the active project, built from a beat template you pick " +
-          "from the Template dropdown. Seven are included:"
+          "from the Template dropdown. Eight are included:"
       );
       steps(el, [
         "Save the Cat (15 beats)",
@@ -92,7 +92,13 @@ export const HINTS: Record<string, HintEntry> = {
         "Story Circle (8)",
         "Romancing the Beat (14)",
         "27-Chapter (27)",
+        "Ten-Point Outline (10) — list the ten things that must happen in your story",
       ]);
+      p(
+        el,
+        "You can also add your own structures under Settings → Beat sheet templates — " +
+          "they appear in the dropdown next to the built-ins."
+      );
       p(
         el,
         "Each beat carries its purpose, a planning note, an optional linked scene, and a " +

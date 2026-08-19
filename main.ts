@@ -28,6 +28,7 @@ import { RevisionModal } from "./src/revisions/revision-modal";
 import { FeatureId, featureEnabled } from "./src/features";
 import { getCodexEntities } from "./src/codex/codex-store";
 import { normalizeCustomCategories } from "./src/codex/types";
+import { normalizeCustomBeatTemplates } from "./src/outliner/custom-templates";
 import {
   DEFAULT_SETTINGS,
   InkswellSettings,
@@ -357,8 +358,12 @@ export default class InkswellPlugin extends Plugin {
     };
     this.settings = Object.assign({}, DEFAULT_SETTINGS, stored.settings ?? {});
     // data.json is hand-editable and the merge above doesn't validate shapes —
-    // drop malformed/colliding custom codex types before anything renders them.
+    // drop malformed/colliding custom codex types and beat templates before
+    // anything renders them.
     this.settings.customCategories = normalizeCustomCategories(this.settings.customCategories);
+    this.settings.customBeatTemplates = normalizeCustomBeatTemplates(
+      this.settings.customBeatTemplates
+    );
     this.writingLog = Object.assign({}, emptyLog(), stored.writingLog ?? {});
     this.ideas = Array.isArray(stored.ideas) ? stored.ideas : [];
     this.activeProject = new ActiveProject(

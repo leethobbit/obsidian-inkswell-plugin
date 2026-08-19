@@ -4,21 +4,19 @@
  * stored `inkswell.beats` inside processFrontMatter — never a panel snapshot).
  */
 
-import {
-  BeatAssignment,
-  BeatDef,
-  BeatSheet,
-  DEFAULT_TEMPLATE,
-  getTemplate,
-} from "./beat-templates";
+import { BeatAssignment, BeatDef, BeatSheet, DEFAULT_TEMPLATE } from "./beat-templates";
 
 export interface MergedBeat extends BeatDef {
   assignment: BeatAssignment;
 }
 
-/** Combine a project's beat sheet with its template into display rows (in order). */
-export function mergeBeats(sheet: BeatSheet | undefined): MergedBeat[] {
-  const template = getTemplate(sheet?.template);
+/**
+ * Combine a project's beat sheet with its resolved template into display rows
+ * (in order). The template comes from resolveTemplate (or synthesizeBeats when
+ * the sheet names a template this device doesn't have) — resolution lives with
+ * the caller because it needs settings.customBeatTemplates.
+ */
+export function mergeBeats(sheet: BeatSheet | undefined, template: BeatDef[]): MergedBeat[] {
   const assignments = sheet?.assignments ?? {};
   return template.map((def) => {
     // Migrate legacy single `scene` (string) → `scenes` (string[]) on read.
