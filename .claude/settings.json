@@ -1,5 +1,39 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "permissions": {
+    "allow": [
+      "Bash(obsidian vault=dev-vault:*)",
+      "PowerShell(obsidian vault=dev-vault:*)",
+      "Bash(npm test:*)",
+      "PowerShell(npm test:*)",
+      "Bash(npm run:*)",
+      "PowerShell(npm run:*)",
+      "Bash(npm audit:*)",
+      "Bash(npx vitest:*)",
+      "PowerShell(npx vitest:*)",
+      "Bash(npx eslint:*)",
+      "PowerShell(npx eslint:*)",
+      "Bash(node esbuild.config.mjs:*)",
+      "PowerShell(node esbuild.config.mjs:*)",
+      "Bash(git add:*)",
+      "PowerShell(git add:*)",
+      "Bash(git commit:*)",
+      "PowerShell(git commit:*)",
+      "Bash(git fetch:*)",
+      "PowerShell(git fetch:*)",
+      "PowerShell(gh pr view:*)",
+      "PowerShell(gh pr checks:*)",
+      "PowerShell(gh run view:*)",
+      "PowerShell(gh run watch:*)",
+      "PowerShell(gh release view:*)",
+      "Bash(git push origin develop)",
+      "PowerShell(git push origin develop)",
+      "PowerShell(git add .claude/settings.json)"
+    ],
+    "additionalDirectories": [
+      "X:\\DKB\\100 Interests\\102 Writing"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {

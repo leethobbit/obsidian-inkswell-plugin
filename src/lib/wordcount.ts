@@ -16,7 +16,26 @@ const HTML_TAG_RE = /<\/?[a-zA-Z][^>]*>/g;
 const WIKILINK_RE = /\[\[([^\]|]+\|)?([^\]]+)\]\]/g; // keep display text
 const MD_LINK_RE = /\[([^\]]*)\]\([^)]*\)/g; // keep link text
 const IMAGE_RE = /!\[[^\]]*\]\([^)]*\)/g; // drop images entirely
-const WORD_RE = /[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu;
+/**
+ * Char-class source for CJK scripts counted one grapheme = one word (the 字数 /
+ * 文字数 convention CJK writers calibrate goals against). Script_Extensions so
+ * shared marks like ー and 々 count with their script — but scx ALSO covers
+ * shared CJK punctuation (。、「」…), so anything matching a word must
+ * additionally be \p{L}\p{N} (WORD_RE below does this). Exported for the codex
+ * mention matcher, which must agree on what delimits a word.
+ */
+export const CJK_SRC =
+  "\\p{scx=Han}\\p{scx=Hiragana}\\p{scx=Katakana}\\p{scx=Hangul}";
+
+// A single CJK letter/numeral is a word; otherwise a run of non-CJK
+// letters/numbers. The lookaheads intersect with the CJK class (first: keep
+// punctuation out of the grapheme branch; rest: keep a Latin run from
+// swallowing adjacent CJK) because character-class intersection needs the /v
+// flag, and /v — like lookbehind — throws at parse time on iOS < 16.4.
+const WORD_RE = new RegExp(
+  `(?=[${CJK_SRC}])[\\p{L}\\p{N}]|(?![${CJK_SRC}])[\\p{L}\\p{N}](?:(?![${CJK_SRC}])[\\p{L}\\p{N}'’-])*`,
+  "gu"
+);
 
 export interface WordCountOptions {
   /** Strip a leading YAML frontmatter block before counting. Default true. */
@@ -49,10 +68,17 @@ export function stripMarkdown(
   return out;
 }
 
+/**
+ * Tokenize prose (markdown already stripped) into countable words: one token
+ * per CJK grapheme, one per non-CJK word. Shared with the Analysis panel so
+ * its numbers reconcile with the manuscript count.
+ */
+export function tokenizeWords(prose: string): string[] {
+  return prose.match(WORD_RE) ?? [];
+}
+
 /** Count words in a markdown string. */
 export function countWords(text: string, options?: WordCountOptions): number {
   if (!text) return 0;
-  const prose = stripMarkdown(text, options);
-  const matches = prose.match(WORD_RE);
-  return matches ? matches.length : 0;
+  return tokenizeWords(stripMarkdown(text, options)).length;
 }

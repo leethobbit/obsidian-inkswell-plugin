@@ -97,7 +97,9 @@ ISO 8601 string, stamped when a draft is created via **New draft** (a draft's ow
 `name` (string; books sharing a name form one series) · `order` (number, 1-based).
 
 ### `inkswell.beats` — beat sheet
-`template` (enum: `save-the-cat` · `three-act` · `heros-journey` · `seven-point` · `story-circle` · `romancing-the-beat` · `twenty-seven-chapter`) · `assignments` (map of `beatId → {scenes?: string[], note?: string, done?: boolean}`).
+`template` (a built-in id: `save-the-cat` · `three-act` · `heros-journey` · `seven-point` · `story-circle` · `romancing-the-beat` · `twenty-seven-chapter` · `ten-point` — **or** a user-defined custom-template slug, see below) · `assignments` (map of `beatId → {scenes?: string[], note?: string, done?: boolean}`).
+
+The built-in `ten-point` beat ids (`point-1` … `point-10`) join the stable-ID contract (invariant 5). **Custom beat templates** (Settings → Beat sheet templates) are persisted in the plugin's local `data.json` as `settings.customBeatTemplates` (`{id, name, beats: [{id, name, blurb, position}]}`; normalized on load by `normalizeCustomBeatTemplates` in `src/outliner/custom-templates.ts`). A `template` value that matches **no** known template (deleted custom, or `data.json` didn't travel with the vault) is **never remapped or dropped** — the Beats panel renders a degraded sheet synthesized from the assignment keys, with every note editable, until the template is re-created or another is picked. Deleting a custom template touches no notes.
 
 ### `inkswell.acts` / `inkswell.chapters` — the Act › Chapter › Scene outline
 `inkswell.acts`: ordered `[{id, title}]`. `inkswell.chapters`: ordered `[{id, title, actId?, targetWords?}]`, where `actId` links a chapter to its act (the explicit chapter→act relationship; absent = act-less).

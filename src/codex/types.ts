@@ -9,6 +9,8 @@
  * module load, or settings changes won't propagate.
  */
 
+import { SLUG_RE, slugify } from "../lib/slug";
+
 /** The seven permanent built-in categories (never removable or renamable). */
 export type BuiltinCodexCategory =
   | "character"
@@ -59,22 +61,13 @@ export function categoryLabel(id: string, customs: CategoryDef[] = []): string {
   return allCategories(customs).find((c) => c.id === id)?.label ?? id;
 }
 
-/** Legal shape for a custom category id (also keeps the `codex:` YAML line safe). */
-const ID_RE = /^[a-z][a-z0-9-]*$/;
-
 /**
  * Derive a category id slug from a display label: lowercase, spaces/underscores
  * to dashes, everything else outside [a-z0-9-] stripped. May return "" (caller
  * rejects).
  */
 export function slugifyCategoryId(label: string): string {
-  return label
-    .trim()
-    .toLowerCase()
-    .replace(/[\s_]+/g, "-")
-    .replace(/[^a-z0-9-]/g, "")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  return slugify(label);
 }
 
 /**
@@ -94,7 +87,7 @@ export function normalizeCustomCategories(raw: unknown): CategoryDef[] {
     const rec = item as Record<string, unknown>;
     const id = typeof rec["id"] === "string" ? rec["id"].trim().toLowerCase() : "";
     const label = typeof rec["label"] === "string" ? rec["label"].trim() : "";
-    if (!ID_RE.test(id) || !label) continue;
+    if (!SLUG_RE.test(id) || !label) continue;
     if (takenIds.has(id) || takenLabels.has(label.toLowerCase())) continue;
     const plural =
       typeof rec["plural"] === "string" && rec["plural"].trim() ? rec["plural"].trim() : `${label}s`;

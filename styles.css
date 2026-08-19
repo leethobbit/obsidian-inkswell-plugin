@@ -2632,6 +2632,17 @@
   margin-bottom: var(--size-4-4);
 }
 
+/* Missing-template notice (sheet names a template this device doesn't have) */
+.inkswell-beats__warning {
+  margin: var(--size-4-2) 0;
+  padding: var(--size-4-2) var(--size-4-3);
+  border: 1px solid var(--background-modifier-border);
+  border-left: 3px solid var(--text-warning, #b45309);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+  font-size: var(--font-ui-small);
+}
+
 .inkswell-beat {
   padding: var(--size-4-2);
   border: 1px solid var(--background-modifier-border);
@@ -3460,6 +3471,18 @@ body.is-phone .inkswell-codex__toolbar input[type="search"] {
   justify-content: center;
   vertical-align: middle;
   margin-left: var(--size-4-2);
+}
+
+/* ---- Custom beat templates (add/edit modal) ---- */
+.inkswell-tplmodal__beats {
+  align-items: flex-start;
+}
+.inkswell-tplmodal__lines {
+  width: 100%;
+  min-width: 260px;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-small);
+  resize: vertical;
 }
 
 /* ---- Scaffold structure confirmation (preview dialog) ---- */

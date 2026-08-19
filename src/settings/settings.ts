@@ -17,6 +17,8 @@ import { FeatureGroup, FeatureId, OPTIONAL_FEATURES, featureEnabled } from "../f
 import { generateCodexTemplates, getCodexEntities } from "../codex/codex-store";
 import { CategoryDef, allCategories } from "../codex/types";
 import { CategoryModal } from "../codex/category-modal";
+import { BeatTemplateDef, allTemplateMeta } from "../outliner/custom-templates";
+import { BeatTemplateModal } from "../outliner/beat-template-modal";
 import { confirmDelete } from "../scenes/scene-actions";
 import { resolveTemplateFolder } from "./folders";
 import { resetHelpState } from "../help/hint";
@@ -61,6 +63,13 @@ export interface InkswellSettings {
    * profile on the note's next edit.
    */
   codexCountMigrated: boolean;
+  /**
+   * One-time migration flag: all baselines were recomputed under the CJK-aware
+   * counting rule (each Han/kana/Hangul grapheme = one word). Without this, a
+   * CJK manuscript's next edit would emit a phantom delta the size of the
+   * whole file. English counts are identical under both rules.
+   */
+  cjkCountMigrated: boolean;
   /** First day of the week for weekly goals, habit tracking, and the heatmap. */
   weekStart: WeekStart;
   /** Parent folder new projects + the shared codex scaffold under ("" = vault root). */
@@ -89,6 +98,14 @@ export interface InkswellSettings {
    * "Uncategorized" in the Codex panel.
    */
   customCategories: CategoryDef[];
+  /**
+   * User-defined beat-sheet templates, merged after the built-ins wherever
+   * templates are listed (via allTemplateMeta — computed at render time, never
+   * cached). Normalized on load (normalizeCustomBeatTemplates); built-ins are
+   * never editable. Deleting one leaves every project's sheet intact — the
+   * Beats panel shows a missing-template notice with all notes editable.
+   */
+  customBeatTemplates: BeatTemplateDef[];
 }
 
 export const DEFAULT_SETTINGS: InkswellSettings = {
@@ -106,6 +123,7 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   excludedFromGoals: ["planning", "codex", "other"],
   categoryNoticeSeen: false,
   codexCountMigrated: false,
+  cjkCountMigrated: false,
   weekStart: "monday",
   baseFolder: "Writing",
   codexFolder: "Codex",
@@ -115,6 +133,7 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   dismissedHints: [],
   disabledFeatures: [],
   customCategories: [],
+  customBeatTemplates: [],
 };
 
 /** Settings-tab copy for the goal category toggles. */
@@ -163,13 +182,19 @@ export class InkswellSettingTab extends PluginSettingTab {
   }
 
   /**
-   * Declarative mirror of the tab for Obsidian's settings SEARCH (1.13+).
-   * `display()` below stays the renderer on every version — this method is
-   * never called on installs older than 1.13 (the app doesn't know it), and
-   * on 1.13+ it feeds the search index plus any controls the app renders from
-   * definitions (routed through get/setControlValue). Feature and goal-category
-   * toggles aren't direct settings fields, so they use virtual keys
-   * (`feature:<id>`, `counts:<category>`) resolved by the overrides below.
+   * THE tab, on Obsidian 1.13+ (and the late-1.12 builds that shipped the
+   * definitions renderer): when this returns a non-empty array the app renders
+   * the whole tab declaratively from it and **never calls display()** — the
+   * imperative `display()`/`rerender()` below is the fallback renderer for
+   * older installs only. Controls route through get/setControlValue; feature
+   * and goal-category toggles aren't direct settings fields, so they use
+   * virtual keys (`feature:<id>`, `counts:<category>`) resolved below.
+   *
+   * Definitions are captured by `update()` (once at addSettingTab) — they do
+   * NOT re-evaluate on their own. After any mutation that changes the tab's
+   * structure (custom codex types, custom beat templates), call
+   * {@link refreshTab}, which re-captures on the declarative path and
+   * re-renders on the imperative one.
    *
    * KEEP IN LOCKSTEP with display(): same names, descriptions, and controls.
    */
@@ -276,20 +301,36 @@ export class InkswellSettingTab extends PluginSettingTab {
         ],
       },
       {
-        type: "group",
+        type: "list",
         heading: "Custom Codex types",
-        items: [
-          ...s.customCategories.map((cat) => ({
-            name: cat.label,
-            desc: `${cat.plural} · codex: ${cat.id}`,
-            action: () => this.openCategoryModal(cat),
-          })),
-          {
-            name: "Add custom type",
-            desc: "Add your own codex types (creatures, spells, ships…) next to the built-in seven.",
-            action: () => this.openCategoryModal(null),
-          },
-        ],
+        emptyState:
+          "Add your own codex types (creatures, spells, ships…) next to the built-in seven.",
+        items: s.customCategories.map((cat) => ({
+          name: cat.label,
+          desc: `${cat.plural} · codex: ${cat.id}`,
+          action: () => this.openCategoryModal(cat),
+        })),
+        onDelete: (i) => {
+          const cat = this.plugin.settings.customCategories[i];
+          if (cat) void this.deleteCategory(cat);
+        },
+        addItem: { name: "Add custom type", action: () => this.openCategoryModal(null) },
+      },
+      {
+        type: "list",
+        heading: "Beat sheet templates",
+        emptyState:
+          "Add your own beat structures next to the built-in eight in Plan → Beats.",
+        items: s.customBeatTemplates.map((tpl) => ({
+          name: tpl.name,
+          desc: `${tpl.beats.length} beats · template: ${tpl.id}`,
+          action: () => this.openBeatTemplateModal(tpl),
+        })),
+        onDelete: (i) => {
+          const tpl = this.plugin.settings.customBeatTemplates[i];
+          if (tpl) void this.deleteBeatTemplate(tpl);
+        },
+        addItem: { name: "Add beat template", action: () => this.openBeatTemplateModal(null) },
       },
       {
         type: "group",
@@ -429,6 +470,60 @@ export class InkswellSettingTab extends PluginSettingTab {
   }
 
   /**
+   * Re-render the tab after a mutation that changes its structure (custom
+   * codex types / beat templates added, edited, or deleted). On the
+   * declarative path (1.13+, where display() is never called) `update()`
+   * re-captures getSettingDefinitions() and re-renders; on older installs the
+   * imperative rebuild does it. Without the update() call the definitions stay
+   * as captured at plugin load, so new rows never appear and deleted ones
+   * linger until the plugin reloads.
+   */
+  private refreshTab(): void {
+    // SettingTab.update() ships with the declarative renderer (typed @since
+    // 1.13.0; present on the late-1.12 builds that render declaratively too).
+    // Looked up untyped because the API-floor linter can't model progressive
+    // enhancement — installs without it take the imperative rebuild instead,
+    // so no minAppVersion user loses anything. See AGENTS.md gotcha 12.
+    const update = (this as unknown as { update?: unknown }).update;
+    if (typeof update === "function") (update as () => void).call(this);
+    else this.rerender();
+  }
+
+  /** Delete a custom codex type after confirmation (shared by the imperative
+   *  trash button and the declarative list's delete affordance). */
+  private async deleteCategory(cat: CategoryDef): Promise<void> {
+    const n = getCodexEntities(this.app).filter((e) => e.category === cat.id).length;
+    const msg =
+      n > 0
+        ? `Delete the "${cat.label}" type? ${n} existing entr${n === 1 ? "y" : "ies"} ` +
+          "will show under Uncategorized — the notes themselves are not touched."
+        : `Delete the "${cat.label}" type?`;
+    if (!(await confirmDelete(this.app, msg))) return;
+    this.plugin.settings.customCategories = this.plugin.settings.customCategories.filter(
+      (c) => c.id !== cat.id
+    );
+    await this.plugin.saveSettings();
+    this.plugin.refreshView();
+    this.refreshTab();
+  }
+
+  /** Delete a custom beat template after confirmation (shared by the imperative
+   *  trash button and the declarative list's delete affordance). */
+  private async deleteBeatTemplate(tpl: BeatTemplateDef): Promise<void> {
+    const msg =
+      `Delete the "${tpl.name}" template? Projects using it keep every beat ` +
+      "note — they show a missing-template notice until you re-create it " +
+      "(same name) or pick another template.";
+    if (!(await confirmDelete(this.app, msg))) return;
+    this.plugin.settings.customBeatTemplates = this.plugin.settings.customBeatTemplates.filter(
+      (t) => t.id !== tpl.id
+    );
+    await this.plugin.saveSettings();
+    this.plugin.refreshView();
+    this.refreshTab();
+  }
+
+  /**
    * The "Custom codex types" section: the user's own categories alongside the
    * seven built-ins. Add/edit go through CategoryModal; deleting a type never
    * touches notes — its entries show as "Uncategorized" in the Codex panel.
@@ -456,20 +551,7 @@ export class InkswellSettingTab extends PluginSettingTab {
           b
             .setIcon("trash")
             .setTooltip("Delete")
-            .onClick(async () => {
-              const n = getCodexEntities(this.app).filter((e) => e.category === cat.id).length;
-              const msg =
-                n > 0
-                  ? `Delete the "${cat.label}" type? ${n} existing entr${n === 1 ? "y" : "ies"} ` +
-                    "will show under Uncategorized — the notes themselves are not touched."
-                  : `Delete the "${cat.label}" type?`;
-              if (!(await confirmDelete(this.app, msg))) return;
-              this.plugin.settings.customCategories =
-                this.plugin.settings.customCategories.filter((c) => c.id !== cat.id);
-              await this.plugin.saveSettings();
-              this.plugin.refreshView();
-              this.rerender();
-            })
+            .onClick(() => void this.deleteCategory(cat))
         );
       const iconEl = createSpan({ cls: "inkswell-settings__caticon" });
       setIcon(iconEl, cat.icon);
@@ -501,7 +583,64 @@ export class InkswellSettingTab extends PluginSettingTab {
         else list.push(def);
         await this.plugin.saveSettings();
         this.plugin.refreshView();
-        this.rerender();
+        this.refreshTab();
+      },
+    }).open();
+  }
+
+  /**
+   * The "Beat sheet templates" section: the user's own beat structures alongside
+   * the built-in eight. Add/edit go through BeatTemplateModal; deleting one
+   * never touches project notes — sheets using it show a missing-template
+   * notice in Plan → Beats with every saved note intact.
+   */
+  private renderBeatTemplates(containerEl: HTMLElement): void {
+    new Setting(containerEl).setName("Beat sheet templates").setHeading();
+    containerEl.createEl("p", {
+      cls: "setting-item-description",
+      text:
+        "Add your own beat structures next to the built-in eight in Plan → Beats. " +
+        "Built-in templates can't be edited or removed. Deleting a custom template " +
+        "never touches your notes — projects using it show a missing-template notice " +
+        "with everything intact until you re-create it or pick another.",
+    });
+
+    for (const tpl of this.plugin.settings.customBeatTemplates) {
+      new Setting(containerEl)
+        .setName(tpl.name)
+        .setDesc(`${tpl.beats.length} beats · template: ${tpl.id}`)
+        .addButton((b) => b.setButtonText("Edit").onClick(() => this.openBeatTemplateModal(tpl)))
+        .addExtraButton((b) =>
+          b
+            .setIcon("trash")
+            .setTooltip("Delete")
+            .onClick(() => void this.deleteBeatTemplate(tpl))
+        );
+    }
+
+    new Setting(containerEl).addButton((b) =>
+      b
+        .setButtonText("Add beat template")
+        .setCta()
+        .onClick(() => this.openBeatTemplateModal(null))
+    );
+  }
+
+  /** Add-or-edit a custom beat template (shared by the tab and settings search). */
+  private openBeatTemplateModal(existing: BeatTemplateDef | null): void {
+    new BeatTemplateModal(this.app, {
+      existing,
+      takenIds: allTemplateMeta(this.plugin.settings.customBeatTemplates)
+        .map((m) => m.id)
+        .filter((id) => id !== existing?.id),
+      onSubmit: async (def: BeatTemplateDef): Promise<void> => {
+        const list = this.plugin.settings.customBeatTemplates;
+        const i = list.findIndex((t) => t.id === def.id);
+        if (i >= 0) list[i] = def;
+        else list.push(def);
+        await this.plugin.saveSettings();
+        this.plugin.refreshView();
+        this.refreshTab();
       },
     }).open();
   }
@@ -768,6 +907,7 @@ export class InkswellSettingTab extends PluginSettingTab {
       );
 
     this.renderCustomCategories(containerEl);
+    this.renderBeatTemplates(containerEl);
 
     new Setting(containerEl).setName("Templates").setHeading();
 

@@ -28,6 +28,7 @@ import { RevisionModal } from "./src/revisions/revision-modal";
 import { FeatureId, featureEnabled } from "./src/features";
 import { getCodexEntities } from "./src/codex/codex-store";
 import { normalizeCustomCategories } from "./src/codex/types";
+import { normalizeCustomBeatTemplates } from "./src/outliner/custom-templates";
 import {
   DEFAULT_SETTINGS,
   InkswellSettings,
@@ -168,6 +169,17 @@ export default class InkswellPlugin extends Plugin {
           .then(() => this.persist());
       }
       void this.tracker.warmBaselines(codexPaths());
+
+      // Counting became CJK-aware (each Han/kana/Hangul grapheme = one word).
+      // One-time: rebuild ALL baselines under the new rule so a CJK note's
+      // next edit doesn't emit a phantom whole-file delta. English baselines
+      // recompute to the same value. History is left as-is (old text is gone).
+      if (!this.settings.cjkCountMigrated) {
+        this.settings.cjkCountMigrated = true;
+        void this.tracker
+          .rebaseline(Object.keys(this.writingLog.baselines))
+          .then(() => this.persist());
+      }
 
       // One-time upgrade notice: goals stopped counting non-project notes.
       // Only shown to installs with existing history — fresh installs just get
@@ -357,8 +369,12 @@ export default class InkswellPlugin extends Plugin {
     };
     this.settings = Object.assign({}, DEFAULT_SETTINGS, stored.settings ?? {});
     // data.json is hand-editable and the merge above doesn't validate shapes —
-    // drop malformed/colliding custom codex types before anything renders them.
+    // drop malformed/colliding custom codex types and beat templates before
+    // anything renders them.
     this.settings.customCategories = normalizeCustomCategories(this.settings.customCategories);
+    this.settings.customBeatTemplates = normalizeCustomBeatTemplates(
+      this.settings.customBeatTemplates
+    );
     this.writingLog = Object.assign({}, emptyLog(), stored.writingLog ?? {});
     this.ideas = Array.isArray(stored.ideas) ? stored.ideas : [];
     this.activeProject = new ActiveProject(

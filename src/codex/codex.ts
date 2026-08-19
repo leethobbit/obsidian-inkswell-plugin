@@ -3,7 +3,16 @@
  * and auto-detecting entity mentions in scene text.
  */
 
+import { CJK_SRC } from "../lib/wordcount";
 import { CodexCategory, CodexEntity } from "./types";
+
+// Word boundaries for mention matching. CJK prose has no spaces, so a CJK
+// neighbor is itself a valid boundary (each grapheme is self-delimiting) —
+// otherwise a name inside unspaced CJK text could never match. The left group
+// CONSUMES its boundary char in place of a lookbehind, which throws at parse
+// time on iOS < 16.4; the right side is a plain lookahead.
+const LEFT_BOUNDARY = `(?:^|[^\\p{L}\\p{N}]|[${CJK_SRC}])`;
+const RIGHT_BOUNDARY = `(?=$|[^\\p{L}\\p{N}]|[${CJK_SRC}])`;
 
 /** Wrap a name as a wikilink, e.g. "Anna" → "[[Anna]]". */
 export function toLink(name: string): string {
@@ -36,11 +45,9 @@ export function detectMentions(text: string, entities: CodexEntity[]): Mention[]
   for (const e of entities) {
     const needles = [e.name, ...e.aliases].map((s) => s.trim()).filter(Boolean);
     const hit = needles.some((n) => {
-      // Whole-word (Unicode) match. The leading group consumes one preceding
-      // non-word char (or start-of-string) in place of a lookbehind, which
-      // throws at parse time on iOS < 16.4. Safe here because we only need a
-      // boolean existence test, not the match position.
-      const re = new RegExp(`(?:^|[^\\p{L}\\p{N}])${escapeRegex(n)}(?![\\p{L}\\p{N}])`, "iu");
+      // Whole-word (Unicode, CJK-aware) match. Safe here because we only need
+      // a boolean existence test, not the match position.
+      const re = new RegExp(`${LEFT_BOUNDARY}${escapeRegex(n)}${RIGHT_BOUNDARY}`, "iu");
       return re.test(text);
     });
     if (hit) found.push({ path: e.path, name: e.name, category: e.category });
@@ -64,11 +71,11 @@ export function firstMentionOffset(
   const needles = [entity.name, ...entity.aliases].map((s) => s.trim()).filter(Boolean);
   let best: { from: number; to: number } | null = null;
   for (const n of needles) {
-    // Same whole-word matcher as detectMentions, but capturing so we can read the
-    // needle's position. The leading group consumes one preceding non-word char
-    // (in place of a lookbehind, which throws at parse time on iOS < 16.4), so the
-    // needle itself starts after it — hence the m[0]/m[1] length delta below.
-    const re = new RegExp(`(?:^|[^\\p{L}\\p{N}])(${escapeRegex(n)})(?![\\p{L}\\p{N}])`, "iu");
+    // Same whole-word matcher as detectMentions, but capturing so we can read
+    // the needle's position. The left boundary consumes its char, so the
+    // needle itself starts after it — hence the m[0]/m[1] length delta below
+    // (which also absorbs a surrogate-pair boundary char).
+    const re = new RegExp(`${LEFT_BOUNDARY}(${escapeRegex(n)})${RIGHT_BOUNDARY}`, "iu");
     const m = re.exec(text);
     if (!m) continue;
     const from = m.index + (m[0].length - m[1].length);

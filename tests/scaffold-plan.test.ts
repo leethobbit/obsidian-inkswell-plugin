@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { numberWord, planScaffold } from "../src/outliner/scaffold-plan";
-import { getTemplate, templateActs } from "../src/outliner/beat-templates";
+import { templateActs } from "../src/outliner/beat-templates";
+import { resolveTemplate } from "../src/outliner/custom-templates";
 
 describe("numberWord", () => {
   it("spells 1–99", () => {
@@ -20,7 +21,7 @@ describe("numberWord", () => {
 
 /** Beat count per act title, in act order. */
 function split(templateId: string): Array<[string, number]> {
-  const plan = planScaffold(getTemplate(templateId), templateActs(templateId));
+  const plan = planScaffold(resolveTemplate(templateId)!, templateActs(templateId));
   return plan.acts.map((a) => [
     a.title,
     plan.scenes.filter((s) => s.actTitle === a.title).length,
@@ -60,10 +61,14 @@ describe("planScaffold act boundaries", () => {
   it("twenty-seven-chapter splits 9/9/9", () => {
     expect(split("twenty-seven-chapter")).toEqual([["Act I", 9], ["Act II", 9], ["Act III", 9]]);
   });
+
+  it("ten-point splits 3/4/3", () => {
+    expect(split("ten-point")).toEqual([["Act I", 3], ["Act II", 4], ["Act III", 3]]);
+  });
 });
 
 describe("planScaffold shape", () => {
-  const plan = planScaffold(getTemplate("save-the-cat"), templateActs("save-the-cat"));
+  const plan = planScaffold(resolveTemplate("save-the-cat")!, templateActs("save-the-cat"));
 
   it("numbers chapters globally across acts, one per beat, unique", () => {
     expect(plan.chapters).toHaveLength(15);
@@ -102,9 +107,10 @@ describe("planScaffold shape", () => {
     expect(p.acts.map((a) => a.title)).toEqual(["A", "B"]);
   });
 
-  it("unknown template id falls back to a valid 3-act layout", () => {
-    const p = planScaffold(getTemplate("nope"), templateActs("nope"));
-    expect(p.acts.length).toBeGreaterThan(0);
-    expect(p.scenes).toHaveLength(15); // getTemplate falls back to Save the Cat
+  it("unknown template id resolves to null — no silent Save-the-Cat fallback", () => {
+    // The old getTemplate() fell back to Save the Cat, which would render the
+    // wrong beat keyspace over a sheet's assignments. Callers must handle null.
+    expect(resolveTemplate("nope")).toBeNull();
+    expect(templateActs("nope").length).toBeGreaterThan(0); // acts still have a generic fallback
   });
 });

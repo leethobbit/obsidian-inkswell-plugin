@@ -45,6 +45,11 @@ describe("readability", () => {
   it("handles empty text", () => {
     expect(readability("").words).toBe(0);
   });
+  it("counts CJK graphemes and CJK sentence enders (reconciles with countWords)", () => {
+    const r = readability("你好世界。再见了！");
+    expect(r.words).toBe(7); // 你 好 世 界 + 再 见 了
+    expect(r.sentences).toBe(2); // 。 and ！
+  });
 });
 
 describe("wordFrequency", () => {
@@ -52,6 +57,11 @@ describe("wordFrequency", () => {
     const f = wordFrequency("The dragon flew. The dragon roared at the knight.");
     expect(f[0]).toEqual({ word: "dragon", count: 2 });
     expect(f.some((x) => x.word === "the")).toBe(false);
+  });
+  it("keeps single CJK graphemes despite the Latin length gate", () => {
+    const f = wordFrequency("龙飞。龙吼。");
+    expect(f[0]).toEqual({ word: "龙", count: 2 });
+    expect(f.some((x) => x.word === "at")).toBe(false); // gate still applies to Latin
   });
 });
 
