@@ -365,6 +365,13 @@ export class InkswellView extends ItemView {
   private openDraftsMenu(e: MouseEvent, story: Story, active: Project): void {
     const menu = new Menu();
     menu.addItem((i) =>
+      i
+        .setTitle("Rename project")
+        .setIcon("text-cursor-input")
+        .onClick(() => this.plugin.renameProject(active))
+    );
+    menu.addSeparator();
+    menu.addItem((i) =>
       i.setTitle("New draft").setIcon("copy-plus").onClick(() => this.newDraftAction(active))
     );
     menu.addItem((i) =>

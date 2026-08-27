@@ -17,14 +17,24 @@ export class SeriesMenu {
   private app: App;
   private store: ProjectStore;
 
-  constructor(app: App, store: ProjectStore) {
+  private renameProject: (project: Project) => void;
+
+  constructor(app: App, store: ProjectStore, renameProject: (project: Project) => void) {
     this.app = app;
     this.store = store;
+    this.renameProject = renameProject;
   }
 
-  /** Right-click menu on a project header: series membership. */
+  /** Right-click menu on a project header: rename + series membership. */
   projectMenu(row: Project): Menu {
     const menu = new Menu();
+    menu.addItem((i) =>
+      i
+        .setTitle("Rename project")
+        .setIcon("text-cursor-input")
+        .onClick(() => this.renameProject(row))
+    );
+    menu.addSeparator();
     // Series membership is STORY-level (it describes the book): always read
     // and write the base draft, whichever draft the row currently represents —
     // a series tag written to a copy vanishes the moment the story unfocuses,

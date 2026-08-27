@@ -61,7 +61,7 @@ export class ExplorerPanel {
 
     this.hero = new HeroCard(app, plugin, store, stats);
     this.reconcile = new ReconcileBanner(app, (p) => plugin.selfWrites.mark(p));
-    this.seriesMenu = new SeriesMenu(app, store);
+    this.seriesMenu = new SeriesMenu(app, store, (p) => plugin.renameProject(p));
     this.sceneRows = new SceneRows(app, plugin, stats, onSelectScene);
   }
 

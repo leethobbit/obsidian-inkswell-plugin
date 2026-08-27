@@ -187,6 +187,24 @@ export class WritingTracker extends Component {
   }
 
   /**
+   * Rekey baselines after an app-initiated move (Rename project). Without this
+   * every moved scene's baseline is orphaned under its old path and the first
+   * edit at the new path is swallowed as a fresh baseline. `remap` returns the
+   * same path for anything that didn't move.
+   */
+  remapBaselines(remap: (path: string) => string): void {
+    let touched = false;
+    for (const [path, count] of Object.entries(this.log.baselines)) {
+      const to = remap(path);
+      if (to === path) continue;
+      this.log.baselines[to] = count;
+      delete this.log.baselines[path];
+      touched = true;
+    }
+    if (touched) this.save();
+  }
+
+  /**
    * One-time migration: recompute EXISTING baselines for the given paths under
    * the current counting rule. Needed when the rule changes for a category
    * (codex now includes frontmatter) — an old body-only baseline would emit a

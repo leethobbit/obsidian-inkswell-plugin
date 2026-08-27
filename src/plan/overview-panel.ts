@@ -23,6 +23,7 @@ import {
   PLAN_SECTIONS,
   PlanSection,
   ensurePlanningNote,
+  findPlanningNote,
   readSection,
   writeSection,
 } from "./planning-note";
@@ -148,9 +149,11 @@ export class OverviewPanel {
     project: Project,
     editors: Map<PlanSection, HTMLTextAreaElement>
   ): Promise<void> {
-    const path = project.inkswell?.overview?.planningNote;
-    const file = path ? this.app.vault.getAbstractFileByPath(path) : null;
-    if (!(file instanceof TFile)) return; // note not created yet — textareas stay empty
+    const file = findPlanningNote(this.app, project);
+    if (!file) return; // note not created yet — textareas stay empty
+    // Found via fallback (stale pointer after a rename)? Heal the pointer now so
+    // later saves and the tracker's classifier agree on which note this is.
+    await this.rememberNote(project, file);
     const source = await this.app.vault.read(file);
     for (const [heading, ta] of editors) {
       // Don't clobber a field the user is actively editing.

@@ -20,6 +20,9 @@ import { countWords } from "./src/lib/wordcount";
 import { promptText } from "./src/scenes/scene-actions";
 import { ActiveProject, resolveActive } from "./src/projects/active-project";
 import { NewProjectModal } from "./src/projects/new-project-modal";
+import { executeProjectRename } from "./src/projects/rename-project";
+import { RenameProjectModal } from "./src/views/rename-project-modal";
+import { groupIntoStories } from "./src/projects/stories";
 import { ProjectStats } from "./src/projects/project-stats";
 import { ProjectStore } from "./src/projects/project-store";
 import { SelfWriteRegistry } from "./src/lib/self-write";
@@ -208,6 +211,16 @@ export default class InkswellPlugin extends Plugin {
       id: "new-project",
       name: "New project",
       callback: () => this.newProject(),
+    });
+    this.addCommand({
+      id: "rename-project",
+      name: "Rename project",
+      checkCallback: (checking) => {
+        const project = resolveActive(this.store.getProjects(), this.activeProject.get());
+        if (!project) return false;
+        if (!checking) this.renameProject(project);
+        return true;
+      },
     });
     this.addCommand({
       id: "open-beats",
@@ -621,6 +634,34 @@ export default class InkswellPlugin extends Plugin {
       this.refreshExplorer();
       void this.openInkswell("plan");
     }).open();
+  }
+
+  /**
+   * Rename the story `project` belongs to: title on every draft, plus (by
+   * default) the folder, index note, planning note, codex scope, and every
+   * stored path that would otherwise go stale. Planning is pure
+   * (src/projects/rename-plan.ts); this wires the modal to the executor.
+   */
+  renameProject(project: Project): void {
+    const all = this.store.getProjects();
+    const base = baseDraftFor(all, project);
+    const story = groupIntoStories(all).find((s) => s.drafts.some((d) => d.vaultPath === base.vaultPath));
+    const drafts = story ? [base, ...story.drafts.filter((d) => d.vaultPath !== base.vaultPath)] : [base];
+    new RenameProjectModal(
+      this.app,
+      drafts,
+      base,
+      { exists: (p) => this.app.vault.getAbstractFileByPath(p) !== null, allProjects: all },
+      (plan) => {
+        if (!plan) return;
+        void executeProjectRename(this.app, plan, {
+          mark: (p) => this.selfWrites.mark(p),
+          remapPaths: (remap) => this.tracker.remapBaselines(remap),
+          getActive: () => this.activeProject.get(),
+          setActive: (p) => this.activeProject.set(p),
+        }).then(() => this.store.refresh());
+      }
+    ).open();
   }
 
   /**
