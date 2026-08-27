@@ -37,16 +37,46 @@ function skeleton(): string {
 }
 
 /**
+ * Locate the project's existing planning note, or `null` if none exists yet.
+ *
+ * The stored `inkswell.overview.planningNote` pointer is a plain path string, so
+ * Obsidian does NOT rewrite it when the user renames the project folder or the
+ * note in the file explorer — and a hand-edited `longform.title` changes the
+ * default filename. Either leaves the pointer stale. Resolution order:
+ *   1. the stored pointer, if it still resolves;
+ *   2. the default sibling path for the current title;
+ *   3. a lone `* — Plan.md` sibling of the index (the note from before a rename).
+ * Step 3 only fires when exactly one candidate exists — never guess between two.
+ */
+export function findPlanningNote(app: App, project: Project): TFile | null {
+  const stored = project.inkswell?.overview?.planningNote;
+  const candidates = [
+    stored && stored.trim() ? normalizePath(stored) : null,
+    planningNotePath(project),
+  ];
+  for (const path of candidates) {
+    if (!path) continue;
+    const f = app.vault.getAbstractFileByPath(path);
+    if (f instanceof TFile) return f;
+  }
+  const indexFile = app.vault.getAbstractFileByPath(project.vaultPath);
+  const siblings = indexFile instanceof TFile ? indexFile.parent?.children ?? [] : [];
+  const plans = siblings.filter(
+    (c): c is TFile => c instanceof TFile && / — Plan\.md$/.test(c.name)
+  );
+  return plans.length === 1 ? plans[0] : null;
+}
+
+/**
  * Return the project's planning note, creating it (with a section skeleton) on
- * first use. Prefers the stored `inkswell.overview.planningNote` path, falling
- * back to the default sibling path.
+ * first use. Finds an existing note via `findPlanningNote`; when none exists the
+ * new note goes at the default sibling path — never at a stale stored pointer,
+ * whose parent folder may no longer exist.
  */
 export async function ensurePlanningNote(app: App, project: Project): Promise<TFile> {
-  const stored = project.inkswell?.overview?.planningNote;
-  const path = stored && stored.trim() ? normalizePath(stored) : planningNotePath(project);
-  const existing = app.vault.getAbstractFileByPath(path);
-  if (existing instanceof TFile) return existing;
-  return app.vault.create(path, skeleton());
+  const existing = findPlanningNote(app, project);
+  if (existing) return existing;
+  return app.vault.create(planningNotePath(project), skeleton());
 }
 
 /** Extract the body text under an H2 heading (between it and the next H2 / EOF). */

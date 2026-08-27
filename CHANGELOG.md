@@ -10,6 +10,9 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Fixed
+- **Renaming a project no longer blanks the Plan → Overview prose or wedges saving.** The planning note's location is remembered as a plain path, which Obsidian doesn't rewrite when you rename the project folder, rename the note, or change `longform.title` by hand — so the Overview textareas came up empty and every save failed with "Couldn't save the planning note." The panel now finds the note wherever it ended up (stored path → `<Title> — Plan.md` beside the index → the lone `* — Plan.md` sibling), repairs the stored path, and only creates a fresh note when none exists — at the current default location, never under a folder that no longer exists. (A proper "Rename project" action is still to come.)
+
 ## [1.12.0] - 2026-08-19
 
 ### Added
