@@ -10,11 +10,13 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-08-27
+
 ### Added
 - **Rename project.** Working title → real title is now one action: right-click a project on Home (or open the Drafts ⋯ menu, or run the *Rename project* command) and enter the new name. Inkswell retitles every draft of the story and — by default — moves the project folder, index note(s), and planning note to match, then rewrites everything that pointed at the old name: the planning-note and cover paths, the scene template, codex entries scoped to the book, word-tracking baselines, and the focused project. Folders or notes you'd renamed yourself are left where they are. The dialog validates live (a title another project uses, or a folder that already exists, is called out before you press Rename), and you can untick the file move to change only the title.
 
 ### Fixed
-- **Renaming a project no longer blanks the Plan → Overview prose or wedges saving.** The planning note's location is remembered as a plain path, which Obsidian doesn't rewrite when you rename the project folder, rename the note, or change `longform.title` by hand — so the Overview textareas came up empty and every save failed with "Couldn't save the planning note." The panel now finds the note wherever it ended up (stored path → `<Title> — Plan.md` beside the index → the lone `* — Plan.md` sibling), repairs the stored path, and only creates a fresh note when none exists — at the current default location, never under a folder that no longer exists. (A proper "Rename project" action is still to come.)
+- **Renaming a project no longer blanks the Plan → Overview prose or wedges saving.** The planning note's location is remembered as a plain path, which Obsidian doesn't rewrite when you rename the project folder, rename the note, or change `longform.title` by hand — so the Overview textareas came up empty and every save failed with "Couldn't save the planning note." The panel now finds the note wherever it ended up (stored path → `<Title> — Plan.md` beside the index → the lone `* — Plan.md` sibling), repairs the stored path, and only creates a fresh note when none exists — at the current default location, never under a folder that no longer exists. (See **Rename project** above for the supported way to do this.)
 
 ## [1.12.0] - 2026-08-19
 
@@ -284,7 +286,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.12.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.13.0...HEAD
+[1.13.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.12.0...1.13.0
 [1.12.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.11.0...1.12.0
 [1.11.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.10.2...1.11.0
 [1.10.2]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.10.1...1.10.2
