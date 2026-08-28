@@ -10,6 +10,9 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Added
+- **Wikilinks no longer leak into compiled manuscripts.** `[[Note]]`, `[[Note|Alias]]`, and `[[Note#Heading]]` now resolve to their readable display text (alias, or note name with any `#Heading` dropped) wherever the manuscript is compiled; embeds (`![[Note]]`) are removed entirely. This runs automatically on every compile — there's nothing to enable, and it can't be turned off per project.
+
 ## [1.13.0] - 2026-08-27
 
 ### Added

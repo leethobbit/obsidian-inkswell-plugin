@@ -167,6 +167,47 @@ describe("runCompile (md)", () => {
     expect(app.vault.raw("Book/Scenes/One.md")).toContain("Scene one prose.");
   });
 
+  it("strips wikilink syntax from the compiled output without touching the source scene file", async () => {
+    const app = new FakeApp({
+      "Book/Book.md": "---\nlongform:\n  format: scenes\n  title: Book\n  sceneFolder: Scenes\n  scenes:\n    - One\n---\n",
+      "Book/Scenes/One.md":
+        "Inspector [[Inspector Coll]] read [[The Undercroft Archive|the Archive]] " +
+        "about [[The Lattice#Origins]].\n![[Location.png]]\n" +
+        "A plain [markdown link](https://example.com) stays.\n",
+    });
+    const before = app.vault.raw("Book/Scenes/One.md");
+    const p = project(app, [{ title: "One", path: "Book/Scenes/One.md" }]);
+
+    const result = await runCompile(app.asApp(), p, CONFIG);
+
+    // wordCountSource is the pure manuscript body (no compile marker), so it's
+    // the right place to assert "no bare ! left behind" without the marker's
+    // own "<!--" tripping the check.
+    expect(result.wordCountSource).not.toMatch(/\[\[|\]\]/);
+    expect(result.wordCountSource).toContain(
+      "Inspector Inspector Coll read the Archive about The Lattice."
+    );
+    expect(result.wordCountSource).toContain("[markdown link](https://example.com)"); // out of scope, untouched
+    expect(result.wordCountSource).not.toContain("!"); // embed left no bare "!" behind
+
+    // wikilink removal never touches the on-disk scene file.
+    expect(app.vault.raw("Book/Scenes/One.md")).toBe(before);
+  });
+
+  it("strips wikilinks even with a configuration that has no sceneSteps/manuscriptSteps", async () => {
+    const app = new FakeApp({
+      "Book/Book.md": "---\nlongform:\n  format: scenes\n  title: Book\n  sceneFolder: Scenes\n  scenes:\n    - One\n---\n",
+      "Book/Scenes/One.md": "Read [[Inspector Coll]]'s file.\n",
+    });
+    const p = project(app, [{ title: "One", path: "Book/Scenes/One.md" }]);
+    const emptyConfig: CompileConfig = { ...CONFIG, sceneSteps: [], manuscriptSteps: [] };
+
+    const result = await runCompile(app.asApp(), p, emptyConfig);
+
+    expect(result.wordCountSource).toContain("Read Inspector Coll's file.");
+    expect(result.wordCountSource).not.toMatch(/\[\[|\]\]/);
+  });
+
   it("never modifies the scene files it reads", async () => {
     const app = seededApp();
     const before = {

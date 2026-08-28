@@ -11,6 +11,15 @@ import { CompileScene, CompileStep, ManuscriptStep, SceneStep } from "./types";
 
 const OBSIDIAN_COMMENT_RE = /%%[\s\S]*?%%/g;
 
+// Embeds (`![[Target]]`) must be resolved BEFORE plain wikilinks below, or the
+// plain-wikilink pass would still match the inner `[[Target]]`, resolve it to
+// display text, and leave the leading `!` dangling (e.g. "! Target").
+const WIKILINK_EMBED_RE = /!\[\[[^\]]+\]\]/g;
+// Target stops at the first `#`, `|`, or `]` so a heading/block reference
+// (`#Heading`) is captured separately and discarded — deliberately different
+// from the word-count WIKILINK_RE (src/lib/wordcount.ts), which keeps it.
+const WIKILINK_RE = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]+))?\]\]/g;
+
 /** Remove a leading YAML frontmatter block from each scene. Shares the ONE
  *  splitter (lib/frontmatter), which requires the block to parse as a YAML
  *  mapping — a scene opening with a `---` divider keeps its opening prose in
@@ -110,6 +119,28 @@ const trimBlankLines: ManuscriptStep = {
       .replace(/[ \t]+$/gm, "") // strip trailing whitespace per line
       .replace(/\n{3,}/g, "\n\n") // collapse 3+ blank lines
       .replace(/^\s+|\s+$/g, "") + "\n",
+};
+
+/**
+ * Remove Obsidian wikilink syntax (`[[Target]]`, `[[Target|Alias]]`,
+ * `[[Target#Heading]]`, and embeds `![[Target]]`) from the compiled
+ * manuscript, keeping only the readable display text (nothing, for embeds).
+ *
+ * Deliberately NOT added to {@link BUILTIN_STEPS} / the step registry: this
+ * cleanup is unconditional (spec FR-005) — it always runs and is never a
+ * toggleable entry in the compile step configuration UI. `assembleManuscript`
+ * (compile/assemble.ts) calls `.run()` on this directly instead of resolving
+ * it through a configured step id. Never resolves targets against actual
+ * vault notes — syntax-only, keeping this module Obsidian-free.
+ */
+export const stripWikilinks: ManuscriptStep = {
+  id: "strip-wikilinks",
+  description: "Remove Obsidian wikilink syntax, keeping the display text",
+  kind: "manuscript",
+  run: (manuscript) =>
+    manuscript
+      .replace(WIKILINK_EMBED_RE, "")
+      .replace(WIKILINK_RE, (_m: string, target: string, alias: string | undefined) => alias ?? target),
 };
 
 export const BUILTIN_STEPS: CompileStep[] = [

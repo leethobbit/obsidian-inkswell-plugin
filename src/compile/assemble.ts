@@ -7,7 +7,7 @@
  * MANUSCRIPT steps → string.
  */
 
-import { STEP_REGISTRY } from "./steps";
+import { STEP_REGISTRY, stripWikilinks } from "./steps";
 import {
   CompileConfig,
   CompileScene,
@@ -29,6 +29,10 @@ export function assembleManuscript(
   }
 
   let manuscript = working.map((s) => s.contents).join(config.separator);
+
+  // Runs on every compile regardless of config, before the author's configured manuscript steps —
+  // so a configured trim-blank-lines still mops up any blank line an embed's removal leaves behind.
+  manuscript = stripWikilinks.run(manuscript, {});
 
   for (const cfg of config.manuscriptSteps) {
     const step = resolveStep(registry, cfg.id, "manuscript") as ManuscriptStep;
