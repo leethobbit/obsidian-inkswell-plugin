@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { applyStepToggle, resolveCompileConfig } from "../src/compile/config";
-import { CompileConfig, DEFAULT_COMPILE_CONFIG } from "../src/compile/types";
+import {
+  COMPILE_CONFIG_VERSION,
+  CompileConfig,
+  DEFAULT_COMPILE_CONFIG,
+} from "../src/compile/types";
 import { Project } from "../src/projects/types";
 
 /** Minimal Project stub — resolveCompileConfig only reads `inkswell.compile`. */
@@ -11,6 +15,7 @@ function project(compile?: unknown): Project {
 describe("resolveCompileConfig", () => {
   it("returns an equal but CLONED config when one is saved", () => {
     const saved = {
+      version: 2,
       sceneSteps: [{ id: "strip-frontmatter", options: {} }],
       manuscriptSteps: [],
       separator: "\n\n",
@@ -69,6 +74,51 @@ describe("resolveCompileConfig", () => {
     const config = resolveCompileConfig(project({ format: "html" }), "md");
     expect(config.sceneSteps).toEqual(DEFAULT_COMPILE_CONFIG.sceneSteps);
     expect(config.format).toBe("md");
+  });
+
+  describe("migration (config version)", () => {
+    const v1 = (ids: string[]) => ({
+      sceneSteps: ids.map((id) => ({ id, options: {} })),
+      manuscriptSteps: [],
+      separator: "\n\n",
+      targetBasename: "x",
+      format: "md",
+    });
+
+    it("adds flatten-links to a pre-versioned config, after the cleanup steps, and stamps v2", () => {
+      const c = resolveCompileConfig(
+        project(v1(["strip-frontmatter", "remove-comments", "group-by-chapter"]))
+      );
+      expect(c.sceneSteps.map((s) => s.id)).toEqual([
+        "strip-frontmatter",
+        "remove-comments",
+        "flatten-links",
+        "group-by-chapter",
+      ]);
+      expect(c.version).toBe(COMPILE_CONFIG_VERSION);
+    });
+
+    it("puts flatten-links first when no cleanup steps are enabled", () => {
+      const c = resolveCompileConfig(project(v1(["prepend-title"])));
+      expect(c.sceneSteps.map((s) => s.id)).toEqual(["flatten-links", "prepend-title"]);
+    });
+
+    it("does NOT re-add flatten-links to a v2 config where the user turned it off", () => {
+      const c = resolveCompileConfig(project({ ...v1(["strip-frontmatter"]), version: 2 }));
+      expect(c.sceneSteps.map((s) => s.id)).toEqual(["strip-frontmatter"]);
+    });
+
+    it("is idempotent — resolving an already-migrated config changes nothing", () => {
+      const once = resolveCompileConfig(project(v1(["remove-todos"])));
+      const twice = resolveCompileConfig(project(once));
+      expect(twice).toEqual(once);
+    });
+
+    it("never mutates the stored object", () => {
+      const saved = v1(["strip-frontmatter"]);
+      resolveCompileConfig(project(saved));
+      expect(saved).toEqual(v1(["strip-frontmatter"]));
+    });
   });
 });
 

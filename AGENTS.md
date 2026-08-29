@@ -64,7 +64,8 @@ Obsidian plugin conventions (toolchain, Vault API rules, deferred views, mobile,
 1. Implement the `CompileStep` interface in [src/compile/steps.ts](src/compile/steps.ts), setting `kind: "scene" | "manuscript"`.
 2. Register it in the step registry so it appears in the compile UI.
 3. Add/extend a vitest case asserting pipeline ordering and output.
-4. `npm run typecheck && npm test`, then reload via the `obsidian-cli` skill and run a compile end-to-end.
+4. Should it be ON for existing projects? A saved `sceneSteps` list is taken verbatim, so also add it to `DEFAULT_COMPILE_CONFIG`, bump `COMPILE_CONFIG_VERSION` ([src\compile\types.ts](src\compile\types.ts)), and add a version case to `migrateCompileConfig` ([src\compile\config.ts](src\compile\config.ts)) with a test in `tests/compile-config.test.ts`.
+5. `npm run typecheck && npm test`, then reload via the `obsidian-cli` skill and run a compile end-to-end.
 
 ## Versioning (semver)
 Pre-1.0 the leading `0` means "unstable": data-format/compat breaks are allowed and bump MINOR. Keep `package.json`, `manifest.json`, and `versions.json` in lockstep — never edit one by hand.

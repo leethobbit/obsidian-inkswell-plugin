@@ -72,3 +72,16 @@ describe("preflight", () => {
     expect(f.scenes).toEqual(["A", "B"]);
   });
 });
+
+describe("preflight: embeds", () => {
+  it("flags embedded notes/PDFs (dropped by flatten-links) but not image embeds", () => {
+    const found = preflight([
+      { title: "A", text: "Prose ![[Other Scene]] and ![[Other#Part|x]] and ![[paper.pdf]]." },
+      { title: "B", text: "A map: ![[city.png|300]] and ![alt](x.jpg)." },
+      { title: "C", text: "A normal [[wikilink]] is fine." },
+    ]);
+    const f = found.find((x) => x.rule === "embeds")!;
+    expect(f.count).toBe(3);
+    expect(f.scenes).toEqual(["A"]);
+  });
+});

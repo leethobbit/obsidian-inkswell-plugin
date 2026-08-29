@@ -30,10 +30,13 @@ inkswell:
     cover: Writing/The Lamplighter's Archive/cover.svg
     planningNote: Writing/The Lamplighter's Archive/The Lamplighter's Archive — Plan.md
   compile:
+    version: 2
     sceneSteps:
       - id: strip-frontmatter
         options: {}
       - id: remove-comments
+        options: {}
+      - id: flatten-links
         options: {}
       - id: group-by-chapter
         options:

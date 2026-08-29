@@ -53,7 +53,19 @@ export interface PandocOutput {
   extraArgs: string[];
 }
 
+/**
+ * Current compile-config schema version. Bump it (and add a case to
+ * `migrateCompileConfig` in config.ts) whenever a NEW step should be on by
+ * default for projects that were configured under an older version — a saved
+ * `sceneSteps` list is otherwise taken verbatim and never learns about new steps.
+ *   1 (implicit — no `version` key): pre-1.14 configs
+ *   2: `flatten-links` scene step added, default-on
+ */
+export const COMPILE_CONFIG_VERSION = 2;
+
 export interface CompileConfig {
+  /** Schema version (see {@link COMPILE_CONFIG_VERSION}); absent = 1. */
+  version?: number;
   sceneSteps: ConfiguredStep[];
   manuscriptSteps: ConfiguredStep[];
   /** Text inserted between scenes during the join. */
@@ -65,6 +77,7 @@ export interface CompileConfig {
 }
 
 export const DEFAULT_COMPILE_CONFIG: CompileConfig = {
+  version: COMPILE_CONFIG_VERSION,
   // `prepend-title` is intentionally NOT a default: many authors already put a
   // heading at the top of each scene, so prepending the scene name would
   // double-title the manuscript. Add it explicitly for titleless-scene vaults.
@@ -72,6 +85,7 @@ export const DEFAULT_COMPILE_CONFIG: CompileConfig = {
     { id: "strip-frontmatter", options: {} },
     { id: "remove-comments", options: {} },
     { id: "remove-todos", options: {} },
+    { id: "flatten-links", options: {} },
   ],
   manuscriptSteps: [{ id: "trim-blank-lines", options: {} }],
   separator: "\n\n",

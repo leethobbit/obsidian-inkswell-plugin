@@ -6,7 +6,12 @@
  */
 
 import { Project } from "../projects/types";
-import { CompileConfig, DEFAULT_COMPILE_CONFIG, OutputFormat } from "./types";
+import {
+  COMPILE_CONFIG_VERSION,
+  CompileConfig,
+  DEFAULT_COMPILE_CONFIG,
+  OutputFormat,
+} from "./types";
 
 /**
  * Resolve a raw stored `inkswell.compile` value (untyped frontmatter) into a
@@ -25,7 +30,7 @@ export function resolveCompileValue(
     typeof saved === "object" &&
     Array.isArray((saved as CompileConfig).sceneSteps)
   ) {
-    return JSON.parse(JSON.stringify(saved)) as CompileConfig;
+    return migrateCompileConfig(JSON.parse(JSON.stringify(saved)) as CompileConfig);
   }
 
   const config = JSON.parse(JSON.stringify(DEFAULT_COMPILE_CONFIG)) as CompileConfig;
@@ -33,6 +38,30 @@ export function resolveCompileValue(
   if (fallbackFormat === "pandoc") {
     config.pandoc = { to: "docx", extension: "docx", extraArgs: [] };
   }
+  return config;
+}
+
+/**
+ * Bring a saved config up to {@link COMPILE_CONFIG_VERSION}, IN PLACE. Each
+ * version step runs at most once per stored config: the stamped `version` is
+ * written back with the next panel edit, so a step a user then turns OFF stays
+ * off — migration adds a new default only for configs that predate it.
+ */
+export function migrateCompileConfig(config: CompileConfig): CompileConfig {
+  const from = typeof config.version === "number" ? config.version : 1;
+  if (from < 2) {
+    // v2: `flatten-links` becomes default-on. Slot it after the last of the
+    // cleanup steps it belongs with, so the list keeps registry order.
+    if (!config.sceneSteps.some((s) => s.id === "flatten-links")) {
+      const cleanup = ["strip-frontmatter", "remove-comments", "remove-todos"];
+      let at = 0;
+      config.sceneSteps.forEach((s, i) => {
+        if (cleanup.includes(s.id)) at = i + 1;
+      });
+      config.sceneSteps.splice(at, 0, { id: "flatten-links", options: {} });
+    }
+  }
+  config.version = COMPILE_CONFIG_VERSION;
   return config;
 }
 

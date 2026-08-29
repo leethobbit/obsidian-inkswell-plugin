@@ -8,8 +8,21 @@
 
 import { scanPlaceholders } from "../lib/placeholders";
 import { stripFrontmatter } from "../lib/frontmatter";
+import { isImageEmbedTarget } from "./steps";
 
 const OBSIDIAN_COMMENT_RE = /%%[\s\S]*?%%/g;
+// Embeds whose target is NOT an image: note/heading/PDF transclusions. The
+// `flatten-links` step drops these outright (it can't inline another note), so
+// the author must be told before the content silently vanishes from the export.
+const EMBED_TARGET_RE = /!\[\[([^\]|#]*)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]/g;
+
+function countNoteEmbeds(text: string): number {
+  let n = 0;
+  for (const m of text.matchAll(EMBED_TARGET_RE)) {
+    if (!isImageEmbedTarget(m[1])) n++;
+  }
+  return n;
+}
 
 export interface SceneText {
   title: string;
@@ -57,6 +70,7 @@ export function preflight(scenes: SceneText[]): PreflightFinding[] {
   const html = new Map<string, number>();
   const pagebreak = new Map<string, number>();
   const todos = new Map<string, number>();
+  const embeds = new Map<string, number>();
   const empty: string[] = [];
   const styles = new Set<string>();
 
@@ -74,6 +88,7 @@ export function preflight(scenes: SceneText[]): PreflightFinding[] {
     if ((n = count(RAW_HTML_RE, text))) html.set(s.title, n);
     if ((n = count(PAGEBREAK_RE, text))) pagebreak.set(s.title, n);
     if ((n = scanPlaceholders(text).length)) todos.set(s.title, n);
+    if ((n = countNoteEmbeds(text))) embeds.set(s.title, n);
     for (const line of text.split("\n")) {
       const style = breakStyle(line);
       if (style) styles.add(style);
@@ -96,6 +111,11 @@ export function preflight(scenes: SceneText[]): PreflightFinding[] {
     "todos",
     "Unresolved drafting markers ([TODO]/[NOTE]/[SCENE]…) — resolve them or the 'remove-todos' step will drop them",
     todos
+  );
+  fromMap(
+    "embeds",
+    "Embedded notes (![[…]]) — the 'flatten-links' step drops them; paste the text in if it belongs in the manuscript",
+    embeds
   );
 
   if (empty.length > 0) {
