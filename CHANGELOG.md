@@ -10,6 +10,8 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-08-29
+
 ### Added
 - **Links no longer leak into compiled manuscripts.** A new *Flatten links to plain text* scene step (on by default, including for projects you configured before this release — untick it under Publish → Compile → Scene steps if you want link syntax kept) turns `[[Beatrice|sister]]` into `sister`, `[[Beatrice]]` into `Beatrice`, `[[Note#Heading]]` into `Note`, and `[a link](https://…)` into `a link` — so neither wikilink brackets nor dead hyperlinks reach the .md, HTML, DOCX, or EPUB. Image embeds (`![[map.png]]`) become ordinary markdown images the exporter can include; embedded *notes* (`![[Other note]]`) are dropped, and Preflight now flags them beforehand so nothing disappears silently. Fixes [#32](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/32) — thanks to @vanerp for the report and a PR that informed the wikilink handling.
 
@@ -289,7 +291,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.13.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.14.0...HEAD
+[1.14.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.13.0...1.14.0
 [1.13.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.12.0...1.13.0
 [1.12.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.11.0...1.12.0
 [1.11.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.10.2...1.11.0
