@@ -66,6 +66,24 @@ describe("runCompile (md)", () => {
     expect(result.wordCountSource).not.toContain("inkswell:compile");
   });
 
+  it("flattens links in the output (default config) without touching the source scene", async () => {
+    const app = new FakeApp({
+      "Book/Book.md": "---\nlongform:\n  format: scenes\n  title: Book\n  sceneFolder: Scenes\n  scenes:\n    - One\n---\n",
+      "Book/Scenes/One.md":
+        "She'd tell her [[Beatrice|sister]] about [[The Lattice#Origins]].\n" +
+        "![[Other Scene]]\n![[map.png]]\nA [markdown link](https://example.com) too.\n",
+    });
+    const before = app.vault.raw("Book/Scenes/One.md");
+    const p = project(app, [{ title: "One", path: "Book/Scenes/One.md" }]);
+
+    const result = await runCompile(app.asApp(), p, CONFIG);
+
+    expect(result.wordCountSource).toBe(
+      "She'd tell her sister about The Lattice.\n\n![](map.png)\nA markdown link too.\n"
+    );
+    expect(app.vault.raw("Book/Scenes/One.md")).toBe(before);
+  });
+
   it("overwrites the previous compile in place (same file identity, no duplicate)", async () => {
     const app = seededApp();
     const p = project(app, [{ title: "One", path: "Book/Scenes/One.md" }]);

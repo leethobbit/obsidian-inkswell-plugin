@@ -11,6 +11,57 @@ import { CompileScene, CompileStep, ManuscriptStep, SceneStep } from "./types";
 
 const OBSIDIAN_COMMENT_RE = /%%[\s\S]*?%%/g;
 
+// --- Link syntax (see `flattenLinks`) -------------------------------------
+// Any embed: `![[target]]`, `![[target|alias-or-size]]`, `![[target#heading]]`.
+// Captures target (up to `#`/`|`) and the optional alias. Must run before the
+// plain-wikilink pass or that pass would leave a dangling `!` behind.
+const EMBED_RE = /!\[\[([^\]|#]*)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]/g;
+// Plain wikilink: target stops at `#` or `|`; the `#heading`/`#^block` part is
+// captured so `[[#Heading]]` (same-note link, empty target) can still show text.
+// Deliberately different from wordcount.ts's WIKILINK_RE, which keeps the whole
+// inner text for counting — here we want what the reader should SEE.
+const WIKILINK_RE = /\[\[([^\]|#]*)(?:#([^\]|]*))?(?:\|([^\]]*))?\]\]/g;
+// Inline markdown link `[text](url "title")` — NOT an image (`![alt](src)`,
+// guarded by the lookbehind) and not a reference link (`[text][ref]`).
+const MD_LINK_RE = /(?<!!)\[([^\][]*)\]\((?:<[^>]*>|[^\s()]*(?:\([^\s()]*\)[^\s()]*)*)(?:\s+(?:"[^"]*"|'[^']*'))?\)/g;
+const IMAGE_EXT_RE = /\.(?:png|jpe?g|gif|svg|webp|bmp|avif)$/i;
+// An Obsidian image alias that's really a size hint: `300` or `300x200`.
+const SIZE_ALIAS_RE = /^\d+(?:x\d+)?$/;
+
+/** True when an embed target is an image file (kept, as a markdown image). */
+export function isImageEmbedTarget(target: string): boolean {
+  return IMAGE_EXT_RE.test(target.trim());
+}
+
+/**
+ * Rewrite every link in `text` to what a reader should see (pure — shared by
+ * the compile step and, for the count, preflight):
+ *   `[[Note|Alias]]` → `Alias`, `[[Note]]` → `Note`, `[[Note#H]]` → `Note`,
+ *   `[[#Heading]]` → `Heading`, `[text](url)` → `text`,
+ *   `![[map.png|alt]]` → `![alt](map.png)` (an image the exporter can embed),
+ *   any other `![[…]]` (note/PDF transclusion) → removed.
+ */
+export function flattenLinkSyntax(text: string): string {
+  return text
+    .replace(EMBED_RE, (_m, target: string, alias: string | undefined) => {
+      const path = target.trim();
+      if (!isImageEmbedTarget(path)) return "";
+      const alt = alias && !SIZE_ALIAS_RE.test(alias.trim()) ? alias.trim() : "";
+      const dest = /\s/.test(path) ? `<${path}>` : path;
+      return `![${alt}](${dest})`;
+    })
+    .replace(
+      WIKILINK_RE,
+      (_m, target: string, heading: string | undefined, alias: string | undefined) => {
+        if (alias !== undefined && alias.trim()) return alias;
+        if (target.trim()) return target;
+        // `[[#Heading]]` / `[[#^block]]`: nothing else to show but the fragment.
+        return (heading ?? "").replace(/^\^/, "");
+      }
+    )
+    .replace(MD_LINK_RE, (_m, text: string) => text);
+}
+
 /** Remove a leading YAML frontmatter block from each scene. Shares the ONE
  *  splitter (lib/frontmatter), which requires the block to parse as a YAML
  *  mapping — a scene opening with a `---` divider keeps its opening prose in
@@ -46,6 +97,22 @@ const removeTodos: SceneStep = {
   kind: "scene",
   run: (scenes) =>
     scenes.map((s) => ({ ...s, contents: stripPlaceholders(s.contents) })),
+};
+
+/**
+ * Flatten link syntax to reader-visible text in each scene: `[[Note|Alias]]`
+ * and `[text](url)` both become just the text; image embeds become markdown
+ * images (so pandoc/HTML can include them); note embeds are dropped (preflight
+ * warns about those). Nothing here resolves against the vault — syntax only.
+ * Default-on; on by migration for projects configured before it existed
+ * (see `resolveCompileValue`).
+ */
+const flattenLinks: SceneStep = {
+  id: "flatten-links",
+  description: "Flatten links to plain text ([[wikilinks]] and [markdown](links))",
+  kind: "scene",
+  run: (scenes) =>
+    scenes.map((s) => ({ ...s, contents: flattenLinkSyntax(s.contents) })),
 };
 
 /** Prepend a markdown heading (scene title) to each scene. */
@@ -116,6 +183,7 @@ export const BUILTIN_STEPS: CompileStep[] = [
   stripFrontmatter,
   removeComments,
   removeTodos,
+  flattenLinks,
   prependTitle,
   groupByChapter,
   trimBlankLines,
