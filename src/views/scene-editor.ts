@@ -156,10 +156,29 @@ function insertBinding(kind: PlaceholderKind) {
 function quickCodexBinding(opts: SceneEditorOptions) {
   return (view: EditorView): boolean => {
     const { from, to } = view.state.selection.main;
-    const selectedText = view.state.sliceDoc(from, to).trim();
 
-    opts.onQuickCodex?.(view, selectedText, from, to);
+    if (from !== to) {
+      const selectedText = view.state.sliceDoc(from, to).trim();
+      opts.onQuickCodex?.(view, selectedText, from, to);
+      return true;
+    }
 
+    // No selection: use the single word immediately before the cursor.
+    let wordStart = from;
+
+    while (wordStart > 0) {
+      const char = view.state.sliceDoc(wordStart - 1, wordStart);
+
+      if (/\s/.test(char)) {
+        break;
+      }
+
+      wordStart--;
+    }
+
+    const word = view.state.sliceDoc(wordStart, from);
+
+    opts.onQuickCodex?.(view, word, wordStart, from);
     return true;
   };
 }
