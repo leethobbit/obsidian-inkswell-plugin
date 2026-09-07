@@ -42,6 +42,23 @@ describe("createEntity filename safety", () => {
       "location"
     );
   });
+  it("reuses an existing entry instead of overwriting it", async () => {
+    const app = new FakeApp();
+    const existing = await app.vault.create(
+      "Codex/Sarah.md",
+      "Original contents"
+    );
+
+    const file = await createEntity(
+      app.asApp(),
+      "character",
+      "Sarah",
+      "Codex"
+    );
+
+    expect(file?.path).toBe(existing.path);
+    expect(await app.vault.read(existing)).toBe("Original contents");
+  });
 });
 
 describe("getCodexEntities discovery", () => {

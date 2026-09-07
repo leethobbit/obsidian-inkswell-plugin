@@ -151,7 +151,37 @@ function insertBinding(kind: PlaceholderKind) {
     return true;
   };
 }
+export function getQuickCodexRange(
+  doc: string,
+  from: number,
+  to: number
+): { text: string; from: number; to: number } {
+  if (from !== to) {
+    return {
+      text: doc.slice(from, to).trim(),
+      from,
+      to,
+    };
+  }
 
+  let wordStart = from;
+
+  while (wordStart > 0) {
+    const char = doc.slice(wordStart - 1, wordStart);
+
+    if (/\s/.test(char)) {
+      break;
+    }
+
+    wordStart--;
+  }
+
+  return {
+    text: doc.slice(wordStart, from),
+    from: wordStart,
+    to: from,
+  };
+}
 /** Keymap binding helper: trigger the quick Codex modal. */
 function quickCodexBinding(opts: SceneEditorOptions) {
   return (view: EditorView): boolean => {

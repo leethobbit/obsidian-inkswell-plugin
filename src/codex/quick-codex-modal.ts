@@ -23,7 +23,7 @@ export class QuickCodexModal extends Modal {
     const { contentEl } = this;
 
     contentEl.empty();
-    contentEl.createEl("h2", { text: "Create Codex Entry" });
+    contentEl.createEl("h2", { text: "Create Codex entry" });
 
     new Setting(contentEl)
       .setName("Name")
