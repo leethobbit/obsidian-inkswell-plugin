@@ -9,6 +9,10 @@ Record every user-facing change under `[Unreleased]` as it lands. At release
 time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
+### Added
+
+* **Quick Codex creation from the Write editor.** Press `Mod-Shift-C` with text selected to create a Codex entry from that text, or with no selection to use the word immediately before the cursor. Choose the Codex type, create or reuse the entry, and Inkswell inserts a wikilink at the original text position.
+
 
 ## [1.14.0] - 2026-08-29
 

@@ -49,7 +49,6 @@ import { RevisionSidebar } from "../revisions/revision-sidebar";
 import { SprintController } from "../sprints/sprint-controller";
 import type InkswellPlugin from "../../main";
 
-
 /**
  * A scroll-to + flash target handed to the Write panel by another panel (Todos,
  * cross-scene Search). `from`/`to` are offsets into the scene BODY (frontmatter
