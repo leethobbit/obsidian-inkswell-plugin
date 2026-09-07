@@ -29,6 +29,7 @@ import {
   createEntity,
   resolveCodexTemplate,
 } from "../codex/codex-store";
+import { tryFileOp } from "../lib/notify";
 import { resolveCodexFolder } from "../settings/folders";
 import { baseDraftFor } from "../projects/stories";
 import { renderEmptyState } from "./panel-kit";
@@ -771,26 +772,30 @@ export class WritePanel {
               const def = categories.find((c) => c.id === category);
               if (!def) return;
 
-              const file = await createEntity(
-                this.app,
-                category,
-                name,
-                resolveCodexFolder(
-                  this.plugin.settings,
-                  createScope,
-                  active
-                    ? baseDraftFor(
-                        this.plugin.store.getProjects(),
-                        active
-                      ).vaultPath
-                    : undefined
-                ),
-                createScope,
-                resolveCodexTemplate(
-                  this.app,
-                  this.plugin.settings,
-                  def
-                )
+              const file = await tryFileOp(
+                () =>
+                  createEntity(
+                    this.app,
+                    category,
+                    name,
+                    resolveCodexFolder(
+                      this.plugin.settings,
+                      createScope,
+                      active
+                        ? baseDraftFor(
+                            this.plugin.store.getProjects(),
+                            active
+                          ).vaultPath
+                        : undefined
+                    ),
+                    createScope,
+                    resolveCodexTemplate(
+                      this.app,
+                      this.plugin.settings,
+                      def
+                    )
+                  ),
+                `Couldn't create the ${def.label}.`
               );
 
               if (!file) return;
