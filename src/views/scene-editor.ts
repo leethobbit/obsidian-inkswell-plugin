@@ -152,6 +152,18 @@ function insertBinding(kind: PlaceholderKind) {
   };
 }
 
+/** Keymap binding helper: trigger the quick Codex modal. */
+function quickCodexBinding(opts: SceneEditorOptions) {
+  return (view: EditorView): boolean => {
+    const { from, to } = view.state.selection.main;
+    const selectedText = view.state.sliceDoc(from, to).trim();
+
+    opts.onQuickCodex?.(view, selectedText, from, to);
+
+    return true;
+  };
+}
+
 export interface SceneEditorOptions {
   parent: HTMLElement;
   doc: string;
@@ -161,6 +173,13 @@ export interface SceneEditorOptions {
   onBlur: () => void;
   /** Fired by the Mod-Shift-L keymap to log a revision issue for this scene. */
   onLogIssue?: () => void;
+  /** Fired by the Mod-Shift-C keymap to create a Codex entry. */
+  onQuickCodex?: (
+    view: EditorView,
+    selectedText: string,
+    from: number,
+    to: number
+  ) => void;
 }
 
 /** Create a manuscript editor bound to `parent`, seeded with `doc`. */
@@ -179,6 +198,7 @@ export function createSceneEditor(opts: SceneEditorOptions): EditorView {
           { key: "Mod-Shift-d", run: insertBinding("dialogue") },
           { key: "Mod-Shift-s", run: insertBinding("scene") },
           { key: "Mod-Shift-n", run: insertBinding("note") },
+          { key: "Mod-Shift-c", run: quickCodexBinding(opts) },
           {
             key: "Mod-Shift-l",
             run: () => {

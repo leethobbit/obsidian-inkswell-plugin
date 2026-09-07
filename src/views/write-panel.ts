@@ -22,6 +22,15 @@ import { attachRowMenu } from "../lib/row-menu";
 import { addSceneMenuItems } from "../scenes/scene-actions";
 import { PromptModal } from "../ideation/prompt-modal";
 import { RevisionModal } from "../revisions/revision-modal";
+import { QuickCodexModal } from "../codex/quick-codex-modal";
+import { allCategories } from "../codex/types";
+import { defaultScopeForProject } from "../codex/codex-scope";
+import {
+  createEntity,
+  resolveCodexTemplate,
+} from "../codex/codex-store";
+import { resolveCodexFolder } from "../settings/folders";
+import { baseDraftFor } from "../projects/stories";
 import { renderEmptyState } from "./panel-kit";
 import { preserveFocus, tagField } from "../lib/focus-preserve";
 import { SceneSession } from "./scene-session";
@@ -38,6 +47,7 @@ import { RightPanel } from "./right-panel";
 import { RevisionSidebar } from "../revisions/revision-sidebar";
 import { SprintController } from "../sprints/sprint-controller";
 import type InkswellPlugin from "../../main";
+
 
 /**
  * A scroll-to + flash target handed to the Write panel by another panel (Todos,
@@ -740,6 +750,64 @@ export class WritePanel {
           if (!this.suppressBlurSave) void this.session?.save();
         },
         onLogIssue: () => this.logIssue(),
+
+        onQuickCodex: (view, selectedText, from, to) => {
+          const categories = allCategories(this.plugin.settings.customCategories);
+
+          new QuickCodexModal(
+            this.app,
+            categories,
+            async (name, category) => {
+              const activePath = this.plugin.activeProject.get();
+              const active = activePath
+                ? this.plugin.store.getProject(activePath) ?? null
+                : null;
+
+              const createScope = defaultScopeForProject(
+                active,
+                this.plugin.store.getProjects()
+              );
+
+              const def = categories.find((c) => c.id === category);
+              if (!def) return;
+
+              const file = await createEntity(
+                this.app,
+                category,
+                name,
+                resolveCodexFolder(
+                  this.plugin.settings,
+                  createScope,
+                  active
+                    ? baseDraftFor(
+                        this.plugin.store.getProjects(),
+                        active
+                      ).vaultPath
+                    : undefined
+                ),
+                createScope,
+                resolveCodexTemplate(
+                  this.app,
+                  this.plugin.settings,
+                  def
+                )
+              );
+
+              if (!file) return;
+
+              view.dispatch({
+                changes: {
+                  from,
+                  to,
+                  insert: `[[${name}]]`,
+                },
+              });
+
+              view.focus();
+            },
+            selectedText
+          ).open();
+        },
       });
       this.renderConflictBanner();
       this.updateCount();
