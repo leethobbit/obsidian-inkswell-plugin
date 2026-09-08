@@ -16,6 +16,7 @@ import { TargetModal } from "./src/goals/target-modal";
 import { Idea, newIdeaId } from "./src/ideation/types";
 import { baseDraftFor } from "./src/projects/stories";
 import { backupPluginData } from "./src/lib/data-backup";
+import { MarkKind } from "./src/lib/inline-format";
 import { countWords } from "./src/lib/wordcount";
 import { promptText } from "./src/scenes/scene-actions";
 import { ActiveProject, resolveActive } from "./src/projects/active-project";
@@ -30,7 +31,11 @@ import { Project } from "./src/projects/types";
 import { RevisionModal } from "./src/revisions/revision-modal";
 import { FeatureId, featureEnabled } from "./src/features";
 import { getCodexEntities } from "./src/codex/codex-store";
-import { normalizeCustomCategories } from "./src/codex/types";
+import {
+  builtinCategories,
+  normalizeCategoryOverrides,
+  normalizeCustomCategories,
+} from "./src/codex/types";
 import { normalizeCustomBeatTemplates } from "./src/outliner/custom-templates";
 import {
   DEFAULT_SETTINGS,
@@ -285,6 +290,28 @@ export default class InkswellPlugin extends Plugin {
         return true;
       },
     });
+    // Formatting toggles for Inkswell's own Write editor. Obsidian's
+    // editor:toggle-bold/italic need a MarkdownView and never reach it; Mod-b /
+    // Mod-i are bound inside the editor, and these commands exist so the actions
+    // are in the palette and rebindable under Settings → Hotkeys (no defaults —
+    // they'd collide with the core editor's).
+    const formatCommands: { id: string; name: string; kind: MarkKind }[] = [
+      { id: "toggle-bold", name: "Toggle bold (Write editor)", kind: "bold" },
+      { id: "toggle-italic", name: "Toggle italic (Write editor)", kind: "italic" },
+      { id: "toggle-strikethrough", name: "Toggle strikethrough (Write editor)", kind: "strike" },
+    ];
+    for (const { id, name, kind } of formatCommands) {
+      this.addCommand({
+        id,
+        name,
+        checkCallback: (checking) => {
+          const view = this.inkswellView();
+          if (!view || !view.canFormat()) return false;
+          if (!checking) view.format(kind);
+          return true;
+        },
+      });
+    }
     this.addCommand({
       id: "start-sprint",
       name: "Start a writing sprint",
@@ -384,7 +411,11 @@ export default class InkswellPlugin extends Plugin {
     // data.json is hand-editable and the merge above doesn't validate shapes —
     // drop malformed/colliding custom codex types and beat templates before
     // anything renders them.
-    this.settings.customCategories = normalizeCustomCategories(this.settings.customCategories);
+    this.settings.categoryOverrides = normalizeCategoryOverrides(this.settings.categoryOverrides);
+    this.settings.customCategories = normalizeCustomCategories(
+      this.settings.customCategories,
+      builtinCategories(this.settings.categoryOverrides)
+    );
     this.settings.customBeatTemplates = normalizeCustomBeatTemplates(
       this.settings.customBeatTemplates
     );

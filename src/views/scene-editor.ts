@@ -14,7 +14,7 @@
  */
 
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { EditorState, StateEffect, StateField } from "@codemirror/state";
+import { EditorSelection, EditorState, StateEffect, StateField } from "@codemirror/state";
 import {
   Decoration,
   DecorationSet,
@@ -23,8 +23,10 @@ import {
   ViewUpdate,
   keymap,
 } from "@codemirror/view";
+import { MarkKind, toggleInlineMark } from "../lib/inline-format";
 import { Sel, buildSyntaxIntents } from "../lib/markdown-syntax";
 import { PlaceholderKind, PLACEHOLDER_TEMPLATES } from "../lib/placeholders";
+import { TypographyRules, smartTypography } from "../lib/smart-typography";
 
 function buildDecorations(view: EditorView): { all: DecorationSet; hidden: DecorationSet } {
   const sels: Sel[] = view.state.selection.ranges.map((r) => ({ from: r.from, to: r.to }));
@@ -144,12 +146,92 @@ export function insertPlaceholder(view: EditorView, kind: PlaceholderKind): void
   view.focus();
 }
 
-/** Keymap binding helper: run an insert and consume the key. */
-function insertBinding(kind: PlaceholderKind) {
-  return (view: EditorView): boolean => {
-    insertPlaceholder(view, kind);
+/** Host callbacks a shortcut may need beyond the editor itself. */
+export interface EditorShortcutHooks {
+  /** Log a revision issue for the open scene (Mod-Shift-L). */
+  onLogIssue?: () => void;
+}
+
+/** One editor-local keyboard shortcut, in a form both CM and Obsidian can bind. */
+export interface EditorShortcut {
+  /** Obsidian-style modifiers (`Scope.register`); joined with `-` for CM. */
+  modifiers: ("Mod" | "Shift")[];
+  /** Lower-case key name. */
+  key: string;
+  run: (view: EditorView, hooks: EditorShortcutHooks) => void;
+}
+
+/**
+ * Every keyboard shortcut local to the manuscript editor. ONE table, bound two
+ * ways: as a CM keymap inside the editor, AND — by the Write panel — as an
+ * Obsidian `Scope` pushed while the editor is focused. Both are needed:
+ * Obsidian's hotkey manager is a window-level capture listener that consumes
+ * any keydown matching a registered hotkey (Mod-B → toggle bold, Mod-Shift-T →
+ * undo close tab, …) BEFORE the event reaches CodeMirror, even when the bound
+ * command can't run here. The pushed Scope wins over those global hotkeys; the
+ * CM keymap covers combos Obsidian has no binding for (and keeps the editor
+ * self-contained). Add a shortcut here and it lands in both.
+ */
+export const EDITOR_SHORTCUTS: EditorShortcut[] = [
+  { modifiers: ["Mod"], key: "b", run: (v) => formatSelection(v, "bold") },
+  { modifiers: ["Mod"], key: "i", run: (v) => formatSelection(v, "italic") },
+  { modifiers: ["Mod", "Shift"], key: "t", run: (v) => insertPlaceholder(v, "todo") },
+  { modifiers: ["Mod", "Shift"], key: "r", run: (v) => insertPlaceholder(v, "research") },
+  { modifiers: ["Mod", "Shift"], key: "d", run: (v) => insertPlaceholder(v, "dialogue") },
+  { modifiers: ["Mod", "Shift"], key: "s", run: (v) => insertPlaceholder(v, "scene") },
+  { modifiers: ["Mod", "Shift"], key: "n", run: (v) => insertPlaceholder(v, "note") },
+  { modifiers: ["Mod", "Shift"], key: "l", run: (_v, hooks) => hooks.onLogIssue?.() },
+];
+
+/**
+ * Toggle bold / italic / strikethrough on every selection range — the Write
+ * editor's equivalent of Obsidian's `editor:toggle-*` commands, which can't
+ * reach this surface (they need a MarkdownView). The transform is the pure
+ * `toggleInlineMark`; each range's change is computed against the ORIGINAL doc,
+ * which is exactly what `changeByRange` expects (it maps later ranges itself).
+ * A backwards selection stays backwards. Refocuses so a menu/palette invocation
+ * doesn't strand focus.
+ */
+export function formatSelection(view: EditorView, kind: MarkKind): boolean {
+  const doc = view.state.doc.toString();
+  const spec = view.state.changeByRange((range) => {
+    const r = toggleInlineMark(doc, range.from, range.to, kind);
+    const sel =
+      range.anchor > range.head
+        ? EditorSelection.range(r.head, r.anchor)
+        : EditorSelection.range(r.anchor, r.head);
+    return { changes: { from: r.from, to: r.to, insert: r.insert }, range: sel };
+  });
+  view.dispatch(spec, { userEvent: "input.format", scrollIntoView: true });
+  view.focus();
+  return true;
+}
+
+/**
+ * Smart typography as an input handler: a single typed `-`, `.`, `"` or `'`
+ * may be replaced by a dash/ellipsis/curly quote (rules in
+ * `lib/smart-typography.ts`). An input handler — not a transaction filter —
+ * because it sees only DOM user input (never our own reseeds/inserts/undo) and
+ * can consult the live composition state. Bails during IME composition (Android,
+ * CJK), for replacements (autocorrect), and with multiple cursors. The
+ * replacement is tagged `input.type` so it undoes with the surrounding typing.
+ */
+function smartTypographyHandler(getRules: () => TypographyRules) {
+  return EditorView.inputHandler.of((view, from, to, text) => {
+    if (view.composing) return false;
+    if (from !== to || view.state.selection.ranges.length !== 1) return false;
+    const main = view.state.selection.main;
+    if (!main.empty || main.from !== from) return false;
+    const r = smartTypography(view.state.doc.toString(), from, text, getRules());
+    if (!r) return false;
+    view.dispatch({
+      changes: { from: r.from, to: r.to, insert: r.insert },
+      selection: { anchor: r.from + r.insert.length },
+      userEvent: "input.type",
+      scrollIntoView: true,
+    });
     return true;
-  };
+  });
 }
 
 export interface SceneEditorOptions {
@@ -157,10 +239,17 @@ export interface SceneEditorOptions {
   doc: string;
   /** Fired after any document change (for live word counts). */
   onChange: () => void;
-  /** Fired when the editor loses focus (to flush a save). */
+  /** Fired when the editor loses focus (to flush a save; the host pops its hotkey Scope). */
   onBlur: () => void;
-  /** Fired by the Mod-Shift-L keymap to log a revision issue for this scene. */
+  /** Fired when the editor gains focus (the host pushes its hotkey Scope). */
+  onFocus?: () => void;
+  /** Fired by the Mod-Shift-L shortcut to log a revision issue for this scene. */
   onLogIssue?: () => void;
+  /**
+   * Live smart-typography rules, read on every candidate keystroke (so a
+   * Settings change applies without rebuilding the editor). Omit to disable.
+   */
+  getTypography?: () => TypographyRules;
 }
 
 /** Create a manuscript editor bound to `parent`, seeded with `doc`. */
@@ -171,23 +260,20 @@ export function createSceneEditor(opts: SceneEditorOptions): EditorView {
       doc: opts.doc,
       extensions: [
         history(),
-        // Placeholder-insert shortcuts (local to this editor, so they never
-        // collide with Obsidian's global hotkeys). Listed first so they win.
-        keymap.of([
-          { key: "Mod-Shift-t", run: insertBinding("todo") },
-          { key: "Mod-Shift-r", run: insertBinding("research") },
-          { key: "Mod-Shift-d", run: insertBinding("dialogue") },
-          { key: "Mod-Shift-s", run: insertBinding("scene") },
-          { key: "Mod-Shift-n", run: insertBinding("note") },
-          {
-            key: "Mod-Shift-l",
-            run: () => {
-              opts.onLogIssue?.();
+        // Editor-local shortcuts (see EDITOR_SHORTCUTS — the Write panel binds
+        // the same table as an Obsidian Scope). Listed first so they win.
+        keymap.of(
+          EDITOR_SHORTCUTS.map((s) => ({
+            key: [...s.modifiers, s.key].join("-"),
+            run: (view: EditorView) => {
+              s.run(view, opts);
               return true;
             },
-          },
-        ]),
+            stopPropagation: true,
+          }))
+        ),
         keymap.of([...defaultKeymap, ...historyKeymap]),
+        ...(opts.getTypography ? [smartTypographyHandler(opts.getTypography)] : []),
         EditorView.lineWrapping,
         markdownHighlighter,
         atomicMarkers,
@@ -196,6 +282,10 @@ export function createSceneEditor(opts: SceneEditorOptions): EditorView {
           if (u.docChanged) opts.onChange();
         }),
         EditorView.domEventHandlers({
+          focus: () => {
+            opts.onFocus?.();
+            return false;
+          },
           blur: () => {
             opts.onBlur();
             return false;

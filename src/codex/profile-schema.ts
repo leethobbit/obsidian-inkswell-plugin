@@ -136,9 +136,169 @@ const GENERIC_FIELDS: ProfileField[] = [
   { key: "related", label: "Related entries", type: "links" },
 ];
 
-/** Full ordered field list for a category (aliases first, then category fields). */
-export function profileFields(category: string): ProfileField[] {
-  return [ALIASES, ...(isBuiltinCategory(category) ? CATEGORY_FIELDS[category] : GENERIC_FIELDS)];
+/** The category's default (shipped) fields, excluding the shared `aliases`. */
+function defaultCategoryFields(category: string): ProfileField[] {
+  return isBuiltinCategory(category) ? CATEGORY_FIELDS[category] : GENERIC_FIELDS;
+}
+
+/**
+ * Full ordered field list for a category: aliases first, then either the fields
+ * a template's `codex-fields` spec asks for (see {@link parseFieldSpec}) or, with
+ * no spec, the category's shipped fields.
+ */
+export function profileFields(category: string, spec?: FieldSpec[] | null): ProfileField[] {
+  if (!spec || spec.length === 0) return [ALIASES, ...defaultCategoryFields(category)];
+  const out: ProfileField[] = [ALIASES];
+  const seen = new Set<string>([ALIASES.key]);
+  for (const entry of spec) {
+    if (seen.has(entry.key)) continue;
+    seen.add(entry.key);
+    out.push(resolveSpecField(category, entry));
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------------
+// Template-driven field lists (`codex-fields` in a type's template note)
+// ---------------------------------------------------------------------------------
+
+/**
+ * Frontmatter key on a codex TEMPLATE note that picks which fields the Codex
+ * panel shows for that type (in that order), replacing the shipped set. Never
+ * written to entity notes — `createEntity` strips it from the scaffold.
+ */
+export const FIELDS_KEY = "codex-fields";
+
+/** One requested field: a frontmatter key plus an optional type hint. */
+export interface FieldSpec {
+  key: string;
+  /** Raw type hint as written (`text`, `textarea`, `list`, `links`, `links:character`, `link`, `link:world`). */
+  type?: string;
+}
+
+/** Keys a template may not turn into panel fields (app-managed, or always present). */
+const RESERVED_FIELD_KEYS = new Set([
+  "codex",
+  "codex-series",
+  "codex-project",
+  FIELDS_KEY,
+  ALIASES.key,
+]);
+
+/**
+ * Parse a template's `codex-fields` value. Accepts a list of keys
+ * (`[species, birthday]`) or a key → type map (`species: text`,
+ * `history: textarea`, `allies: links:faction`, `owner: link:character`).
+ * Reserved keys, blanks, duplicates, and non-string entries are skipped.
+ * Returns null when the value is absent or not one of those shapes — callers
+ * then use the shipped fields — and [] for an empty list (also = shipped).
+ */
+export function parseFieldSpec(raw: unknown): FieldSpec[] | null {
+  if (raw === undefined || raw === null) return null;
+  const out: FieldSpec[] = [];
+  const seen = new Set<string>();
+  const push = (keyRaw: unknown, typeRaw?: unknown): void => {
+    if (typeof keyRaw !== "string") return;
+    const key = keyRaw.trim();
+    if (!key || RESERVED_FIELD_KEYS.has(key) || seen.has(key)) return;
+    seen.add(key);
+    const type = typeof typeRaw === "string" && typeRaw.trim() ? typeRaw.trim() : undefined;
+    out.push(type ? { key, type } : { key });
+  };
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      // Obsidian's property editor may store a one-line `key: type` as a
+      // single-key mapping inside the list; accept that too.
+      if (typeof item === "object" && item !== null && !Array.isArray(item)) {
+        for (const [k, v] of Object.entries(item as Record<string, unknown>)) push(k, v);
+      } else push(item);
+    }
+    return out;
+  }
+  if (typeof raw === "object") {
+    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) push(k, v);
+    return out;
+  }
+  if (typeof raw === "string") {
+    // A bare scalar: treat as a comma-separated list of keys.
+    for (const part of raw.split(",")) push(part);
+    return out;
+  }
+  return null;
+}
+
+/**
+ * Turn one spec entry into a field. A key that names a shipped field (this
+ * category's first, then the generic set, then any built-in's) reuses that
+ * definition — label, placeholder, link constraints — so `relationships` in a
+ * Character template is still a character picker. An explicit type hint wins
+ * over the shipped type. Unknown keys become single-line text with a label
+ * derived from the key (`birthDate` → "Birth date").
+ */
+function resolveSpecField(category: string, entry: FieldSpec): ProfileField {
+  const known = findKnownField(category, entry.key);
+  const base: ProfileField = known
+    ? { ...known }
+    : { key: entry.key, label: humanizeKey(entry.key), type: "text" };
+  if (!entry.type) return base;
+  const hint = parseTypeHint(entry.type);
+  if (!hint) return base;
+  const next: ProfileField = { key: base.key, label: base.label, type: hint.type };
+  if (base.placeholder && hint.type !== "links") next.placeholder = base.placeholder;
+  if (hint.type === "links") {
+    if (hint.linkCategory) next.linkCategory = hint.linkCategory;
+    if (hint.single) next.single = true;
+  }
+  return next;
+}
+
+function findKnownField(category: string, key: string): ProfileField | undefined {
+  const own = defaultCategoryFields(category).find((f) => f.key === key);
+  if (own) return own;
+  const generic = GENERIC_FIELDS.find((f) => f.key === key);
+  if (generic) return generic;
+  for (const fields of Object.values(CATEGORY_FIELDS)) {
+    const hit = fields.find((f) => f.key === key);
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
+/** `text` | `textarea` | `list` | `links[:cat]` | `link[:cat]` (single) → field shape; null if unknown. */
+function parseTypeHint(
+  raw: string
+): { type: ProfileFieldType; linkCategory?: string; single?: boolean } | null {
+  const [head, ...rest] = raw.trim().toLowerCase().split(":");
+  const linkCategory = rest.join(":").trim() || undefined;
+  switch (head) {
+    case "text":
+    case "string":
+      return { type: "text" };
+    case "textarea":
+    case "multiline":
+    case "prose":
+      return { type: "textarea" };
+    case "list":
+    case "tags":
+      return { type: "list" };
+    case "links":
+      return { type: "links", linkCategory };
+    case "link":
+      return { type: "links", linkCategory, single: true };
+    default:
+      return null;
+  }
+}
+
+/** `birthDate` / `birth_date` / `birth-date` → "Birth date". */
+export function humanizeKey(key: string): string {
+  const words = key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .split(/[\s_\-.]+/)
+    .filter(Boolean)
+    .map((w) => w.toLowerCase());
+  if (words.length === 0) return key;
+  return words[0].charAt(0).toUpperCase() + words[0].slice(1) + (words.length > 1 ? " " + words.slice(1).join(" ") : "");
 }
 
 /** A profile value is a string (text/textarea/single link) or string[] (list/links). */

@@ -49,6 +49,15 @@ describe("starterCodexTemplate", () => {
     expect(starterCodexTemplate(builtin("character"))).toContain("Motivation");
   });
 
+  it("explains codex-fields in the guidance comment without adding the key itself", () => {
+    const t = starterCodexTemplate(builtin("character"));
+    expect(t).toContain("codex-fields");
+    // Only inside the %% %% body comment — never as a frontmatter key, which
+    // would silently replace the shipped fields for everyone who generates.
+    const fm = t.split("---")[1];
+    expect(fm).not.toContain("codex-fields");
+  });
+
   it("builds a custom type's template from its def and the generic fields", () => {
     const t = starterCodexTemplate(creature);
     expect(t).toContain("- creature"); // tag defaults to the custom id
@@ -68,5 +77,10 @@ describe("codexTemplatesReadme", () => {
 
   it("includes custom types when given the merged list", () => {
     expect(codexTemplatesReadme(allCategories([creature]))).toContain("Creature.md");
+  });
+
+  it("documents the codex-fields property", () => {
+    expect(codexTemplatesReadme()).toContain("codex-fields:");
+    expect(codexTemplatesReadme()).toContain("textarea");
   });
 });

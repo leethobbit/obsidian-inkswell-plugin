@@ -15,7 +15,7 @@
  */
 
 import { EditorView } from "@codemirror/view";
-import { App, EventRef, FuzzySuggestModal, Menu, Notice, TFile, setIcon } from "obsidian";
+import { App, EventRef, FuzzySuggestModal, Menu, Notice, Scope, TFile, setIcon } from "obsidian";
 import { featureEnabled } from "../features";
 import { isPhone } from "../lib/platform";
 import { attachRowMenu } from "../lib/row-menu";
@@ -25,7 +25,14 @@ import { RevisionModal } from "../revisions/revision-modal";
 import { renderEmptyState } from "./panel-kit";
 import { preserveFocus, tagField } from "../lib/focus-preserve";
 import { SceneSession } from "./scene-session";
-import { createSceneEditor, flashRange, insertPlaceholder } from "./scene-editor";
+import {
+  EDITOR_SHORTCUTS,
+  createSceneEditor,
+  flashRange,
+  formatSelection,
+  insertPlaceholder,
+} from "./scene-editor";
+import { MarkKind } from "../lib/inline-format";
 import { PlaceholderKind, scanPlaceholders } from "../lib/placeholders";
 import { PromptCategory, PromptPhase } from "../ideation/prompts";
 import { countWords } from "../lib/wordcount";
@@ -91,6 +98,14 @@ const TODO_TYPES: TodoType[] = [
   { kind: "scene", label: "Scene", desc: "A scene to write or expand", icon: "clapperboard" },
 ];
 
+/** Inline formatting toggles offered in the collapsed Insert menu (phones have
+ *  no Mod key and Obsidian's mobile toolbar doesn't attach to this editor). */
+const FORMAT_ACTIONS: { kind: MarkKind; label: string; icon: string }[] = [
+  { kind: "bold", label: "Bold", icon: "bold" },
+  { kind: "italic", label: "Italic", icon: "italic" },
+  { kind: "strike", label: "Strikethrough", icon: "strikethrough" },
+];
+
 /** Quick picker for "Insert a to-do marker…" (command palette + toolbar). */
 class TodoPickerModal extends FuzzySuggestModal<TodoType> {
   constructor(app: App, private onPick: (kind: PlaceholderKind) => void) {
@@ -131,6 +146,15 @@ export class WritePanel {
   private inspectorHost: HTMLElement | null = null;
 
   private editor: EditorView | null = null;
+  /**
+   * Editor-local shortcuts as an Obsidian Scope, pushed while the CM editor has
+   * focus. Obsidian's hotkey manager captures matching keydowns at the window
+   * BEFORE CodeMirror sees them (Mod-B → toggle bold, Mod-Shift-T → undo close
+   * tab), so the CM keymap alone never fires for those combos; a pushed Scope
+   * takes precedence over the global hotkeys. Built lazily from EDITOR_SHORTCUTS.
+   */
+  private hotkeyScope: Scope | null = null;
+  private hotkeysPushed = false;
   /** Bumped each render; a stale async scene-load checks it and bails. */
   private editorToken = 0;
   private currentFile: TFile | null = null;
@@ -244,6 +268,7 @@ export class WritePanel {
    * race), and `dispose` awaits it on view close/quit.
    */
   private detachSession(): Promise<unknown> {
+    this.popHotkeys();
     const s = this.session;
     if (!s) {
       this.editor?.destroy();
@@ -283,6 +308,15 @@ export class WritePanel {
       );
     }
     menu.addSeparator();
+    for (const { kind, label, icon } of FORMAT_ACTIONS) {
+      menu.addItem((item) =>
+        item
+          .setTitle(label)
+          .setIcon(icon)
+          .onClick(() => this.toggleMark(kind))
+      );
+    }
+    menu.addSeparator();
     menu.addItem((item) =>
       item
         .setTitle("Find to-dos")
@@ -308,6 +342,36 @@ export class WritePanel {
     new TodoPickerModal(this.app, (kind) => {
       if (this.editor) insertPlaceholder(this.editor, kind);
     }).open();
+  }
+
+  /** Toggle bold / italic / strikethrough on the live editor's selection
+   *  (commands, the Insert menu; Mod-b / Mod-i come via the editor shortcuts). */
+  toggleMark(kind: MarkKind): void {
+    if (this.editor) formatSelection(this.editor, kind);
+  }
+
+  /** Editor focused: make the editor-local shortcuts win over global hotkeys. */
+  private pushHotkeys(): void {
+    if (this.hotkeysPushed) return;
+    if (!this.hotkeyScope) {
+      const scope = new Scope(this.app.scope);
+      for (const s of EDITOR_SHORTCUTS) {
+        scope.register(s.modifiers, s.key, () => {
+          if (this.editor) s.run(this.editor, { onLogIssue: () => this.logIssue() });
+          return false; // handled — preventDefault, don't fall through to global hotkeys
+        });
+      }
+      this.hotkeyScope = scope;
+    }
+    this.app.keymap.pushScope(this.hotkeyScope);
+    this.hotkeysPushed = true;
+  }
+
+  /** Editor blurred / torn down: restore normal hotkey handling. */
+  private popHotkeys(): void {
+    if (!this.hotkeysPushed || !this.hotkeyScope) return;
+    this.app.keymap.popScope(this.hotkeyScope);
+    this.hotkeysPushed = false;
   }
 
   render(container: HTMLElement): void {
@@ -542,7 +606,7 @@ export class WritePanel {
       const menuBtn = bar.createEl("button", { cls: "inkswell-write__insertmenu" });
       menuBtn.createSpan({ text: "Insert" });
       setIcon(menuBtn.createSpan({ cls: "inkswell-write__caret" }), "chevron-down");
-      menuBtn.setAttribute("aria-label", "Insert a to-do marker or revision action");
+      menuBtn.setAttribute("aria-label", "Insert a to-do marker, format text, or log an issue");
       menuBtn.onmousedown = (e) => e.preventDefault();
       menuBtn.onclick = (e) => this.openInsertMenu(e);
     }
@@ -735,11 +799,18 @@ export class WritePanel {
         parent: host,
         doc: session.loadedBody,
         onChange: () => this.onEditorChange(),
+        onFocus: () => this.pushHotkeys(),
         onBlur: () => {
+          this.popHotkeys();
           // The Insert dropdown suppresses this save while open (see openInsertMenu).
           if (!this.suppressBlurSave) void this.session?.save();
         },
         onLogIssue: () => this.logIssue(),
+        // Read live so a Settings toggle applies to the next keystroke.
+        getTypography: () => {
+          const s = this.plugin.settings;
+          return { dashes: s.smartDashes, quotes: s.smartQuotes, ellipsis: s.smartEllipsis };
+        },
       });
       this.renderConflictBanner();
       this.updateCount();

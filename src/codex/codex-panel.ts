@@ -35,9 +35,16 @@ import {
 } from "./codex-scope";
 import { resolveCodexFolder, sanitizeSegment } from "../settings/folders";
 import { tryFileOp } from "../lib/notify";
-import { readProfile, writeProfile } from "./codex-profile";
-import { Profile, ProfileField, profileFields } from "./profile-schema";
-import { CategoryDef, CodexEntity, EntityScope, allCategories, categoryLabel } from "./types";
+import { readProfile, resolveProfileFields, writeProfile } from "./codex-profile";
+import { Profile, ProfileField } from "./profile-schema";
+import {
+  CategoryDef,
+  CodexEntity,
+  EntityScope,
+  allCategories,
+  builtinCategories,
+  categoryLabel,
+} from "./types";
 import { CategoryModal } from "./category-modal";
 import { Project } from "../projects/types";
 import { groupIntoSeries } from "../series/series";
@@ -76,9 +83,16 @@ export class CodexPanel {
     this.plugin = plugin;
   }
 
-  /** Built-ins + the user's custom types — read fresh from settings per render. */
+  /** Built-ins (with the user's renames) + custom types — read fresh from settings per render. */
   private categories(): CategoryDef[] {
-    return allCategories(this.plugin.settings.customCategories);
+    const s = this.plugin.settings;
+    return allCategories(s.customCategories, s.categoryOverrides);
+  }
+
+  /** Display label for a category id, honoring renames and custom types. */
+  private label(id: string): string {
+    const s = this.plugin.settings;
+    return categoryLabel(id, s.customCategories, s.categoryOverrides);
   }
 
   /** The active project (the vantage point for scoping), or null. */
@@ -261,10 +275,14 @@ export class CodexPanel {
   /** Open the add-custom-type dialog; on submit persist + rebuild with it selected. */
   private openNewTypeModal(): void {
     const merged = this.categories();
+    // Shipped built-in names stay reserved even when renamed away from (they're
+    // that built-in's template fallback), so a custom type can't take them.
+    const takenLabels = new Set(merged.map((c) => c.label.toLowerCase()));
+    for (const c of builtinCategories()) takenLabels.add(c.label.toLowerCase());
     new CategoryModal(this.app, {
       existing: null,
       takenIds: merged.map((c) => c.id),
-      takenLabels: merged.map((c) => c.label.toLowerCase()),
+      takenLabels: [...takenLabels],
       onSubmit: async (def) => {
         this.plugin.settings.customCategories.push(def);
         await this.plugin.saveSettings();
@@ -338,17 +356,30 @@ export class CodexPanel {
     head.createDiv({ cls: "inkswell-inspector__title", text: entity.name });
     head.createDiv({
       cls: "inkswell-inspector__project",
-      text: categoryLabel(entity.category, this.plugin.settings.customCategories),
+      text: this.label(entity.category),
     });
     const openBtn = head.createEl("button", { text: "Open note" });
     openBtn.onclick = () => openScene(this.app, file);
 
     this.renderScopeField(host, file, entity);
 
-    const profile = readProfile(this.app, file, entity.category);
+    // The field list comes from the type's template note when it declares
+    // `codex-fields`; say so (and link the note) so a "missing" shipped field
+    // is traceable to the template rather than looking like a bug.
+    const { fields, template } = resolveProfileFields(this.app, this.plugin.settings, entity.category);
+    const profile = readProfile(this.app, file, fields);
     const entities = getCodexEntities(this.app);
-    for (const field of profileFields(entity.category)) {
-      this.renderField(host, file, entity, field, profile, entities);
+    for (const field of fields) {
+      this.renderField(host, file, entity, fields, field, profile, entities);
+    }
+    if (template) {
+      const src = host.createDiv({ cls: "inkswell-codex__fields-src inkswell-stats__muted" });
+      src.appendText("Fields from ");
+      const link = src.createEl("a", { text: template.name });
+      link.onclick = (e) => {
+        e.preventDefault();
+        openScene(this.app, template);
+      };
     }
 
     // Read-only: scenes that mention this entity (body text) or link it explicitly
@@ -403,6 +434,7 @@ export class CodexPanel {
     host: HTMLElement,
     file: TFile,
     entity: CodexEntity,
+    fields: ProfileField[],
     field: ProfileField,
     profile: Profile,
     entities: CodexEntity[]
@@ -412,7 +444,7 @@ export class CodexPanel {
       // produces is recognized and softened (no rebuild under the caret).
       this.plugin.selfWrites.mark(file.path);
       await tryFileOp(
-        () => writeProfile(this.app, file, entity.category, { [field.key]: value }),
+        () => writeProfile(this.app, file, fields, { [field.key]: value }),
         "Couldn't save the profile field."
       );
     };
@@ -529,7 +561,7 @@ export class CodexPanel {
         if (add.value) saveAndRefresh([...current, toLink(add.value)]);
       };
     } else if (candidates.length === 0) {
-      const cat = field.linkCategory ? categoryLabel(field.linkCategory).toLowerCase() : "entity";
+      const cat = field.linkCategory ? this.label(field.linkCategory).toLowerCase() : "entity";
       control.createSpan({ cls: "inkswell-stats__muted", text: `No ${cat} entries in codex.` });
     }
   }

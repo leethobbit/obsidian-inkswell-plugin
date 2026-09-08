@@ -18,13 +18,22 @@ import { Project } from "../projects/types";
 import { FolderSettings, resolveTemplateFolder, sanitizeSegment } from "../settings/folders";
 import {
   CategoryDef,
+  CategoryOverrides,
   CodexCategory,
   CodexEntity,
   EntityScope,
   SCOPE_PROJECT_KEY,
   SCOPE_SERIES_KEY,
   allCategories,
+  defaultBuiltinDef,
 } from "./types";
+import { FIELDS_KEY } from "./profile-schema";
+
+/** Settings the codex I/O depends on (subset of InkswellSettings). */
+export interface CodexSettings extends FolderSettings {
+  customCategories: CategoryDef[];
+  categoryOverrides: CategoryOverrides;
+}
 
 export function getCodexEntities(app: App): CodexEntity[] {
   const out: CodexEntity[] = [];
@@ -180,6 +189,7 @@ export async function createEntity(
     const file = await app.vault.create(path, raw);
     await app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
       fm["codex"] = category; // app marker always wins
+      delete fm[FIELDS_KEY]; // template-only directive — never part of an entry
       if (!Array.isArray(fm["aliases"])) fm["aliases"] = [];
       // Series wins over project; force exactly one (or neither) scope key.
       delete fm[SCOPE_SERIES_KEY];
@@ -199,31 +209,51 @@ export async function createEntity(
 }
 
 /**
+ * Template-note basenames a category resolves, most specific first: its current
+ * label, then — for a renamed built-in — its shipped label, so renaming
+ * "Faction" to "Group" keeps using an existing `Faction.md`. The shipped name is
+ * skipped when another type now carries it as ITS label (that note is theirs).
+ */
+function templateBasenames(settings: CodexSettings, category: CategoryDef): string[] {
+  const names = [category.label];
+  const shipped = defaultBuiltinDef(category.id);
+  if (shipped && shipped.label.toLowerCase() !== category.label.toLowerCase()) {
+    const claimed = allCategories(settings.customCategories, settings.categoryOverrides).some(
+      (c) => c.id !== category.id && c.label.toLowerCase() === shipped.label.toLowerCase()
+    );
+    if (!claimed) names.push(shipped.label);
+  }
+  return names;
+}
+
+/**
  * Resolve the template note for a category — `<baseFolder>/Templates/<Label>.md`
- * — or null when it doesn't exist (→ caller uses the default scaffold).
+ * (falling back to a renamed built-in's shipped `<Label>.md`) — or null when
+ * none exists (→ caller uses the default scaffold).
  */
 export function resolveCodexTemplate(
   app: App,
-  settings: FolderSettings,
+  settings: CodexSettings,
   category: CategoryDef
 ): TFile | null {
   const folder = resolveTemplateFolder(settings);
-  const path = normalizePath(
-    folder ? `${folder}/${category.label}.md` : `${category.label}.md`
-  );
-  const f = app.vault.getAbstractFileByPath(path);
-  return f instanceof TFile ? f : null;
+  for (const basename of templateBasenames(settings, category)) {
+    const path = normalizePath(folder ? `${folder}/${basename}.md` : `${basename}.md`);
+    const f = app.vault.getAbstractFileByPath(path);
+    if (f instanceof TFile) return f;
+  }
+  return null;
 }
 
 /**
  * Scaffold a starter template note for every codex category (plus a README) into
- * `<baseFolder>/Templates/`. Idempotent: only writes files that don't yet exist,
- * so it never clobbers a user's edits. Returns the paths actually created.
+ * `<baseFolder>/Templates/`. Idempotent: only writes files that don't yet exist
+ * (a renamed built-in whose shipped-name note exists counts as existing), so it
+ * never clobbers a user's edits. Returns the paths actually created.
  */
 export async function generateCodexTemplates(
   app: App,
-  settings: FolderSettings,
-  customs: CategoryDef[] = []
+  settings: CodexSettings
 ): Promise<string[]> {
   const folder = resolveTemplateFolder(settings);
   if (folder && !app.vault.getAbstractFileByPath(folder)) {
@@ -240,8 +270,11 @@ export async function generateCodexTemplates(
     await app.vault.create(p, content);
     created.push(p);
   };
-  const categories = allCategories(customs);
-  for (const cat of categories) await write(cat.label, starterCodexTemplate(cat));
+  const categories = allCategories(settings.customCategories, settings.categoryOverrides);
+  for (const cat of categories) {
+    if (resolveCodexTemplate(app, settings, cat)) continue; // this type already has a template
+    await write(cat.label, starterCodexTemplate(cat));
+  }
   await write(SCENE_TEMPLATE_BASENAME, starterSceneTemplate());
   await write("_Inkswell Templates", codexTemplatesReadme(categories));
   return created;

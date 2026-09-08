@@ -6,10 +6,12 @@
  * A generated template carries the user-facing knobs (a `tags:` default, an
  * `aliases` field, a `{{title}}` body) but deliberately OMITS the `codex:` key —
  * Inkswell stamps that (and scope) on creation, and leaving it out keeps the
- * template itself from being discovered as a codex entity.
+ * template itself from being discovered as a codex entity. The optional
+ * `codex-fields` key (documented in the guidance comment) lets the template
+ * choose which fields the Codex panel shows for the type.
  */
 
-import { profileFields } from "./profile-schema";
+import { FIELDS_KEY, profileFields } from "./profile-schema";
 import { CODEX_CATEGORIES, CategoryDef } from "./types";
 
 /** Starter note text for a category's template. Tag defaults to the category id. */
@@ -31,7 +33,20 @@ export function starterCodexTemplate(cat: CategoryDef): string {
     "   automatically — don't add a `codex:` key here, or this template note will",
     "   show up as a codex entry. `{{title}}` is replaced with the entry's name.",
     `   Edit this note to change what every new ${cat.label} starts with.`,
-    `   ${cat.label} fields you can fill from the Codex panel: ${fields}. %%`,
+    `   ${cat.label} fields you can fill from the Codex panel: ${fields}.`,
+    "",
+    "   To choose which fields the Codex panel shows for this type (and hide the",
+    `   rest), add a \`${FIELDS_KEY}\` property listing them in order, e.g.`,
+    `     ${FIELDS_KEY}: [species, birthday, motivation]`,
+    "   or give each a type:",
+    `     ${FIELDS_KEY}:`,
+    "       species: text",
+    "       history: textarea",
+    "       allies: links:faction",
+    "       home: link:location",
+    "   Types: text (default), textarea, list, links, links:<type>, link, link:<type>.",
+    "   Aliases always stay first. Keys that match a built-in field keep its label",
+    `   and picker. \`${FIELDS_KEY}\` is never copied into entries. %%`,
     "",
   ].join("\n");
 }
@@ -62,6 +77,35 @@ export function codexTemplatesReadme(categories: CategoryDef[] = CODEX_CATEGORIE
     "- Don't add a `codex:` key; Inkswell sets it (and the key would make this",
     "  template note appear as a codex entry).",
     "- Delete a template to go back to Inkswell's default scaffold for that type.",
+    "",
+    "## Choosing the Codex panel's fields",
+    "",
+    `Add a \`${FIELDS_KEY}\` property to a type's template to pick which fields the`,
+    "Codex panel shows for that type, in that order — everything else is hidden",
+    "(existing frontmatter on your entries is left alone). Either a plain list:",
+    "",
+    "```yaml",
+    `${FIELDS_KEY}: [species, birthday, motivation]`,
+    "```",
+    "",
+    "or a map with a type per field:",
+    "",
+    "```yaml",
+    `${FIELDS_KEY}:`,
+    "  species: text",
+    "  history: textarea",
+    "  allies: links:faction",
+    "  home: link:location",
+    "```",
+    "",
+    "Types: `text` (default), `textarea`, `list` (free-text chips), `links`",
+    "(codex picker, optionally restricted with `links:<type id>`), `link` /",
+    "`link:<type id>` (a single entry). Aliases always stay first. A key that",
+    "matches one of Inkswell's built-in fields (`motivation`, `relationships`,",
+    "`owner`…) keeps its label and picker unless you give it a type. The",
+    `\`${FIELDS_KEY}\` key itself is never copied into new entries. If you rename a`,
+    "built-in type in Settings, its original template note keeps working until you",
+    "create one under the new name.",
     "",
   ].join("\n");
 }

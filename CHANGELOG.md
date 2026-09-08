@@ -10,6 +10,15 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Added
+- **Choose which fields the Codex panel shows, per type, from the type's template note.** Add a `codex-fields` property to a codex template (Settings → Generate starter templates creates one per type under `<base folder>/Templates/`) listing the fields you want, in order — e.g. `codex-fields: [species, birthday, motivation]` — and the panel shows exactly those (Aliases always stays first) instead of the built-in set. Give a field a type with the map form (`species: text`, `history: textarea`, `allies: links:faction`, `home: link:location`); a key that matches one of Inkswell's built-in fields keeps its label and picker. Works for custom types too (a bestiary can have `habitat` and `diet` instead of the generic Description/Significance). Templates without the property behave exactly as before, frontmatter you already have on entries is never removed, and the panel says which template its fields came from. Requested in [#35](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/35).
+- **Rename the built-in codex types.** Settings → Codex types lists Character, Location, World, Faction, Item, Event, and Concept; edit one to change its name, plural, or icon (Factions → Groups, Concepts → Magic…), or reset it to the default. Nothing in your notes changes — entries keep their `codex:` id — and the type's original template note (`Faction.md`) keeps working until you create one under the new name. Also from [#35](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/35).
+- **Bold, italic, and strikethrough in the Write editor.** Ctrl/Cmd+B and Ctrl/Cmd+I now work in Inkswell's own editor — they used to do nothing there, because Obsidian's toggles only reach its Markdown tabs. They follow Obsidian's rules: the word under the cursor is wrapped, a selection is wrapped or unwrapped, an empty `**|**` pair is removed, and italic on bold gives `***bold italic***`. Three new commands — *Toggle bold / italic / strikethrough (Write editor)* — can be bound under Settings → Hotkeys or run from the palette, and the Insert menu on narrow screens and phones offers the same three actions.
+- **Smart typography while you draft (opt-in).** Settings → Write editor: *Smart dashes* (`--` → –, a third `-` → —; a `---` line is left alone), *Smart quotes* (straight → curly, apostrophes → ’), *Smart ellipsis* (`...` → …). All off by default. Applies only to Inkswell's Write editor, never inside code, wikilinks, or link URLs, and undo treats a conversion like the typing around it.
+
+### Fixed
+- **Ctrl/Cmd+Shift+T inserts a TODO marker in the Write editor again.** Obsidian's own "Undo close tab" hotkey was swallowing the keystroke before the editor saw it; the editor's shortcuts now take precedence over global hotkeys while it has focus (the other Insert shortcuts and Ctrl/Cmd+Shift+L were unaffected).
+
 ## [1.14.0] - 2026-08-29
 
 ### Added

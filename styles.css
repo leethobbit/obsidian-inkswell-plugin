@@ -421,6 +421,13 @@
 .inkswell-codex__detail-head button {
   margin-top: var(--size-4-1);
 }
+.inkswell-codex__fields-src {
+  font-size: var(--font-ui-smaller);
+  margin: var(--size-4-1) 0 var(--size-4-3);
+}
+.inkswell-codex__fields-src a {
+  cursor: pointer;
+}
 .inkswell-codex__refs {
   display: flex;
   flex-wrap: wrap;
