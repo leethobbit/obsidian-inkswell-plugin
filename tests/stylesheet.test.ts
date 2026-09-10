@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { stripFrontmatter } from "../src/lib/frontmatter";
 import { StyleEntry, scanDeviations } from "../src/revisions/stylesheet";
 
 const entry = (over: Partial<StyleEntry>): StyleEntry => ({
@@ -35,6 +36,30 @@ describe("scanDeviations", () => {
       entry({ canonical: "color", variants: ["colour", "colur"] }),
     ]);
     expect(hits.map((h) => h.variant)).toEqual(["colour"]);
+  });
+
+  it("reports from/to offsets that slice back to the variant", () => {
+    const text = "line one\nthe regime fell";
+    const [h] = scanDeviations(text, [entry({})]);
+    expect(text.slice(h.from, h.to)).toBe("regime");
+    expect(h.from).toBe(text.indexOf("regime"));
+  });
+
+  it("offsets and line are body-relative when the caller strips frontmatter", () => {
+    const raw = "---\nstatus: draft\nsynopsis: the regime\n---\nline one\nthe regime";
+    const body = stripFrontmatter(raw);
+    const hits = scanDeviations(body, [entry({})]);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].line).toBe(2);
+    expect(hits[0].from).toBe(body.indexOf("regime"));
+    expect(body.slice(hits[0].from, hits[0].to)).toBe("regime");
+  });
+
+  it("multiple hits on one line get distinct offsets", () => {
+    const text = "regime after regime";
+    const hits = scanDeviations(text, [entry({})]);
+    expect(hits.map((h) => h.from)).toEqual([0, 13]);
+    expect(hits.every((h) => h.line === 1)).toBe(true);
   });
 
   it("ignores a variant equal to the canonical and blank variants", () => {

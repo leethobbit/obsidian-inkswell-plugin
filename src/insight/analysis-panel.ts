@@ -8,7 +8,7 @@ import { App, TFile } from "obsidian";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
-import { findEchoes, readability, wordFrequency } from "./analysis";
+import { assembleManuscriptText, findEchoes, readability, wordFrequency } from "./analysis";
 import { compositionProfile } from "./composition";
 
 export class AnalysisPanel {
@@ -47,7 +47,8 @@ export class AnalysisPanel {
         scenes.push({ title: scene.title, text: await this.app.vault.cachedRead(file) });
       }
     }
-    const text = scenes.map((s) => s.text).join("\n\n");
+    // Per-scene frontmatter strip, then join (see assembleManuscriptText).
+    const { joined: text, scenes: bodies } = assembleManuscriptText(scenes);
     results.empty();
 
     if (!text.trim()) {
@@ -101,8 +102,8 @@ export class AnalysisPanel {
       cls: "inkswell-stats__row",
       text: `Dialogue ${pct(overall.ratios.dialogue)} · Interiority ${pct(overall.ratios.interiority)} · Narration ${pct(overall.ratios.narration)}`,
     });
-    const flagged = scenes
-      .map((s) => ({ title: s.title, flags: compositionProfile(s.text).flags }))
+    const flagged = bodies
+      .map((s) => ({ title: s.title, flags: compositionProfile(s.body).flags }))
       .filter((s) => s.flags.length > 0);
     if (flagged.length === 0) {
       compSec.createDiv({ cls: "inkswell-stats__muted", text: "No scene-level balance flags." });

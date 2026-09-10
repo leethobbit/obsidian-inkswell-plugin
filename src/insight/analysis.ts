@@ -4,9 +4,35 @@
  * detection. Operates on prose with markdown stripped (via wordcount.stripMarkdown).
  */
 
+import { stripFrontmatter } from "../lib/frontmatter";
 import { CJK_SRC, stripMarkdown, tokenizeWords } from "../lib/wordcount";
 
 const CJK_TOKEN_RE = new RegExp(`^[${CJK_SRC}]$`, "u");
+
+export interface ManuscriptScene {
+  title: string;
+  /** Raw note text as read from disk (frontmatter included). */
+  text: string;
+}
+
+export interface AssembledManuscript {
+  /** Every scene body joined with a blank line (a paragraph boundary). */
+  joined: string;
+  /** Per-scene bodies with their own frontmatter removed. */
+  scenes: { title: string; body: string }[];
+}
+
+/**
+ * Turn raw scene notes into analyzable prose. Frontmatter is stripped PER
+ * SCENE before joining — `stripMarkdown` only removes a *leading* block, so a
+ * joined manuscript would otherwise carry every later scene's `status:` /
+ * `synopsis:` / `act:` lines into word frequency, echoes, readability, and the
+ * composition mix (quoted YAML values even scored as dialogue).
+ */
+export function assembleManuscriptText(scenes: ManuscriptScene[]): AssembledManuscript {
+  const bodies = scenes.map((s) => ({ title: s.title, body: stripFrontmatter(s.text) }));
+  return { joined: bodies.map((s) => s.body).join("\n\n"), scenes: bodies };
+}
 
 const STOPWORDS = new Set(
   ("a an the and or but if then else of to in on at by for with from as is are was were be been being " +

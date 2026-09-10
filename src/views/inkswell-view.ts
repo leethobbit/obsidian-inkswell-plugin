@@ -142,8 +142,12 @@ export class InkswellView extends ItemView {
     this.todos = new RevisionWorkPanel(this.app, plugin, store, (path, hl) =>
       this.openSceneInWrite(path, hl)
     );
-    this.audit = new AuditPanel(this.app, store, plugin.activeProject, (path) =>
-      plugin.selfWrites.mark(path)
+    this.audit = new AuditPanel(
+      this.app,
+      store,
+      plugin.activeProject,
+      (path) => plugin.selfWrites.mark(path),
+      (path, hl) => this.openSceneInWrite(path, hl)
     );
     this.analysis = new AnalysisPanel(this.app, store, plugin.activeProject);
     this.compile = new CompilePanel(this.app, plugin, store);
