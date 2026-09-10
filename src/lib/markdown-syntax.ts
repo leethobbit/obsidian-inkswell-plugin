@@ -22,6 +22,7 @@
  */
 
 import { PLACEHOLDER_CLASS, scanPlaceholders } from "./placeholders";
+import { scanWikilinks } from "./wikilinks";
 
 export interface Sel {
   from: number;
@@ -38,6 +39,8 @@ export interface SyntaxIntent {
    */
   type: "style" | "hide" | "line";
   cls?: string;
+  /** Extra DOM attributes for a "style" mark (e.g. `data-link` on a wikilink). */
+  attrs?: Record<string, string>;
 }
 
 /** Block classification of one line, for the cross-line "first paragraph" rule. */
@@ -144,6 +147,23 @@ function scanLine(
     out.push({ from: base + s + ml, to: base + e - ml, type: "style", cls: "cm-md-code" });
     pushMarker(out, base + s, base + s + ml, revealed);
     pushMarker(out, base + e - ml, base + e, revealed);
+  }
+
+  // --- Wikilinks: styled content, hidden brackets (and `Target|` when aliased);
+  // the whole link is protected so `[[snake_case]]` / `[[Note*]]` never emphasise ---
+  for (const link of scanWikilinks(text)) {
+    if (overlapsLocal(link.from, link.to, protectedSpans)) continue;
+    protectedSpans.push([link.from, link.to]);
+    const revealed = anyTouch(base + link.from, base + link.to, sels);
+    out.push({
+      from: base + link.contentFrom,
+      to: base + link.contentTo,
+      type: "style",
+      cls: "cm-md-link",
+      attrs: { "data-link": link.linktext },
+    });
+    pushMarker(out, base + link.from, base + link.contentFrom, revealed);
+    pushMarker(out, base + link.contentTo, base + link.to, revealed);
   }
 
   // --- Emphasis / strong / strikethrough ---

@@ -1720,6 +1720,19 @@
   font-size: 0.9em;
   color: var(--text-accent);
 }
+/* Wikilinks: link-colored content with the brackets collapsed (like other
+   markers). Mod-click follows; a plain click edits, so the cursor stays a
+   text cursor rather than promising a navigation. */
+.cm-md-link {
+  color: var(--link-color);
+  text-decoration-line: var(--link-decoration);
+  text-decoration-color: var(--link-color);
+  cursor: text;
+}
+.cm-md-link:hover {
+  text-decoration-line: underline;
+  color: var(--link-color-hover);
+}
 .cm-md-quote {
   color: var(--text-muted);
   font-style: italic;

@@ -139,6 +139,55 @@ describe("buildSyntaxIntents — multi-line & per-span granularity", () => {
   });
 });
 
+describe("buildSyntaxIntents — wikilinks", () => {
+  it("styles the link content and hides the brackets when the cursor is away", () => {
+    const out = buildSyntaxIntents("see [[Anna]] now", []);
+    expect(out).toContainEqual({
+      from: 6,
+      to: 10,
+      type: "style",
+      cls: "cm-md-link",
+      attrs: { "data-link": "Anna" },
+    });
+    expect(out).toContainEqual({ from: 4, to: 6, type: "hide" });
+    expect(out).toContainEqual({ from: 10, to: 12, type: "hide" });
+  });
+
+  it("hides `Target|` as well for an aliased link and carries the full linktext", () => {
+    const out = buildSyntaxIntents("[[Anna#Bio|sis]]", []);
+    expect(out).toContainEqual({ from: 0, to: 11, type: "hide" });
+    expect(styles(out, "cm-md-link")[0]).toMatchObject({
+      from: 11,
+      to: 14,
+      attrs: { "data-link": "Anna#Bio" },
+    });
+    expect(out).toContainEqual({ from: 14, to: 16, type: "hide" });
+  });
+
+  it("reveals the brackets (dimmed) when the cursor touches the link", () => {
+    const out = buildSyntaxIntents("[[Anna]]", [{ from: 3, to: 3 }]);
+    expect(hides(out)).toHaveLength(0);
+    expect(styles(out, "cm-md-mark").map((i) => [i.from, i.to])).toEqual([
+      [0, 2],
+      [6, 8],
+    ]);
+  });
+
+  it("keeps underscores inside a link out of emphasis", () => {
+    const out = buildSyntaxIntents("[[snake_case_note]] and _real_", []);
+    expect(styles(out, "cm-md-em")).toHaveLength(1);
+    expect(styles(out, "cm-md-link")).toHaveLength(1);
+  });
+
+  it("does not link inside inline code", () => {
+    expect(styles(buildSyntaxIntents("`[[not a link]]`", []), "cm-md-link")).toHaveLength(0);
+  });
+
+  it("ignores embeds", () => {
+    expect(styles(buildSyntaxIntents("![[map.png]]", []), "cm-md-link")).toHaveLength(0);
+  });
+});
+
 describe("buildSyntaxIntents — line classes (manuscript typography)", () => {
   const lines = (out: SyntaxIntent[], cls: string) =>
     out.filter((i) => i.type === "line" && i.cls === cls).map((i) => i.from);

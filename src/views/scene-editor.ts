@@ -34,6 +34,7 @@ import { MarkKind, toggleInlineMark } from "../lib/inline-format";
 import { Sel, buildSyntaxIntents } from "../lib/markdown-syntax";
 import { PlaceholderKind, PLACEHOLDER_TEMPLATES } from "../lib/placeholders";
 import { TypographyRules, smartTypography } from "../lib/smart-typography";
+import { wikilinkAt } from "../lib/wikilinks";
 
 function buildDecorations(view: EditorView): { all: DecorationSet; hidden: DecorationSet } {
   const sels: Sel[] = view.state.selection.ranges.map((r) => ({ from: r.from, to: r.to }));
@@ -51,7 +52,9 @@ function buildDecorations(view: EditorView): { all: DecorationSet; hidden: Decor
       // manuscript-typography CSS; never atomic.
       all.push(Decoration.line({ class: it.cls }).range(it.from));
     } else {
-      all.push(Decoration.mark({ class: it.cls }).range(it.from, it.to));
+      all.push(
+        Decoration.mark({ class: it.cls, attributes: it.attrs }).range(it.from, it.to)
+      );
     }
   }
   return { all: Decoration.set(all, true), hidden: Decoration.set(hidden, true) };
@@ -208,10 +211,29 @@ export function insertPlaceholder(view: EditorView, kind: PlaceholderKind): void
   view.focus();
 }
 
-/** Host callbacks a shortcut may need beyond the editor itself. */
+/** Host callbacks a shortcut or editor event may need beyond the editor itself. */
 export interface EditorShortcutHooks {
   /** Log a revision issue for the open scene (Mod-Shift-L). */
   onLogIssue?: () => void;
+  /** Follow a wikilink (Mod-click on it, or the open-link command). */
+  onOpenLink?: (linktext: string) => void;
+  /** The pointer entered a rendered wikilink (drives Obsidian's Page Preview). */
+  onHoverLink?: (e: MouseEvent, el: HTMLElement, linktext: string) => void;
+}
+
+/** The `.cm-md-link` element under an event target, if any. */
+function linkElementAt(target: EventTarget | null): HTMLElement | null {
+  const node = target as Node | null;
+  if (!node) return null;
+  const el = node.nodeType === 1 ? (node as HTMLElement) : node.parentElement;
+  return el?.closest<HTMLElement>(".cm-md-link") ?? null;
+}
+
+/** The wikilink under the main cursor, as Obsidian linktext, or null. */
+export function linkAtCursor(view: EditorView): string | null {
+  const head = view.state.selection.main.head;
+  const line = view.state.doc.lineAt(head);
+  return wikilinkAt(line.text, head - line.from)?.linktext ?? null;
 }
 
 /** One editor-local keyboard shortcut, in a form both CM and Obsidian can bind. */
@@ -307,6 +329,10 @@ export interface SceneEditorOptions {
   onFocus?: () => void;
   /** Fired by the Mod-Shift-L shortcut to log a revision issue for this scene. */
   onLogIssue?: () => void;
+  /** Fired by Mod-click on a rendered wikilink. */
+  onOpenLink?: (linktext: string) => void;
+  /** Fired when the pointer enters a rendered wikilink. */
+  onHoverLink?: (e: MouseEvent, el: HTMLElement, linktext: string) => void;
   /**
    * Live smart-typography rules, read on every candidate keystroke (so a
    * Settings change applies without rebuilding the editor). Omit to disable.
@@ -356,6 +382,22 @@ export function createSceneEditor(opts: SceneEditorOptions): EditorView {
           },
           blur: () => {
             opts.onBlur();
+            return false;
+          },
+          // Mod-click follows a wikilink; a plain click keeps editing semantics
+          // (prose is never hijacked by a mis-click). Consumed so CM's own
+          // Mod-click (add a cursor) doesn't also fire.
+          mousedown: (e) => {
+            if (e.button !== 0 || !(e.ctrlKey || e.metaKey)) return false;
+            const el = linkElementAt(e.target);
+            if (!el) return false;
+            e.preventDefault();
+            opts.onOpenLink?.(el.dataset["link"] ?? "");
+            return true;
+          },
+          mouseover: (e) => {
+            const el = linkElementAt(e.target);
+            if (el) opts.onHoverLink?.(e, el, el.dataset["link"] ?? "");
             return false;
           },
         }),

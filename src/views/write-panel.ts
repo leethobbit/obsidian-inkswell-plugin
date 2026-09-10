@@ -15,7 +15,19 @@
  */
 
 import { EditorView } from "@codemirror/view";
-import { App, EventRef, FuzzySuggestModal, Menu, Notice, Scope, TFile, setIcon } from "obsidian";
+import {
+  App,
+  EventRef,
+  FuzzySuggestModal,
+  HoverParent,
+  HoverPopover,
+  Menu,
+  Notice,
+  Scope,
+  TFile,
+  setIcon,
+} from "obsidian";
+import { getCodexEntities } from "../codex/codex-store";
 import { featureEnabled } from "../features";
 import { isPhone } from "../lib/platform";
 import { attachRowMenu } from "../lib/row-menu";
@@ -28,10 +40,12 @@ import { SceneSession } from "./scene-session";
 import {
   EDITOR_SHORTCUTS,
   EditorPrefs,
+  EditorShortcutHooks,
   createSceneEditor,
   flashRange,
   formatSelection,
   insertPlaceholder,
+  linkAtCursor,
   setTypewriter,
 } from "./scene-editor";
 import { MarkKind } from "../lib/inline-format";
@@ -125,9 +139,11 @@ class TodoPickerModal extends FuzzySuggestModal<TodoType> {
   }
 }
 
-export class WritePanel {
+export class WritePanel implements HoverParent {
   private app: App;
   private plugin: InkswellPlugin;
+  /** Page Preview's handle for popovers this editor spawns (HoverParent). */
+  hoverPopover: HoverPopover | null = null;
   private store: ProjectStore;
   private sprints: SprintController;
   private inspector: SceneInspector;
@@ -323,6 +339,12 @@ export class WritePanel {
     menu.addSeparator();
     menu.addItem((item) =>
       item
+        .setTitle("Open link at cursor")
+        .setIcon("link")
+        .onClick(() => this.openLinkAtCursor())
+    );
+    menu.addItem((item) =>
+      item
         .setTitle("Find to-dos")
         .setIcon("list-checks")
         .onClick(() => void this.plugin.openTodos())
@@ -361,7 +383,7 @@ export class WritePanel {
       const scope = new Scope(this.app.scope);
       for (const s of EDITOR_SHORTCUTS) {
         scope.register(s.modifiers, s.key, () => {
-          if (this.editor) s.run(this.editor, { onLogIssue: () => this.logIssue() });
+          if (this.editor) s.run(this.editor, this.hooks());
           return false; // handled — preventDefault, don't fall through to global hotkeys
         });
       }
@@ -369,6 +391,75 @@ export class WritePanel {
     }
     this.app.keymap.pushScope(this.hotkeyScope);
     this.hotkeysPushed = true;
+  }
+
+  /** The host callbacks shared by the CM keymap, the pushed Scope, and editor events. */
+  private hooks(): EditorShortcutHooks {
+    return {
+      onLogIssue: () => this.logIssue(),
+      onOpenLink: (linktext) => this.openLink(linktext),
+      onHoverLink: (e, el, linktext) => this.hoverLink(e, el, linktext),
+    };
+  }
+
+  /**
+   * Follow a wikilink from the open scene. Routing keeps the writer inside
+   * Inkswell where that makes sense: a codex entry opens in the Codex panel, a
+   * scene of any project opens in this editor, anything else opens as a
+   * markdown tab. An unresolved link is reported, never auto-created (a new
+   * note beside the scene is the wrong place for a codex entry).
+   */
+  openLink(linktext: string): void {
+    const file = this.currentFile;
+    if (!file) return;
+    const hash = linktext.indexOf("#");
+    const linkpath = (hash === -1 ? linktext : linktext.slice(0, hash)).trim();
+    const target = linkpath
+      ? this.app.metadataCache.getFirstLinkpathDest(linkpath, file.path)
+      : file; // `[[#Heading]]` — same note
+    if (!target) {
+      new Notice(
+        `No note named "${linkpath}". Select the name and press Ctrl/Cmd+Shift+C to create a codex entry.`
+      );
+      return;
+    }
+    if (getCodexEntities(this.app).some((e) => e.path === target.path)) {
+      this.plugin.openCodexEntry(target.path);
+      return;
+    }
+    if (this.store.findSceneByPath(target.path)) {
+      if (target.path !== this.currentScenePath()) {
+        this.selectScene(target.path);
+        this.rerender();
+      }
+      return;
+    }
+    void this.app.workspace.openLinkText(linktext, file.path, "tab");
+  }
+
+  /** Open the wikilink under the cursor (Insert menu / command — the phone path,
+   *  where Mod-click doesn't exist). */
+  openLinkAtCursor(): void {
+    if (!this.editor) return;
+    const linktext = linkAtCursor(this.editor);
+    if (!linktext) {
+      new Notice("No link at the cursor.");
+      return;
+    }
+    this.openLink(linktext);
+  }
+
+  /** Hand a hovered link to Obsidian's Page Preview (source registered in main.ts). */
+  private hoverLink(e: MouseEvent, el: HTMLElement, linktext: string): void {
+    if (!this.currentFile) return;
+    this.app.workspace.trigger("hover-link", {
+      event: e,
+      source: "inkswell-write",
+      hoverParent: this,
+      targetEl: el,
+      linktext,
+      sourcePath: this.currentFile.path,
+    });
   }
 
   /** Editor blurred / torn down: restore normal hotkey handling. */
@@ -811,7 +902,7 @@ export class WritePanel {
           // The Insert dropdown suppresses this save while open (see openInsertMenu).
           if (!this.suppressBlurSave) void this.session?.save();
         },
-        onLogIssue: () => this.logIssue(),
+        ...this.hooks(),
         // Read live so a Settings toggle applies to the next keystroke.
         getTypography: () => {
           const s = this.plugin.settings;
@@ -1020,6 +1111,7 @@ export class WritePanel {
    *  the plugin's quit-time flush awaits it so an in-flight write isn't cut off. */
   async dispose(): Promise<void> {
     const flushed = this.detachSession();
+    this.hoverPopover = null;
     this.unsub?.();
     this.unsub = null;
     if (this.modifyRef) {

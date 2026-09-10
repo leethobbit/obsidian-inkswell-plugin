@@ -143,6 +143,12 @@ export default class InkswellPlugin extends Plugin {
       VIEW_TYPE_INKSWELL,
       (leaf) => new InkswellView(leaf, this, this.store, this.stats, this.tracker)
     );
+    // Wikilinks in the Write editor emit `hover-link` so the Page Preview core
+    // plugin can show its popover (Mod-hover by default, like source mode).
+    this.registerHoverLinkSource("inkswell-write", {
+      display: "Inkswell Write editor",
+      defaultMod: true,
+    });
 
     this.addRibbonIcon("pen-tool", "Inkswell projects", () => this.openProjects());
 
@@ -312,6 +318,16 @@ export default class InkswellPlugin extends Plugin {
         },
       });
     }
+    this.addCommand({
+      id: "open-link-at-cursor",
+      name: "Open link at cursor (Write editor)",
+      checkCallback: (checking) => {
+        const view = this.inkswellView();
+        if (!view || !view.canFormat()) return false;
+        if (!checking) view.openLinkAtCursor();
+        return true;
+      },
+    });
     // Flips the persisted setting (so it's meaningful without an open editor)
     // and pushes it onto a live editor. No default hotkey, per house rule.
     this.addCommand({
@@ -741,6 +757,11 @@ export default class InkswellPlugin extends Plugin {
   /** Reveal the Inkswell tab, switch to Write, and open the given scene there. */
   openSceneInWrite(path: string): void {
     void this.openInkswell("write", (view) => view.openSceneInWrite(path));
+  }
+
+  /** Reveal the Inkswell tab and show a codex entry in the Codex panel. */
+  openCodexEntry(path: string): void {
+    void this.openInkswell("codex", (view) => view.openCodexEntry(path));
   }
 
   /**

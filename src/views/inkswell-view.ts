@@ -519,6 +519,18 @@ export class InkswellView extends ItemView {
     this.setMode("write");
   }
 
+  /** Show a codex entry in the Codex panel (phones drill into its detail screen). */
+  openCodexEntry(path: string): void {
+    if (isPhone()) this.detail["codex"] = path;
+    else this.codex.setSelected(path);
+    this.setMode("codex");
+  }
+
+  /** Follow the wikilink under the Write editor's cursor (command / phone path). */
+  openLinkAtCursor(): void {
+    this.write.openLinkAtCursor();
+  }
+
   /** Open Plan → Structure on a specific view (deep link for board/grid commands). */
   openPlanStructure(view: StructureView): void {
     this.structure.setView(view);
