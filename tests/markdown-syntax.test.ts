@@ -52,7 +52,7 @@ describe("buildSyntaxIntents — emphasis", () => {
   it("italicises underscores on word boundaries but not mid-word", () => {
     expect(styles(buildSyntaxIntents("_a_", []), "cm-md-em")).toHaveLength(1);
     // `a_b_c` — underscores sit between word chars, so no emphasis at all.
-    expect(buildSyntaxIntents("a_b_c", [])).toEqual([]);
+    expect(buildSyntaxIntents("a_b_c", []).filter((i) => i.type !== "line")).toEqual([]);
   });
 });
 
@@ -136,5 +136,44 @@ describe("buildSyntaxIntents — multi-line & per-span granularity", () => {
     const out = buildSyntaxIntents("*a* **b**", []);
     const froms = out.map((i) => i.from);
     expect(froms).toEqual([...froms].sort((a, b) => a - b));
+  });
+});
+
+describe("buildSyntaxIntents — line classes (manuscript typography)", () => {
+  const lines = (out: SyntaxIntent[], cls: string) =>
+    out.filter((i) => i.type === "line" && i.cls === cls).map((i) => i.from);
+
+  it("emits cm-md-line-heading for heading lines only", () => {
+    const out = buildSyntaxIntents("# Title\n\nProse here.", []);
+    expect(lines(out, "cm-md-line-heading")).toEqual([0]);
+  });
+
+  it("marks the first prose line at document start", () => {
+    expect(lines(buildSyntaxIntents("Prose.\n\nMore.", []), "cm-md-line-first")).toEqual([0]);
+  });
+
+  it("marks the first prose line after a heading, skipping blank lines", () => {
+    // "# H\n\nFirst.\n\nSecond." — First. starts at 5, Second. at 12.
+    const out = buildSyntaxIntents("# H\n\nFirst.\n\nSecond.", []);
+    expect(lines(out, "cm-md-line-first")).toEqual([5]);
+  });
+
+  it("marks the first prose line after a thematic break", () => {
+    // "A.\n\n---\n\nB." — B. starts at 9.
+    const out = buildSyntaxIntents("A.\n\n---\n\nB.", []);
+    expect(lines(out, "cm-md-line-hr")).toEqual([4]);
+    expect(lines(out, "cm-md-line-first")).toEqual([0, 9]);
+  });
+
+  it("quote lines get cm-md-line-quote and are never first", () => {
+    const out = buildSyntaxIntents("> Epigraph\n\nProse.", []);
+    expect(lines(out, "cm-md-line-quote")).toEqual([0]);
+    expect(lines(out, "cm-md-line-first")).toEqual([]);
+  });
+
+  it("line intents are zero-width at the line start and never hides", () => {
+    const out = buildSyntaxIntents("# H\n\n*x*", []);
+    for (const i of out.filter((i) => i.type === "line")) expect(i.from).toBe(i.to);
+    expect(hides(out).map((i) => i.from)).toEqual([0, 5, 7]);
   });
 });

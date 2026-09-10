@@ -127,6 +127,10 @@ export interface InkswellSettings {
   smartQuotes: boolean;
   /** Write editor: `...` typed becomes an ellipsis. Off by default. */
   smartEllipsis: boolean;
+  /** Write editor: keep the caret line vertically centered while typing. Off by default. */
+  typewriterMode: boolean;
+  /** Write editor: book-style paragraph indents and centered headings (CSS only). Off by default. */
+  manuscriptTypography: boolean;
 }
 
 export const DEFAULT_SETTINGS: InkswellSettings = {
@@ -159,18 +163,45 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   smartDashes: false,
   smartQuotes: false,
   smartEllipsis: false,
+  typewriterMode: false,
+  manuscriptTypography: false,
 };
 
+/** The boolean Write-editor preferences (all default off). */
+type WriteEditorToggleKey =
+  | "smartDashes"
+  | "smartQuotes"
+  | "smartEllipsis"
+  | "typewriterMode"
+  | "manuscriptTypography";
+
 /**
- * Settings-tab copy for the Write-editor smart-typography toggles — one table
- * feeding BOTH the declarative definitions and the imperative fallback, so the
- * two renderers can't drift (gotcha #12).
+ * Settings-tab copy for the Write-editor toggles — one table feeding BOTH the
+ * declarative definitions and the imperative fallback, so the two renderers
+ * can't drift (gotcha #12). Every toggle saves then calls
+ * `plugin.applyEditorPrefs()`, which pushes the change onto a live editor
+ * without rebuilding it.
  */
-const TYPOGRAPHY_OPTIONS: {
-  key: "smartDashes" | "smartQuotes" | "smartEllipsis";
+const WRITE_EDITOR_TOGGLES: {
+  key: WriteEditorToggleKey;
   name: string;
   desc: string;
 }[] = [
+  {
+    key: "typewriterMode",
+    name: "Typewriter mode",
+    desc:
+      "Keep the line you're typing on vertically centered in the Write editor, so your eyes stay in one place. " +
+      "Mouse clicks don't recenter. Also available as the command “Toggle typewriter mode (Write editor)”.",
+  },
+  {
+    key: "manuscriptTypography",
+    name: "Manuscript typography",
+    desc:
+      "Book-style layout in the Write editor: paragraphs get a first-line indent (except the first paragraph " +
+      "after a heading or scene break), and headings are centered. Purely visual — your text is unchanged. " +
+      "The font follows Obsidian's Appearance → Text font.",
+  },
   {
     key: "smartDashes",
     name: "Smart dashes",
@@ -299,7 +330,7 @@ export class InkswellSettingTab extends PluginSettingTab {
       {
         type: "group",
         heading: "Write editor",
-        items: TYPOGRAPHY_OPTIONS.map((o) => ({
+        items: WRITE_EDITOR_TOGGLES.map((o) => ({
           name: o.name,
           desc: o.desc,
           control: { type: "toggle" as const, key: o.key, defaultValue: false },
@@ -472,6 +503,13 @@ export class InkswellSettingTab extends PluginSettingTab {
       this.plugin.refreshView();
       return;
     }
+    const editorToggle = WRITE_EDITOR_TOGGLES.find((o) => o.key === key);
+    if (editorToggle) {
+      s[editorToggle.key] = !!value;
+      await this.plugin.saveSettings();
+      this.plugin.applyEditorPrefs();
+      return;
+    }
     switch (key) {
       case "defaultCompileFormat":
         s.defaultCompileFormat = value as OutputFormat;
@@ -494,15 +532,6 @@ export class InkswellSettingTab extends PluginSettingTab {
       case "showHelpHints":
         s.showHelpHints = !!value;
         break;
-      case "smartDashes":
-        s.smartDashes = !!value;
-        break;
-      case "smartQuotes":
-        s.smartQuotes = !!value;
-        break;
-      case "smartEllipsis":
-        s.smartEllipsis = !!value;
-        break;
       default: {
         const bounds = NUMERIC_BOUNDS[key as keyof InkswellSettings];
         if (!bounds) return; // unknown key — never write blind
@@ -522,11 +551,11 @@ export class InkswellSettingTab extends PluginSettingTab {
     if (key === "dailyWordGoal") this.plugin.refreshStatus();
   }
 
-  /** The "Write editor" section (imperative fallback): smart-typography toggles.
+  /** The "Write editor" section (imperative fallback): editor toggles.
    *  Same table as the declarative group — keep them in lockstep. */
   private renderWriteEditor(containerEl: HTMLElement): void {
     new Setting(containerEl).setName("Write editor").setHeading();
-    for (const o of TYPOGRAPHY_OPTIONS) {
+    for (const o of WRITE_EDITOR_TOGGLES) {
       new Setting(containerEl)
         .setName(o.name)
         .setDesc(o.desc)
@@ -534,6 +563,7 @@ export class InkswellSettingTab extends PluginSettingTab {
           t.setValue(this.plugin.settings[o.key]).onChange(async (v) => {
             this.plugin.settings[o.key] = v;
             await this.plugin.saveSettings();
+            this.plugin.applyEditorPrefs();
           })
         );
     }

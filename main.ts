@@ -312,6 +312,18 @@ export default class InkswellPlugin extends Plugin {
         },
       });
     }
+    // Flips the persisted setting (so it's meaningful without an open editor)
+    // and pushes it onto a live editor. No default hotkey, per house rule.
+    this.addCommand({
+      id: "toggle-typewriter",
+      name: "Toggle typewriter mode (Write editor)",
+      callback: () => {
+        this.settings.typewriterMode = !this.settings.typewriterMode;
+        void this.saveSettings();
+        this.applyEditorPrefs();
+        new Notice(`Typewriter mode ${this.settings.typewriterMode ? "on" : "off"}`);
+      },
+    });
     this.addCommand({
       id: "start-sprint",
       name: "Start a writing sprint",
@@ -519,6 +531,14 @@ export default class InkswellPlugin extends Plugin {
   refreshView(): void {
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_INKSWELL)) {
       if (leaf.view instanceof InkswellView) leaf.view.forceRefresh();
+    }
+  }
+
+  /** Apply changed Write-editor preferences to any live editor — no rebuild, so
+   *  the writer's undo history and scroll position survive a Settings toggle. */
+  applyEditorPrefs(): void {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_INKSWELL)) {
+      if (leaf.view instanceof InkswellView) leaf.view.applyEditorPrefs();
     }
   }
 

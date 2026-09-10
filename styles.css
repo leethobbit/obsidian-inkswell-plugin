@@ -1743,6 +1743,30 @@
   font-size: 1.05em;
 }
 
+/* Manuscript typography (Settings → Write editor, off by default). Each .cm-line
+   is one paragraph under soft wrap, so text-indent gives a first-line indent per
+   paragraph. The cm-md-line-* classes come from the syntax scanner (line
+   decorations): headings center, and the first paragraph of a section — after a
+   heading or a scene break, or at the top — stays flush, as in a typeset book. */
+.inkswell-write__cm.is-manuscript .cm-line {
+  text-indent: 1.5em;
+}
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-heading,
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-quote,
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-hr,
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-first {
+  text-indent: 0;
+}
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-heading {
+  text-align: center;
+  margin-top: 1em;
+}
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-hr {
+  text-align: center;
+  letter-spacing: 0.5em;
+  color: var(--text-faint);
+}
+
 /* To-do markers: distinct tinted, rounded chips so unresolved to-dos are obvious
    at a glance while drafting. */
 .cm-ph-todo,

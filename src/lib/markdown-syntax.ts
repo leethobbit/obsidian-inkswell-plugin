@@ -31,13 +31,22 @@ export interface Sel {
 export interface SyntaxIntent {
   from: number;
   to: number;
-  /** "style" → CM mark with `cls`; "hide" → CM replace (collapse the range). */
-  type: "style" | "hide";
+  /**
+   * "style" → CM mark with `cls`; "hide" → CM replace (collapse the range);
+   * "line" → CM line decoration with `cls` (zero-width, at the line start —
+   * classifies the whole line for block-level CSS such as manuscript indents).
+   */
+  type: "style" | "hide" | "line";
   cls?: string;
 }
 
+/** Block classification of one line, for the cross-line "first paragraph" rule. */
+export type LineKind = "blank" | "heading" | "quote" | "hr" | "prose";
+
 const HEADING_RE = /^(#{1,6})\s+/;
 const QUOTE_RE = /^\s{0,3}>\s?/;
+// Thematic break: three or more of the same -, * or _ (spaces allowed between).
+const HR_RE = /^\s{0,3}([-*_])(?:\s*\1){2,}\s*$/;
 // Inline code: 1–3 backticks with a matching close, no inner backtick.
 const CODE_RE = /(`{1,3})([^`]+?)\1/g;
 // Emphasis families, longest marker first within each so `***` beats `**` beats
@@ -70,22 +79,35 @@ function pushMarker(out: SyntaxIntent[], from: number, to: number, revealed: boo
   else out.push({ from, to, type: "hide" });
 }
 
+/** Zero-width line-classifying intent at the line start. */
+function pushLine(out: SyntaxIntent[], base: number, cls: string): void {
+  out.push({ from: base, to: base, type: "line", cls });
+}
+
 function scanLine(
   text: string,
   base: number,
   sels: Sel[],
   out: SyntaxIntent[],
   seedProtected: [number, number][] = []
-): void {
+): LineKind {
   const lineFrom = base;
   const lineTo = base + text.length;
   const lineTouched = anyTouch(lineFrom, lineTo, sels);
   // Seeded with placeholder-token interiors so emphasis/code never style inside them.
   const protectedSpans: [number, number][] = [...seedProtected];
+  let kind: LineKind = text.trim() ? "prose" : "blank";
+
+  if (HR_RE.test(text)) {
+    pushLine(out, base, "cm-md-line-hr");
+    return "hr";
+  }
 
   // --- Block markers: revealed when the cursor is anywhere on the line ---
   const heading = HEADING_RE.exec(text);
   if (heading) {
+    kind = "heading";
+    pushLine(out, base, "cm-md-line-heading");
     const level = heading[1].length;
     if (heading[0].length < text.length) {
       out.push({
@@ -103,6 +125,8 @@ function scanLine(
 
   const quote = QUOTE_RE.exec(text);
   if (quote) {
+    kind = "quote";
+    pushLine(out, base, "cm-md-line-quote");
     out.push({ from: base + quote[0].length, to: lineTo, type: "style", cls: "cm-md-quote" });
     pushMarker(out, base, base + quote[0].length, lineTouched);
   }
@@ -146,6 +170,7 @@ function scanLine(
     pushMarker(out, base + s, base + s + ml, revealed);
     pushMarker(out, base + e - ml, base + e, revealed);
   }
+  return kind;
 }
 
 /**
@@ -163,6 +188,11 @@ export function buildSyntaxIntents(text: string, selections: Sel[]): SyntaxInten
   }
 
   let base = 0;
+  // The last non-blank line's kind; null at document start. A prose line that
+  // follows nothing, a heading, or a thematic break is a section's FIRST
+  // paragraph (`cm-md-line-first`) — manuscript typography leaves it unindented,
+  // which pure CSS can't express because a blank line breaks sibling adjacency.
+  let prevSignificant: LineKind | null = null;
   // Split on \n; a trailing \r (CRLF docs) stays in the line text and counts
   // toward its length, so absolute offsets remain correct.
   for (const line of text.split("\n")) {
@@ -173,7 +203,13 @@ export function buildSyntaxIntents(text: string, selections: Sel[]): SyntaxInten
         seed.push([Math.max(p.from, base) - base, Math.min(p.to, lineTo) - base]);
       }
     }
-    scanLine(line, base, selections, out, seed);
+    const kind = scanLine(line, base, selections, out, seed);
+    if (kind === "prose") {
+      if (prevSignificant === null || prevSignificant === "heading" || prevSignificant === "hr") {
+        pushLine(out, base, "cm-md-line-first");
+      }
+    }
+    if (kind !== "blank") prevSignificant = kind;
     base += line.length + 1;
   }
   out.sort((a, b) => a.from - b.from || a.to - b.to);

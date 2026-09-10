@@ -27,10 +27,12 @@ import { preserveFocus, tagField } from "../lib/focus-preserve";
 import { SceneSession } from "./scene-session";
 import {
   EDITOR_SHORTCUTS,
+  EditorPrefs,
   createSceneEditor,
   flashRange,
   formatSelection,
   insertPlaceholder,
+  setTypewriter,
 } from "./scene-editor";
 import { MarkKind } from "../lib/inline-format";
 import { PlaceholderKind, scanPlaceholders } from "../lib/placeholders";
@@ -165,6 +167,8 @@ export class WritePanel {
   private teardown: Promise<unknown> = Promise.resolve();
   /** Conflict banner host inside the editor column (rebuilt per render). */
   private bannerEl: HTMLElement | null = null;
+  /** The CM host element (carries the `is-manuscript` typography class). */
+  private cmHostEl: HTMLElement | null = null;
   /** Vault modify subscription driving external-change handling. */
   private modifyRef: EventRef | null = null;
   private countEl: HTMLElement | null = null;
@@ -760,6 +764,8 @@ export class WritePanel {
     // state (vs. dispatching after) keeps the undo history clean. The token
     // guards against a stale load landing after another scene switch.
     const host = wrap.createDiv({ cls: "inkswell-write__cm" });
+    host.toggleClass("is-manuscript", this.editorPrefs().manuscript);
+    this.cmHostEl = host;
     const handoff = this.teardown;
     void (async () => {
       await handoff.catch(() => {});
@@ -811,6 +817,7 @@ export class WritePanel {
           const s = this.plugin.settings;
           return { dashes: s.smartDashes, quotes: s.smartQuotes, ellipsis: s.smartEllipsis };
         },
+        getPrefs: () => this.editorPrefs(),
       });
       this.renderConflictBanner();
       this.updateCount();
@@ -891,6 +898,22 @@ export class WritePanel {
       }
     }
     flashRange(this.editor, from, to);
+  }
+
+  /** Current Write-editor preferences from Settings. */
+  private editorPrefs(): EditorPrefs {
+    const s = this.plugin.settings;
+    return { typewriter: s.typewriterMode, manuscript: s.manuscriptTypography };
+  }
+
+  /**
+   * Push changed editor preferences onto the LIVE editor (Settings toggles, the
+   * typewriter command). No rebuild — undo history, scroll, and focus survive.
+   */
+  applyEditorPrefs(): void {
+    const prefs = this.editorPrefs();
+    this.cmHostEl?.toggleClass("is-manuscript", prefs.manuscript);
+    if (this.editor) setTypewriter(this.editor, prefs.typewriter);
   }
 
   private updateCount(): void {

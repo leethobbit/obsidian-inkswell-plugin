@@ -14,7 +14,13 @@
  */
 
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { EditorSelection, EditorState, StateEffect, StateField } from "@codemirror/state";
+import {
+  Compartment,
+  EditorSelection,
+  EditorState,
+  StateEffect,
+  StateField,
+} from "@codemirror/state";
 import {
   Decoration,
   DecorationSet,
@@ -22,6 +28,7 @@ import {
   ViewPlugin,
   ViewUpdate,
   keymap,
+  scrollPastEnd,
 } from "@codemirror/view";
 import { MarkKind, toggleInlineMark } from "../lib/inline-format";
 import { Sel, buildSyntaxIntents } from "../lib/markdown-syntax";
@@ -39,6 +46,10 @@ function buildDecorations(view: EditorView): { all: DecorationSet; hidden: Decor
       const d = Decoration.replace({});
       all.push(d.range(it.from, it.to));
       hidden.push(d.range(it.from, it.to));
+    } else if (it.type === "line") {
+      // Block classification (heading / quote / hr / first paragraph) for the
+      // manuscript-typography CSS; never atomic.
+      all.push(Decoration.line({ class: it.cls }).range(it.from));
     } else {
       all.push(Decoration.mark({ class: it.cls }).range(it.from, it.to));
     }
@@ -95,6 +106,57 @@ const flashField = StateField.define<DecorationSet>({
   },
   provide: (f) => EditorView.decorations.from(f),
 });
+
+/**
+ * Typewriter mode: keep the caret's line vertically centered as you type or move
+ * with the keyboard. A `transactionExtender` attaches CM's own
+ * `scrollIntoView(pos, { y: "center" })` effect to the same transaction, so it
+ * rides the normal update (no second dispatch, no fight with the default
+ * "scroll the cursor into view" behavior — an explicit effect wins over the
+ * flag). Pointer selections are excluded so a mouse click doesn't yank the
+ * page; programmatic reseeds carry no user event and are ignored too.
+ * `scrollPastEnd` adds the bottom padding that lets the last line reach center.
+ * Lives in a Compartment so Settings can flip it on a live editor without a
+ * rebuild (which would discard undo history).
+ */
+const typewriterCompartment = new Compartment();
+
+const typewriterExt = [
+  EditorState.transactionExtender.of((tr) => {
+    if (!tr.docChanged && !tr.selection) return null;
+    if (tr.isUserEvent("select.pointer")) return null;
+    const drives =
+      tr.isUserEvent("input") ||
+      tr.isUserEvent("delete") ||
+      tr.isUserEvent("move") ||
+      tr.isUserEvent("select") ||
+      tr.isUserEvent("undo") ||
+      tr.isUserEvent("redo");
+    if (!drives) return null;
+    return {
+      effects: EditorView.scrollIntoView(tr.newSelection.main.head, { y: "center" }),
+    };
+  }),
+  scrollPastEnd(),
+];
+
+/** Turn typewriter mode on/off for a live editor (recenters when turning on). */
+export function setTypewriter(view: EditorView, on: boolean): void {
+  view.dispatch({
+    effects: [
+      typewriterCompartment.reconfigure(on ? typewriterExt : []),
+      ...(on ? [EditorView.scrollIntoView(view.state.selection.main.head, { y: "center" })] : []),
+    ],
+  });
+}
+
+/** Live-read editor preferences (see WritePanel.applyEditorPrefs for the push side). */
+export interface EditorPrefs {
+  /** Keep the caret line vertically centered (typewriter scrolling). */
+  typewriter: boolean;
+  /** Book-style paragraph indents / centered headings (CSS via `is-manuscript`). */
+  manuscript: boolean;
+}
 
 /**
  * Select a range, scroll it into view, and flash it briefly — the editor-side of
@@ -250,6 +312,11 @@ export interface SceneEditorOptions {
    * Settings change applies without rebuilding the editor). Omit to disable.
    */
   getTypography?: () => TypographyRules;
+  /**
+   * Editor preferences read at creation (typewriter compartment seed). Later
+   * changes are pushed via `setTypewriter` / the host's `is-manuscript` class.
+   */
+  getPrefs?: () => EditorPrefs;
 }
 
 /** Create a manuscript editor bound to `parent`, seeded with `doc`. */
@@ -274,6 +341,7 @@ export function createSceneEditor(opts: SceneEditorOptions): EditorView {
         ),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         ...(opts.getTypography ? [smartTypographyHandler(opts.getTypography)] : []),
+        typewriterCompartment.of(opts.getPrefs?.().typewriter ? typewriterExt : []),
         EditorView.lineWrapping,
         markdownHighlighter,
         atomicMarkers,

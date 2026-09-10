@@ -549,6 +549,11 @@ export class InkswellView extends ItemView {
     this.write.toggleMark(kind);
   }
 
+  /** Push changed Write-editor preferences (typewriter, typography) onto a live editor. */
+  applyEditorPrefs(): void {
+    this.write.applyEditorPrefs();
+  }
+
   /** Flush unsaved Write-editor text to disk (quit-time safety). The editor
    *  stays live — this only drains the pending save. */
   flushWrites(): Promise<void> {
