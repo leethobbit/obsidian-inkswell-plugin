@@ -15,9 +15,40 @@
  */
 
 import { EditorView } from "@codemirror/view";
-import { App, EventRef, FuzzySuggestModal, Menu, Notice, TFile, setIcon } from "obsidian";
+import {
+  App,
+  EventRef,
+  FuzzySuggestModal,
+  HoverParent,
+  HoverPopover,
+  Menu,
+  Notice,
+  Scope,
+  TFile,
+  setIcon,
+} from "obsidian";
+import { createEntityForProject, getCodexEntities } from "../codex/codex-store";
+import {
+  defaultScopeForProject,
+  describeCreateScope,
+  filterToScope,
+  scopeContextForProject,
+} from "../codex/codex-scope";
+import {
+  buildLinkText,
+  buildReplacement,
+  findExistingEntity,
+  relocate,
+  seedFromSelection,
+  selectionInsideWikilink,
+} from "../codex/quick-codex";
+import { QuickCodexModal } from "../codex/quick-codex-modal";
+import { allCategories, categoryLabel } from "../codex/types";
+import { LinkCandidate } from "../lib/link-complete";
 import { featureEnabled } from "../features";
+import { tryFileOp } from "../lib/notify";
 import { isPhone } from "../lib/platform";
+import { nearestIndexOf } from "../lib/text-locate";
 import { attachRowMenu } from "../lib/row-menu";
 import { addSceneMenuItems } from "../scenes/scene-actions";
 import { PromptModal } from "../ideation/prompt-modal";
@@ -25,7 +56,19 @@ import { RevisionModal } from "../revisions/revision-modal";
 import { renderEmptyState } from "./panel-kit";
 import { preserveFocus, tagField } from "../lib/focus-preserve";
 import { SceneSession } from "./scene-session";
-import { createSceneEditor, flashRange, insertPlaceholder } from "./scene-editor";
+import {
+  EDITOR_SHORTCUTS,
+  EditorPrefs,
+  EditorShortcutHooks,
+  createSceneEditor,
+  flashRange,
+  formatSelection,
+  insertPlaceholder,
+  linkAtCursor,
+  refreshMilestones,
+  setTypewriter,
+} from "./scene-editor";
+import { MarkKind } from "../lib/inline-format";
 import { PlaceholderKind, scanPlaceholders } from "../lib/placeholders";
 import { PromptCategory, PromptPhase } from "../ideation/prompts";
 import { countWords } from "../lib/wordcount";
@@ -52,28 +95,6 @@ export interface SceneHighlight {
   verify?: string;
 }
 
-/**
- * Find the occurrence of `needle` in `haystack` closest to `near` (by start
- * offset). Used to re-locate a search hit whose stored offset has drifted after
- * an edit. Returns -1 when the literal is absent.
- */
-function nearestIndexOf(haystack: string, needle: string, near: number): number {
-  if (!needle) return -1;
-  let best = -1;
-  let bestDist = Infinity;
-  let i = haystack.indexOf(needle);
-  while (i !== -1) {
-    const dist = Math.abs(i - near);
-    if (dist < bestDist) {
-      best = i;
-      bestDist = dist;
-    }
-    // Once we're past `near`, matches only get farther — stop early.
-    if (i >= near) break;
-    i = haystack.indexOf(needle, i + 1);
-  }
-  return best;
-}
 
 /** The five to-do marker types, for the insert picker. */
 interface TodoType {
@@ -89,6 +110,14 @@ const TODO_TYPES: TodoType[] = [
   { kind: "note", label: "Note", desc: "A note or reminder to yourself", icon: "sticky-note" },
   { kind: "dialogue", label: "Dialogue", desc: "Dialogue to write later", icon: "message-square" },
   { kind: "scene", label: "Scene", desc: "A scene to write or expand", icon: "clapperboard" },
+];
+
+/** Inline formatting toggles offered in the collapsed Insert menu (phones have
+ *  no Mod key and Obsidian's mobile toolbar doesn't attach to this editor). */
+const FORMAT_ACTIONS: { kind: MarkKind; label: string; icon: string }[] = [
+  { kind: "bold", label: "Bold", icon: "bold" },
+  { kind: "italic", label: "Italic", icon: "italic" },
+  { kind: "strike", label: "Strikethrough", icon: "strikethrough" },
 ];
 
 /** Quick picker for "Insert a to-do marker…" (command palette + toolbar). */
@@ -108,9 +137,11 @@ class TodoPickerModal extends FuzzySuggestModal<TodoType> {
   }
 }
 
-export class WritePanel {
+export class WritePanel implements HoverParent {
   private app: App;
   private plugin: InkswellPlugin;
+  /** Page Preview's handle for popovers this editor spawns (HoverParent). */
+  hoverPopover: HoverPopover | null = null;
   private store: ProjectStore;
   private sprints: SprintController;
   private inspector: SceneInspector;
@@ -131,6 +162,15 @@ export class WritePanel {
   private inspectorHost: HTMLElement | null = null;
 
   private editor: EditorView | null = null;
+  /**
+   * Editor-local shortcuts as an Obsidian Scope, pushed while the CM editor has
+   * focus. Obsidian's hotkey manager captures matching keydowns at the window
+   * BEFORE CodeMirror sees them (Mod-B → toggle bold, Mod-Shift-T → undo close
+   * tab), so the CM keymap alone never fires for those combos; a pushed Scope
+   * takes precedence over the global hotkeys. Built lazily from EDITOR_SHORTCUTS.
+   */
+  private hotkeyScope: Scope | null = null;
+  private hotkeysPushed = false;
   /** Bumped each render; a stale async scene-load checks it and bails. */
   private editorToken = 0;
   private currentFile: TFile | null = null;
@@ -141,6 +181,8 @@ export class WritePanel {
   private teardown: Promise<unknown> = Promise.resolve();
   /** Conflict banner host inside the editor column (rebuilt per render). */
   private bannerEl: HTMLElement | null = null;
+  /** The CM host element (carries the `is-manuscript` typography class). */
+  private cmHostEl: HTMLElement | null = null;
   /** Vault modify subscription driving external-change handling. */
   private modifyRef: EventRef | null = null;
   private countEl: HTMLElement | null = null;
@@ -244,6 +286,7 @@ export class WritePanel {
    * race), and `dispose` awaits it on view close/quit.
    */
   private detachSession(): Promise<unknown> {
+    this.popHotkeys();
     const s = this.session;
     if (!s) {
       this.editor?.destroy();
@@ -283,6 +326,27 @@ export class WritePanel {
       );
     }
     menu.addSeparator();
+    for (const { kind, label, icon } of FORMAT_ACTIONS) {
+      menu.addItem((item) =>
+        item
+          .setTitle(label)
+          .setIcon(icon)
+          .onClick(() => this.toggleMark(kind))
+      );
+    }
+    menu.addSeparator();
+    menu.addItem((item) =>
+      item
+        .setTitle("New Codex entry from selection…")
+        .setIcon("book-user")
+        .onClick(() => this.quickCodex())
+    );
+    menu.addItem((item) =>
+      item
+        .setTitle("Open link at cursor")
+        .setIcon("link")
+        .onClick(() => this.openLinkAtCursor())
+    );
     menu.addItem((item) =>
       item
         .setTitle("Find to-dos")
@@ -308,6 +372,211 @@ export class WritePanel {
     new TodoPickerModal(this.app, (kind) => {
       if (this.editor) insertPlaceholder(this.editor, kind);
     }).open();
+  }
+
+  /** Toggle bold / italic / strikethrough on the live editor's selection
+   *  (commands, the Insert menu; Mod-b / Mod-i come via the editor shortcuts). */
+  toggleMark(kind: MarkKind): void {
+    if (this.editor) formatSelection(this.editor, kind);
+  }
+
+  /** Editor focused: make the editor-local shortcuts win over global hotkeys. */
+  private pushHotkeys(): void {
+    if (this.hotkeysPushed) return;
+    if (!this.hotkeyScope) {
+      const scope = new Scope(this.app.scope);
+      for (const s of EDITOR_SHORTCUTS) {
+        scope.register(s.modifiers, s.key, () => {
+          if (this.editor) s.run(this.editor, this.hooks());
+          return false; // handled — preventDefault, don't fall through to global hotkeys
+        });
+      }
+      this.hotkeyScope = scope;
+    }
+    this.app.keymap.pushScope(this.hotkeyScope);
+    this.hotkeysPushed = true;
+  }
+
+  /** The host callbacks shared by the CM keymap, the pushed Scope, and editor events. */
+  private hooks(): EditorShortcutHooks {
+    return {
+      onLogIssue: () => this.logIssue(),
+      onQuickCodex: () => this.quickCodex(),
+      onOpenLink: (linktext) => this.openLink(linktext),
+      onHoverLink: (e, el, linktext) => this.hoverLink(e, el, linktext),
+    };
+  }
+
+  /**
+   * Quick Codex: turn the selection (or the word at the cursor) into a codex
+   * entry and replace it with a wikilink. The creation pipeline is the Codex
+   * panel's (`createEntityForProject`), so scope/folder/template rules are
+   * identical. Positions are captured up front and re-located on submit — the
+   * document can move while the dialog is open (autosave reload, sync reseed)
+   * — and a rebuilt editor means the link is NOT inserted (we say so) rather
+   * than landing in the wrong place.
+   */
+  quickCodex(): void {
+    const view = this.editor;
+    const file = this.currentFile;
+    if (!view || !file) return;
+    if (view.composing) return; // mid-IME: the "selection" isn't settled yet
+    const { from, to } = view.state.selection.main;
+    const doc = view.state.doc.toString();
+    if (selectionInsideWikilink(doc, from, to)) {
+      new Notice("That's already a link.");
+      return;
+    }
+    const seed = seedFromSelection(doc, from, to);
+    const token = this.editorToken;
+    const s = this.plugin.settings;
+    const categories = allCategories(s.customCategories, s.categoryOverrides);
+    const projects = this.store.getProjects();
+    const activePath = this.plugin.activeProject.get();
+    const active = activePath ? this.store.getProject(activePath) ?? null : null;
+
+    // The dialog blurs the editor; without this the blur-save → store notify
+    // → rebuild would destroy the very editor we're about to insert into.
+    this.suppressBlurSave = true;
+    const modal = new QuickCodexModal(this.app, {
+      seed,
+      categories,
+      defaultCategoryId: this.plugin.lastQuickCodexType ?? "character",
+      entities: getCodexEntities(this.app),
+      scopeHint: describeCreateScope(defaultScopeForProject(active, projects)),
+      onSubmit: async ({ name, categoryId, addAlias }) => {
+        const def = categories.find((c) => c.id === categoryId);
+        if (!def) return;
+        this.plugin.lastQuickCodexType = def.id;
+        const existing = findExistingEntity(getCodexEntities(this.app), name);
+        let target: TFile | null = null;
+        if (existing) {
+          const f = this.app.vault.getAbstractFileByPath(existing.path);
+          target = f instanceof TFile ? f : null;
+        } else {
+          target = await tryFileOp(
+            () => createEntityForProject(this.app, s, projects, active, def, name),
+            `Couldn't create the ${def.label}.`
+          );
+        }
+        if (!target) return;
+        const entryFile = target;
+        if (addAlias && seed) {
+          const alias = seed.core.split(/\r?\n/)[0].trim();
+          this.plugin.selfWrites.mark(entryFile.path);
+          await tryFileOp(
+            () =>
+              this.app.fileManager.processFrontMatter(entryFile, (fm: Record<string, unknown>) => {
+                const cur = Array.isArray(fm["aliases"])
+                  ? fm["aliases"].filter((x): x is string => typeof x === "string")
+                  : [];
+                if (!cur.some((a) => a.toLowerCase() === alias.toLowerCase())) {
+                  fm["aliases"] = [...cur, alias];
+                }
+              }),
+            "Couldn't add the alias."
+          );
+        }
+        if (this.editor !== view || token !== this.editorToken) {
+          new Notice(`Created “${entryFile.basename}”, but the editor changed — link not inserted.`);
+          return;
+        }
+        const now = view.state.doc.toString();
+        const range = seed ? relocate(now, seed) : null;
+        if (range && seed) {
+          const insert = buildReplacement(seed, entryFile.basename);
+          view.dispatch({
+            changes: { from: range.from, to: range.to, insert },
+            selection: { anchor: range.from + insert.length },
+            userEvent: "input.link",
+            scrollIntoView: true,
+          });
+        } else {
+          const head = view.state.selection.main.head;
+          const insert = buildLinkText(entryFile.basename, "");
+          view.dispatch({
+            changes: { from: head, insert },
+            selection: { anchor: head + insert.length },
+            userEvent: "input.link",
+            scrollIntoView: true,
+          });
+        }
+      },
+    });
+    const restore = modal.onClose.bind(modal);
+    modal.onClose = () => {
+      restore();
+      this.suppressBlurSave = false;
+      if (this.editor === view) view.focus();
+    };
+    modal.open();
+  }
+
+  /**
+   * Follow a wikilink from the open scene. Routing keeps the writer inside
+   * Inkswell where that makes sense: a codex entry opens in the Codex panel, a
+   * scene of any project opens in this editor, anything else opens as a
+   * markdown tab. An unresolved link is reported, never auto-created (a new
+   * note beside the scene is the wrong place for a codex entry).
+   */
+  openLink(linktext: string): void {
+    const file = this.currentFile;
+    if (!file) return;
+    const hash = linktext.indexOf("#");
+    const linkpath = (hash === -1 ? linktext : linktext.slice(0, hash)).trim();
+    const target = linkpath
+      ? this.app.metadataCache.getFirstLinkpathDest(linkpath, file.path)
+      : file; // `[[#Heading]]` — same note
+    if (!target) {
+      new Notice(
+        `No note named "${linkpath}". Select the name and press Ctrl/Cmd+Shift+C to create a codex entry.`
+      );
+      return;
+    }
+    if (getCodexEntities(this.app).some((e) => e.path === target.path)) {
+      this.plugin.openCodexEntry(target.path);
+      return;
+    }
+    if (this.store.findSceneByPath(target.path)) {
+      if (target.path !== this.currentScenePath()) {
+        this.selectScene(target.path);
+        this.rerender();
+      }
+      return;
+    }
+    void this.app.workspace.openLinkText(linktext, file.path, "tab");
+  }
+
+  /** Open the wikilink under the cursor (Insert menu / command — the phone path,
+   *  where Mod-click doesn't exist). */
+  openLinkAtCursor(): void {
+    if (!this.editor) return;
+    const linktext = linkAtCursor(this.editor);
+    if (!linktext) {
+      new Notice("No link at the cursor.");
+      return;
+    }
+    this.openLink(linktext);
+  }
+
+  /** Hand a hovered link to Obsidian's Page Preview (source registered in main.ts). */
+  private hoverLink(e: MouseEvent, el: HTMLElement, linktext: string): void {
+    if (!this.currentFile) return;
+    this.app.workspace.trigger("hover-link", {
+      event: e,
+      source: "inkswell-write",
+      hoverParent: this,
+      targetEl: el,
+      linktext,
+      sourcePath: this.currentFile.path,
+    });
+  }
+
+  /** Editor blurred / torn down: restore normal hotkey handling. */
+  private popHotkeys(): void {
+    if (!this.hotkeysPushed || !this.hotkeyScope) return;
+    this.app.keymap.popScope(this.hotkeyScope);
+    this.hotkeysPushed = false;
   }
 
   render(container: HTMLElement): void {
@@ -542,7 +811,7 @@ export class WritePanel {
       const menuBtn = bar.createEl("button", { cls: "inkswell-write__insertmenu" });
       menuBtn.createSpan({ text: "Insert" });
       setIcon(menuBtn.createSpan({ cls: "inkswell-write__caret" }), "chevron-down");
-      menuBtn.setAttribute("aria-label", "Insert a to-do marker or revision action");
+      menuBtn.setAttribute("aria-label", "Insert a to-do marker, format text, or log an issue");
       menuBtn.onmousedown = (e) => e.preventDefault();
       menuBtn.onclick = (e) => this.openInsertMenu(e);
     }
@@ -696,6 +965,8 @@ export class WritePanel {
     // state (vs. dispatching after) keeps the undo history clean. The token
     // guards against a stale load landing after another scene switch.
     const host = wrap.createDiv({ cls: "inkswell-write__cm" });
+    host.toggleClass("is-manuscript", this.editorPrefs().manuscript);
+    this.cmHostEl = host;
     const handoff = this.teardown;
     void (async () => {
       await handoff.catch(() => {});
@@ -735,11 +1006,20 @@ export class WritePanel {
         parent: host,
         doc: session.loadedBody,
         onChange: () => this.onEditorChange(),
+        onFocus: () => this.pushHotkeys(),
         onBlur: () => {
+          this.popHotkeys();
           // The Insert dropdown suppresses this save while open (see openInsertMenu).
           if (!this.suppressBlurSave) void this.session?.save();
         },
-        onLogIssue: () => this.logIssue(),
+        ...this.hooks(),
+        // Read live so a Settings toggle applies to the next keystroke.
+        getTypography: () => {
+          const s = this.plugin.settings;
+          return { dashes: s.smartDashes, quotes: s.smartQuotes, ellipsis: s.smartEllipsis };
+        },
+        getPrefs: () => this.editorPrefs(),
+        getLinkCandidates: () => this.linkCandidates(),
       });
       this.renderConflictBanner();
       this.updateCount();
@@ -820,6 +1100,71 @@ export class WritePanel {
       }
     }
     flashRange(this.editor, from, to);
+  }
+
+  /**
+   * What `[[` can complete to, in the order the popup prefers: codex entries
+   * visible from the active project (their names, then each alias as its own
+   * row), the project's other scenes, then every other markdown note. Read
+   * when the popup opens, never cached — new entries and renames show up at
+   * once.
+   */
+  private linkCandidates(): LinkCandidate[] {
+    const s = this.plugin.settings;
+    const projects = this.store.getProjects();
+    const activePath = this.plugin.activeProject.get();
+    const active = activePath ? this.store.getProject(activePath) ?? null : null;
+    const entities = getCodexEntities(this.app);
+    const visible = active
+      ? filterToScope(entities, scopeContextForProject(active, projects))
+      : entities;
+    const out: LinkCandidate[] = [];
+    const seen = new Set<string>();
+    for (const e of visible) {
+      const detail = categoryLabel(e.category, s.customCategories, s.categoryOverrides);
+      out.push({ name: e.name, kind: "codex", detail });
+      seen.add(e.name.toLowerCase());
+      for (const alias of e.aliases) {
+        if (alias.trim()) out.push({ name: e.name, kind: "codex", alias: alias.trim(), detail });
+      }
+    }
+    const current = this.currentScenePath();
+    for (const scene of active?.scenes ?? []) {
+      if (!scene.path || scene.path === current) continue;
+      const base = scene.path.slice(scene.path.lastIndexOf("/") + 1).replace(/\.md$/, "");
+      if (seen.has(base.toLowerCase())) continue;
+      out.push({ name: base, kind: "scene", detail: "Scene" });
+      seen.add(base.toLowerCase());
+    }
+    for (const f of this.app.vault.getMarkdownFiles()) {
+      if (f.path === current || seen.has(f.basename.toLowerCase())) continue;
+      out.push({ name: f.basename, kind: "note" });
+      seen.add(f.basename.toLowerCase());
+    }
+    return out;
+  }
+
+  /** Current Write-editor preferences from Settings. */
+  private editorPrefs(): EditorPrefs {
+    const s = this.plugin.settings;
+    return {
+      typewriter: s.typewriterMode,
+      manuscript: s.manuscriptTypography,
+      milestoneWords: s.milestoneWords,
+    };
+  }
+
+  /**
+   * Push changed editor preferences onto the LIVE editor (Settings toggles, the
+   * typewriter command). No rebuild — undo history, scroll, and focus survive.
+   */
+  applyEditorPrefs(): void {
+    const prefs = this.editorPrefs();
+    this.cmHostEl?.toggleClass("is-manuscript", prefs.manuscript);
+    if (this.editor) {
+      setTypewriter(this.editor, prefs.typewriter);
+      refreshMilestones(this.editor);
+    }
   }
 
   private updateCount(): void {
@@ -926,6 +1271,7 @@ export class WritePanel {
    *  the plugin's quit-time flush awaits it so an in-flight write isn't cut off. */
   async dispose(): Promise<void> {
     const flushed = this.detachSession();
+    this.hoverPopover = null;
     this.unsub?.();
     this.unsub = null;
     if (this.modifyRef) {

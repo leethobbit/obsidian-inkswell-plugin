@@ -1,5 +1,60 @@
 import { describe, expect, it } from "vitest";
-import { countWords } from "../src/lib/wordcount";
+import {
+  countWords,
+  maskMarkdown,
+  stripMarkdown,
+  tokenizeWords,
+  tokenizeWordsWithOffsets,
+} from "../src/lib/wordcount";
+
+/** Every construct stripMarkdown knows about, so the mask/strip parity is total. */
+const FIXTURES = [
+  "The quick brown fox",
+  "---\ntitle: Foo\ntags: [a, b]\n---\nReal words here",
+  "hello %% a note to self %% world",
+  "hello <!-- skip me --> world",
+  "before\n```\ncode here ignored\n```\nafter",
+  "use `npm run build` now",
+  "see [[Some Note|the alias]] please",
+  "see [[Plain Note]] please",
+  "read [the docs](https://example.com/x) now",
+  "look ![alt text](img.png) here",
+  "bold <b>tag</b> here and a <br/> break",
+  "don't well-being",
+  "我在用Obsidian写作",
+  "コーヒーを飲んだ。",
+  "---\ntitle: 章\n---\n正文在这里 and [[链接|显示]] `code`",
+  "",
+];
+
+describe("maskMarkdown", () => {
+  it("preserves the length of every fixture", () => {
+    for (const t of FIXTURES) expect(maskMarkdown(t).length, JSON.stringify(t)).toBe(t.length);
+  });
+
+  it("yields exactly the same tokens as stripMarkdown, in order", () => {
+    for (const t of FIXTURES) {
+      expect(tokenizeWords(maskMarkdown(t)), JSON.stringify(t)).toEqual(
+        tokenizeWords(stripMarkdown(t))
+      );
+    }
+  });
+
+  it("token offsets index the original text", () => {
+    const t = "---\nk: v\n---\nsee [[Some Note|the alias]] and `x` here";
+    for (const tok of tokenizeWordsWithOffsets(maskMarkdown(t))) {
+      expect(maskMarkdown(t).slice(tok.from, tok.to)).toBe(t.slice(tok.from, tok.to));
+    }
+    const words = tokenizeWordsWithOffsets(maskMarkdown(t)).map((k) => t.slice(k.from, k.to));
+    expect(words).toEqual(["see", "the", "alias", "and", "here"]);
+  });
+
+  it("tokenizeWordsWithOffsets agrees with countWords for every fixture", () => {
+    for (const t of FIXTURES) {
+      expect(tokenizeWordsWithOffsets(maskMarkdown(t)).length, JSON.stringify(t)).toBe(countWords(t));
+    }
+  });
+});
 
 describe("countWords", () => {
   it("counts plain prose", () => {

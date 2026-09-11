@@ -12,6 +12,7 @@
 import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 import { isPhone, renderPhoneRedirect } from "../lib/platform";
 import { preserveFocus } from "../lib/focus-preserve";
+import { MarkKind } from "../lib/inline-format";
 import { KeyboardWatcher } from "./phone/keyboard-watch";
 import { createDraft, deleteDraft, renameDraft } from "../projects/draft-actions";
 import { baseDraftFor, draftLabel, groupIntoStories, Story, storyOf } from "../projects/stories";
@@ -141,8 +142,12 @@ export class InkswellView extends ItemView {
     this.todos = new RevisionWorkPanel(this.app, plugin, store, (path, hl) =>
       this.openSceneInWrite(path, hl)
     );
-    this.audit = new AuditPanel(this.app, store, plugin.activeProject, (path) =>
-      plugin.selfWrites.mark(path)
+    this.audit = new AuditPanel(
+      this.app,
+      store,
+      plugin.activeProject,
+      (path) => plugin.selfWrites.mark(path),
+      (path, hl) => this.openSceneInWrite(path, hl)
     );
     this.analysis = new AnalysisPanel(this.app, store, plugin.activeProject);
     this.compile = new CompilePanel(this.app, plugin, store);
@@ -514,6 +519,23 @@ export class InkswellView extends ItemView {
     this.setMode("write");
   }
 
+  /** Show a codex entry in the Codex panel (phones drill into its detail screen). */
+  openCodexEntry(path: string): void {
+    if (isPhone()) this.detail["codex"] = path;
+    else this.codex.setSelected(path);
+    this.setMode("codex");
+  }
+
+  /** Follow the wikilink under the Write editor's cursor (command / phone path). */
+  openLinkAtCursor(): void {
+    this.write.openLinkAtCursor();
+  }
+
+  /** Create a codex entry from the Write editor's selection (command path). */
+  quickCodex(): void {
+    this.write.quickCodex();
+  }
+
   /** Open Plan → Structure on a specific view (deep link for board/grid commands). */
   openPlanStructure(view: StructureView): void {
     this.structure.setView(view);
@@ -532,6 +554,21 @@ export class InkswellView extends ItemView {
   /** Open the to-do picker for the active Write editor. */
   insertTodo(): void {
     this.write.promptInsertTodo();
+  }
+
+  /** True when Write is active with a live editor (gates the toggle-* commands). */
+  canFormat(): boolean {
+    return this.mode === "write" && this.write.hasEditor();
+  }
+
+  /** Toggle bold / italic / strikethrough in the active Write editor. */
+  format(kind: MarkKind): void {
+    this.write.toggleMark(kind);
+  }
+
+  /** Push changed Write-editor preferences (typewriter, typography) onto a live editor. */
+  applyEditorPrefs(): void {
+    this.write.applyEditorPrefs();
   }
 
   /** Flush unsaved Write-editor text to disk (quit-time safety). The editor

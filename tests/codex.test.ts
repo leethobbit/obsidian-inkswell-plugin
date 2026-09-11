@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { detectMentions, firstMentionOffset, linkTarget, toLink } from "../src/codex/codex";
+import {
+  detectMentions,
+  firstMentionOffset,
+  imageRefTarget,
+  linkAlias,
+  linkTarget,
+  toLink,
+} from "../src/codex/codex";
 import { CodexEntity } from "../src/codex/types";
 
 const entities: CodexEntity[] = [
@@ -14,6 +21,35 @@ describe("link helpers", () => {
     expect(linkTarget("[[Anna]]")).toBe("Anna");
     expect(linkTarget("[[Anna|A]]")).toBe("Anna");
     expect(linkTarget("Anna")).toBe("Anna");
+  });
+
+  it("toLink adds an alias only when given and non-blank, sanitizing link-breaking characters", () => {
+    expect(toLink("Anna", "sister")).toBe("[[Anna|sister]]");
+    expect(toLink("Anna", "  ")).toBe("[[Anna]]");
+    expect(toLink("Anna", undefined)).toBe("[[Anna]]");
+    expect(toLink("Anna", "half|]]brother")).toBe("[[Anna|halfbrother]]");
+  });
+
+  it("linkAlias reads the alias and returns null when absent, blank, or not a link", () => {
+    expect(linkAlias("[[Anna|sister]]")).toBe("sister");
+    expect(linkAlias("[[Anna#Bio|sister]]")).toBe("sister");
+    expect(linkAlias("[[Anna]]")).toBeNull();
+    expect(linkAlias("[[Anna|]]")).toBeNull();
+    expect(linkAlias("Anna")).toBeNull();
+  });
+
+  it("linkTarget still strips an alias that follows a heading", () => {
+    expect(linkTarget("[[Anna#Bio|sister]]")).toBe("Anna");
+  });
+
+  it("imageRefTarget strips embed / wikilink / markdown-image syntax and passes paths through", () => {
+    expect(imageRefTarget("Attachments/anna.png")).toBe("Attachments/anna.png");
+    expect(imageRefTarget("  anna.png ")).toBe("anna.png");
+    expect(imageRefTarget("[[anna.png]]")).toBe("anna.png");
+    expect(imageRefTarget("![[anna.png|200]]")).toBe("anna.png");
+    expect(imageRefTarget("![[Attachments/anna.png]]")).toBe("Attachments/anna.png");
+    expect(imageRefTarget("![Anna](Attachments/anna.png)")).toBe("Attachments/anna.png");
+    expect(imageRefTarget('![Anna](anna.png "title")')).toBe("anna.png");
   });
 });
 

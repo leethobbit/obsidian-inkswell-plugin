@@ -4,27 +4,28 @@
  *   - Upload: copy an external image into the project folder as `cover.<ext>`.
  *   - Pick existing: reference an image already in the vault, in place (no copy).
  *
- * All image concerns live here so the explorer view stays a view. Cleanup only
- * ever deletes a cover file *we* created (project folder, named `cover.*`) — a
- * referenced vault image is never touched, only repointed.
+ * The generic image plumbing (extensions, resolve-to-URL, vault picker, binary
+ * write) lives in lib/images.ts and is shared with codex portraits; this module
+ * owns only what is project-specific. Cleanup only ever deletes a cover file
+ * *we* created (project folder, named `cover.*`) — a referenced vault image is
+ * never touched, only repointed.
  */
 
-import { App, FuzzySuggestModal, TFile } from "obsidian";
+import { App, TFile } from "obsidian";
+import {
+  extensionFor,
+  pickVaultImage as pickImage,
+  resolveImageSrc,
+  writeImageBinary,
+} from "../lib/images";
 import { projectFolder } from "./stories";
 import { Project } from "./types";
 
-export const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp", "avif", "bmp", "svg"];
-
-function isImage(file: TFile): boolean {
-  return IMAGE_EXTENSIONS.includes(file.extension.toLowerCase());
-}
+export { IMAGE_EXTENSIONS } from "../lib/images";
 
 /** Resolve a stored cover path to a displayable `app://…?<mtime>` URL, or null if missing. */
-export function resolveCoverSrc(app: App, path: string | undefined): string | null {
-  if (!path) return null;
-  const file = app.vault.getAbstractFileByPath(path);
-  return file instanceof TFile ? app.vault.getResourcePath(file) : null;
-}
+export const resolveCoverSrc: (app: App, path: string | undefined) => string | null =
+  resolveImageSrc;
 
 /** True if `path` is a cover file we created (in the project folder, named `cover.*`). */
 function isOwnedCover(project: Project, path: string | undefined): boolean {
@@ -32,15 +33,6 @@ function isOwnedCover(project: Project, path: string | undefined): boolean {
   const folder = projectFolder(project);
   const prefix = folder ? `${folder}/cover.` : "cover.";
   return path.startsWith(prefix);
-}
-
-function extensionFor(file: File): string {
-  const dot = file.name.lastIndexOf(".");
-  const ext = dot >= 0 ? file.name.slice(dot + 1).toLowerCase() : "";
-  if (IMAGE_EXTENSIONS.includes(ext)) return ext;
-  // Fall back to the MIME subtype (e.g. image/png → png), else png.
-  const sub = file.type.split("/")[1]?.toLowerCase();
-  return sub && IMAGE_EXTENSIONS.includes(sub) ? sub : "png";
 }
 
 /**
@@ -55,10 +47,7 @@ export async function setCoverFromUpload(app: App, project: Project, file: File)
   const prev = project.inkswell?.overview?.cover;
   if (isOwnedCover(project, prev) && prev !== path) await removeCoverFile(app, prev);
 
-  const data = await file.arrayBuffer();
-  const existing = app.vault.getAbstractFileByPath(path);
-  if (existing instanceof TFile) await app.vault.modifyBinary(existing, data);
-  else await app.vault.createBinary(path, data);
+  await writeImageBinary(app, path, file);
   return path;
 }
 
@@ -76,46 +65,7 @@ export async function cleanupOwnedCover(app: App, project: Project): Promise<voi
   if (isOwnedCover(project, prev)) await removeCoverFile(app, prev);
 }
 
-/** Fuzzy-pick an image already in the vault. Resolves with the file, or null if dismissed. */
+/** Fuzzy-pick a cover image already in the vault. Resolves with the file, or null if dismissed. */
 export function pickVaultImage(app: App): Promise<TFile | null> {
-  return new Promise((resolve) => {
-    const modal = new ImageSuggestModal(app, resolve);
-    modal.open();
-  });
-}
-
-class ImageSuggestModal extends FuzzySuggestModal<TFile> {
-  private onChoose: (file: TFile | null) => void;
-  private resolved = false;
-
-  constructor(app: App, onChoose: (file: TFile | null) => void) {
-    super(app);
-    this.onChoose = onChoose;
-    this.setPlaceholder("Choose a cover image from the vault…");
-  }
-
-  getItems(): TFile[] {
-    return this.app.vault.getFiles().filter(isImage);
-  }
-
-  getItemText(file: TFile): string {
-    return file.path;
-  }
-
-  onChooseItem(file: TFile): void {
-    this.resolved = true;
-    this.onChoose(file);
-  }
-
-  onClose(): void {
-    super.onClose();
-    // A selection fires onChooseItem right around when the modal closes, and
-    // Obsidian doesn't guarantee onChooseItem runs before onClose. Defer the
-    // "dismissed" result to the next tick and skip it if a choice landed — else
-    // onClose could resolve null before the picked file arrived, so choosing a
-    // cover from the vault silently did nothing.
-    window.setTimeout(() => {
-      if (!this.resolved) this.onChoose(null);
-    }, 0);
-  }
+  return pickImage(app, "Choose a cover image from the vault…");
 }

@@ -8,6 +8,7 @@
  */
 
 import { App, Menu, Notice, TFile, normalizePath, setIcon } from "obsidian";
+import { extensionFor, pickVaultImage, writeImageBinary } from "../lib/images";
 import { attachRowMenu } from "../lib/row-menu";
 import { preserveFocus, tagField } from "../lib/focus-preserve";
 import { autosizeTextarea } from "../lib/form-fields";
@@ -17,31 +18,39 @@ import {
   promptText,
 } from "../scenes/scene-actions";
 import {
-  createEntity,
+  createEntityForProject,
   getCodexEntities,
-  resolveCodexTemplate,
+  resolveEntityImage,
   scenesForEntity,
   writeEntityScope,
 } from "./codex-store";
-import { firstMentionOffset, linkTarget, toLink } from "./codex";
+import { firstMentionOffset, linkAlias, linkTarget, toLink } from "./codex";
 import { stripFrontmatter } from "../lib/frontmatter";
 import type { SceneHighlight } from "../views/write-panel";
 import {
   defaultScopeForProject,
+  describeCreateScope,
   filterToScope,
   projectName,
   scopeContextForEntity,
   scopeContextForProject,
 } from "./codex-scope";
-import { resolveCodexFolder, sanitizeSegment } from "../settings/folders";
+import { sanitizeSegment } from "../settings/folders";
 import { tryFileOp } from "../lib/notify";
-import { readProfile, writeProfile } from "./codex-profile";
-import { Profile, ProfileField, profileFields } from "./profile-schema";
-import { CategoryDef, CodexEntity, EntityScope, allCategories, categoryLabel } from "./types";
+import { readProfile, resolveProfileFields, writeProfile } from "./codex-profile";
+import { Profile, ProfileField } from "./profile-schema";
+import {
+  CategoryDef,
+  CodexEntity,
+  EntityScope,
+  allCategories,
+  builtinCategories,
+  categoryLabel,
+} from "./types";
 import { CategoryModal } from "./category-modal";
 import { Project } from "../projects/types";
 import { groupIntoSeries } from "../series/series";
-import { baseDraft, baseDraftFor, groupIntoStories } from "../projects/stories";
+import { baseDraft, groupIntoStories } from "../projects/stories";
 import type InkswellPlugin from "../../main";
 
 export class CodexPanel {
@@ -76,9 +85,16 @@ export class CodexPanel {
     this.plugin = plugin;
   }
 
-  /** Built-ins + the user's custom types — read fresh from settings per render. */
+  /** Built-ins (with the user's renames) + custom types — read fresh from settings per render. */
   private categories(): CategoryDef[] {
-    return allCategories(this.plugin.settings.customCategories);
+    const s = this.plugin.settings;
+    return allCategories(s.customCategories, s.categoryOverrides);
+  }
+
+  /** Display label for a category id, honoring renames and custom types. */
+  private label(id: string): string {
+    const s = this.plugin.settings;
+    return categoryLabel(id, s.customCategories, s.categoryOverrides);
   }
 
   /** The active project (the vantage point for scoping), or null. */
@@ -159,8 +175,9 @@ export class CodexPanel {
     const newBtn = bar.createEl("button", { cls: "mod-cta", text: "New" });
     // New entries inherit the active project's scope: its series if it belongs to
     // one, else the book itself. With no active project they are created global.
-    const createScope = defaultScopeForProject(active, this.plugin.store.getProjects());
-    newBtn.setAttribute("aria-label", this.scopeHint(active, createScope));
+    const projects = this.plugin.store.getProjects();
+    const createScope = defaultScopeForProject(active, projects);
+    newBtn.setAttribute("aria-label", describeCreateScope(createScope));
     newBtn.onclick = async () => {
       const def = this.categories().find((c) => c.id === catSel.value);
       if (!def) return;
@@ -171,25 +188,10 @@ export class CodexPanel {
         cta: "Create",
       });
       if (!name) return;
+      // The same pipeline Quick Codex (Write editor) uses — scope, folder
+      // (the story's, never a draft copy's), and template resolution live there.
       const file = await tryFileOp(
-        () =>
-          createEntity(
-            this.app,
-            def.id,
-            name,
-            // Co-located codex lands in the STORY's folder (base draft), never
-            // inside a Drafts/<name>/ copy — otherwise deleting that draft
-            // strands the entity files in an abandoned folder.
-            resolveCodexFolder(
-              this.plugin.settings,
-              createScope,
-              active
-                ? baseDraftFor(this.plugin.store.getProjects(), active).vaultPath
-                : undefined
-            ),
-            createScope,
-            resolveCodexTemplate(this.app, this.plugin.settings, def)
-          ),
+        () => createEntityForProject(this.app, this.plugin.settings, projects, active, def, name),
         `Couldn't create the ${def.label}.`
       );
       if (file) {
@@ -261,10 +263,14 @@ export class CodexPanel {
   /** Open the add-custom-type dialog; on submit persist + rebuild with it selected. */
   private openNewTypeModal(): void {
     const merged = this.categories();
+    // Shipped built-in names stay reserved even when renamed away from (they're
+    // that built-in's template fallback), so a custom type can't take them.
+    const takenLabels = new Set(merged.map((c) => c.label.toLowerCase()));
+    for (const c of builtinCategories()) takenLabels.add(c.label.toLowerCase());
     new CategoryModal(this.app, {
       existing: null,
       takenIds: merged.map((c) => c.id),
-      takenLabels: merged.map((c) => c.label.toLowerCase()),
+      takenLabels: [...takenLabels],
       onSubmit: async (def) => {
         this.plugin.settings.customCategories.push(def);
         await this.plugin.saveSettings();
@@ -334,21 +340,40 @@ export class CodexPanel {
       return;
     }
 
+    // The field list comes from the type's template note when it declares
+    // `codex-fields`; say so (and link the note) so a "missing" shipped field
+    // is traceable to the template rather than looking like a bug.
+    const { fields, template } = resolveProfileFields(this.app, this.plugin.settings, entity.category);
+    const profile = readProfile(this.app, file, fields);
+    const entities = getCodexEntities(this.app);
+
     const head = host.createDiv({ cls: "inkswell-codex__detail-head" });
-    head.createDiv({ cls: "inkswell-inspector__title", text: entity.name });
-    head.createDiv({
+    // The `image` field renders as a portrait beside the title, not as a row.
+    const imageField = fields.find((f) => f.type === "image");
+    if (imageField) this.renderPortrait(head, file, entity, fields, imageField, profile);
+    const meta = head.createDiv({ cls: "inkswell-codex__detail-meta" });
+    meta.createDiv({ cls: "inkswell-inspector__title", text: entity.name });
+    meta.createDiv({
       cls: "inkswell-inspector__project",
-      text: categoryLabel(entity.category, this.plugin.settings.customCategories),
+      text: this.label(entity.category),
     });
-    const openBtn = head.createEl("button", { text: "Open note" });
+    const openBtn = meta.createEl("button", { text: "Open note" });
     openBtn.onclick = () => openScene(this.app, file);
 
     this.renderScopeField(host, file, entity);
 
-    const profile = readProfile(this.app, file, entity.category);
-    const entities = getCodexEntities(this.app);
-    for (const field of profileFields(entity.category)) {
-      this.renderField(host, file, entity, field, profile, entities);
+    for (const field of fields) {
+      if (field.type === "image") continue;
+      this.renderField(host, file, entity, fields, field, profile, entities);
+    }
+    if (template) {
+      const src = host.createDiv({ cls: "inkswell-codex__fields-src inkswell-stats__muted" });
+      src.appendText("Fields from ");
+      const link = src.createEl("a", { text: template.name });
+      link.onclick = (e) => {
+        e.preventDefault();
+        openScene(this.app, template);
+      };
     }
 
     // Read-only: scenes that mention this entity (body text) or link it explicitly
@@ -399,10 +424,107 @@ export class CodexPanel {
     this.onOpenInWrite(file.path, highlight);
   }
 
+  /**
+   * The entry's portrait (the `image` field): a click-to-change frame. Stored
+   * as a plain vault path; `[[…]]` / `![[…]]` forms written by hand resolve too
+   * (resolveEntityImage). Inkswell never owns the file — Remove clears the key.
+   */
+  private renderPortrait(
+    head: HTMLElement,
+    file: TFile,
+    entity: CodexEntity,
+    fields: ProfileField[],
+    field: ProfileField,
+    profile: Profile
+  ): void {
+    const raw = ((profile[field.key] as string) ?? "").trim();
+    const image = resolveEntityImage(this.app, raw, file.path);
+    const box = head.createDiv({ cls: "inkswell-codex__portrait" });
+    box.setAttribute("role", "button");
+    box.setAttribute("aria-label", image ? "Change image" : "Add image");
+    if (image) {
+      const img = box.createEl("img", { cls: "inkswell-codex__portrait-img" });
+      img.src = this.app.vault.getResourcePath(image);
+      img.alt = `${entity.name} image`;
+    } else {
+      box.addClass("is-empty");
+      if (raw) {
+        box.addClass("is-missing");
+        box.setAttribute("title", `Image not found: ${raw}`);
+      }
+      box.createSpan({
+        cls: "inkswell-codex__portrait-placeholder",
+        text: raw ? "Image not found" : "+ Add image",
+      });
+    }
+
+    const save = async (value: string) => {
+      this.plugin.selfWrites.mark(file.path);
+      await tryFileOp(
+        () => writeProfile(this.app, file, fields, { [field.key]: value }),
+        "Couldn't save the image."
+      );
+      this.refreshPanes();
+    };
+    box.onclick = (e) => {
+      const menu = new Menu();
+      menu.addItem((i) =>
+        i
+          .setTitle("Choose from vault…")
+          .setIcon("image")
+          .onClick(() => {
+            void (async () => {
+              const picked = await pickVaultImage(this.app, `Choose an image for ${entity.name}…`);
+              if (picked) await save(picked.path);
+            })();
+          })
+      );
+      menu.addItem((i) =>
+        i
+          .setTitle("Upload…")
+          .setIcon("upload")
+          .onClick(() => this.uploadImage(file, save))
+      );
+      if (raw) {
+        menu.addSeparator();
+        menu.addItem((i) =>
+          i
+            .setTitle("Remove image")
+            .setIcon("trash")
+            .onClick(() => void save(""))
+        );
+      }
+      menu.showAtMouseEvent(e);
+    };
+  }
+
+  /** OS file picker → write beside the entry per Obsidian's attachment setting → save the path. */
+  private uploadImage(file: TFile, save: (path: string) => Promise<void>): void {
+    const input = createEl("input", { type: "file" });
+    input.accept = "image/*";
+    input.onchange = () => {
+      const picked = input.files?.[0];
+      if (!picked) return;
+      void (async () => {
+        const dest = await this.app.fileManager.getAvailablePathForAttachment(
+          `${file.basename}.${extensionFor(picked)}`,
+          file.path
+        );
+        const written = await tryFileOp(
+          () => writeImageBinary(this.app, dest, picked),
+          "Couldn't save the image file."
+        );
+        if (written) await save(written.path);
+      })();
+    };
+    input.click();
+  }
+
   private renderField(
     host: HTMLElement,
     file: TFile,
     entity: CodexEntity,
+    fields: ProfileField[],
     field: ProfileField,
     profile: Profile,
     entities: CodexEntity[]
@@ -412,7 +534,7 @@ export class CodexPanel {
       // produces is recognized and softened (no rebuild under the caret).
       this.plugin.selfWrites.mark(file.path);
       await tryFileOp(
-        () => writeProfile(this.app, file, entity.category, { [field.key]: value }),
+        () => writeProfile(this.app, file, fields, { [field.key]: value }),
         "Couldn't save the profile field."
       );
     };
@@ -512,7 +634,33 @@ export class CodexPanel {
     const current = (profile[field.key] as string[]) ?? [];
     const chips = control.createDiv({ cls: "inkswell-inspector__chips" });
     for (const link of current) {
-      const chip = chips.createSpan({ cls: "inkswell-chip", text: linkTarget(link) });
+      const target = linkTarget(link);
+      const chip = chips.createSpan({ cls: "inkswell-chip" });
+      chip.createSpan({ cls: "inkswell-codex__linktarget", text: target });
+      if (field.labeled) {
+        // The label lives in the wikilink alias ([[Anna|sister]]). Edited via a
+        // prompt rather than an inline input: the chip is rebuilt on save, and
+        // a modal sidesteps both focus-preservation and Android IME Enter quirks.
+        const alias = linkAlias(link);
+        const lab = chip.createSpan({
+          cls: "inkswell-codex__linklabel",
+          text: alias ? `· ${alias}` : "+ label",
+        });
+        if (!alias) lab.addClass("is-empty");
+        lab.setAttribute("aria-label", alias ? `Change the “${alias}” label` : "Add a label");
+        lab.onclick = () => {
+          void (async () => {
+            const v = await promptText(this.app, {
+              title: `Relationship to ${target}`,
+              value: alias ?? "",
+              multiline: false,
+              cta: "Save",
+            });
+            if (v === null) return; // cancelled; "" clears the label
+            saveAndRefresh(current.map((c) => (c === link ? toLink(target, v) : c)));
+          })();
+        };
+      }
       const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
       x.onclick = () => saveAndRefresh(current.filter((c) => c !== link));
     }
@@ -529,7 +677,7 @@ export class CodexPanel {
         if (add.value) saveAndRefresh([...current, toLink(add.value)]);
       };
     } else if (candidates.length === 0) {
-      const cat = field.linkCategory ? categoryLabel(field.linkCategory).toLowerCase() : "entity";
+      const cat = field.linkCategory ? this.label(field.linkCategory).toLowerCase() : "entity";
       control.createSpan({ cls: "inkswell-stats__muted", text: `No ${cat} entries in codex.` });
     }
   }
@@ -547,13 +695,6 @@ export class CodexPanel {
     const detail = this.detailEl;
     if (detail) preserveFocus(detail, () => this.renderDetail());
     else this.renderDetail();
-  }
-
-  /** Tooltip describing what scope a new entry will inherit. */
-  private scopeHint(_active: Project | null, scope: EntityScope): string {
-    if (scope.series) return `New entries are tagged for the “${scope.series}” series.`;
-    if (scope.project) return `New entries are tagged for “${scope.project}”.`;
-    return "New entries are created global — no project selected.";
   }
 
   /**

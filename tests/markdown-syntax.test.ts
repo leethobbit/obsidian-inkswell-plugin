@@ -52,7 +52,7 @@ describe("buildSyntaxIntents — emphasis", () => {
   it("italicises underscores on word boundaries but not mid-word", () => {
     expect(styles(buildSyntaxIntents("_a_", []), "cm-md-em")).toHaveLength(1);
     // `a_b_c` — underscores sit between word chars, so no emphasis at all.
-    expect(buildSyntaxIntents("a_b_c", [])).toEqual([]);
+    expect(buildSyntaxIntents("a_b_c", []).filter((i) => i.type !== "line")).toEqual([]);
   });
 });
 
@@ -136,5 +136,93 @@ describe("buildSyntaxIntents — multi-line & per-span granularity", () => {
     const out = buildSyntaxIntents("*a* **b**", []);
     const froms = out.map((i) => i.from);
     expect(froms).toEqual([...froms].sort((a, b) => a - b));
+  });
+});
+
+describe("buildSyntaxIntents — wikilinks", () => {
+  it("styles the link content and hides the brackets when the cursor is away", () => {
+    const out = buildSyntaxIntents("see [[Anna]] now", []);
+    expect(out).toContainEqual({
+      from: 6,
+      to: 10,
+      type: "style",
+      cls: "cm-md-link",
+      attrs: { "data-link": "Anna" },
+    });
+    expect(out).toContainEqual({ from: 4, to: 6, type: "hide" });
+    expect(out).toContainEqual({ from: 10, to: 12, type: "hide" });
+  });
+
+  it("hides `Target|` as well for an aliased link and carries the full linktext", () => {
+    const out = buildSyntaxIntents("[[Anna#Bio|sis]]", []);
+    expect(out).toContainEqual({ from: 0, to: 11, type: "hide" });
+    expect(styles(out, "cm-md-link")[0]).toMatchObject({
+      from: 11,
+      to: 14,
+      attrs: { "data-link": "Anna#Bio" },
+    });
+    expect(out).toContainEqual({ from: 14, to: 16, type: "hide" });
+  });
+
+  it("reveals the brackets (dimmed) when the cursor touches the link", () => {
+    const out = buildSyntaxIntents("[[Anna]]", [{ from: 3, to: 3 }]);
+    expect(hides(out)).toHaveLength(0);
+    expect(styles(out, "cm-md-mark").map((i) => [i.from, i.to])).toEqual([
+      [0, 2],
+      [6, 8],
+    ]);
+  });
+
+  it("keeps underscores inside a link out of emphasis", () => {
+    const out = buildSyntaxIntents("[[snake_case_note]] and _real_", []);
+    expect(styles(out, "cm-md-em")).toHaveLength(1);
+    expect(styles(out, "cm-md-link")).toHaveLength(1);
+  });
+
+  it("does not link inside inline code", () => {
+    expect(styles(buildSyntaxIntents("`[[not a link]]`", []), "cm-md-link")).toHaveLength(0);
+  });
+
+  it("ignores embeds", () => {
+    expect(styles(buildSyntaxIntents("![[map.png]]", []), "cm-md-link")).toHaveLength(0);
+  });
+});
+
+describe("buildSyntaxIntents — line classes (manuscript typography)", () => {
+  const lines = (out: SyntaxIntent[], cls: string) =>
+    out.filter((i) => i.type === "line" && i.cls === cls).map((i) => i.from);
+
+  it("emits cm-md-line-heading for heading lines only", () => {
+    const out = buildSyntaxIntents("# Title\n\nProse here.", []);
+    expect(lines(out, "cm-md-line-heading")).toEqual([0]);
+  });
+
+  it("marks the first prose line at document start", () => {
+    expect(lines(buildSyntaxIntents("Prose.\n\nMore.", []), "cm-md-line-first")).toEqual([0]);
+  });
+
+  it("marks the first prose line after a heading, skipping blank lines", () => {
+    // "# H\n\nFirst.\n\nSecond." — First. starts at 5, Second. at 12.
+    const out = buildSyntaxIntents("# H\n\nFirst.\n\nSecond.", []);
+    expect(lines(out, "cm-md-line-first")).toEqual([5]);
+  });
+
+  it("marks the first prose line after a thematic break", () => {
+    // "A.\n\n---\n\nB." — B. starts at 9.
+    const out = buildSyntaxIntents("A.\n\n---\n\nB.", []);
+    expect(lines(out, "cm-md-line-hr")).toEqual([4]);
+    expect(lines(out, "cm-md-line-first")).toEqual([0, 9]);
+  });
+
+  it("quote lines get cm-md-line-quote and are never first", () => {
+    const out = buildSyntaxIntents("> Epigraph\n\nProse.", []);
+    expect(lines(out, "cm-md-line-quote")).toEqual([0]);
+    expect(lines(out, "cm-md-line-first")).toEqual([]);
+  });
+
+  it("line intents are zero-width at the line start and never hides", () => {
+    const out = buildSyntaxIntents("# H\n\n*x*", []);
+    for (const i of out.filter((i) => i.type === "line")) expect(i.from).toBe(i.to);
+    expect(hides(out).map((i) => i.from)).toEqual([0, 5, 7]);
   });
 });

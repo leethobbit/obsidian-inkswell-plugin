@@ -1,10 +1,11 @@
 /**
- * Add/edit dialog for a user-defined codex type. Opened from Settings → Custom
- * codex types and from the Codex panel's "New type…" dropdown option; the caller
- * persists the result (settings write + refreshView). The id slug is derived
- * from the name and immutable once created — it's written into every entry's
- * `codex:` frontmatter, so renaming it would orphan them all (delete + recreate
- * is the escape hatch).
+ * Add/edit dialog for a codex type. Opened from Settings → Codex types (built-ins:
+ * rename / re-icon / reset), Settings → Custom codex types, and the Codex panel's
+ * "New type…" dropdown option; the caller persists the result (settings write +
+ * refreshView). The id slug is derived from the name and immutable once created
+ * — it's written into every entry's `codex:` frontmatter, so renaming it would
+ * orphan them all (delete + recreate is the escape hatch). Built-ins are the
+ * same story with a fixed id: only their display changes.
  */
 
 import { App, Notice, Setting, getIconIds, setIcon } from "obsidian";
@@ -12,8 +13,10 @@ import { FormModal } from "../lib/form-modal";
 import { CategoryDef, slugifyCategoryId } from "./types";
 
 export interface CategoryModalOptions {
-  /** The type being edited, or null to add a new one. */
+  /** The type being edited (its CURRENT display for a built-in), or null to add a new one. */
   existing: CategoryDef | null;
+  /** When editing a built-in: its shipped definition (enables "Reset to default"). */
+  builtin?: CategoryDef;
   /** Ids already in use (built-ins + other customs; excludes `existing`). */
   takenIds: string[];
   /** Labels already in use, lowercased (labels name the template notes). */
@@ -37,9 +40,13 @@ export class CategoryModal extends FormModal {
   }
 
   protected renderForm(contentEl: HTMLElement): void {
-    const { existing } = this.opts;
+    const { existing, builtin } = this.opts;
     contentEl.createEl("h3", {
-      text: existing ? "Edit custom codex type" : "Add custom codex type",
+      text: builtin
+        ? "Edit codex type"
+        : existing
+          ? "Edit custom codex type"
+          : "Add custom codex type",
     });
 
     let pluralInput: HTMLInputElement | null = null;
@@ -48,9 +55,12 @@ export class CategoryModal extends FormModal {
     new Setting(contentEl)
       .setName("Name")
       .setDesc(
-        existing
-          ? "Also names the type's template note — renaming means the old template note is no longer used."
-          : "Singular display name, e.g. “Creature”. Also names the type's template note."
+        builtin
+          ? `Singular display name. Entries keep codex: ${builtin.id}, and the original ` +
+            `${builtin.label}.md template keeps working until a note named after the new name exists.`
+          : existing
+            ? "Also names the type's template note — renaming means the old template note is no longer used."
+            : "Singular display name, e.g. “Creature”. Also names the type's template note."
       )
       .addText((t) => {
         t.setValue(this.label).onChange((v) => {
@@ -88,11 +98,34 @@ export class CategoryModal extends FormModal {
       });
 
     idLine = contentEl.createDiv({ cls: "setting-item-description" });
-    if (existing) {
+    if (builtin) {
+      idLine.setText(`codex: ${builtin.id} (built-in — the id never changes)`);
+    } else if (existing) {
       idLine.setText(`codex: ${existing.id} (fixed — the id is written into existing notes)`);
     } else {
       const slug = slugifyCategoryId(this.label);
       idLine.setText(slug ? `Stored as codex: ${slug}` : "");
+    }
+
+    // Built-in with a customized display: one click back to the shipped look.
+    if (
+      builtin &&
+      existing &&
+      (existing.label !== builtin.label ||
+        existing.plural !== builtin.plural ||
+        existing.icon !== builtin.icon)
+    ) {
+      new Setting(contentEl)
+        .setName("Reset to default")
+        .setDesc(`${builtin.label} / ${builtin.plural} / ${builtin.icon}`)
+        .addButton((b) =>
+          b.setButtonText("Reset").onClick(() => {
+            void (async () => {
+              await this.opts.onSubmit({ ...builtin });
+              this.close();
+            })();
+          })
+        );
     }
   }
 

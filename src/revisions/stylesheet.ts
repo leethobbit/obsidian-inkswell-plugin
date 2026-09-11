@@ -37,8 +37,11 @@ export interface Deviation {
   entryId: string;
   canonical: string;
   variant: string;
-  /** 1-based line number. */
+  /** 1-based line number (in the scanned text). */
   line: number;
+  /** Offsets of the variant in the scanned text (`text.slice(from, to) === variant`). */
+  from: number;
+  to: number;
   excerpt: string;
 }
 
@@ -48,7 +51,12 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Scan `text` for each entry's variant forms, reporting line + excerpt per hit. */
+/**
+ * Scan `text` for each entry's variant forms, reporting line, offsets, and an
+ * excerpt per hit. Pass a frontmatter-STRIPPED body (as the To-dos scan does)
+ * so `line`/`from`/`to` address the Write editor's document, which never
+ * contains the frontmatter.
+ */
 export function scanDeviations(text: string, entries: StyleEntry[]): Deviation[] {
   const out: Deviation[] = [];
   for (const entry of entries) {
@@ -69,6 +77,8 @@ export function scanDeviations(text: string, entries: StyleEntry[]): Deviation[]
           canonical: entry.canonical,
           variant: v,
           line,
+          from: idx,
+          to: idx + v.length,
           excerpt: raw.length > EXCERPT_MAX ? `${raw.slice(0, EXCERPT_MAX - 1)}…` : raw,
         });
         if (m.index === re.lastIndex) re.lastIndex++; // guard against zero-length matches

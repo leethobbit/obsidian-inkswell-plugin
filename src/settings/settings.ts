@@ -15,7 +15,15 @@ import { WeekStart } from "../goals/goals";
 import { WORD_CATEGORIES, WordCategory } from "../tracking/types";
 import { FeatureGroup, FeatureId, OPTIONAL_FEATURES, featureEnabled } from "../features";
 import { generateCodexTemplates, getCodexEntities } from "../codex/codex-store";
-import { CategoryDef, allCategories } from "../codex/types";
+import {
+  BuiltinCodexCategory,
+  CategoryDef,
+  CategoryOverrides,
+  allCategories,
+  builtinCategories,
+  defaultBuiltinDef,
+  takenLabelsForBuiltin,
+} from "../codex/types";
 import { CategoryModal } from "../codex/category-modal";
 import { BeatTemplateDef, allTemplateMeta } from "../outliner/custom-templates";
 import { BeatTemplateModal } from "../outliner/beat-template-modal";
@@ -99,6 +107,13 @@ export interface InkswellSettings {
    */
   customCategories: CategoryDef[];
   /**
+   * Display overrides for the seven built-in codex types (label / plural /
+   * icon), keyed by built-in id. Ids never change, so a rename touches no notes;
+   * the type's shipped template note keeps resolving as a fallback. Normalized
+   * on load (normalizeCategoryOverrides). Absent key = shipped display.
+   */
+  categoryOverrides: CategoryOverrides;
+  /**
    * User-defined beat-sheet templates, merged after the built-ins wherever
    * templates are listed (via allTemplateMeta — computed at render time, never
    * cached). Normalized on load (normalizeCustomBeatTemplates); built-ins are
@@ -106,6 +121,18 @@ export interface InkswellSettings {
    * Beats panel shows a missing-template notice with all notes editable.
    */
   customBeatTemplates: BeatTemplateDef[];
+  /** Write editor: typing `--` gives an en dash, a third `-` an em dash. Off by default. */
+  smartDashes: boolean;
+  /** Write editor: straight quotes/apostrophes typed become curly. Off by default. */
+  smartQuotes: boolean;
+  /** Write editor: `...` typed becomes an ellipsis. Off by default. */
+  smartEllipsis: boolean;
+  /** Write editor: keep the caret line vertically centered while typing. Off by default. */
+  typewriterMode: boolean;
+  /** Write editor: book-style paragraph indents and centered headings (CSS only). Off by default. */
+  manuscriptTypography: boolean;
+  /** Write editor: gutter tag where the scene's running count passes each multiple of N. 0 = off. */
+  milestoneWords: number;
 }
 
 export const DEFAULT_SETTINGS: InkswellSettings = {
@@ -133,8 +160,82 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   dismissedHints: [],
   disabledFeatures: [],
   customCategories: [],
+  categoryOverrides: {},
   customBeatTemplates: [],
+  smartDashes: false,
+  smartQuotes: false,
+  smartEllipsis: false,
+  typewriterMode: false,
+  manuscriptTypography: false,
+  milestoneWords: 0,
 };
+
+/** Milestone spacing: 0 = off; anything else at least 100 words (a tag per few words is noise). */
+function normalizeMilestoneWords(raw: unknown): number {
+  const n = clampInt(
+    typeof raw === "number" || typeof raw === "string" ? `${raw}` : "",
+    0,
+    10000,
+    0
+  );
+  return n > 0 && n < 100 ? 100 : n;
+}
+
+/** The boolean Write-editor preferences (all default off). */
+type WriteEditorToggleKey =
+  | "smartDashes"
+  | "smartQuotes"
+  | "smartEllipsis"
+  | "typewriterMode"
+  | "manuscriptTypography";
+
+/**
+ * Settings-tab copy for the Write-editor toggles — one table feeding BOTH the
+ * declarative definitions and the imperative fallback, so the two renderers
+ * can't drift (gotcha #12). Every toggle saves then calls
+ * `plugin.applyEditorPrefs()`, which pushes the change onto a live editor
+ * without rebuilding it.
+ */
+const WRITE_EDITOR_TOGGLES: {
+  key: WriteEditorToggleKey;
+  name: string;
+  desc: string;
+}[] = [
+  {
+    key: "typewriterMode",
+    name: "Typewriter mode",
+    desc:
+      "Keep the line you're typing on vertically centered in the Write editor, so your eyes stay in one place. " +
+      "Mouse clicks don't recenter. Also available as the command “Toggle typewriter mode (Write editor)”.",
+  },
+  {
+    key: "manuscriptTypography",
+    name: "Manuscript typography",
+    desc:
+      "Book-style layout in the Write editor: paragraphs get a first-line indent (except the first paragraph " +
+      "after a heading or scene break), and headings are centered. Purely visual — your text is unchanged. " +
+      "The font follows Obsidian's Appearance → Text font.",
+  },
+  {
+    key: "smartDashes",
+    name: "Smart dashes",
+    desc:
+      "In the Write editor, typing -- becomes an en dash (–) and a third - makes an em dash (—). " +
+      "A line of dashes (---) is left alone. Applies only to Inkswell's Write editor, not Obsidian's notes.",
+  },
+  {
+    key: "smartQuotes",
+    name: "Smart quotes",
+    desc:
+      "Straight quotes typed in the Write editor become curly quotes (“ ” and ‘ ’); apostrophes become ’. " +
+      "Skipped inside code and links.",
+  },
+  {
+    key: "smartEllipsis",
+    name: "Smart ellipsis",
+    desc: "Three periods typed in the Write editor become an ellipsis (…).",
+  },
+];
 
 /** Settings-tab copy for the goal category toggles. */
 const CATEGORY_LABELS: Record<WordCategory, { name: string; desc: string }> = {
@@ -171,7 +272,12 @@ const NUMERIC_BOUNDS: Partial<
   defaultSprintMinutes: { lo: 1, hi: 600, fallback: 15 },
   defaultSprintWordGoal: { lo: 0, hi: 100000, fallback: 0 },
   streakThreshold: { lo: 1, hi: 100000, fallback: 1 },
+  milestoneWords: { lo: 0, hi: 10000, fallback: 0 },
 };
+
+const MILESTONE_DESC =
+  "Put a small tag in the Write editor's margin on the line where the scene's running word count " +
+  "passes each multiple of this number (e.g. 500 → tags at 500, 1k, 1.5k…). 0 = off; minimum 100.";
 
 export class InkswellSettingTab extends PluginSettingTab {
   private plugin: InkswellPlugin;
@@ -242,6 +348,18 @@ export class InkswellSettingTab extends PluginSettingTab {
     items.push(
       {
         type: "group",
+        heading: "Write editor",
+        items: [
+          ...WRITE_EDITOR_TOGGLES.map((o) => ({
+            name: o.name,
+            desc: o.desc,
+            control: { type: "toggle" as const, key: o.key, defaultValue: false },
+          })),
+          numberDef("Milestone tags every…", MILESTONE_DESC, "milestoneWords"),
+        ],
+      },
+      {
+        type: "group",
         heading: "Goals & sprints",
         items: [
           {
@@ -301,6 +419,15 @@ export class InkswellSettingTab extends PluginSettingTab {
         ],
       },
       {
+        type: "group",
+        heading: "Codex types",
+        items: builtinCategories(s.categoryOverrides).map((cat) => ({
+          name: cat.label,
+          desc: this.builtinDesc(cat),
+          action: () => this.openBuiltinCategoryModal(cat.id as BuiltinCodexCategory),
+        })),
+      },
+      {
         type: "list",
         heading: "Custom Codex types",
         emptyState:
@@ -340,7 +467,8 @@ export class InkswellSettingTab extends PluginSettingTab {
             name: "Generate starter templates",
             desc:
               "Create an editable note for each codex type — plus Scene.md for new scenes. " +
-              "New entries and scenes are scaffolded from the matching note's frontmatter and body.",
+              "New entries and scenes are scaffolded from the matching note's frontmatter and body. " +
+              "A codex-fields property on a type's template picks which fields the Codex panel shows.",
             action: () => void this.generateTemplates(),
           },
         ],
@@ -397,6 +525,13 @@ export class InkswellSettingTab extends PluginSettingTab {
       this.plugin.refreshView();
       return;
     }
+    const editorToggle = WRITE_EDITOR_TOGGLES.find((o) => o.key === key);
+    if (editorToggle) {
+      s[editorToggle.key] = !!value;
+      await this.plugin.saveSettings();
+      this.plugin.applyEditorPrefs();
+      return;
+    }
     switch (key) {
       case "defaultCompileFormat":
         s.defaultCompileFormat = value as OutputFormat;
@@ -419,6 +554,9 @@ export class InkswellSettingTab extends PluginSettingTab {
       case "showHelpHints":
         s.showHelpHints = !!value;
         break;
+      case "milestoneWords":
+        s.milestoneWords = normalizeMilestoneWords(value);
+        break;
       default: {
         const bounds = NUMERIC_BOUNDS[key as keyof InkswellSettings];
         if (!bounds) return; // unknown key — never write blind
@@ -436,6 +574,35 @@ export class InkswellSettingTab extends PluginSettingTab {
     await this.plugin.saveSettings();
     if (key === "showWordCounts" || key === "showHelpHints") this.plugin.refreshExplorer();
     if (key === "dailyWordGoal") this.plugin.refreshStatus();
+    if (key === "milestoneWords") this.plugin.applyEditorPrefs();
+  }
+
+  /** The "Write editor" section (imperative fallback): editor toggles.
+   *  Same table as the declarative group — keep them in lockstep. */
+  private renderWriteEditor(containerEl: HTMLElement): void {
+    new Setting(containerEl).setName("Write editor").setHeading();
+    for (const o of WRITE_EDITOR_TOGGLES) {
+      new Setting(containerEl)
+        .setName(o.name)
+        .setDesc(o.desc)
+        .addToggle((t) =>
+          t.setValue(this.plugin.settings[o.key]).onChange(async (v) => {
+            this.plugin.settings[o.key] = v;
+            await this.plugin.saveSettings();
+            this.plugin.applyEditorPrefs();
+          })
+        );
+    }
+    new Setting(containerEl)
+      .setName("Milestone tags every…")
+      .setDesc(MILESTONE_DESC)
+      .addText((t) =>
+        t.setValue(`${this.plugin.settings.milestoneWords}`).onChange(async (v) => {
+          this.plugin.settings.milestoneWords = normalizeMilestoneWords(v);
+          await this.plugin.saveSettings();
+          this.plugin.applyEditorPrefs();
+        })
+      );
   }
 
   /**
@@ -523,6 +690,70 @@ export class InkswellSettingTab extends PluginSettingTab {
     this.refreshTab();
   }
 
+  /** Row description for a built-in type (flags a renamed one). */
+  private builtinDesc(cat: CategoryDef): string {
+    const shipped = defaultBuiltinDef(cat.id);
+    const renamed = shipped && shipped.label !== cat.label ? ` · renamed from ${shipped.label}` : "";
+    return `${cat.plural} · codex: ${cat.id}${renamed}`;
+  }
+
+  /**
+   * The "Codex types" section: the seven built-ins, each renameable (label,
+   * plural, icon) but never removable. Renaming touches no notes — the id in
+   * `codex:` is fixed — and the shipped template note keeps working.
+   */
+  private renderBuiltinCategories(containerEl: HTMLElement): void {
+    new Setting(containerEl).setName("Codex types").setHeading();
+    containerEl.createEl("p", {
+      cls: "setting-item-description",
+      text:
+        "The built-in types. Rename one (e.g. Factions → Groups, Concepts → Magic) or " +
+        "change its icon — entries keep their codex: id, so nothing in your notes " +
+        "changes, and its original template note keeps working. Built-ins can't be removed.",
+    });
+
+    for (const cat of builtinCategories(this.plugin.settings.categoryOverrides)) {
+      const row = new Setting(containerEl)
+        .setName(cat.label)
+        .setDesc(this.builtinDesc(cat))
+        .addButton((b) =>
+          b
+            .setButtonText("Edit")
+            .onClick(() => this.openBuiltinCategoryModal(cat.id as BuiltinCodexCategory))
+        );
+      const iconEl = createSpan({ cls: "inkswell-settings__caticon" });
+      setIcon(iconEl, cat.icon);
+      row.nameEl.prepend(iconEl);
+    }
+  }
+
+  /** Rename / re-icon a built-in type, or reset it to the shipped display. */
+  private openBuiltinCategoryModal(id: BuiltinCodexCategory): void {
+    const s = this.plugin.settings;
+    const current = builtinCategories(s.categoryOverrides).find((c) => c.id === id);
+    const shipped = defaultBuiltinDef(id);
+    if (!current || !shipped) return;
+    new CategoryModal(this.app, {
+      existing: current,
+      builtin: shipped,
+      takenIds: [],
+      takenLabels: takenLabelsForBuiltin(id, s.customCategories, s.categoryOverrides),
+      onSubmit: async (def: CategoryDef): Promise<void> => {
+        const next: CategoryOverrides = { ...s.categoryOverrides };
+        const o: Partial<CategoryDef> = {};
+        if (def.label !== shipped.label) o.label = def.label;
+        if (def.plural !== shipped.plural) o.plural = def.plural;
+        if (def.icon !== shipped.icon) o.icon = def.icon;
+        if (Object.keys(o).length > 0) next[id] = o;
+        else delete next[id];
+        s.categoryOverrides = next;
+        await this.plugin.saveSettings();
+        this.plugin.refreshView();
+        this.refreshTab();
+      },
+    }).open();
+  }
+
   /**
    * The "Custom codex types" section: the user's own categories alongside the
    * seven built-ins. Add/edit go through CategoryModal; deleting a type never
@@ -535,9 +766,8 @@ export class InkswellSettingTab extends PluginSettingTab {
       text:
         "Add your own codex types (creatures, spells, ships…) next to the built-in " +
         "seven. Entries get a generic profile — Aliases, Type, Description, " +
-        "Significance, Related entries. Built-in types can't be edited or removed. " +
-        "For bespoke fields, edit the type's template note (below) — extra " +
-        "frontmatter you add there is kept on every entry.",
+        "Significance, Related entries — unless the type's template note lists its " +
+        "own fields with a codex-fields property (see Templates below).",
     });
 
     for (const cat of this.plugin.settings.customCategories) {
@@ -569,13 +799,18 @@ export class InkswellSettingTab extends PluginSettingTab {
   /** Add-or-edit a custom codex type (shared by the tab and settings search). */
   private openCategoryModal(existing: CategoryDef | null): void {
     // Ids/labels a new or edited type may not collide with (excludes itself).
-    const others = allCategories(this.plugin.settings.customCategories).filter(
+    // Shipped built-in names stay reserved even when renamed away from (they're
+    // the built-in's fallback), so they're taken too.
+    const s = this.plugin.settings;
+    const others = allCategories(s.customCategories, s.categoryOverrides).filter(
       (c) => c.id !== existing?.id
     );
+    const takenLabels = new Set(others.map((c) => c.label.toLowerCase()));
+    for (const c of builtinCategories()) takenLabels.add(c.label.toLowerCase());
     new CategoryModal(this.app, {
       existing,
       takenIds: others.map((c) => c.id),
-      takenLabels: others.map((c) => c.label.toLowerCase()),
+      takenLabels: [...takenLabels],
       onSubmit: async (def: CategoryDef): Promise<void> => {
         const list = this.plugin.settings.customCategories;
         const i = list.findIndex((c) => c.id === def.id);
@@ -649,12 +884,7 @@ export class InkswellSettingTab extends PluginSettingTab {
   private async generateTemplates(): Promise<void> {
     const templateFolder = resolveTemplateFolder(this.plugin.settings) || "(vault root)";
     const created = await tryFileOp(
-      () =>
-        generateCodexTemplates(
-          this.app,
-          this.plugin.settings,
-          this.plugin.settings.customCategories
-        ),
+      () => generateCodexTemplates(this.app, this.plugin.settings),
       "Couldn't generate the starter templates."
     );
     if (created === null) return;
@@ -724,6 +954,7 @@ export class InkswellSettingTab extends PluginSettingTab {
       );
 
     this.renderFeatures(containerEl);
+    this.renderWriteEditor(containerEl);
 
     new Setting(containerEl).setName("Goals & sprints").setHeading();
 
@@ -906,6 +1137,7 @@ export class InkswellSettingTab extends PluginSettingTab {
         })
       );
 
+    this.renderBuiltinCategories(containerEl);
     this.renderCustomCategories(containerEl);
     this.renderBeatTemplates(containerEl);
 
@@ -919,7 +1151,8 @@ export class InkswellSettingTab extends PluginSettingTab {
           `"${templateFolder}". New entries and scenes are scaffolded from the matching ` +
           "note's frontmatter and body — add your own tags, fields, or sections (use " +
           "{{title}} for the new note's name). Inkswell still sets codex:, scope, and a " +
-          "default scene status automatically. Delete a template to return to the default."
+          "default scene status automatically. A codex-fields property on a type's template " +
+          "picks which fields the Codex panel shows for it. Delete a template to return to the default."
       )
       .addButton((b) =>
         b.setButtonText("Generate starter templates").onClick(() => void this.generateTemplates())

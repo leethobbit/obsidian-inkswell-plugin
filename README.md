@@ -59,7 +59,7 @@ A configurable **compile/export** pipeline (Markdown & HTML built in; `.docx` / 
 
 ### Codex — your story bible
 
-Characters, locations, worlds, factions, items, events, and concepts, each with its own profile. Every entry automatically lists the scenes that mention it — by name or alias, for any category — so your canon stays consistent as the manuscript grows. Can be scoped for single writing projects, or shared across a series.
+Characters, locations, worlds, factions, items, events, and concepts, each with its own profile and an optional portrait image. Every entry automatically lists the scenes that mention it — by name or alias, for any category — so your canon stays consistent as the manuscript grows. Can be scoped for single writing projects, or shared across a series.
 
 ![Codex: a character profile in the story bible with linked scenes](assets/codex.png)
 

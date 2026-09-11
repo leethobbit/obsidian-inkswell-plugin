@@ -6,9 +6,13 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  CodexSettings,
   createEntity,
+  createEntityForProject,
   generateCodexTemplates,
   getCodexEntities,
+  resolveCodexTemplate,
+  resolveEntityImage,
   scenesForEntity,
 } from "../src/codex/codex-store";
 import { CategoryDef, CodexCategory, CodexEntity, EntityScope } from "../src/codex/types";
@@ -70,18 +74,27 @@ describe("getCodexEntities discovery", () => {
   });
 });
 
-describe("generateCodexTemplates with custom categories", () => {
-  const folders = { baseFolder: "", codexFolder: "Codex", coLocateCodex: true };
-  const creature: CategoryDef = {
-    id: "creature",
-    label: "Creature",
-    plural: "Creatures",
-    icon: "dog",
-  };
+const folders = { baseFolder: "", codexFolder: "Codex", coLocateCodex: true };
+const creature: CategoryDef = {
+  id: "creature",
+  label: "Creature",
+  plural: "Creatures",
+  icon: "dog",
+};
+const settingsWith = (over: Partial<CodexSettings> = {}): CodexSettings => ({
+  ...folders,
+  customCategories: [],
+  categoryOverrides: {},
+  ...over,
+});
 
+describe("generateCodexTemplates with custom categories", () => {
   it("writes a template note for custom types alongside the built-ins", async () => {
     const app = new FakeApp();
-    const created = await generateCodexTemplates(app.asApp(), folders, [creature]);
+    const created = await generateCodexTemplates(
+      app.asApp(),
+      settingsWith({ customCategories: [creature] })
+    );
     expect(created).toContain("Templates/Creature.md");
     expect(created).toContain("Templates/Character.md");
   });
@@ -89,11 +102,102 @@ describe("generateCodexTemplates with custom categories", () => {
   it("never clobbers an existing template", async () => {
     const app = new FakeApp();
     app.vault.seed("Templates/Creature.md", "my customized template\n");
-    const created = await generateCodexTemplates(app.asApp(), folders, [creature]);
+    const created = await generateCodexTemplates(
+      app.asApp(),
+      settingsWith({ customCategories: [creature] })
+    );
     expect(created).not.toContain("Templates/Creature.md");
     expect(await app.vault.cachedRead(app.vault.getAbstractFileByPath("Templates/Creature.md") as never)).toBe(
       "my customized template\n"
     );
+  });
+
+  it("names a renamed built-in's template after the new label", async () => {
+    const app = new FakeApp();
+    const created = await generateCodexTemplates(
+      app.asApp(),
+      settingsWith({ categoryOverrides: { faction: { label: "Group", plural: "Groups" } } })
+    );
+    expect(created).toContain("Templates/Group.md");
+    expect(created).not.toContain("Templates/Faction.md");
+  });
+
+  it("skips a renamed built-in whose shipped-name template already exists (it still resolves)", async () => {
+    const app = new FakeApp();
+    app.vault.seed("Templates/Faction.md", "my factions\n");
+    const created = await generateCodexTemplates(
+      app.asApp(),
+      settingsWith({ categoryOverrides: { faction: { label: "Group" } } })
+    );
+    expect(created).not.toContain("Templates/Group.md");
+    expect(created).not.toContain("Templates/Faction.md");
+  });
+});
+
+describe("resolveCodexTemplate", () => {
+  const group: CategoryDef = { id: "faction", label: "Group", plural: "Groups", icon: "users" };
+
+  it("resolves the template by the type's current label", () => {
+    const app = new FakeApp();
+    app.vault.seed("Templates/Group.md", "---\naliases: []\n---\n");
+    const s = settingsWith({ categoryOverrides: { faction: { label: "Group" } } });
+    expect(resolveCodexTemplate(app.asApp(), s, group)?.path).toBe("Templates/Group.md");
+  });
+
+  it("falls back to a renamed built-in's shipped-name template", () => {
+    const app = new FakeApp();
+    app.vault.seed("Templates/Faction.md", "---\naliases: []\n---\n");
+    const s = settingsWith({ categoryOverrides: { faction: { label: "Group" } } });
+    expect(resolveCodexTemplate(app.asApp(), s, group)?.path).toBe("Templates/Faction.md");
+  });
+
+  it("prefers the current-label note when both exist", () => {
+    const app = new FakeApp();
+    app.vault.seed("Templates/Faction.md", "old\n");
+    app.vault.seed("Templates/Group.md", "new\n");
+    const s = settingsWith({ categoryOverrides: { faction: { label: "Group" } } });
+    expect(resolveCodexTemplate(app.asApp(), s, group)?.path).toBe("Templates/Group.md");
+  });
+
+  it("does not steal a shipped-name note that a custom type now owns by label", () => {
+    const app = new FakeApp();
+    app.vault.seed("Templates/Faction.md", "the custom type's template\n");
+    const customFaction: CategoryDef = { id: "guild", label: "Faction", plural: "Factions", icon: "box" };
+    const s = settingsWith({
+      categoryOverrides: { faction: { label: "Group" } },
+      customCategories: [customFaction],
+    });
+    expect(resolveCodexTemplate(app.asApp(), s, group)).toBeNull();
+    expect(resolveCodexTemplate(app.asApp(), s, customFaction)?.path).toBe("Templates/Faction.md");
+  });
+
+  it("returns null when no template exists", () => {
+    const app = new FakeApp();
+    expect(resolveCodexTemplate(app.asApp(), settingsWith(), group)).toBeNull();
+  });
+});
+
+describe("createEntity from a template", () => {
+  it("copies the template but strips codex-fields and stamps codex + scope", async () => {
+    const app = new FakeApp();
+    const tpl = app.vault.seed(
+      "Templates/Character.md",
+      "---\ntags:\n  - character\naliases: []\nspecies: \ncodex-fields: [species, birthday]\n---\n# {{title}}\n"
+    );
+    const file = await createEntity(
+      app.asApp(),
+      "character",
+      "Anna",
+      "Codex",
+      { project: "Book" },
+      tpl as never
+    );
+    const fm = app.metadataCache.getFileCache(file as never)?.frontmatter ?? {};
+    expect(fm["codex"]).toBe("character");
+    expect(fm["codex-fields"]).toBeUndefined();
+    expect(fm["codex-project"]).toBe("[[Book]]");
+    expect("species" in fm).toBe(true); // template-seeded key survives
+    expect(await app.vault.cachedRead(file as never)).toContain("# Anna");
   });
 });
 
@@ -135,6 +239,96 @@ async function appearsIn(
   const scenes = await scenesForEntity(app.asApp(), projects, e);
   return scenes.map((s) => s.basename).sort();
 }
+
+describe("createEntityForProject (shared New / Quick Codex pipeline)", () => {
+  const character: CategoryDef = {
+    id: "character",
+    label: "Character",
+    plural: "Characters",
+    icon: "user",
+  };
+
+  it("co-locates a book-scoped entry beside the project and tags it for the book", async () => {
+    const app = new FakeApp();
+    app.vault.seed("Books/Lamplight/Lamplight.md", "---\nlongform:\n  format: scenes\n---\n");
+    const project = makeProject("Books/Lamplight/Lamplight.md", []);
+    const file = await createEntityForProject(
+      app.asApp(),
+      settingsWith({ baseFolder: "Writing" }),
+      [project],
+      project,
+      character,
+      "Anna"
+    );
+    expect(file?.path).toBe("Books/Lamplight/Codex/Anna.md");
+    const fm = app.metadataCache.getFileCache(file as never)?.frontmatter;
+    expect(fm?.["codex"]).toBe("character");
+    expect(fm?.["codex-project"]).toBe("[[Lamplight]]");
+  });
+
+  it("creates a global entry under the base folder with no active project", async () => {
+    const app = new FakeApp();
+    const file = await createEntityForProject(
+      app.asApp(),
+      settingsWith({ baseFolder: "Writing" }),
+      [],
+      null,
+      character,
+      "Anna"
+    );
+    expect(file?.path).toBe("Writing/Codex/Anna.md");
+    const fm = app.metadataCache.getFileCache(file as never)?.frontmatter;
+    expect(fm?.["codex-project"]).toBeUndefined();
+  });
+
+  it("returns the existing note instead of overwriting it", async () => {
+    const app = new FakeApp();
+    app.vault.seed("Writing/Codex/Anna.md", "---\ncodex: character\n---\nOriginal.\n");
+    const file = await createEntityForProject(
+      app.asApp(),
+      settingsWith({ baseFolder: "Writing" }),
+      [],
+      null,
+      character,
+      "Anna"
+    );
+    expect(file?.path).toBe("Writing/Codex/Anna.md");
+    expect(await app.vault.read(file as never)).toContain("Original.");
+  });
+});
+
+describe("resolveEntityImage", () => {
+  const seeded = () => {
+    const app = new FakeApp();
+    app.vault.seed("Codex/Anna.md", "---\ncodex: character\n---\n");
+    app.vault.seed("Attachments/anna.png", "<binary>");
+    return app;
+  };
+
+  it("resolves a plain vault path", () => {
+    const app = seeded();
+    expect(resolveEntityImage(app.asApp(), "Attachments/anna.png", "Codex/Anna.md")?.path).toBe(
+      "Attachments/anna.png"
+    );
+  });
+
+  it("resolves wikilink / embed forms by shortest path, relative to the entry", () => {
+    const app = seeded();
+    for (const raw of ["[[anna.png]]", "![[anna.png|200]]", "![Anna](Attachments/anna.png)"]) {
+      expect(resolveEntityImage(app.asApp(), raw, "Codex/Anna.md")?.path, raw).toBe(
+        "Attachments/anna.png"
+      );
+    }
+  });
+
+  it("returns null for unset, missing, and non-image targets", () => {
+    const app = seeded();
+    expect(resolveEntityImage(app.asApp(), undefined, "Codex/Anna.md")).toBeNull();
+    expect(resolveEntityImage(app.asApp(), "   ", "Codex/Anna.md")).toBeNull();
+    expect(resolveEntityImage(app.asApp(), "Attachments/gone.png", "Codex/Anna.md")).toBeNull();
+    expect(resolveEntityImage(app.asApp(), "[[Anna]]", "Codex/Anna.md")).toBeNull(); // a note, not an image
+  });
+});
 
 describe("scenesForEntity", () => {
   it("finds a scene that mentions an ITEM in body text (the reported bug)", async () => {

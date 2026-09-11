@@ -416,10 +416,62 @@
   padding-left: var(--size-4-3);
 }
 .inkswell-codex__detail-head {
+  display: flex;
+  gap: var(--size-4-3);
+  align-items: flex-start;
   margin-bottom: var(--size-4-3);
+}
+.inkswell-codex__detail-meta {
+  flex: 1;
+  min-width: 0;
 }
 .inkswell-codex__detail-head button {
   margin-top: var(--size-4-1);
+}
+/* Entry portrait: the `image` profile field, rendered as a small book-jacket
+   frame beside the title. Click → Choose from vault / Upload / Remove. */
+.inkswell-codex__portrait {
+  flex: 0 0 auto;
+  width: 96px;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--radius-m);
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--background-secondary);
+}
+.inkswell-codex__portrait.is-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--background-modifier-border);
+}
+.inkswell-codex__portrait.is-empty:hover {
+  border-color: var(--interactive-accent);
+}
+.inkswell-codex__portrait-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.inkswell-codex__portrait-placeholder {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  text-align: center;
+  padding: 0 var(--size-4-1);
+}
+.inkswell-codex__portrait.is-missing .inkswell-codex__portrait-placeholder {
+  color: var(--text-error);
+}
+body.is-phone .inkswell-codex__portrait {
+  width: 120px;
+}
+.inkswell-codex__fields-src {
+  font-size: var(--font-ui-smaller);
+  margin: var(--size-4-1) 0 var(--size-4-3);
+}
+.inkswell-codex__fields-src a {
+  cursor: pointer;
 }
 .inkswell-codex__refs {
   display: flex;
@@ -1713,6 +1765,41 @@
   font-size: 0.9em;
   color: var(--text-accent);
 }
+/* Labeled link chips (Codex → Relationships): "Anna · sister". The label is
+   click-to-edit; an unlabeled link shows a faint "+ label" affordance. */
+.inkswell-codex__linklabel {
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-left: 0.35em;
+}
+.inkswell-codex__linklabel:hover {
+  text-decoration: underline;
+}
+.inkswell-codex__linklabel.is-empty {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+/* Quick Codex dialog: the alias row only applies when the typed name differs
+   from the selected text. (.setting-item is display:flex, so the hidden
+   attribute alone wouldn't win.) */
+.setting-item.inkswell-quickcodex__alias.is-hidden {
+  display: none;
+}
+
+/* Wikilinks: link-colored content with the brackets collapsed (like other
+   markers). Mod-click follows; a plain click edits, so the cursor stays a
+   text cursor rather than promising a navigation. */
+.cm-md-link {
+  color: var(--link-color);
+  text-decoration-line: var(--link-decoration);
+  text-decoration-color: var(--link-color);
+  cursor: text;
+}
+.cm-md-link:hover {
+  text-decoration-line: underline;
+  color: var(--link-color-hover);
+}
 .cm-md-quote {
   color: var(--text-muted);
   font-style: italic;
@@ -1734,6 +1821,94 @@
 .cm-md-h5,
 .cm-md-h6 {
   font-size: 1.05em;
+}
+
+/* [[ link completion popup: CM's autocomplete tooltip, dressed like Obsidian's
+   own suggester. Fixed-positioned by the extension so the scroller can't clip it. */
+.cm-tooltip.inkswell-linkcomplete {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-s);
+  font-family: var(--font-interface);
+  font-size: var(--font-ui-small);
+  color: var(--text-normal);
+}
+.cm-tooltip.inkswell-linkcomplete > ul {
+  max-height: 16em;
+  min-width: 16em;
+  max-width: 32em;
+  font-family: inherit;
+}
+.cm-tooltip.inkswell-linkcomplete > ul > li {
+  padding: var(--size-4-1) var(--size-4-2);
+  border-radius: var(--radius-s);
+  line-height: 1.4;
+}
+.cm-tooltip.inkswell-linkcomplete > ul > li[aria-selected] {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+.cm-tooltip.inkswell-linkcomplete .cm-completionLabel {
+  color: var(--text-normal);
+}
+.cm-tooltip.inkswell-linkcomplete .cm-completionMatchedText {
+  text-decoration: none;
+  color: var(--text-accent);
+  font-weight: var(--font-semibold);
+}
+.cm-tooltip.inkswell-linkcomplete .cm-completionDetail {
+  margin-left: var(--size-4-2);
+  color: var(--text-muted);
+  font-style: normal;
+  font-size: var(--font-ui-smaller);
+}
+
+/* Milestone gutter (Settings → Write editor → Milestone tags every…). CM's base
+   theme paints gutters grey with a border; inside our host they are just a
+   quiet margin. No markers → no gutter elements → no width. */
+.inkswell-write__cm .cm-gutters {
+  background: transparent;
+  border-right: none;
+  color: var(--text-faint);
+}
+.inkswell-write__cm .cm-milestone-gutter .cm-gutterElement {
+  padding: 0 0.6ch 0 0;
+  text-align: right;
+}
+.cm-milestone {
+  font-size: 0.7em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+  line-height: inherit;
+  vertical-align: top;
+}
+body.is-phone .inkswell-write__cm .cm-milestone-gutter {
+  display: none;
+}
+
+/* Manuscript typography (Settings → Write editor, off by default). Each .cm-line
+   is one paragraph under soft wrap, so text-indent gives a first-line indent per
+   paragraph. The cm-md-line-* classes come from the syntax scanner (line
+   decorations): headings center, and the first paragraph of a section — after a
+   heading or a scene break, or at the top — stays flush, as in a typeset book. */
+.inkswell-write__cm.is-manuscript .cm-line {
+  text-indent: 1.5em;
+}
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-heading,
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-quote,
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-hr,
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-first {
+  text-indent: 0;
+}
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-heading {
+  text-align: center;
+  margin-top: 1em;
+}
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-hr {
+  text-align: center;
+  letter-spacing: 0.5em;
+  color: var(--text-faint);
 }
 
 /* To-do markers: distinct tinted, rounded chips so unresolved to-dos are obvious

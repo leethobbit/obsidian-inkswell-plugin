@@ -16,6 +16,7 @@ import { TargetModal } from "./src/goals/target-modal";
 import { Idea, newIdeaId } from "./src/ideation/types";
 import { baseDraftFor } from "./src/projects/stories";
 import { backupPluginData } from "./src/lib/data-backup";
+import { MarkKind } from "./src/lib/inline-format";
 import { countWords } from "./src/lib/wordcount";
 import { promptText } from "./src/scenes/scene-actions";
 import { ActiveProject, resolveActive } from "./src/projects/active-project";
@@ -30,7 +31,11 @@ import { Project } from "./src/projects/types";
 import { RevisionModal } from "./src/revisions/revision-modal";
 import { FeatureId, featureEnabled } from "./src/features";
 import { getCodexEntities } from "./src/codex/codex-store";
-import { normalizeCustomCategories } from "./src/codex/types";
+import {
+  builtinCategories,
+  normalizeCategoryOverrides,
+  normalizeCustomCategories,
+} from "./src/codex/types";
 import { normalizeCustomBeatTemplates } from "./src/outliner/custom-templates";
 import {
   DEFAULT_SETTINGS,
@@ -58,6 +63,9 @@ export default class InkswellPlugin extends Plugin {
   /** Paths the plugin's own inline forms just wrote — lets the view soften the
    *  store notify those writes produce instead of rebuilding the focused field. */
   selfWrites: SelfWriteRegistry = new SelfWriteRegistry();
+  /** Type the last Quick Codex entry was created as — the next dialog defaults
+   *  to it. Session-only on purpose (not worth a settings key). */
+  lastQuickCodexType: string | null = null;
   store!: ProjectStore;
   stats!: ProjectStats;
   tracker!: WritingTracker;
@@ -138,6 +146,12 @@ export default class InkswellPlugin extends Plugin {
       VIEW_TYPE_INKSWELL,
       (leaf) => new InkswellView(leaf, this, this.store, this.stats, this.tracker)
     );
+    // Wikilinks in the Write editor emit `hover-link` so the Page Preview core
+    // plugin can show its popover (Mod-hover by default, like source mode).
+    this.registerHoverLinkSource("inkswell-write", {
+      display: "Inkswell Write editor",
+      defaultMod: true,
+    });
 
     this.addRibbonIcon("pen-tool", "Inkswell projects", () => this.openProjects());
 
@@ -285,6 +299,60 @@ export default class InkswellPlugin extends Plugin {
         return true;
       },
     });
+    // Formatting toggles for Inkswell's own Write editor. Obsidian's
+    // editor:toggle-bold/italic need a MarkdownView and never reach it; Mod-b /
+    // Mod-i are bound inside the editor, and these commands exist so the actions
+    // are in the palette and rebindable under Settings → Hotkeys (no defaults —
+    // they'd collide with the core editor's).
+    const formatCommands: { id: string; name: string; kind: MarkKind }[] = [
+      { id: "toggle-bold", name: "Toggle bold (Write editor)", kind: "bold" },
+      { id: "toggle-italic", name: "Toggle italic (Write editor)", kind: "italic" },
+      { id: "toggle-strikethrough", name: "Toggle strikethrough (Write editor)", kind: "strike" },
+    ];
+    for (const { id, name, kind } of formatCommands) {
+      this.addCommand({
+        id,
+        name,
+        checkCallback: (checking) => {
+          const view = this.inkswellView();
+          if (!view || !view.canFormat()) return false;
+          if (!checking) view.format(kind);
+          return true;
+        },
+      });
+    }
+    this.addCommand({
+      id: "quick-codex",
+      name: "Create Codex entry from selection (Write editor)",
+      checkCallback: (checking) => {
+        const view = this.inkswellView();
+        if (!view || !view.canFormat()) return false;
+        if (!checking) view.quickCodex();
+        return true;
+      },
+    });
+    this.addCommand({
+      id: "open-link-at-cursor",
+      name: "Open link at cursor (Write editor)",
+      checkCallback: (checking) => {
+        const view = this.inkswellView();
+        if (!view || !view.canFormat()) return false;
+        if (!checking) view.openLinkAtCursor();
+        return true;
+      },
+    });
+    // Flips the persisted setting (so it's meaningful without an open editor)
+    // and pushes it onto a live editor. No default hotkey, per house rule.
+    this.addCommand({
+      id: "toggle-typewriter",
+      name: "Toggle typewriter mode (Write editor)",
+      callback: () => {
+        this.settings.typewriterMode = !this.settings.typewriterMode;
+        void this.saveSettings();
+        this.applyEditorPrefs();
+        new Notice(`Typewriter mode ${this.settings.typewriterMode ? "on" : "off"}`);
+      },
+    });
     this.addCommand({
       id: "start-sprint",
       name: "Start a writing sprint",
@@ -384,7 +452,11 @@ export default class InkswellPlugin extends Plugin {
     // data.json is hand-editable and the merge above doesn't validate shapes —
     // drop malformed/colliding custom codex types and beat templates before
     // anything renders them.
-    this.settings.customCategories = normalizeCustomCategories(this.settings.customCategories);
+    this.settings.categoryOverrides = normalizeCategoryOverrides(this.settings.categoryOverrides);
+    this.settings.customCategories = normalizeCustomCategories(
+      this.settings.customCategories,
+      builtinCategories(this.settings.categoryOverrides)
+    );
     this.settings.customBeatTemplates = normalizeCustomBeatTemplates(
       this.settings.customBeatTemplates
     );
@@ -488,6 +560,14 @@ export default class InkswellPlugin extends Plugin {
   refreshView(): void {
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_INKSWELL)) {
       if (leaf.view instanceof InkswellView) leaf.view.forceRefresh();
+    }
+  }
+
+  /** Apply changed Write-editor preferences to any live editor — no rebuild, so
+   *  the writer's undo history and scroll position survive a Settings toggle. */
+  applyEditorPrefs(): void {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_INKSWELL)) {
+      if (leaf.view instanceof InkswellView) leaf.view.applyEditorPrefs();
     }
   }
 
@@ -690,6 +770,11 @@ export default class InkswellPlugin extends Plugin {
   /** Reveal the Inkswell tab, switch to Write, and open the given scene there. */
   openSceneInWrite(path: string): void {
     void this.openInkswell("write", (view) => view.openSceneInWrite(path));
+  }
+
+  /** Reveal the Inkswell tab and show a codex entry in the Codex panel. */
+  openCodexEntry(path: string): void {
+    void this.openInkswell("codex", (view) => view.openCodexEntry(path));
   }
 
   /**

@@ -16,7 +16,9 @@
 
 import { App, TFile } from "obsidian";
 import { preserveFocus, tagField } from "../lib/focus-preserve";
+import { stripFrontmatter } from "../lib/frontmatter";
 import { tryFileOp } from "../lib/notify";
+import type { SceneHighlight } from "../views/write-panel";
 import { SectionState } from "../views/panel-kit";
 import { linkTarget } from "../codex/codex";
 import { getCodexEntities } from "../codex/codex-store";
@@ -77,11 +79,23 @@ export class AuditPanel {
     app: App,
     store: ProjectStore,
     active: ActiveProject,
-    private markWrite?: (path: string) => void
+    private markWrite?: (path: string) => void,
+    /** Open a scene in the Write editor (optionally flashing a range). Falls
+     *  back to a plain markdown tab when the host doesn't wire it. */
+    private onOpenInWrite?: (path: string, highlight?: SceneHighlight) => void
   ) {
     this.app = app;
     this.store = store;
     this.active = active;
+  }
+
+  private jump(path: string, highlight?: SceneHighlight): void {
+    if (this.onOpenInWrite) {
+      this.onOpenInWrite(path, highlight);
+      return;
+    }
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (file instanceof TFile) openScene(this.app, file);
   }
 
   /** Re-render in place after a notify caused by our own writes (checklist
@@ -631,7 +645,8 @@ export class AuditPanel {
       if (!scene.path) continue;
       const file = this.app.vault.getAbstractFileByPath(scene.path);
       if (!(file instanceof TFile)) continue;
-      const hits = scanDeviations(await this.app.vault.cachedRead(file), entries);
+      // Body offsets (frontmatter stripped) so hits address the Write editor's doc.
+      const hits = scanDeviations(stripFrontmatter(await this.app.vault.cachedRead(file)), entries);
       if (hits.length) {
         groups.push({ title: scene.title, file, hits });
         total += hits.length;
@@ -647,9 +662,15 @@ export class AuditPanel {
     for (const g of groups) {
       const header = results.createDiv({ cls: "inkswell-todos__scene" });
       header.setText(`${g.title} (${g.hits.length})`);
-      header.onclick = () => openScene(this.app, g.file);
+      header.setAttribute("aria-label", `Open "${g.title}" in Write`);
+      header.onclick = () => this.jump(g.file.path);
       for (const h of g.hits) {
         const r = results.createDiv({ cls: "inkswell-todos__row" });
+        r.setAttribute("aria-label", `Go to line ${h.line} in Write`);
+        // `verify` lets the Write panel re-locate the word if the body shifted
+        // since the scan (same contract as Search hits).
+        r.onclick = () =>
+          this.jump(g.file.path, { from: h.from, to: h.to, verify: h.variant });
         r.createSpan({ cls: "inkswell-todos__line", text: `L${h.line}` });
         r.createSpan({ cls: "inkswell-stats__muted", text: `“${h.variant}” → ${h.canonical}` });
         r.createSpan({ cls: "inkswell-todos__text", text: h.excerpt });
