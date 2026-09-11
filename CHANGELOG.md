@@ -10,6 +10,8 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-09-11
+
 ### Added
 - **Choose which fields the Codex panel shows, per type, from the type's template note.** Add a `codex-fields` property to a codex template (Settings → Generate starter templates creates one per type under `<base folder>/Templates/`) listing the fields you want, in order — e.g. `codex-fields: [species, birthday, motivation]` — and the panel shows exactly those (Aliases always stays first) instead of the built-in set. Give a field a type with the map form (`species: text`, `history: textarea`, `allies: links:faction`, `home: link:location`); a key that matches one of Inkswell's built-in fields keeps its label and picker. Works for custom types too (a bestiary can have `habitat` and `diet` instead of the generic Description/Significance). Templates without the property behave exactly as before, frontmatter you already have on entries is never removed, and the panel says which template its fields came from. Requested in [#35](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/35).
 - **Rename the built-in codex types.** Settings → Codex types lists Character, Location, World, Faction, Item, Event, and Concept; edit one to change its name, plural, or icon (Factions → Groups, Concepts → Magic…), or reset it to the default. Nothing in your notes changes — entries keep their `codex:` id — and the type's original template note (`Faction.md`) keeps working until you create one under the new name. Also from [#35](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/35).
@@ -309,7 +311,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.14.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.15.0...HEAD
+[1.15.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.14.0...1.15.0
 [1.14.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.13.0...1.14.0
 [1.13.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.12.0...1.13.0
 [1.12.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.11.0...1.12.0
