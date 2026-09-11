@@ -1823,6 +1823,47 @@ body.is-phone .inkswell-codex__portrait {
   font-size: 1.05em;
 }
 
+/* [[ link completion popup: CM's autocomplete tooltip, dressed like Obsidian's
+   own suggester. Fixed-positioned by the extension so the scroller can't clip it. */
+.cm-tooltip.inkswell-linkcomplete {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-s);
+  font-family: var(--font-interface);
+  font-size: var(--font-ui-small);
+  color: var(--text-normal);
+}
+.cm-tooltip.inkswell-linkcomplete > ul {
+  max-height: 16em;
+  min-width: 16em;
+  max-width: 32em;
+  font-family: inherit;
+}
+.cm-tooltip.inkswell-linkcomplete > ul > li {
+  padding: var(--size-4-1) var(--size-4-2);
+  border-radius: var(--radius-s);
+  line-height: 1.4;
+}
+.cm-tooltip.inkswell-linkcomplete > ul > li[aria-selected] {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+.cm-tooltip.inkswell-linkcomplete .cm-completionLabel {
+  color: var(--text-normal);
+}
+.cm-tooltip.inkswell-linkcomplete .cm-completionMatchedText {
+  text-decoration: none;
+  color: var(--text-accent);
+  font-weight: var(--font-semibold);
+}
+.cm-tooltip.inkswell-linkcomplete .cm-completionDetail {
+  margin-left: var(--size-4-2);
+  color: var(--text-muted);
+  font-style: normal;
+  font-size: var(--font-ui-smaller);
+}
+
 /* Milestone gutter (Settings → Write editor → Milestone tags every…). CM's base
    theme paints gutters grey with a border; inside our host they are just a
    quiet margin. No markers → no gutter elements → no width. */

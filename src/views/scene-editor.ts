@@ -13,6 +13,11 @@
  * them. Styling lives in styles.css against the `cm-md-*` classes.
  */
 
+import {
+  CompletionContext,
+  CompletionResult,
+  autocompletion,
+} from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import {
   Compartment,
@@ -32,8 +37,15 @@ import {
   gutter,
   keymap,
   scrollPastEnd,
+  tooltips,
 } from "@codemirror/view";
 import { MarkKind, toggleInlineMark } from "../lib/inline-format";
+import {
+  LinkCandidate,
+  completionText,
+  linkContextAt,
+  rankCandidates,
+} from "../lib/link-complete";
 import { Sel, buildSyntaxIntents } from "../lib/markdown-syntax";
 import { formatMilestone, milestoneOffsets } from "../lib/milestones";
 import { PlaceholderKind, PLACEHOLDER_TEMPLATES } from "../lib/placeholders";
@@ -241,6 +253,55 @@ export function refreshMilestones(view: EditorView): void {
 }
 
 /**
+ * `[[` link completion. Typing `[[` (or anything after it) opens a popup of
+ * codex entries (name and aliases), the project's scenes, then other notes,
+ * ranked by the pure `rankCandidates`. Ranking is ours, so CM's own filter is
+ * off and the source re-runs on every keystroke. Accepting writes `Name]]`
+ * (or `Name|alias]]`), skipping a `]]` the writer already typed. Tooltips are
+ * fixed-positioned so the popup escapes the scroller's overflow clipping.
+ */
+function linkCompletion(getCandidates: () => LinkCandidate[]) {
+  const source = (ctx: CompletionContext): CompletionResult | null => {
+    const line = ctx.state.doc.lineAt(ctx.pos);
+    const lc = linkContextAt(line.text, ctx.pos - line.from);
+    if (!lc) return null;
+    const ranked = rankCandidates(lc.query, getCandidates());
+    if (ranked.length === 0) return null;
+    return {
+      from: line.from + lc.from,
+      filter: false,
+      options: ranked.map((c) => ({
+        label: c.alias ? `${c.alias}  →  ${c.name}` : c.name,
+        detail: c.detail,
+        type: c.kind,
+        apply: (view: EditorView, _c: unknown, from: number, to: number) => {
+          const text = completionText(c);
+          const alreadyClosed = view.state.sliceDoc(to, to + 2) === "]]";
+          const insert = alreadyClosed ? text.slice(0, -2) : text;
+          const anchor = from + insert.length + (alreadyClosed ? 2 : 0);
+          view.dispatch({
+            changes: { from, to, insert },
+            selection: { anchor },
+            userEvent: "input.complete",
+            scrollIntoView: true,
+          });
+        },
+      })),
+    };
+  };
+  return [
+    autocompletion({
+      override: [source],
+      icons: false,
+      activateOnTyping: true,
+      defaultKeymap: true,
+      tooltipClass: () => "inkswell-linkcomplete",
+    }),
+    tooltips({ position: "fixed" }),
+  ];
+}
+
+/**
  * Select a range, scroll it into view, and flash it briefly — the editor-side of
  * "click a to-do in Revise → jump here and show me which one". Offsets are clamped
  * to the document; the flash clears itself after a beat.
@@ -427,6 +488,8 @@ export interface SceneEditorOptions {
    * changes are pushed via `setTypewriter` / the host's `is-manuscript` class.
    */
   getPrefs?: () => EditorPrefs;
+  /** Candidates for `[[` completion, read when the popup opens (omit to disable). */
+  getLinkCandidates?: () => LinkCandidate[];
 }
 
 /** Create a manuscript editor bound to `parent`, seeded with `doc`. */
@@ -453,6 +516,7 @@ export function createSceneEditor(opts: SceneEditorOptions): EditorView {
         ...(opts.getTypography ? [smartTypographyHandler(opts.getTypography)] : []),
         typewriterCompartment.of(opts.getPrefs?.().typewriter ? typewriterExt : []),
         ...milestoneGutter(() => opts.getPrefs?.().milestoneWords ?? 0),
+        ...(opts.getLinkCandidates ? linkCompletion(opts.getLinkCandidates) : []),
         EditorView.lineWrapping,
         markdownHighlighter,
         atomicMarkers,

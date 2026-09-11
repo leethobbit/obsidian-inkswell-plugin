@@ -28,7 +28,12 @@ import {
   setIcon,
 } from "obsidian";
 import { createEntityForProject, getCodexEntities } from "../codex/codex-store";
-import { defaultScopeForProject, describeCreateScope } from "../codex/codex-scope";
+import {
+  defaultScopeForProject,
+  describeCreateScope,
+  filterToScope,
+  scopeContextForProject,
+} from "../codex/codex-scope";
 import {
   buildLinkText,
   buildReplacement,
@@ -38,7 +43,8 @@ import {
   selectionInsideWikilink,
 } from "../codex/quick-codex";
 import { QuickCodexModal } from "../codex/quick-codex-modal";
-import { allCategories } from "../codex/types";
+import { allCategories, categoryLabel } from "../codex/types";
+import { LinkCandidate } from "../lib/link-complete";
 import { featureEnabled } from "../features";
 import { tryFileOp } from "../lib/notify";
 import { isPhone } from "../lib/platform";
@@ -1013,6 +1019,7 @@ export class WritePanel implements HoverParent {
           return { dashes: s.smartDashes, quotes: s.smartQuotes, ellipsis: s.smartEllipsis };
         },
         getPrefs: () => this.editorPrefs(),
+        getLinkCandidates: () => this.linkCandidates(),
       });
       this.renderConflictBanner();
       this.updateCount();
@@ -1093,6 +1100,48 @@ export class WritePanel implements HoverParent {
       }
     }
     flashRange(this.editor, from, to);
+  }
+
+  /**
+   * What `[[` can complete to, in the order the popup prefers: codex entries
+   * visible from the active project (their names, then each alias as its own
+   * row), the project's other scenes, then every other markdown note. Read
+   * when the popup opens, never cached — new entries and renames show up at
+   * once.
+   */
+  private linkCandidates(): LinkCandidate[] {
+    const s = this.plugin.settings;
+    const projects = this.store.getProjects();
+    const activePath = this.plugin.activeProject.get();
+    const active = activePath ? this.store.getProject(activePath) ?? null : null;
+    const entities = getCodexEntities(this.app);
+    const visible = active
+      ? filterToScope(entities, scopeContextForProject(active, projects))
+      : entities;
+    const out: LinkCandidate[] = [];
+    const seen = new Set<string>();
+    for (const e of visible) {
+      const detail = categoryLabel(e.category, s.customCategories, s.categoryOverrides);
+      out.push({ name: e.name, kind: "codex", detail });
+      seen.add(e.name.toLowerCase());
+      for (const alias of e.aliases) {
+        if (alias.trim()) out.push({ name: e.name, kind: "codex", alias: alias.trim(), detail });
+      }
+    }
+    const current = this.currentScenePath();
+    for (const scene of active?.scenes ?? []) {
+      if (!scene.path || scene.path === current) continue;
+      const base = scene.path.slice(scene.path.lastIndexOf("/") + 1).replace(/\.md$/, "");
+      if (seen.has(base.toLowerCase())) continue;
+      out.push({ name: base, kind: "scene", detail: "Scene" });
+      seen.add(base.toLowerCase());
+    }
+    for (const f of this.app.vault.getMarkdownFiles()) {
+      if (f.path === current || seen.has(f.basename.toLowerCase())) continue;
+      out.push({ name: f.basename, kind: "note" });
+      seen.add(f.basename.toLowerCase());
+    }
+    return out;
   }
 
   /** Current Write-editor preferences from Settings. */
