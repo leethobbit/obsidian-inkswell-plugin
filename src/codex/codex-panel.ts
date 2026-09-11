@@ -17,9 +17,8 @@ import {
   promptText,
 } from "../scenes/scene-actions";
 import {
-  createEntity,
+  createEntityForProject,
   getCodexEntities,
-  resolveCodexTemplate,
   scenesForEntity,
   writeEntityScope,
 } from "./codex-store";
@@ -28,12 +27,13 @@ import { stripFrontmatter } from "../lib/frontmatter";
 import type { SceneHighlight } from "../views/write-panel";
 import {
   defaultScopeForProject,
+  describeCreateScope,
   filterToScope,
   projectName,
   scopeContextForEntity,
   scopeContextForProject,
 } from "./codex-scope";
-import { resolveCodexFolder, sanitizeSegment } from "../settings/folders";
+import { sanitizeSegment } from "../settings/folders";
 import { tryFileOp } from "../lib/notify";
 import { readProfile, resolveProfileFields, writeProfile } from "./codex-profile";
 import { Profile, ProfileField } from "./profile-schema";
@@ -48,7 +48,7 @@ import {
 import { CategoryModal } from "./category-modal";
 import { Project } from "../projects/types";
 import { groupIntoSeries } from "../series/series";
-import { baseDraft, baseDraftFor, groupIntoStories } from "../projects/stories";
+import { baseDraft, groupIntoStories } from "../projects/stories";
 import type InkswellPlugin from "../../main";
 
 export class CodexPanel {
@@ -173,8 +173,9 @@ export class CodexPanel {
     const newBtn = bar.createEl("button", { cls: "mod-cta", text: "New" });
     // New entries inherit the active project's scope: its series if it belongs to
     // one, else the book itself. With no active project they are created global.
-    const createScope = defaultScopeForProject(active, this.plugin.store.getProjects());
-    newBtn.setAttribute("aria-label", this.scopeHint(active, createScope));
+    const projects = this.plugin.store.getProjects();
+    const createScope = defaultScopeForProject(active, projects);
+    newBtn.setAttribute("aria-label", describeCreateScope(createScope));
     newBtn.onclick = async () => {
       const def = this.categories().find((c) => c.id === catSel.value);
       if (!def) return;
@@ -185,25 +186,10 @@ export class CodexPanel {
         cta: "Create",
       });
       if (!name) return;
+      // The same pipeline Quick Codex (Write editor) uses — scope, folder
+      // (the story's, never a draft copy's), and template resolution live there.
       const file = await tryFileOp(
-        () =>
-          createEntity(
-            this.app,
-            def.id,
-            name,
-            // Co-located codex lands in the STORY's folder (base draft), never
-            // inside a Drafts/<name>/ copy — otherwise deleting that draft
-            // strands the entity files in an abandoned folder.
-            resolveCodexFolder(
-              this.plugin.settings,
-              createScope,
-              active
-                ? baseDraftFor(this.plugin.store.getProjects(), active).vaultPath
-                : undefined
-            ),
-            createScope,
-            resolveCodexTemplate(this.app, this.plugin.settings, def)
-          ),
+        () => createEntityForProject(this.app, this.plugin.settings, projects, active, def, name),
         `Couldn't create the ${def.label}.`
       );
       if (file) {
@@ -579,13 +565,6 @@ export class CodexPanel {
     const detail = this.detailEl;
     if (detail) preserveFocus(detail, () => this.renderDetail());
     else this.renderDetail();
-  }
-
-  /** Tooltip describing what scope a new entry will inherit. */
-  private scopeHint(_active: Project | null, scope: EntityScope): string {
-    if (scope.series) return `New entries are tagged for the “${scope.series}” series.`;
-    if (scope.project) return `New entries are tagged for “${scope.project}”.`;
-    return "New entries are created global — no project selected.";
   }
 
   /**

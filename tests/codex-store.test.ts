@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import {
   CodexSettings,
   createEntity,
+  createEntityForProject,
   generateCodexTemplates,
   getCodexEntities,
   resolveCodexTemplate,
@@ -237,6 +238,63 @@ async function appearsIn(
   const scenes = await scenesForEntity(app.asApp(), projects, e);
   return scenes.map((s) => s.basename).sort();
 }
+
+describe("createEntityForProject (shared New / Quick Codex pipeline)", () => {
+  const character: CategoryDef = {
+    id: "character",
+    label: "Character",
+    plural: "Characters",
+    icon: "user",
+  };
+
+  it("co-locates a book-scoped entry beside the project and tags it for the book", async () => {
+    const app = new FakeApp();
+    app.vault.seed("Books/Lamplight/Lamplight.md", "---\nlongform:\n  format: scenes\n---\n");
+    const project = makeProject("Books/Lamplight/Lamplight.md", []);
+    const file = await createEntityForProject(
+      app.asApp(),
+      settingsWith({ baseFolder: "Writing" }),
+      [project],
+      project,
+      character,
+      "Anna"
+    );
+    expect(file?.path).toBe("Books/Lamplight/Codex/Anna.md");
+    const fm = app.metadataCache.getFileCache(file as never)?.frontmatter;
+    expect(fm?.["codex"]).toBe("character");
+    expect(fm?.["codex-project"]).toBe("[[Lamplight]]");
+  });
+
+  it("creates a global entry under the base folder with no active project", async () => {
+    const app = new FakeApp();
+    const file = await createEntityForProject(
+      app.asApp(),
+      settingsWith({ baseFolder: "Writing" }),
+      [],
+      null,
+      character,
+      "Anna"
+    );
+    expect(file?.path).toBe("Writing/Codex/Anna.md");
+    const fm = app.metadataCache.getFileCache(file as never)?.frontmatter;
+    expect(fm?.["codex-project"]).toBeUndefined();
+  });
+
+  it("returns the existing note instead of overwriting it", async () => {
+    const app = new FakeApp();
+    app.vault.seed("Writing/Codex/Anna.md", "---\ncodex: character\n---\nOriginal.\n");
+    const file = await createEntityForProject(
+      app.asApp(),
+      settingsWith({ baseFolder: "Writing" }),
+      [],
+      null,
+      character,
+      "Anna"
+    );
+    expect(file?.path).toBe("Writing/Codex/Anna.md");
+    expect(await app.vault.read(file as never)).toContain("Original.");
+  });
+});
 
 describe("scenesForEntity", () => {
   it("finds a scene that mentions an ITEM in body text (the reported bug)", async () => {

@@ -27,9 +27,22 @@ import {
   TFile,
   setIcon,
 } from "obsidian";
-import { getCodexEntities } from "../codex/codex-store";
+import { createEntityForProject, getCodexEntities } from "../codex/codex-store";
+import { defaultScopeForProject, describeCreateScope } from "../codex/codex-scope";
+import {
+  buildLinkText,
+  buildReplacement,
+  findExistingEntity,
+  relocate,
+  seedFromSelection,
+  selectionInsideWikilink,
+} from "../codex/quick-codex";
+import { QuickCodexModal } from "../codex/quick-codex-modal";
+import { allCategories } from "../codex/types";
 import { featureEnabled } from "../features";
+import { tryFileOp } from "../lib/notify";
 import { isPhone } from "../lib/platform";
+import { nearestIndexOf } from "../lib/text-locate";
 import { attachRowMenu } from "../lib/row-menu";
 import { addSceneMenuItems } from "../scenes/scene-actions";
 import { PromptModal } from "../ideation/prompt-modal";
@@ -75,28 +88,6 @@ export interface SceneHighlight {
   verify?: string;
 }
 
-/**
- * Find the occurrence of `needle` in `haystack` closest to `near` (by start
- * offset). Used to re-locate a search hit whose stored offset has drifted after
- * an edit. Returns -1 when the literal is absent.
- */
-function nearestIndexOf(haystack: string, needle: string, near: number): number {
-  if (!needle) return -1;
-  let best = -1;
-  let bestDist = Infinity;
-  let i = haystack.indexOf(needle);
-  while (i !== -1) {
-    const dist = Math.abs(i - near);
-    if (dist < bestDist) {
-      best = i;
-      bestDist = dist;
-    }
-    // Once we're past `near`, matches only get farther — stop early.
-    if (i >= near) break;
-    i = haystack.indexOf(needle, i + 1);
-  }
-  return best;
-}
 
 /** The five to-do marker types, for the insert picker. */
 interface TodoType {
@@ -339,6 +330,12 @@ export class WritePanel implements HoverParent {
     menu.addSeparator();
     menu.addItem((item) =>
       item
+        .setTitle("New Codex entry from selection…")
+        .setIcon("book-user")
+        .onClick(() => this.quickCodex())
+    );
+    menu.addItem((item) =>
+      item
         .setTitle("Open link at cursor")
         .setIcon("link")
         .onClick(() => this.openLinkAtCursor())
@@ -397,9 +394,115 @@ export class WritePanel implements HoverParent {
   private hooks(): EditorShortcutHooks {
     return {
       onLogIssue: () => this.logIssue(),
+      onQuickCodex: () => this.quickCodex(),
       onOpenLink: (linktext) => this.openLink(linktext),
       onHoverLink: (e, el, linktext) => this.hoverLink(e, el, linktext),
     };
+  }
+
+  /**
+   * Quick Codex: turn the selection (or the word at the cursor) into a codex
+   * entry and replace it with a wikilink. The creation pipeline is the Codex
+   * panel's (`createEntityForProject`), so scope/folder/template rules are
+   * identical. Positions are captured up front and re-located on submit — the
+   * document can move while the dialog is open (autosave reload, sync reseed)
+   * — and a rebuilt editor means the link is NOT inserted (we say so) rather
+   * than landing in the wrong place.
+   */
+  quickCodex(): void {
+    const view = this.editor;
+    const file = this.currentFile;
+    if (!view || !file) return;
+    if (view.composing) return; // mid-IME: the "selection" isn't settled yet
+    const { from, to } = view.state.selection.main;
+    const doc = view.state.doc.toString();
+    if (selectionInsideWikilink(doc, from, to)) {
+      new Notice("That's already a link.");
+      return;
+    }
+    const seed = seedFromSelection(doc, from, to);
+    const token = this.editorToken;
+    const s = this.plugin.settings;
+    const categories = allCategories(s.customCategories, s.categoryOverrides);
+    const projects = this.store.getProjects();
+    const activePath = this.plugin.activeProject.get();
+    const active = activePath ? this.store.getProject(activePath) ?? null : null;
+
+    // The dialog blurs the editor; without this the blur-save → store notify
+    // → rebuild would destroy the very editor we're about to insert into.
+    this.suppressBlurSave = true;
+    const modal = new QuickCodexModal(this.app, {
+      seed,
+      categories,
+      defaultCategoryId: this.plugin.lastQuickCodexType ?? "character",
+      entities: getCodexEntities(this.app),
+      scopeHint: describeCreateScope(defaultScopeForProject(active, projects)),
+      onSubmit: async ({ name, categoryId, addAlias }) => {
+        const def = categories.find((c) => c.id === categoryId);
+        if (!def) return;
+        this.plugin.lastQuickCodexType = def.id;
+        const existing = findExistingEntity(getCodexEntities(this.app), name);
+        let target: TFile | null = null;
+        if (existing) {
+          const f = this.app.vault.getAbstractFileByPath(existing.path);
+          target = f instanceof TFile ? f : null;
+        } else {
+          target = await tryFileOp(
+            () => createEntityForProject(this.app, s, projects, active, def, name),
+            `Couldn't create the ${def.label}.`
+          );
+        }
+        if (!target) return;
+        const entryFile = target;
+        if (addAlias && seed) {
+          const alias = seed.core.split(/\r?\n/)[0].trim();
+          this.plugin.selfWrites.mark(entryFile.path);
+          await tryFileOp(
+            () =>
+              this.app.fileManager.processFrontMatter(entryFile, (fm: Record<string, unknown>) => {
+                const cur = Array.isArray(fm["aliases"])
+                  ? fm["aliases"].filter((x): x is string => typeof x === "string")
+                  : [];
+                if (!cur.some((a) => a.toLowerCase() === alias.toLowerCase())) {
+                  fm["aliases"] = [...cur, alias];
+                }
+              }),
+            "Couldn't add the alias."
+          );
+        }
+        if (this.editor !== view || token !== this.editorToken) {
+          new Notice(`Created “${entryFile.basename}”, but the editor changed — link not inserted.`);
+          return;
+        }
+        const now = view.state.doc.toString();
+        const range = seed ? relocate(now, seed) : null;
+        if (range && seed) {
+          const insert = buildReplacement(seed, entryFile.basename);
+          view.dispatch({
+            changes: { from: range.from, to: range.to, insert },
+            selection: { anchor: range.from + insert.length },
+            userEvent: "input.link",
+            scrollIntoView: true,
+          });
+        } else {
+          const head = view.state.selection.main.head;
+          const insert = buildLinkText(entryFile.basename, "");
+          view.dispatch({
+            changes: { from: head, insert },
+            selection: { anchor: head + insert.length },
+            userEvent: "input.link",
+            scrollIntoView: true,
+          });
+        }
+      },
+    });
+    const restore = modal.onClose.bind(modal);
+    modal.onClose = () => {
+      restore();
+      this.suppressBlurSave = false;
+      if (this.editor === view) view.focus();
+    };
+    modal.open();
   }
 
   /**

@@ -531,6 +531,11 @@ export class InkswellView extends ItemView {
     this.write.openLinkAtCursor();
   }
 
+  /** Create a codex entry from the Write editor's selection (command path). */
+  quickCodex(): void {
+    this.write.quickCodex();
+  }
+
   /** Open Plan → Structure on a specific view (deep link for board/grid commands). */
   openPlanStructure(view: StructureView): void {
     this.structure.setView(view);

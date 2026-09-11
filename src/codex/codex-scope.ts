@@ -81,6 +81,13 @@ export function defaultScopeForProject(
   return { project: projectName(baseDraftFor(allProjects, project)) };
 }
 
+/** One sentence for the UI: where a newly created entry will be tagged. */
+export function describeCreateScope(scope: EntityScope): string {
+  if (scope.series) return `New entries are tagged for the “${scope.series}” series.`;
+  if (scope.project) return `New entries are tagged for “${scope.project}”.`;
+  return "New entries are created global — no project selected.";
+}
+
 /** Whether `scope` carries any actual constraint (vs. global). */
 export function isGlobalScope(scope: EntityScope | undefined): boolean {
   return !scope || (!scope.project && !scope.series);

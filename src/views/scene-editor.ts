@@ -215,6 +215,8 @@ export function insertPlaceholder(view: EditorView, kind: PlaceholderKind): void
 export interface EditorShortcutHooks {
   /** Log a revision issue for the open scene (Mod-Shift-L). */
   onLogIssue?: () => void;
+  /** Create a codex entry from the selection / word at the cursor (Mod-Shift-C). */
+  onQuickCodex?: () => void;
   /** Follow a wikilink (Mod-click on it, or the open-link command). */
   onOpenLink?: (linktext: string) => void;
   /** The pointer entered a rendered wikilink (drives Obsidian's Page Preview). */
@@ -265,6 +267,7 @@ export const EDITOR_SHORTCUTS: EditorShortcut[] = [
   { modifiers: ["Mod", "Shift"], key: "s", run: (v) => insertPlaceholder(v, "scene") },
   { modifiers: ["Mod", "Shift"], key: "n", run: (v) => insertPlaceholder(v, "note") },
   { modifiers: ["Mod", "Shift"], key: "l", run: (_v, hooks) => hooks.onLogIssue?.() },
+  { modifiers: ["Mod", "Shift"], key: "c", run: (_v, hooks) => hooks.onQuickCodex?.() },
 ];
 
 /**
@@ -329,6 +332,8 @@ export interface SceneEditorOptions {
   onFocus?: () => void;
   /** Fired by the Mod-Shift-L shortcut to log a revision issue for this scene. */
   onLogIssue?: () => void;
+  /** Fired by the Mod-Shift-C shortcut to create a codex entry from the selection. */
+  onQuickCodex?: () => void;
   /** Fired by Mod-click on a rendered wikilink. */
   onOpenLink?: (linktext: string) => void;
   /** Fired when the pointer enters a rendered wikilink. */

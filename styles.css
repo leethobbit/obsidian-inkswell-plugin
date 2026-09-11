@@ -1720,6 +1720,13 @@
   font-size: 0.9em;
   color: var(--text-accent);
 }
+/* Quick Codex dialog: the alias row only applies when the typed name differs
+   from the selected text. (.setting-item is display:flex, so the hidden
+   attribute alone wouldn't win.) */
+.setting-item.inkswell-quickcodex__alias.is-hidden {
+  display: none;
+}
+
 /* Wikilinks: link-colored content with the brackets collapsed (like other
    markers). Mod-click follows; a plain click edits, so the cursor stays a
    text cursor rather than promising a navigation. */

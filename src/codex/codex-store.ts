@@ -9,13 +9,18 @@
 
 import { App, TFile, normalizePath } from "obsidian";
 import { detectMentions, linkTarget } from "./codex";
-import { isEntityVisible, scopeContextForProject } from "./codex-scope";
+import { defaultScopeForProject, isEntityVisible, scopeContextForProject } from "./codex-scope";
 import { starterCodexTemplate, codexTemplatesReadme } from "./codex-template";
 import { SCENE_TEMPLATE_BASENAME, starterSceneTemplate } from "../scenes/scene-template";
 import { applyTemplateVars } from "../lib/template";
-import { representativeDrafts } from "../projects/stories";
+import { baseDraftFor, representativeDrafts } from "../projects/stories";
 import { Project } from "../projects/types";
-import { FolderSettings, resolveTemplateFolder, sanitizeSegment } from "../settings/folders";
+import {
+  FolderSettings,
+  resolveCodexFolder,
+  resolveTemplateFolder,
+  sanitizeSegment,
+} from "../settings/folders";
 import {
   CategoryDef,
   CategoryOverrides,
@@ -206,6 +211,32 @@ export async function createEntity(
   else if (scope.project) lines.push(`${SCOPE_PROJECT_KEY}: "[[${scope.project}]]"`);
   const fm = `---\n${lines.join("\n")}\n---\n\n# ${safe}\n`;
   return app.vault.create(path, fm);
+}
+
+/**
+ * The ONE "new entry for the active project" pipeline, shared by the Codex
+ * panel's New button and Quick Codex in the Write editor: the entry inherits
+ * the active project's scope (its series, else the book itself; global with no
+ * project), lands in the STORY's codex folder (base draft — never inside a
+ * `Drafts/<name>/` copy, which would strand it when that draft is deleted), and
+ * is scaffolded from the type's template note when one exists. Returns the
+ * existing note when one with that name is already there.
+ */
+export async function createEntityForProject(
+  app: App,
+  settings: CodexSettings,
+  projects: Project[],
+  active: Project | null,
+  def: CategoryDef,
+  name: string
+): Promise<TFile | null> {
+  const scope = defaultScopeForProject(active, projects);
+  const folder = resolveCodexFolder(
+    settings,
+    scope,
+    active ? baseDraftFor(projects, active).vaultPath : undefined
+  );
+  return createEntity(app, def.id, name, folder, scope, resolveCodexTemplate(app, settings, def));
 }
 
 /**

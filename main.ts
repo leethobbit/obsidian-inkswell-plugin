@@ -63,6 +63,9 @@ export default class InkswellPlugin extends Plugin {
   /** Paths the plugin's own inline forms just wrote — lets the view soften the
    *  store notify those writes produce instead of rebuilding the focused field. */
   selfWrites: SelfWriteRegistry = new SelfWriteRegistry();
+  /** Type the last Quick Codex entry was created as — the next dialog defaults
+   *  to it. Session-only on purpose (not worth a settings key). */
+  lastQuickCodexType: string | null = null;
   store!: ProjectStore;
   stats!: ProjectStats;
   tracker!: WritingTracker;
@@ -318,6 +321,16 @@ export default class InkswellPlugin extends Plugin {
         },
       });
     }
+    this.addCommand({
+      id: "quick-codex",
+      name: "Create Codex entry from selection (Write editor)",
+      checkCallback: (checking) => {
+        const view = this.inkswellView();
+        if (!view || !view.canFormat()) return false;
+        if (!checking) view.quickCodex();
+        return true;
+      },
+    });
     this.addCommand({
       id: "open-link-at-cursor",
       name: "Open link at cursor (Write editor)",
