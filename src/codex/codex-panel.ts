@@ -8,6 +8,7 @@
  */
 
 import { App, Menu, Notice, TFile, normalizePath, setIcon } from "obsidian";
+import { extensionFor, pickVaultImage, writeImageBinary } from "../lib/images";
 import { attachRowMenu } from "../lib/row-menu";
 import { preserveFocus, tagField } from "../lib/focus-preserve";
 import { autosizeTextarea } from "../lib/form-fields";
@@ -19,6 +20,7 @@ import {
 import {
   createEntityForProject,
   getCodexEntities,
+  resolveEntityImage,
   scenesForEntity,
   writeEntityScope,
 } from "./codex-store";
@@ -338,24 +340,30 @@ export class CodexPanel {
       return;
     }
 
-    const head = host.createDiv({ cls: "inkswell-codex__detail-head" });
-    head.createDiv({ cls: "inkswell-inspector__title", text: entity.name });
-    head.createDiv({
-      cls: "inkswell-inspector__project",
-      text: this.label(entity.category),
-    });
-    const openBtn = head.createEl("button", { text: "Open note" });
-    openBtn.onclick = () => openScene(this.app, file);
-
-    this.renderScopeField(host, file, entity);
-
     // The field list comes from the type's template note when it declares
     // `codex-fields`; say so (and link the note) so a "missing" shipped field
     // is traceable to the template rather than looking like a bug.
     const { fields, template } = resolveProfileFields(this.app, this.plugin.settings, entity.category);
     const profile = readProfile(this.app, file, fields);
     const entities = getCodexEntities(this.app);
+
+    const head = host.createDiv({ cls: "inkswell-codex__detail-head" });
+    // The `image` field renders as a portrait beside the title, not as a row.
+    const imageField = fields.find((f) => f.type === "image");
+    if (imageField) this.renderPortrait(head, file, entity, fields, imageField, profile);
+    const meta = head.createDiv({ cls: "inkswell-codex__detail-meta" });
+    meta.createDiv({ cls: "inkswell-inspector__title", text: entity.name });
+    meta.createDiv({
+      cls: "inkswell-inspector__project",
+      text: this.label(entity.category),
+    });
+    const openBtn = meta.createEl("button", { text: "Open note" });
+    openBtn.onclick = () => openScene(this.app, file);
+
+    this.renderScopeField(host, file, entity);
+
     for (const field of fields) {
+      if (field.type === "image") continue;
       this.renderField(host, file, entity, fields, field, profile, entities);
     }
     if (template) {
@@ -414,6 +422,102 @@ export class CodexPanel {
     const hit = firstMentionOffset(body, entity);
     if (hit) highlight = { from: hit.from, to: hit.to, verify: body.slice(hit.from, hit.to) };
     this.onOpenInWrite(file.path, highlight);
+  }
+
+  /**
+   * The entry's portrait (the `image` field): a click-to-change frame. Stored
+   * as a plain vault path; `[[…]]` / `![[…]]` forms written by hand resolve too
+   * (resolveEntityImage). Inkswell never owns the file — Remove clears the key.
+   */
+  private renderPortrait(
+    head: HTMLElement,
+    file: TFile,
+    entity: CodexEntity,
+    fields: ProfileField[],
+    field: ProfileField,
+    profile: Profile
+  ): void {
+    const raw = ((profile[field.key] as string) ?? "").trim();
+    const image = resolveEntityImage(this.app, raw, file.path);
+    const box = head.createDiv({ cls: "inkswell-codex__portrait" });
+    box.setAttribute("role", "button");
+    box.setAttribute("aria-label", image ? "Change image" : "Add image");
+    if (image) {
+      const img = box.createEl("img", { cls: "inkswell-codex__portrait-img" });
+      img.src = this.app.vault.getResourcePath(image);
+      img.alt = `${entity.name} image`;
+    } else {
+      box.addClass("is-empty");
+      if (raw) {
+        box.addClass("is-missing");
+        box.setAttribute("title", `Image not found: ${raw}`);
+      }
+      box.createSpan({
+        cls: "inkswell-codex__portrait-placeholder",
+        text: raw ? "Image not found" : "+ Add image",
+      });
+    }
+
+    const save = async (value: string) => {
+      this.plugin.selfWrites.mark(file.path);
+      await tryFileOp(
+        () => writeProfile(this.app, file, fields, { [field.key]: value }),
+        "Couldn't save the image."
+      );
+      this.refreshPanes();
+    };
+    box.onclick = (e) => {
+      const menu = new Menu();
+      menu.addItem((i) =>
+        i
+          .setTitle("Choose from vault…")
+          .setIcon("image")
+          .onClick(() => {
+            void (async () => {
+              const picked = await pickVaultImage(this.app, `Choose an image for ${entity.name}…`);
+              if (picked) await save(picked.path);
+            })();
+          })
+      );
+      menu.addItem((i) =>
+        i
+          .setTitle("Upload…")
+          .setIcon("upload")
+          .onClick(() => this.uploadImage(file, save))
+      );
+      if (raw) {
+        menu.addSeparator();
+        menu.addItem((i) =>
+          i
+            .setTitle("Remove image")
+            .setIcon("trash")
+            .onClick(() => void save(""))
+        );
+      }
+      menu.showAtMouseEvent(e);
+    };
+  }
+
+  /** OS file picker → write beside the entry per Obsidian's attachment setting → save the path. */
+  private uploadImage(file: TFile, save: (path: string) => Promise<void>): void {
+    const input = createEl("input", { type: "file" });
+    input.accept = "image/*";
+    input.onchange = () => {
+      const picked = input.files?.[0];
+      if (!picked) return;
+      void (async () => {
+        const dest = await this.app.fileManager.getAvailablePathForAttachment(
+          `${file.basename}.${extensionFor(picked)}`,
+          file.path
+        );
+        const written = await tryFileOp(
+          () => writeImageBinary(this.app, dest, picked),
+          "Couldn't save the image file."
+        );
+        if (written) await save(written.path);
+      })();
+    };
+    input.click();
   }
 
   private renderField(

@@ -14,7 +14,8 @@ export type ProfileFieldType =
   | "text" // single-line string
   | "textarea" // multi-line string
   | "list" // array of plain strings (e.g. aliases)
-  | "links"; // wikilink(s) to other codex entities
+  | "links" // wikilink(s) to other codex entities
+  | "image"; // vault path (or wikilink) to an image, shown as the entry's portrait
 
 export interface ProfileField {
   /** Frontmatter key (camelCase, matches scene-meta convention). */
@@ -41,6 +42,13 @@ const ALIASES: ProfileField = {
   type: "list",
   placeholder: "Alternative name",
 };
+
+/**
+ * Shared second field on every shipped set: the entry's portrait / picture.
+ * Rendered at the top of the Codex detail pane, not in the field list. A
+ * `codex-fields` template drops it like any other field unless listed.
+ */
+const IMAGE: ProfileField = { key: "image", label: "Image", type: "image" };
 
 /**
  * Category-specific fields (excluding the shared `aliases`, which is prepended
@@ -143,9 +151,10 @@ const GENERIC_FIELDS: ProfileField[] = [
   { key: "related", label: "Related entries", type: "links" },
 ];
 
-/** The category's default (shipped) fields, excluding the shared `aliases`. */
+/** The category's default (shipped) fields, excluding the shared `aliases`:
+ *  the portrait first, then the category's own set. */
 function defaultCategoryFields(category: string): ProfileField[] {
-  return isBuiltinCategory(category) ? CATEGORY_FIELDS[category] : GENERIC_FIELDS;
+  return [IMAGE, ...(isBuiltinCategory(category) ? CATEGORY_FIELDS[category] : GENERIC_FIELDS)];
 }
 
 /**
@@ -299,6 +308,10 @@ function parseTypeHint(
     case "list":
     case "tags":
       return { type: "list" };
+    case "image":
+    case "picture":
+    case "portrait":
+      return { type: "image" };
     case "links":
       return labeled ? { type: "links", linkCategory, labeled: true } : { type: "links", linkCategory };
     case "link":

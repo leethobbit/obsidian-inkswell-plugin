@@ -12,6 +12,7 @@ import {
   generateCodexTemplates,
   getCodexEntities,
   resolveCodexTemplate,
+  resolveEntityImage,
   scenesForEntity,
 } from "../src/codex/codex-store";
 import { CategoryDef, CodexCategory, CodexEntity, EntityScope } from "../src/codex/types";
@@ -293,6 +294,39 @@ describe("createEntityForProject (shared New / Quick Codex pipeline)", () => {
     );
     expect(file?.path).toBe("Writing/Codex/Anna.md");
     expect(await app.vault.read(file as never)).toContain("Original.");
+  });
+});
+
+describe("resolveEntityImage", () => {
+  const seeded = () => {
+    const app = new FakeApp();
+    app.vault.seed("Codex/Anna.md", "---\ncodex: character\n---\n");
+    app.vault.seed("Attachments/anna.png", "<binary>");
+    return app;
+  };
+
+  it("resolves a plain vault path", () => {
+    const app = seeded();
+    expect(resolveEntityImage(app.asApp(), "Attachments/anna.png", "Codex/Anna.md")?.path).toBe(
+      "Attachments/anna.png"
+    );
+  });
+
+  it("resolves wikilink / embed forms by shortest path, relative to the entry", () => {
+    const app = seeded();
+    for (const raw of ["[[anna.png]]", "![[anna.png|200]]", "![Anna](Attachments/anna.png)"]) {
+      expect(resolveEntityImage(app.asApp(), raw, "Codex/Anna.md")?.path, raw).toBe(
+        "Attachments/anna.png"
+      );
+    }
+  });
+
+  it("returns null for unset, missing, and non-image targets", () => {
+    const app = seeded();
+    expect(resolveEntityImage(app.asApp(), undefined, "Codex/Anna.md")).toBeNull();
+    expect(resolveEntityImage(app.asApp(), "   ", "Codex/Anna.md")).toBeNull();
+    expect(resolveEntityImage(app.asApp(), "Attachments/gone.png", "Codex/Anna.md")).toBeNull();
+    expect(resolveEntityImage(app.asApp(), "[[Anna]]", "Codex/Anna.md")).toBeNull(); // a note, not an image
   });
 });
 

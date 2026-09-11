@@ -31,6 +31,20 @@ export function linkTarget(value: string): string {
   return (m ? m[1] : value).trim();
 }
 
+/**
+ * The file an `image` value points at, whatever form the user wrote it in:
+ * a plain vault path, `[[anna.png]]`, `![[anna.png|200]]`, or `![alt](anna.png)`
+ * → "anna.png". Resolution against the vault happens in the adapter.
+ */
+export function imageRefTarget(value: string): string {
+  const v = value.trim().replace(/^!/, "");
+  const wiki = v.match(/^\[\[([^\]|#]+)/);
+  if (wiki) return wiki[1].trim();
+  const md = v.match(/^\[[^\]]*\]\(\s*<?([^)\s>]+)/);
+  if (md) return md[1].trim();
+  return v;
+}
+
 /** The alias of a wikilink ("[[Anna|sister]]" → "sister"), or null when absent, blank, or not a link. */
 export function linkAlias(value: string): string | null {
   const m = value.match(/^\[\[[^\]]*?\|([^\]]*)\]\]$/);

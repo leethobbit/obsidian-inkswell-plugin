@@ -416,10 +416,55 @@
   padding-left: var(--size-4-3);
 }
 .inkswell-codex__detail-head {
+  display: flex;
+  gap: var(--size-4-3);
+  align-items: flex-start;
   margin-bottom: var(--size-4-3);
+}
+.inkswell-codex__detail-meta {
+  flex: 1;
+  min-width: 0;
 }
 .inkswell-codex__detail-head button {
   margin-top: var(--size-4-1);
+}
+/* Entry portrait: the `image` profile field, rendered as a small book-jacket
+   frame beside the title. Click → Choose from vault / Upload / Remove. */
+.inkswell-codex__portrait {
+  flex: 0 0 auto;
+  width: 96px;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--radius-m);
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--background-secondary);
+}
+.inkswell-codex__portrait.is-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--background-modifier-border);
+}
+.inkswell-codex__portrait.is-empty:hover {
+  border-color: var(--interactive-accent);
+}
+.inkswell-codex__portrait-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.inkswell-codex__portrait-placeholder {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  text-align: center;
+  padding: 0 var(--size-4-1);
+}
+.inkswell-codex__portrait.is-missing .inkswell-codex__portrait-placeholder {
+  color: var(--text-error);
+}
+body.is-phone .inkswell-codex__portrait {
+  width: 120px;
 }
 .inkswell-codex__fields-src {
   font-size: var(--font-ui-smaller);

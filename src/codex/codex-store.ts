@@ -8,7 +8,8 @@
  */
 
 import { App, TFile, normalizePath } from "obsidian";
-import { detectMentions, linkTarget } from "./codex";
+import { detectMentions, imageRefTarget, linkTarget } from "./codex";
+import { isImage } from "../lib/images";
 import { defaultScopeForProject, isEntityVisible, scopeContextForProject } from "./codex-scope";
 import { starterCodexTemplate, codexTemplatesReadme } from "./codex-template";
 import { SCENE_TEMPLATE_BASENAME, starterSceneTemplate } from "../scenes/scene-template";
@@ -211,6 +212,27 @@ export async function createEntity(
   else if (scope.project) lines.push(`${SCOPE_PROJECT_KEY}: "[[${scope.project}]]"`);
   const fm = `---\n${lines.join("\n")}\n---\n\n# ${safe}\n`;
   return app.vault.create(path, fm);
+}
+
+/**
+ * The image file an entry's `image` value points at, or null when unset,
+ * unresolvable, or not an image. Accepts a plain vault path (what the panel
+ * writes) as well as `[[…]]` / `![[…]]` / `![](…)` forms written by hand or by
+ * Obsidian's Properties UI; links resolve relative to the entry like any
+ * Obsidian link, so a bare `anna.png` finds the attachment wherever it lives.
+ */
+export function resolveEntityImage(
+  app: App,
+  raw: string | undefined,
+  sourcePath: string
+): TFile | null {
+  if (!raw || !raw.trim()) return null;
+  const target = imageRefTarget(raw);
+  if (!target) return null;
+  const file =
+    app.metadataCache.getFirstLinkpathDest(target, sourcePath) ??
+    app.vault.getAbstractFileByPath(target);
+  return file instanceof TFile && isImage(file) ? file : null;
 }
 
 /**

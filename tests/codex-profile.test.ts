@@ -26,13 +26,13 @@ describe("profile schema", () => {
 
   it("covers the roadmap-picked fields per category", () => {
     const expected: Record<BuiltinCodexCategory, string[]> = {
-      character: ["role", "traits", "motivation", "flaw", "backstory", "arc", "relationships"],
-      location: ["type", "parent", "region", "climate", "atmosphere", "significance", "history"],
-      world: ["geography", "culture", "politics", "magicTech", "religion", "economy", "history"],
-      faction: ["type", "leadership", "size", "territory", "goal", "allies", "enemies"],
-      item: ["type", "owner", "significance"],
-      event: ["date", "participants", "outcome"],
-      concept: ["type", "rules", "limitations", "significance"],
+      character: ["image", "role", "traits", "motivation", "flaw", "backstory", "arc", "relationships"],
+      location: ["image", "type", "parent", "region", "climate", "atmosphere", "significance", "history"],
+      world: ["image", "geography", "culture", "politics", "magicTech", "religion", "economy", "history"],
+      faction: ["image", "type", "leadership", "size", "territory", "goal", "allies", "enemies"],
+      item: ["image", "type", "owner", "significance"],
+      event: ["image", "date", "participants", "outcome"],
+      concept: ["image", "type", "rules", "limitations", "significance"],
     };
     for (const cat of Object.keys(expected) as CodexCategory[]) {
       const keys = profileFields(cat).map((f) => f.key);
@@ -54,11 +54,24 @@ describe("profile schema", () => {
     for (const cat of ["creature", "no-longer-exists"]) {
       expect(profileFields(cat).map((f) => f.key)).toEqual([
         "aliases",
+        "image",
         "type",
         "description",
         "significance",
         "related",
       ]);
+    }
+  });
+
+  it("exposes exactly one scalar image field, right after aliases, on every shipped set", () => {
+    for (const cat of [...CODEX_CATEGORIES.map((c) => c.id), "creature"]) {
+      const fields = profileFields(cat);
+      const images = fields.filter((f) => f.type === "image");
+      expect(images).toHaveLength(1);
+      expect(fields[1]).toMatchObject({ key: "image", label: "Image", type: "image" });
+      expect(isArrayField(images[0])).toBe(false);
+      expect(coerceValue(images[0], "Attachments/a.png")).toBe("Attachments/a.png");
+      expect(coerceValue(images[0], undefined)).toBe("");
     }
   });
 

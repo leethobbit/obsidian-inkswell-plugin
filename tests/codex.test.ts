@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { detectMentions, firstMentionOffset, linkAlias, linkTarget, toLink } from "../src/codex/codex";
+import {
+  detectMentions,
+  firstMentionOffset,
+  imageRefTarget,
+  linkAlias,
+  linkTarget,
+  toLink,
+} from "../src/codex/codex";
 import { CodexEntity } from "../src/codex/types";
 
 const entities: CodexEntity[] = [
@@ -33,6 +40,16 @@ describe("link helpers", () => {
 
   it("linkTarget still strips an alias that follows a heading", () => {
     expect(linkTarget("[[Anna#Bio|sister]]")).toBe("Anna");
+  });
+
+  it("imageRefTarget strips embed / wikilink / markdown-image syntax and passes paths through", () => {
+    expect(imageRefTarget("Attachments/anna.png")).toBe("Attachments/anna.png");
+    expect(imageRefTarget("  anna.png ")).toBe("anna.png");
+    expect(imageRefTarget("[[anna.png]]")).toBe("anna.png");
+    expect(imageRefTarget("![[anna.png|200]]")).toBe("anna.png");
+    expect(imageRefTarget("![[Attachments/anna.png]]")).toBe("Attachments/anna.png");
+    expect(imageRefTarget("![Anna](Attachments/anna.png)")).toBe("Attachments/anna.png");
+    expect(imageRefTarget('![Anna](anna.png "title")')).toBe("anna.png");
   });
 });
 

@@ -140,6 +140,26 @@ export class FakeVault extends Emitter {
     return this.folderAt(path);
   }
 
+  /** Binary files store a marker string; tests assert on paths, not bytes. */
+  async createBinary(path: string, _data: ArrayBuffer): Promise<TFile> {
+    if (this.nodes.has(path)) throw new Error(`File already exists: ${path}`);
+    const file = this.newFile(path);
+    this.contents.set(path, "<binary>");
+    this.trigger("create", file);
+    return file;
+  }
+
+  async modifyBinary(file: TFile, _data: ArrayBuffer): Promise<void> {
+    if (!this.contents.has(file.path)) throw new Error(`File not found: ${file.path}`);
+    this.contents.set(file.path, "<binary>");
+    file.stat.mtime = this.tick++;
+    this.trigger("modify", file);
+  }
+
+  getResourcePath(file: TFile): string {
+    return `app://fake/${file.path}?${file.stat.mtime}`;
+  }
+
   async modify(file: TFile, content: string): Promise<void> {
     if (!this.contents.has(file.path)) throw new Error(`File not found: ${file.path}`);
     this.contents.set(file.path, content);
@@ -210,6 +230,23 @@ class FakeMetadataCache extends Emitter {
       return {};
     }
   }
+
+  /**
+   * Link resolution, simplified: an exact path, else `<linkpath>.md`, else the
+   * unique file whose name or basename matches (Obsidian's shortest-path rule).
+   */
+  getFirstLinkpathDest(linkpath: string, _sourcePath: string): TFile | null {
+    const exact = this.vault.getAbstractFileByPath(linkpath);
+    if (exact instanceof TFile) return exact;
+    const md = this.vault.getAbstractFileByPath(`${linkpath}.md`);
+    if (md instanceof TFile) return md;
+    const key = linkpath.toLowerCase();
+    return (
+      this.vault
+        .getFiles()
+        .find((f) => f.name.toLowerCase() === key || f.basename.toLowerCase() === key) ?? null
+    );
+  }
 }
 
 class FakeFileManager {
@@ -250,6 +287,19 @@ class FakeFileManager {
   async trashFile(file: TAbstractFile): Promise<void> {
     this.trashed.push(file.path);
     this.vault._trash(file);
+  }
+
+  /** Attachment placement, simplified: beside the source note, deduped with " 1", " 2"… */
+  async getAvailablePathForAttachment(filename: string, sourcePath = ""): Promise<string> {
+    const folder = parentOf(sourcePath);
+    const dot = filename.lastIndexOf(".");
+    const stem = dot < 0 ? filename : filename.slice(0, dot);
+    const ext = dot < 0 ? "" : filename.slice(dot);
+    for (let n = 0; ; n++) {
+      const name = n === 0 ? `${stem}${ext}` : `${stem} ${n}${ext}`;
+      const path = folder ? `${folder}/${name}` : name;
+      if (!this.vault.getAbstractFileByPath(path)) return path;
+    }
   }
 }
 

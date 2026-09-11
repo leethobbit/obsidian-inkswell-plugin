@@ -68,6 +68,24 @@ describe("parseFieldSpec", () => {
   });
 });
 
+describe("image fields", () => {
+  it("parses the image type hint (and its synonyms)", () => {
+    for (const hint of ["image", "picture", "portrait"]) {
+      const f = profileFields("creature", [{ key: "pic", type: hint }]).find((x) => x.key === "pic");
+      expect(f).toMatchObject({ key: "pic", type: "image" });
+    }
+  });
+
+  it("a template spec without image drops the portrait; listing image restores the shipped def", () => {
+    const without = profileFields("character", [{ key: "role" }]).map((f) => f.key);
+    expect(without).toEqual(["aliases", "role"]);
+    const withIt = profileFields("character", [{ key: "role" }, { key: "image" }]).find(
+      (f) => f.key === "image"
+    );
+    expect(withIt).toMatchObject({ key: "image", label: "Image", type: "image" });
+  });
+});
+
 describe("labeled link hints", () => {
   const spec = (key: string, type: string) =>
     profileFields("creature", [{ key, type }]).find((f) => f.key === key);
@@ -234,7 +252,14 @@ describe("resolveProfileFields (template lookup)", () => {
     const app = new FakeApp();
     const { fields, template } = resolveProfileFields(app.asApp(), settings(), "dragon");
     expect(template).toBeNull();
-    expect(fields.map((f) => f.key)).toEqual(["aliases", "type", "description", "significance", "related"]);
+    expect(fields.map((f) => f.key)).toEqual([
+      "aliases",
+      "image",
+      "type",
+      "description",
+      "significance",
+      "related",
+    ]);
   });
 });
 
