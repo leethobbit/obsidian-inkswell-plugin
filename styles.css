@@ -1823,6 +1823,29 @@ body.is-phone .inkswell-codex__portrait {
   font-size: 1.05em;
 }
 
+/* Milestone gutter (Settings → Write editor → Milestone tags every…). CM's base
+   theme paints gutters grey with a border; inside our host they are just a
+   quiet margin. No markers → no gutter elements → no width. */
+.inkswell-write__cm .cm-gutters {
+  background: transparent;
+  border-right: none;
+  color: var(--text-faint);
+}
+.inkswell-write__cm .cm-milestone-gutter .cm-gutterElement {
+  padding: 0 0.6ch 0 0;
+  text-align: right;
+}
+.cm-milestone {
+  font-size: 0.7em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+  line-height: inherit;
+  vertical-align: top;
+}
+body.is-phone .inkswell-write__cm .cm-milestone-gutter {
+  display: none;
+}
+
 /* Manuscript typography (Settings → Write editor, off by default). Each .cm-line
    is one paragraph under soft wrap, so text-indent gives a first-line indent per
    paragraph. The cm-md-line-* classes come from the syntax scanner (line

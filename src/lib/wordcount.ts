@@ -6,7 +6,7 @@
  * parity with other tools matters less than internal consistency.
  */
 
-import { stripFrontmatter as stripLeadingFrontmatter } from "./frontmatter";
+import { splitFrontmatter, stripFrontmatter as stripLeadingFrontmatter } from "./frontmatter";
 
 const FENCED_CODE_RE = /```[\s\S]*?```/g;
 const INLINE_CODE_RE = /`[^`]*`/g;
@@ -81,4 +81,47 @@ export function tokenizeWords(prose: string): string[] {
 export function countWords(text: string, options?: WordCountOptions): number {
   if (!text) return 0;
   return tokenizeWords(stripMarkdown(text, options)).length;
+}
+
+/** Same-length whitespace, so a masked span keeps every later offset in place. */
+function blank(s: string): string {
+  return " ".repeat(s.length);
+}
+
+/**
+ * `stripMarkdown`'s length-preserving twin: the SAME constructs are removed by
+ * the SAME rules, but every dropped span becomes whitespace of equal length and
+ * link display text stays at its original offset — so word tokens found in the
+ * result index the ORIGINAL text. Token counts match `countWords` exactly (the
+ * reconciliation test in tests/wordcount.test.ts proves it); this is what lets
+ * the Write editor place milestone markers where the count actually crosses.
+ */
+export function maskMarkdown(text: string, options: WordCountOptions = {}): string {
+  let out = text;
+  if (options.stripFrontmatter !== false) {
+    const { frontmatter } = splitFrontmatter(out);
+    if (frontmatter) out = blank(frontmatter) + out.slice(frontmatter.length);
+  }
+  return out
+    .replace(OBSIDIAN_COMMENT_RE, blank)
+    .replace(HTML_COMMENT_RE, blank)
+    .replace(FENCED_CODE_RE, blank)
+    .replace(INLINE_CODE_RE, blank)
+    .replace(IMAGE_RE, blank)
+    .replace(WIKILINK_RE, (m, alias: string | undefined, display: string) => {
+      const lead = 2 + (alias?.length ?? 0); // "[[" + "alias|"
+      return blank(m.slice(0, lead)) + display + blank(m.slice(lead + display.length));
+    })
+    .replace(MD_LINK_RE, (m, label: string) => " " + label + blank(m.slice(1 + label.length)))
+    .replace(HTML_TAG_RE, blank);
+}
+
+/** Word tokens with their offsets into `prose` (pass `maskMarkdown` output for doc offsets). */
+export function tokenizeWordsWithOffsets(prose: string): { from: number; to: number }[] {
+  const out: { from: number; to: number }[] = [];
+  for (const m of prose.matchAll(WORD_RE)) {
+    const from = m.index ?? 0;
+    out.push({ from, to: from + m[0].length });
+  }
+  return out;
 }

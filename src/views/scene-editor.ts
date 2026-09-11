@@ -18,6 +18,7 @@ import {
   Compartment,
   EditorSelection,
   EditorState,
+  RangeSet,
   StateEffect,
   StateField,
 } from "@codemirror/state";
@@ -25,13 +26,16 @@ import {
   Decoration,
   DecorationSet,
   EditorView,
+  GutterMarker,
   ViewPlugin,
   ViewUpdate,
+  gutter,
   keymap,
   scrollPastEnd,
 } from "@codemirror/view";
 import { MarkKind, toggleInlineMark } from "../lib/inline-format";
 import { Sel, buildSyntaxIntents } from "../lib/markdown-syntax";
+import { formatMilestone, milestoneOffsets } from "../lib/milestones";
 import { PlaceholderKind, PLACEHOLDER_TEMPLATES } from "../lib/placeholders";
 import { TypographyRules, smartTypography } from "../lib/smart-typography";
 import { wikilinkAt } from "../lib/wikilinks";
@@ -159,6 +163,81 @@ export interface EditorPrefs {
   typewriter: boolean;
   /** Book-style paragraph indents / centered headings (CSS via `is-manuscript`). */
   manuscript: boolean;
+  /** Gutter tag every N words of the scene (0 = off). */
+  milestoneWords: number;
+}
+
+/**
+ * Milestone gutter: a small tag in the left gutter on the line where the
+ * scene's running word count passes each multiple of N ("500", "1k", "1.5k").
+ * Recomputed on every doc change (one tokenizer pass, the same cost class as
+ * the topbar count) and on an explicit refresh effect when the setting
+ * changes. The gutter sits INSIDE the centered 90ch editor box, so it never
+ * fights the layout; with no markers it renders no elements and takes no width.
+ */
+const milestoneRefresh = StateEffect.define<null>();
+
+class MilestoneMarker extends GutterMarker {
+  constructor(readonly words: number) {
+    super();
+  }
+  eq(other: MilestoneMarker): boolean {
+    return other.words === this.words;
+  }
+  toDOM(): Node {
+    const el = createSpan({ cls: "cm-milestone", text: formatMilestone(this.words) });
+    el.title = `${this.words.toLocaleString()} words`;
+    return el;
+  }
+}
+
+// `RangeSet.empty` is typed RangeSet<any>; a typed empty set keeps the lint gate clean.
+const NO_MARKERS: RangeSet<GutterMarker> = RangeSet.of<GutterMarker>([]);
+
+function computeMilestones(state: EditorState, every: number): RangeSet<GutterMarker> {
+  if (every <= 0) return NO_MARKERS;
+  const doc = state.doc;
+  // Several milestones on one (long) line → keep the highest.
+  const byLine = new Map<number, number>();
+  for (const m of milestoneOffsets(doc.toString(), every)) {
+    const from = doc.lineAt(m.offset).from;
+    byLine.set(from, Math.max(byLine.get(from) ?? 0, m.words));
+  }
+  const ranges = [...byLine.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([from, words]) => new MilestoneMarker(words).range(from));
+  return RangeSet.of(ranges, true);
+}
+
+function hasRefresh(u: ViewUpdate): boolean {
+  return u.transactions.some((tr) => tr.effects.some((e) => e.is(milestoneRefresh)));
+}
+
+function milestoneGutter(getEvery: () => number) {
+  const plugin = ViewPlugin.fromClass(
+    class {
+      markers: RangeSet<GutterMarker>;
+      constructor(view: EditorView) {
+        this.markers = computeMilestones(view.state, getEvery());
+      }
+      update(u: ViewUpdate): void {
+        if (u.docChanged || hasRefresh(u)) this.markers = computeMilestones(u.state, getEvery());
+      }
+    }
+  );
+  return [
+    plugin,
+    gutter({
+      class: "cm-milestone-gutter",
+      markers: (view) => view.plugin(plugin)?.markers ?? NO_MARKERS,
+      lineMarkerChange: (u) => u.docChanged || hasRefresh(u),
+    }),
+  ];
+}
+
+/** Recompute the milestone gutter now (after the setting changed). */
+export function refreshMilestones(view: EditorView): void {
+  view.dispatch({ effects: milestoneRefresh.of(null) });
 }
 
 /**
@@ -373,6 +452,7 @@ export function createSceneEditor(opts: SceneEditorOptions): EditorView {
         keymap.of([...defaultKeymap, ...historyKeymap]),
         ...(opts.getTypography ? [smartTypographyHandler(opts.getTypography)] : []),
         typewriterCompartment.of(opts.getPrefs?.().typewriter ? typewriterExt : []),
+        ...milestoneGutter(() => opts.getPrefs?.().milestoneWords ?? 0),
         EditorView.lineWrapping,
         markdownHighlighter,
         atomicMarkers,

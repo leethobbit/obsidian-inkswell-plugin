@@ -131,6 +131,8 @@ export interface InkswellSettings {
   typewriterMode: boolean;
   /** Write editor: book-style paragraph indents and centered headings (CSS only). Off by default. */
   manuscriptTypography: boolean;
+  /** Write editor: gutter tag where the scene's running count passes each multiple of N. 0 = off. */
+  milestoneWords: number;
 }
 
 export const DEFAULT_SETTINGS: InkswellSettings = {
@@ -165,7 +167,19 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   smartEllipsis: false,
   typewriterMode: false,
   manuscriptTypography: false,
+  milestoneWords: 0,
 };
+
+/** Milestone spacing: 0 = off; anything else at least 100 words (a tag per few words is noise). */
+function normalizeMilestoneWords(raw: unknown): number {
+  const n = clampInt(
+    typeof raw === "number" || typeof raw === "string" ? `${raw}` : "",
+    0,
+    10000,
+    0
+  );
+  return n > 0 && n < 100 ? 100 : n;
+}
 
 /** The boolean Write-editor preferences (all default off). */
 type WriteEditorToggleKey =
@@ -258,7 +272,12 @@ const NUMERIC_BOUNDS: Partial<
   defaultSprintMinutes: { lo: 1, hi: 600, fallback: 15 },
   defaultSprintWordGoal: { lo: 0, hi: 100000, fallback: 0 },
   streakThreshold: { lo: 1, hi: 100000, fallback: 1 },
+  milestoneWords: { lo: 0, hi: 10000, fallback: 0 },
 };
+
+const MILESTONE_DESC =
+  "Put a small tag in the Write editor's margin on the line where the scene's running word count " +
+  "passes each multiple of this number (e.g. 500 → tags at 500, 1k, 1.5k…). 0 = off; minimum 100.";
 
 export class InkswellSettingTab extends PluginSettingTab {
   private plugin: InkswellPlugin;
@@ -330,11 +349,14 @@ export class InkswellSettingTab extends PluginSettingTab {
       {
         type: "group",
         heading: "Write editor",
-        items: WRITE_EDITOR_TOGGLES.map((o) => ({
-          name: o.name,
-          desc: o.desc,
-          control: { type: "toggle" as const, key: o.key, defaultValue: false },
-        })),
+        items: [
+          ...WRITE_EDITOR_TOGGLES.map((o) => ({
+            name: o.name,
+            desc: o.desc,
+            control: { type: "toggle" as const, key: o.key, defaultValue: false },
+          })),
+          numberDef("Milestone tags every…", MILESTONE_DESC, "milestoneWords"),
+        ],
       },
       {
         type: "group",
@@ -532,6 +554,9 @@ export class InkswellSettingTab extends PluginSettingTab {
       case "showHelpHints":
         s.showHelpHints = !!value;
         break;
+      case "milestoneWords":
+        s.milestoneWords = normalizeMilestoneWords(value);
+        break;
       default: {
         const bounds = NUMERIC_BOUNDS[key as keyof InkswellSettings];
         if (!bounds) return; // unknown key — never write blind
@@ -549,6 +574,7 @@ export class InkswellSettingTab extends PluginSettingTab {
     await this.plugin.saveSettings();
     if (key === "showWordCounts" || key === "showHelpHints") this.plugin.refreshExplorer();
     if (key === "dailyWordGoal") this.plugin.refreshStatus();
+    if (key === "milestoneWords") this.plugin.applyEditorPrefs();
   }
 
   /** The "Write editor" section (imperative fallback): editor toggles.
@@ -567,6 +593,16 @@ export class InkswellSettingTab extends PluginSettingTab {
           })
         );
     }
+    new Setting(containerEl)
+      .setName("Milestone tags every…")
+      .setDesc(MILESTONE_DESC)
+      .addText((t) =>
+        t.setValue(`${this.plugin.settings.milestoneWords}`).onChange(async (v) => {
+          this.plugin.settings.milestoneWords = normalizeMilestoneWords(v);
+          await this.plugin.saveSettings();
+          this.plugin.applyEditorPrefs();
+        })
+      );
   }
 
   /**

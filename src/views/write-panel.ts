@@ -59,6 +59,7 @@ import {
   formatSelection,
   insertPlaceholder,
   linkAtCursor,
+  refreshMilestones,
   setTypewriter,
 } from "./scene-editor";
 import { MarkKind } from "../lib/inline-format";
@@ -1097,7 +1098,11 @@ export class WritePanel implements HoverParent {
   /** Current Write-editor preferences from Settings. */
   private editorPrefs(): EditorPrefs {
     const s = this.plugin.settings;
-    return { typewriter: s.typewriterMode, manuscript: s.manuscriptTypography };
+    return {
+      typewriter: s.typewriterMode,
+      manuscript: s.manuscriptTypography,
+      milestoneWords: s.milestoneWords,
+    };
   }
 
   /**
@@ -1107,7 +1112,10 @@ export class WritePanel implements HoverParent {
   applyEditorPrefs(): void {
     const prefs = this.editorPrefs();
     this.cmHostEl?.toggleClass("is-manuscript", prefs.manuscript);
-    if (this.editor) setTypewriter(this.editor, prefs.typewriter);
+    if (this.editor) {
+      setTypewriter(this.editor, prefs.typewriter);
+      refreshMilestones(this.editor);
+    }
   }
 
   private updateCount(): void {
