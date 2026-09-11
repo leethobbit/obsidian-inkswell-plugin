@@ -26,6 +26,12 @@ export interface ProfileField {
   linkCategory?: string;
   /** For `links`: single value stored as a string (default = array). */
   single?: boolean;
+  /**
+   * For multi `links`: each link may carry a free-text label ("sister",
+   * "rival") stored as the wikilink alias — `[[Anna|sister]]`. No extra key;
+   * `linkTarget` still yields the name, so scope/mentions/appears-in are unaffected.
+   */
+  labeled?: boolean;
 }
 
 /** Shared first field: alternative names (matches Obsidian's `aliases`). */
@@ -69,6 +75,7 @@ const CATEGORY_FIELDS: Record<BuiltinCodexCategory, ProfileField[]> = {
       label: "Relationships",
       type: "links",
       linkCategory: "character",
+      labeled: true,
     },
   ],
   location: [
@@ -172,7 +179,7 @@ export const FIELDS_KEY = "codex-fields";
 /** One requested field: a frontmatter key plus an optional type hint. */
 export interface FieldSpec {
   key: string;
-  /** Raw type hint as written (`text`, `textarea`, `list`, `links`, `links:character`, `link`, `link:world`). */
+  /** Raw type hint as written (`text`, `textarea`, `list`, `links`, `links:character`, `links:character:labeled`, `link`, `link:world`). */
   type?: string;
 }
 
@@ -248,6 +255,7 @@ function resolveSpecField(category: string, entry: FieldSpec): ProfileField {
   if (hint.type === "links") {
     if (hint.linkCategory) next.linkCategory = hint.linkCategory;
     if (hint.single) next.single = true;
+    if (hint.labeled) next.labeled = true;
   }
   return next;
 }
@@ -264,11 +272,21 @@ function findKnownField(category: string, key: string): ProfileField | undefined
   return undefined;
 }
 
-/** `text` | `textarea` | `list` | `links[:cat]` | `link[:cat]` (single) → field shape; null if unknown. */
+/**
+ * `text` | `textarea` | `list` | `links[:cat][:labeled]` | `link[:cat]` (single)
+ * → field shape; null if unknown. A trailing `labeled` segment on `links` lets
+ * each link carry an alias-stored label (ignored for single `link`, which has
+ * no chip to label).
+ */
 function parseTypeHint(
   raw: string
-): { type: ProfileFieldType; linkCategory?: string; single?: boolean } | null {
-  const [head, ...rest] = raw.trim().toLowerCase().split(":");
+): { type: ProfileFieldType; linkCategory?: string; single?: boolean; labeled?: boolean } | null {
+  const [head, ...rest] = raw.trim().toLowerCase().split(":").map((s) => s.trim());
+  let labeled = false;
+  if (rest.length > 0 && rest[rest.length - 1] === "labeled") {
+    labeled = true;
+    rest.pop();
+  }
   const linkCategory = rest.join(":").trim() || undefined;
   switch (head) {
     case "text":
@@ -282,7 +300,7 @@ function parseTypeHint(
     case "tags":
       return { type: "list" };
     case "links":
-      return { type: "links", linkCategory };
+      return labeled ? { type: "links", linkCategory, labeled: true } : { type: "links", linkCategory };
     case "link":
       return { type: "links", linkCategory, single: true };
     default:

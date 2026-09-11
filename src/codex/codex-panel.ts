@@ -22,7 +22,7 @@ import {
   scenesForEntity,
   writeEntityScope,
 } from "./codex-store";
-import { firstMentionOffset, linkTarget, toLink } from "./codex";
+import { firstMentionOffset, linkAlias, linkTarget, toLink } from "./codex";
 import { stripFrontmatter } from "../lib/frontmatter";
 import type { SceneHighlight } from "../views/write-panel";
 import {
@@ -530,7 +530,33 @@ export class CodexPanel {
     const current = (profile[field.key] as string[]) ?? [];
     const chips = control.createDiv({ cls: "inkswell-inspector__chips" });
     for (const link of current) {
-      const chip = chips.createSpan({ cls: "inkswell-chip", text: linkTarget(link) });
+      const target = linkTarget(link);
+      const chip = chips.createSpan({ cls: "inkswell-chip" });
+      chip.createSpan({ cls: "inkswell-codex__linktarget", text: target });
+      if (field.labeled) {
+        // The label lives in the wikilink alias ([[Anna|sister]]). Edited via a
+        // prompt rather than an inline input: the chip is rebuilt on save, and
+        // a modal sidesteps both focus-preservation and Android IME Enter quirks.
+        const alias = linkAlias(link);
+        const lab = chip.createSpan({
+          cls: "inkswell-codex__linklabel",
+          text: alias ? `· ${alias}` : "+ label",
+        });
+        if (!alias) lab.addClass("is-empty");
+        lab.setAttribute("aria-label", alias ? `Change the “${alias}” label` : "Add a label");
+        lab.onclick = () => {
+          void (async () => {
+            const v = await promptText(this.app, {
+              title: `Relationship to ${target}`,
+              value: alias ?? "",
+              multiline: false,
+              cta: "Save",
+            });
+            if (v === null) return; // cancelled; "" clears the label
+            saveAndRefresh(current.map((c) => (c === link ? toLink(target, v) : c)));
+          })();
+        };
+      }
       const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
       x.onclick = () => saveAndRefresh(current.filter((c) => c !== link));
     }

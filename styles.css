@@ -1720,6 +1720,21 @@
   font-size: 0.9em;
   color: var(--text-accent);
 }
+/* Labeled link chips (Codex → Relationships): "Anna · sister". The label is
+   click-to-edit; an unlabeled link shows a faint "+ label" affordance. */
+.inkswell-codex__linklabel {
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-left: 0.35em;
+}
+.inkswell-codex__linklabel:hover {
+  text-decoration: underline;
+}
+.inkswell-codex__linklabel.is-empty {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
 /* Quick Codex dialog: the alias row only applies when the typed name differs
    from the selected text. (.setting-item is display:flex, so the hidden
    attribute alone wouldn't win.) */

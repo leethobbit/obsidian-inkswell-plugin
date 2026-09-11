@@ -68,6 +68,38 @@ describe("parseFieldSpec", () => {
   });
 });
 
+describe("labeled link hints", () => {
+  const spec = (key: string, type: string) =>
+    profileFields("creature", [{ key, type }]).find((f) => f.key === key);
+
+  it("parses links:<cat>:labeled and links:labeled", () => {
+    expect(spec("allies", "links:faction:labeled")).toMatchObject({
+      type: "links",
+      linkCategory: "faction",
+      labeled: true,
+    });
+    expect(spec("kin", "links:labeled")).toMatchObject({ type: "links", labeled: true });
+    expect(spec("kin", "links:labeled")?.linkCategory).toBeUndefined();
+  });
+
+  it("ignores :labeled on a single link (nothing to label)", () => {
+    const f = spec("home", "link:location:labeled");
+    expect(f).toMatchObject({ type: "links", single: true, linkCategory: "location" });
+    expect(f?.labeled).toBeUndefined();
+  });
+
+  it("a known labeled field keeps labeled without a hint and loses it under a plain links hint", () => {
+    const bare = profileFields("character", [{ key: "relationships" }]).find(
+      (f) => f.key === "relationships"
+    );
+    expect(bare?.labeled).toBe(true);
+    const plain = profileFields("character", [{ key: "relationships", type: "links:character" }]).find(
+      (f) => f.key === "relationships"
+    );
+    expect(plain?.labeled).toBeUndefined();
+  });
+});
+
 describe("profileFields with a spec", () => {
   it("falls back to the shipped fields for a null/empty spec (existing behavior)", () => {
     const shipped = profileFields("character");

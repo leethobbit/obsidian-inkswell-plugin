@@ -62,6 +62,18 @@ describe("profile schema", () => {
     }
   });
 
+  it("makes Relationships a labeled multi-link field (labels ride in the wikilink alias)", () => {
+    const rel = profileFields("character").find((f) => f.key === "relationships");
+    expect(rel).toMatchObject({ type: "links", linkCategory: "character", labeled: true });
+    expect(rel?.single).toBeUndefined();
+    // Nothing else is labeled by default.
+    for (const cat of CODEX_CATEGORIES) {
+      for (const f of profileFields(cat.id)) {
+        if (f.key !== "relationships") expect(f.labeled).toBeUndefined();
+      }
+    }
+  });
+
   it("leaves the generic Related links unrestricted (any category)", () => {
     const related = profileFields("creature").find((f) => f.key === "related");
     expect(related?.type).toBe("links");

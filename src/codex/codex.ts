@@ -14,15 +14,28 @@ import { CodexCategory, CodexEntity } from "./types";
 const LEFT_BOUNDARY = `(?:^|[^\\p{L}\\p{N}]|[${CJK_SRC}])`;
 const RIGHT_BOUNDARY = `(?=$|[^\\p{L}\\p{N}]|[${CJK_SRC}])`;
 
-/** Wrap a name as a wikilink, e.g. "Anna" → "[[Anna]]". */
-export function toLink(name: string): string {
-  return `[[${name}]]`;
+/**
+ * Wrap a name as a wikilink: "Anna" → "[[Anna]]"; with a non-blank alias,
+ * "[[Anna|sister]]" — the alias slot is how a relationship LABEL is stored
+ * (no extra key; Obsidian's rename updater keeps it intact). `|` and `]` are
+ * stripped from the alias so it can't break the link.
+ */
+export function toLink(name: string, alias?: string): string {
+  const a = alias?.replace(/[|\]]/g, "").trim();
+  return a ? `[[${name}|${a}]]` : `[[${name}]]`;
 }
 
 /** Extract the display target from a wikilink or plain string: "[[Anna|A]]" → "Anna". */
 export function linkTarget(value: string): string {
   const m = value.match(/^\[\[([^\]|#]+)/);
   return (m ? m[1] : value).trim();
+}
+
+/** The alias of a wikilink ("[[Anna|sister]]" → "sister"), or null when absent, blank, or not a link. */
+export function linkAlias(value: string): string | null {
+  const m = value.match(/^\[\[[^\]]*?\|([^\]]*)\]\]$/);
+  const a = m?.[1].trim();
+  return a ? a : null;
 }
 
 function escapeRegex(s: string): string {
