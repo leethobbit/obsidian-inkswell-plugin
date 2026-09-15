@@ -9,6 +9,7 @@
  */
 
 import type { App, TFile } from "obsidian";
+import { ListOverride, applyOverride } from "../lib/list-override";
 
 export type SceneStatus =
   | "idea"
@@ -71,9 +72,45 @@ export function coerceStatus(value: unknown): SceneStatus | undefined {
     : undefined;
 }
 
-/** Title-cased label for a status (for badges/dropdowns). */
-export function statusLabel(status: SceneStatus): string {
+function titleCase(status: SceneStatus): string {
   return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+// --- Status display (shipped labels + the writer's Customize overrides) ------
+// The six STORED values are frozen (SCHEMA.md §B, cross-tool). What a writer
+// may change per vault is display: label, visibility, order — via
+// `settings.listOverrides["scene.status"]`. Render from these resolvers, never
+// from SCENE_STATUSES directly (AGENTS.md gotcha 17).
+
+export interface StatusDef {
+  id: SceneStatus;
+  label: string;
+  hidden: boolean;
+}
+
+const SHIPPED_STATUS_ITEMS = SCENE_STATUSES.map((s) => ({ id: s, label: titleCase(s) }));
+
+/** All six statuses in effective order, hidden ones flagged. */
+export function sceneStatuses(override?: ListOverride): StatusDef[] {
+  return applyOverride(SHIPPED_STATUS_ITEMS, override)
+    .filter((i) => SCENE_STATUSES.includes(i.id as SceneStatus))
+    .map((i) => ({ id: i.id as SceneStatus, label: i.label, hidden: i.hidden }));
+}
+
+/** The statuses a writer is offered (pickers, board columns, filters). */
+export function visibleStatuses(override?: ListOverride): StatusDef[] {
+  return sceneStatuses(override).filter((s) => !s.hidden);
+}
+
+/** Label for a status (for badges/dropdowns) — renamed per the override when given. */
+export function statusLabel(status: SceneStatus, override?: ListOverride): string {
+  if (!override?.labels) return titleCase(status);
+  return override.labels[status]?.trim() || titleCase(status);
+}
+
+/** The status new scenes get by default: `idea` unless the writer hid it. */
+export function defaultNewSceneStatus(override?: ListOverride): SceneStatus | undefined {
+  return sceneStatuses(override).some((s) => s.id === "idea" && !s.hidden) ? "idea" : undefined;
 }
 
 /** Read a scene's metadata from the metadata cache (flat fields are reliable). */

@@ -10,9 +10,10 @@ import { App, Modal, Notice, Setting, TFile, normalizePath } from "obsidian";
 import { updateScenes } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project, isMultiScene } from "../projects/types";
-import { SceneMeta, writeSceneMeta } from "../scenes/scene-meta";
+import { SceneMeta, defaultNewSceneStatus, writeSceneMeta } from "../scenes/scene-meta";
 import { sceneTemplateCandidates } from "../scenes/scene-template";
 import { FolderSettings, sanitizeSegment } from "../settings/folders";
+import type { ListOverrideSettings } from "../settings/overridable-lists";
 import { applyTemplateVars } from "../lib/template";
 import { tryFileOp } from "../lib/notify";
 
@@ -52,7 +53,7 @@ export function resolveSceneTemplate(
  */
 export async function createSceneFile(
   app: App,
-  settings: FolderSettings,
+  settings: FolderSettings & Partial<ListOverrideSettings>,
   draft: { sceneTemplate?: string | null },
   path: string,
   title: string,
@@ -63,7 +64,10 @@ export async function createSceneFile(
     ? applyTemplateVars(await app.vault.cachedRead(template), { title })
     : "";
   const file = await app.vault.create(path, body);
-  await writeSceneMeta(app, file, patch, { status: "idea" });
+  // The app never writes a status the writer hid (Customize → Scene statuses):
+  // with `idea` hidden, a new scene simply starts without one.
+  const defaultStatus = defaultNewSceneStatus(settings.listOverrides?.["scene.status"]);
+  await writeSceneMeta(app, file, patch, defaultStatus ? { status: defaultStatus } : {});
   return file;
 }
 

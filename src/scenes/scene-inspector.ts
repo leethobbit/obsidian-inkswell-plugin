@@ -11,6 +11,8 @@ import { ProjectStore } from "../projects/project-store";
 import { RightPanel } from "../views/right-panel";
 import { openScene } from "./scene-actions";
 import { renderSceneAuditFields, renderSceneMetaFields } from "./scene-meta-form";
+import { sceneStatuses } from "./scene-meta";
+import { sceneCheckpoints } from "../revisions/audit";
 import type InkswellPlugin from "../../main";
 
 export class SceneInspector implements RightPanel {
@@ -62,7 +64,8 @@ export class SceneInspector implements RightPanel {
       ctx.project,
       disabled,
       markWrite,
-      this.plugin.store.getProjects()
+      this.plugin.store.getProjects(),
+      sceneStatuses(this.plugin.settings.listOverrides["scene.status"])
     );
 
     // Revision audit — collapsed by default so it doesn't crowd the drafting
@@ -71,7 +74,14 @@ export class SceneInspector implements RightPanel {
     if (featureEnabled(disabled, "audit")) {
       const audit = container.createEl("details", { cls: "inkswell-inspector__audit" });
       audit.createEl("summary", { text: "Revision audit" });
-      renderSceneAuditFields(audit, this.app, file, undefined, markWrite);
+      renderSceneAuditFields(
+        audit,
+        this.app,
+        file,
+        undefined,
+        markWrite,
+        sceneCheckpoints(this.plugin.settings.listOverrides["audit.scene"])
+      );
     }
   }
 }

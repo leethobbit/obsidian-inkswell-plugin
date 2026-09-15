@@ -48,10 +48,12 @@ import { LinkCandidate } from "../lib/link-complete";
 import { featureEnabled } from "../features";
 import { tryFileOp } from "../lib/notify";
 import { isPhone } from "../lib/platform";
+import { attachHideMenu } from "../lib/hide-menu";
 import { nearestIndexOf } from "../lib/text-locate";
 import { attachRowMenu } from "../lib/row-menu";
 import { addSceneMenuItems } from "../scenes/scene-actions";
 import { PromptModal } from "../ideation/prompt-modal";
+import { writingPrompts } from "../ideation/prompts";
 import { RevisionModal } from "../revisions/revision-modal";
 import { renderEmptyState } from "./panel-kit";
 import { preserveFocus, tagField } from "../lib/focus-preserve";
@@ -755,21 +757,8 @@ export class WritePanel implements HoverParent {
       });
       const promptBtn = promptGroup.createEl("button", { text: "Prompt" });
       promptBtn.onclick = () => this.openPromptModal();
-      // Right-click to hide (re-enable in Settings → Features).
-      promptBtn.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        const menu = new Menu();
-        menu.addItem((i) =>
-          i
-            .setTitle("Hide writing prompts")
-            .setIcon("eye-off")
-            .onClick(() => {
-              void this.plugin.setFeatureEnabled("prompts", false);
-              new Notice("Writing prompts hidden — re-enable in Settings → Features.");
-            })
-        );
-        menu.showAtMouseEvent(e);
-      });
+      // Right-click to hide (turn back on under Customize → Features).
+      attachHideMenu(promptBtn, this.plugin, "prompts", "writing prompts");
       const promptEl = promptGroup.createSpan({
         cls: "inkswell-write__prompt",
         text: this.promptText,
@@ -1216,7 +1205,9 @@ export class WritePanel implements HoverParent {
         this.promptCategory = res.category;
         this.promptText = res.text;
         this.renderTopbar();
-      }
+      },
+      // The effective bank: shipped prompts minus hidden, plus the writer's own.
+      writingPrompts(this.plugin.settings.listOverrides.prompts)
     ).open();
   }
 

@@ -13,15 +13,15 @@ import { featureEnabled } from "../features";
 import { getCodexEntities } from "../codex/codex-store";
 import { filterToScope, scopeContextForProject } from "../codex/codex-scope";
 import { Project } from "../projects/types";
-import { SCENE_CHECKPOINTS } from "../revisions/audit";
+import { Checkpoint, SCENE_CHECKPOINTS } from "../revisions/audit";
 import { readSceneAudit, writeSceneAudit } from "../revisions/audit-meta";
 import { OPENING_LABEL, OPENING_TYPES, OpeningType } from "../revisions/openings";
 import { distinctInOrder } from "../outliner/structure";
 import {
-  SCENE_STATUSES,
   SceneMeta,
+  StatusDef,
   readSceneMeta,
-  statusLabel,
+  sceneStatuses,
   updateSceneList,
   writeSceneMeta,
 } from "./scene-meta";
@@ -65,7 +65,9 @@ export function renderSceneMetaFields(
   disabledFeatures: readonly string[] = [],
   markWrite?: (path: string) => void,
   /** Full project list — needed to widen the scope vantage to the whole story. */
-  allProjects: Project[] = project ? [project] : []
+  allProjects: Project[] = project ? [project] : [],
+  /** Effective statuses (`sceneStatuses(override)`); shipped by default. */
+  statuses: readonly StatusDef[] = sceneStatuses()
 ): void {
   const meta = readSceneMeta(app, file);
   const save = (patch: Partial<SceneMeta>) => {
@@ -94,9 +96,15 @@ export function renderSceneMetaFields(
     const sel = host.createEl("select", { cls: "dropdown" });
     tagField(sel, "scene:status");
     sel.createEl("option", { text: "— none —", value: "" });
-    for (const s of SCENE_STATUSES) {
-      const o = sel.createEl("option", { text: statusLabel(s), value: s });
-      if (meta.status === s) o.selected = true;
+    // Visible statuses, plus the scene's CURRENT status if the writer hid it —
+    // a real stored value must never render as a blank select.
+    for (const s of statuses) {
+      if (s.hidden && meta.status !== s.id) continue;
+      const o = sel.createEl("option", {
+        text: s.hidden ? `${s.label} (hidden)` : s.label,
+        value: s.id,
+      });
+      if (meta.status === s.id) o.selected = true;
     }
     sel.value = meta.status ?? "";
     sel.onchange = () => save({ status: (sel.value || undefined) as SceneMeta["status"] });
@@ -298,7 +306,9 @@ export function renderSceneAuditFields(
   app: App,
   file: TFile,
   onChange?: () => void,
-  markWrite?: (path: string) => void
+  markWrite?: (path: string) => void,
+  /** Effective checkpoints (`sceneCheckpoints(override)`); shipped by default. */
+  checkpoints: readonly Checkpoint[] = SCENE_CHECKPOINTS
 ): void {
   const audit = readSceneAudit(app, file);
   const saveAudit = (patch: Parameters<typeof writeSceneAudit>[2]) => {
@@ -306,7 +316,7 @@ export function renderSceneAuditFields(
     void tryFileOp(() => writeSceneAudit(app, file, patch), "Couldn't save the audit change.");
   };
   const list = container.createDiv({ cls: "inkswell-audit__checks" });
-  for (const cp of SCENE_CHECKPOINTS) {
+  for (const cp of checkpoints) {
     const label = list.createEl("label", { cls: "inkswell-audit__check" });
     const cb = label.createEl("input", { type: "checkbox" });
     cb.checked = !!audit.checks[cp.id];

@@ -44,10 +44,9 @@ import {
   CodexEntity,
   EntityScope,
   allCategories,
-  builtinCategories,
   categoryLabel,
 } from "./types";
-import { CategoryModal } from "./category-modal";
+import { openCategoryEditor } from "./category-actions";
 import { Project } from "../projects/types";
 import { groupIntoSeries } from "../series/series";
 import { baseDraft, groupIntoStories } from "../projects/stories";
@@ -260,24 +259,13 @@ export class CodexPanel {
     }
   }
 
-  /** Open the add-custom-type dialog; on submit persist + rebuild with it selected. */
+  /** Open the add-custom-type dialog; on submit rebuild with the new type selected.
+   *  (Persistence lives in category-actions, shared with Customize → Codex types.) */
   private openNewTypeModal(): void {
-    const merged = this.categories();
-    // Shipped built-in names stay reserved even when renamed away from (they're
-    // that built-in's template fallback), so a custom type can't take them.
-    const takenLabels = new Set(merged.map((c) => c.label.toLowerCase()));
-    for (const c of builtinCategories()) takenLabels.add(c.label.toLowerCase());
-    new CategoryModal(this.app, {
-      existing: null,
-      takenIds: merged.map((c) => c.id),
-      takenLabels: [...takenLabels],
-      onSubmit: async (def) => {
-        this.plugin.settings.customCategories.push(def);
-        await this.plugin.saveSettings();
-        this.pendingCategoryId = def.id;
-        this.plugin.refreshView();
-      },
-    }).open();
+    openCategoryEditor(this.app, this.plugin, null, (def) => {
+      this.pendingCategoryId = def.id;
+      this.plugin.refreshView();
+    });
   }
 
   private renderRow(parent: HTMLElement, icon: string, entity: CodexEntity): void {
@@ -366,13 +354,28 @@ export class CodexPanel {
       if (field.type === "image") continue;
       this.renderField(host, file, entity, fields, field, profile, entities);
     }
+    // Where the fields come from, and the door to changing them: Customize →
+    // Codex types → this type (the discovery path for "can I add a field?").
+    const src = host.createDiv({ cls: "inkswell-codex__fields-src inkswell-stats__muted" });
+    const customize = () => void this.plugin.openCustomize("codex-types", entity.category);
     if (template) {
-      const src = host.createDiv({ cls: "inkswell-codex__fields-src inkswell-stats__muted" });
       src.appendText("Fields from ");
       const link = src.createEl("a", { text: template.name });
       link.onclick = (e) => {
         e.preventDefault();
+        customize();
+      };
+      src.appendText(" · ");
+      const note = src.createEl("a", { text: "open note" });
+      note.onclick = (e) => {
+        e.preventDefault();
         openScene(this.app, template);
+      };
+    } else {
+      const link = src.createEl("a", { text: "Customize fields…" });
+      link.onclick = (e) => {
+        e.preventDefault();
+        customize();
       };
     }
 

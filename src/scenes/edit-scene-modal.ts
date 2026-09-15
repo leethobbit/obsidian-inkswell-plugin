@@ -10,6 +10,7 @@ import { commitFocusedField } from "../lib/focus-preserve";
 import { Project } from "../projects/types";
 import { openScene } from "./scene-actions";
 import { renderSceneMetaFields } from "./scene-meta-form";
+import { sceneStatuses } from "./scene-meta";
 import type InkswellPlugin from "../../main";
 
 export class EditSceneModal extends Modal {
@@ -41,7 +42,8 @@ export class EditSceneModal extends Modal {
       this.project,
       this.plugin?.settings.disabledFeatures ?? [],
       (path) => this.plugin?.selfWrites.mark(path),
-      this.plugin?.store.getProjects() ?? (this.project ? [this.project] : [])
+      this.plugin?.store.getProjects() ?? (this.project ? [this.project] : []),
+      sceneStatuses(this.plugin?.settings.listOverrides["scene.status"])
     );
 
     new Setting(contentEl)

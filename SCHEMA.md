@@ -43,7 +43,7 @@ Flat top-level keys on each scene file. Field names match StoryLine where they o
 
 | Key | Type | Allowed values / notes |
 |-----|------|------------------------|
-| `status` | enum | `idea` · `outlined` · `draft` · `written` · `revised` · `final` |
+| `status` | enum | `idea` · `outlined` · `draft` · `written` · `revised` · `final`. The STORED values are only ever these six. Display (label, visibility, order) may be overridden per vault via `settings.listOverrides["scene.status"]` (§E.1) — a hidden status is still read; the app never writes one. |
 | `pov` | string | POV character (free text; datalist suggests codex characters) |
 | `synopsis` | string | One-line scene summary |
 | `subtitle` | string | Secondary scene title |
@@ -62,7 +62,7 @@ Top-level keys written by the Revise → Audit toolkit. Source: `src/revisions/a
 
 | Key | Type | Notes |
 |-----|------|-------|
-| `revScene` | map of `SceneCheckId → true` | Per-scene checkpoint state (only ticked checks stored) |
+| `revScene` | map of `checkpointId → true` | Per-scene checkpoint state (only ticked checks stored). The id is a shipped `SceneCheckId` (below) or a custom `sc-…` id from `settings.listOverrides["audit.scene"].added` (§E.1). Unknown/stale ids are preserved and ignored, never deleted. |
 | `revSceneNote` | string | Freeform revision note for the scene |
 | `revPurpose` | string | Lift-out test: "if removed, what breaks?" |
 | `revVerdict` | enum | `keep` · `cut` · `merge` |
@@ -116,7 +116,7 @@ Array of `{id, text, scene: string|null, status, created, type?, priority?}`.
 - `priority`: `low` · `med` · `high` — **legacy as of 1.8**: still read, displayed as a badge, and preserved on edit, but no longer offered when logging a decision (a rank never changes behavior in a prose-order revision pass)
 
 ### `inkswell.revisionChecklist` — project Story/Page checklists
-`story` and `page`, each a map of `checkpointId → {done?: boolean, note?: string}`.
+`story` and `page`, each a map of `checkpointId → {done?: boolean, note?: string}`. Ids are the shipped ones below or custom ids from `settings.listOverrides` (`st-…` for story, `pr-…` for page items; custom page groups are `pg-…`, §E.1); unknown ids are preserved and ignored.
 - **Story IDs (18):** `structure` `startsRight` `reveals` `heroGoals` `conflict` `stakes` `tension` `believable` `researched` `backstory` `heroComplex` `heroTransforms` `sideCharsPurpose` `sideCharsMemorable` `subplots` `worldFleshed` `worldImmersive` `consistent`
 - **Page IDs (32),** grouped: *necessity* (`telling` `overDescribing` `preempting` `internalQuestions` `adverbs`) · *paragraphs* (`repetitiveStructure` `overChoreographed` `purpleProse` `overusedMetaphor` `passiveVoice`) · *dialogue* (`tagOverload` `repetitiveDialogue` `flashyTags` `dialogueAdverbs` `unrealisticDialogue` `unnecessaryDialogue` `disjointedDialogue`) · *words* (`overusedWords` `echoes` `redundantWords` `intensifiers` `mitigators` `filterWords` `weakWords` `nonSpecificWords` `cliches` `researchWords`) · *consistency* (`namesConsistent` `descriptionsConsistent` `actionsConsistent` `referencesConsistent` `formattingConsistent`)
 
@@ -129,7 +129,7 @@ Array of `{id, text, scene: string|null, status, created, type?, priority?}`.
 
 ### `inkswell.publishing` — self-publishing manager
 Persisted with a deep-merge so sibling `inkswell` keys are never clobbered. Sub-objects:
-- **`checklist`** — `{phaseId: {taskId: {done?, date?, notes?}}}`. Phases/tasks: `writing`(draft) · `editing`(selfEdit, critique, beta, preflight, hireEditor, incorporate) · `foundational`(genre, targetReader, authorName, business, budget) · `building`(metadata, formats, frontMatter, backMatter) · `cover`(comps, designer, finalize) · `formatting`(method, interior, referenceDoc, finalFiles) · `prepare`(platforms, releaseDate, preorder, pricing, isbns, keywords, categories) · `publishing`(accounts, upload, proof, marketing, review) · `launch`(announce, pressRelease, adCampaign).
+- **`checklist`** — `{phaseId: {taskId: {done?, date?, notes?}}}`. Shipped phases/tasks (source of truth: `src/publishing/checklist-def.ts`): `writing`(draft) · `editing`(selfEdit, critique, beta, preflight, hireEditor, incorporate) · `foundational`(genre, targetReader, authorName, business, budget) · `building`(metadata, formats, frontMatter, backMatter) · `cover`(…) · `formatting`(…) · `prepare`(…) · `publishing`(accounts, upload, proof, approve, submit) · `marketingFoundations`(…) · `marketing`(…). Custom phases (`pg-…`) and tasks (`pt-…`) from `settings.listOverrides.publishing` (§E.1) store state under the same shape; unknown ids are preserved and ignored.
 - **`metadata`** — `title` `subtitle` `seriesTitle` `tagline` `blurb` `genre` `subgenres[]` `targetReader` `keywords[]` `categories{main?, sub?[]}` `kuExclusive` `formats{ebook?, paperback?, hardcover?}` where each format is `{enabled?, price?, isbn?}`.
 - **`launch`** — `releaseDate` · `preorder` (bool) · `strategy` (`short` · `medium` · `long`) · `milestones` (`{label: {done?, date?}}`).
 - **`budget`** — `items[]` of `{id, label, category: need|want, estimate?, actual?}`.
@@ -168,18 +168,36 @@ A key read from the type's **template note only** (`<baseFolder>/Templates/<Labe
 | key → type map | `codex-fields: {species: text, history: textarea, allies: "links:faction", home: "link:location"}` | explicit types |
 | list of one-key maps | `- species: text` | same as the map form |
 | scalar | `codex-fields: species, birthday` | comma-separated keys |
+| map with object values | `species: {type: text, label: "Species name"}` | explicit type **and** display label (since Customize) |
+
+**Written by Customize → Codex types** as the map form (object values only where a field has its own label; `null` for "no hint"). The first in-app edit rewrites a hand-authored list/scalar spec into that form (same meaning). *Reset to shipped fields* deletes the key; entries' frontmatter is never touched.
 
 Types: `text` (default) · `textarea` · `list` (string array) · `image` (vault path, rendered as the portrait) · `links[:<type id>][:labeled]` (wikilink array, optionally restricted to one codex type; `:labeled` lets each link carry an alias-stored label, see above) · `link[:<type id>]` (single wikilink). A key naming a shipped field (any category's) reuses that field's label/type/picker unless a type is given; unknown keys are `text` with a label derived from the key (`birthDate` → "Birth date"). Reserved and skipped: `codex`, `codex-series`, `codex-project`, `codex-fields`, `aliases`. Values the panel writes follow the type: strings for `text`/`textarea`/`link`, string arrays for `list`/`links`. Frontmatter keys not in the resolved list are never touched. Source: `parseFieldSpec`/`profileFields` in `src/codex/profile-schema.ts`, `resolveProfileFields` in `src/codex/codex-profile.ts`.
 
-**Custom codex types** (Settings → Custom codex types) are persisted in the plugin's local `data.json` as `settings.customCategories` (`{id, label, plural, icon}`; normalized on load by `normalizeCustomCategories` in `src/codex/types.ts`). Their entries — and any entity whose `codex:` value matches **no** known type — use the generic profile keys: `type` `description` `significance` `related[]` (plus the shared `aliases`), unless their template declares `codex-fields`. Discovery is category-agnostic: an unrecognized `codex:` value is **never dropped**; the Codex panel shows it under "Uncategorized". Deleting a custom type touches no notes.
+**Custom codex types** (Customize → Codex types) are persisted in the plugin's local `data.json` as `settings.customCategories` (`{id, label, plural, icon}`; normalized on load by `normalizeCustomCategories` in `src/codex/types.ts`). Their entries — and any entity whose `codex:` value matches **no** known type — use the generic profile keys: `type` `description` `significance` `related[]` (plus the shared `aliases`), unless their template declares `codex-fields`. Discovery is category-agnostic: an unrecognized `codex:` value is **never dropped**; the Codex panel shows it under "Uncategorized". Deleting a custom type touches no notes.
 
-**Renamed built-in types** (Settings → Codex types, since 1.15) are persisted in `data.json` as `settings.categoryOverrides` — `{ [builtinId]: {label?, plural?, icon?} }`, normalized on load by `normalizeCategoryOverrides`. Only the display changes: the `codex:` id in notes is untouched, and template resolution tries `<new label>.md` first, then the shipped `<Label>.md` (unless another type now carries that label). An override label may not equal another built-in's shipped label, so shipped names are always a safe fallback.
+**Renamed built-in types** (Customize → Codex types, since 1.15) are persisted in `data.json` as `settings.categoryOverrides` — `{ [builtinId]: {label?, plural?, icon?} }`, normalized on load by `normalizeCategoryOverrides`. Only the display changes: the `codex:` id in notes is untouched, and template resolution tries `<new label>.md` first, then the shipped `<Label>.md` (unless another type now carries that label). An override label may not equal another built-in's shipped label, so shipped names are always a safe fallback.
 
 ---
 
 ## E. Plugin-local data (not in any vault note)
 
 For completeness: writing history & baselines, daily word counts, streaks, sprint records, ideas inbox, active project, daily mood, and the "next up" breadcrumb live in the plugin's local `data.json`, **not** in vault frontmatter. They are intentionally outside this compatibility contract (machine-local, not synced as note content).
+
+### E.1 List overrides — `settings.listOverrides` (Customize)
+
+One optional entry per overridable list id, each a `ListOverride`: `{ hidden?: id[], hiddenGroups?: id[], labels?: {id: label}, order?: id[], added?: [{id, label, group?, …extras}], groups?: [{id, label}] }`. Source: `src/lib/list-override.ts` (shape + `applyOverride`), `src/settings/overridable-lists.ts` (list ids, specs, `normalizeListOverrides` on load).
+
+| List id | Shipped list | Custom item prefix | Adds? | Groups? |
+|---------|--------------|--------------------|-------|---------|
+| `audit.scene` | 14 scene checkpoints (`revScene`) | `sc` | yes | — |
+| `audit.story` | 18 story checkpoints (`revisionChecklist.story`) | `st` | yes | — |
+| `audit.page` | 32 prose checkpoints in 5 groups (`revisionChecklist.page`) | `pr` (groups `pg`) | yes | yes |
+| `publishing` | the publishing checklist (`inkswell.publishing.checklist`) | `pt` (phases `pg`) | yes (`optional?` extra) | yes |
+| `prompts` | writing prompts (ids = `p` + FNV-1a of `phase\|category\|text`) | `wp` | yes (`phase`, `category`) | — |
+| `scene.status` | the six statuses | — | **no** | — |
+
+Invariants: hiding never touches stored state and hidden items count toward nothing; renames keep the id; custom ids are minted (`newListItemId`), never derived from labels; stale ids in frontmatter are preserved and ignored; reset = delete the list's key. Frontmatter keys above accept custom ids additively — no existing key changes meaning.
 
 ---
 

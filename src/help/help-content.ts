@@ -96,7 +96,7 @@ export const HINTS: Record<string, HintEntry> = {
       ]);
       p(
         el,
-        "You can also add your own structures under Settings → Beat sheet templates — " +
+        "You can also add your own structures under Customize → Beat templates — " +
           "they appear in the dropdown next to the built-ins."
       );
       p(
@@ -283,6 +283,29 @@ export const HINTS: Record<string, HintEntry> = {
       );
     },
   },
+  customize: {
+    title: "How Customize works",
+    body: (el) => {
+      p(
+        el,
+        "Customize changes the SHAPE of Inkswell — which codex types exist and what " +
+          "fields each shows, what a new entry or scene starts with, beat structures, " +
+          "scene statuses, writing prompts, the revision and publishing checklists, and " +
+          "which optional features are shown. Preferences (goals, editor behaviour, " +
+          "folders) stay in Settings."
+      );
+      steps(el, [
+        "Pick a section on the left; edit on the right. Changes save as you go.",
+        "Codex fields and starter content are stored in ordinary template notes under " +
+          "your base folder's Templates folder — editing here edits those notes, and you " +
+          "can still open them directly.",
+        "Built-in items are never deleted: hiding is lossless, renames keep the stored " +
+          "id, and every section has a reset back to Inkswell's defaults.",
+        "Your own items (a custom type, a checklist item, a prompt) live in the plugin's " +
+          "data.json and travel with your vault's configuration folder.",
+      ]);
+    },
+  },
 };
 
 export interface HelpSection {
@@ -412,6 +435,12 @@ export const HELP_SECTIONS: HelpSection[] = [
           "milestone dates and trackers for budget, cover, marketing, and ARC readers."
       );
     },
+  },
+  {
+    phase: "Customize",
+    icon: "sliders-horizontal",
+    summary: "Shape Inkswell to your process — types, fields, templates, structures, checklists, prompts.",
+    body: HINTS["customize"].body,
   },
   {
     phase: "Your data & backups",

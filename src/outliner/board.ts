@@ -12,7 +12,7 @@
  */
 
 import { linkTarget } from "../codex/codex";
-import { SCENE_STATUSES, SceneStatus, statusLabel } from "../scenes/scene-meta";
+import { SceneStatus, StatusDef, sceneStatuses } from "../scenes/scene-meta";
 import { OutlineTree } from "./outline";
 
 export type GroupField = "status" | "act" | "chapter" | "pov";
@@ -45,7 +45,12 @@ const NONE_LABEL: Record<GroupField, string> = {
   pov: "No POV",
 };
 
-export function buildColumns(items: BoardItem[], field: "status" | "pov"): BoardColumn[] {
+export function buildColumns(
+  items: BoardItem[],
+  field: "status" | "pov",
+  /** Effective statuses (`sceneStatuses(override)`); shipped by default. */
+  statuses: readonly StatusDef[] = sceneStatuses()
+): BoardColumn[] {
   const none: BoardColumn = {
     key: "",
     label: NONE_LABEL[field],
@@ -53,17 +58,28 @@ export function buildColumns(items: BoardItem[], field: "status" | "pov"): Board
   };
 
   if (field === "status") {
-    const cols: BoardColumn[] = SCENE_STATUSES.map((s) => ({
-      key: s,
-      label: statusLabel(s),
-      items: [],
-    }));
+    // Visible statuses in the writer's order; a HIDDEN status still gets a
+    // column when scenes carry it (their data is never orphaned), after the rest.
+    const visible = statuses.filter((s) => !s.hidden);
+    const hidden = statuses.filter((s) => s.hidden);
+    const cols: BoardColumn[] = visible.map((s) => ({ key: s.id, label: s.label, items: [] }));
     const byKey = new Map(cols.map((c) => [c.key, c]));
+    const hiddenCols = new Map<string, BoardColumn>();
     for (const it of items) {
-      const col = (it.status && byKey.get(it.status)) || none;
-      col.items.push(it);
+      let col = it.status ? byKey.get(it.status) : undefined;
+      if (!col && it.status) {
+        const def = hidden.find((s) => s.id === it.status);
+        if (def) {
+          col = hiddenCols.get(def.id);
+          if (!col) {
+            col = { key: def.id, label: `${def.label} (hidden)`, items: [] };
+            hiddenCols.set(def.id, col);
+          }
+        }
+      }
+      (col ?? none).items.push(it);
     }
-    return [...cols, none];
+    return [...cols, ...hiddenCols.values(), none];
   }
 
   const get = (it: BoardItem) => it.pov;

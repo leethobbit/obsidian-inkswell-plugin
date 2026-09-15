@@ -13,6 +13,8 @@
  * reworded without migrating frontmatter.
  */
 
+import { ListOverride, applyGroupedOverride, visibleItems } from "../lib/list-override";
+
 export interface Checkpoint {
   id: string;
   label: string;
@@ -155,6 +157,34 @@ export const PAGE_GROUPS: CheckpointGroup[] = [
 /** Flatten the page groups to a single ordered id list (for progress totals). */
 export const PAGE_CHECK_IDS: string[] = PAGE_GROUPS.flatMap((g) => g.items.map((i) => i.id));
 
+// --- Effective lists (shipped + the writer's Customize overrides) -----------
+// Render from THESE, never from the consts above (AGENTS.md gotcha 17): the
+// consts are the frozen shipped lists; a writer may have hidden, renamed,
+// reordered, or added checkpoints. Hidden items are simply absent here — their
+// stored state is untouched and counts toward nothing.
+
+export function sceneCheckpoints(override?: ListOverride): Checkpoint[] {
+  return visibleItems(SCENE_CHECKPOINTS, override).map((i) => ({ id: i.id, label: i.label }));
+}
+export function sceneCheckIds(override?: ListOverride): string[] {
+  return sceneCheckpoints(override).map((c) => c.id);
+}
+export function storyCheckpoints(override?: ListOverride): Checkpoint[] {
+  return visibleItems(STORY_CHECKPOINTS, override).map((i) => ({ id: i.id, label: i.label }));
+}
+export function pageGroups(override?: ListOverride): CheckpointGroup[] {
+  return applyGroupedOverride(PAGE_GROUPS, override)
+    .filter((g) => !g.hidden)
+    .map((g) => ({
+      id: g.id,
+      label: g.label,
+      items: g.items.filter((i) => !i.hidden).map((i) => ({ id: i.id, label: i.label })),
+    }));
+}
+export function pageCheckIds(override?: ListOverride): string[] {
+  return pageGroups(override).flatMap((g) => g.items.map((i) => i.id));
+}
+
 // --- Progress math ---------------------------------------------------------
 
 export interface AuditProgress {
@@ -165,7 +195,7 @@ export interface AuditProgress {
 /** Count how many of `ids` are marked true in `checks`. */
 export function auditProgress(
   checks: Partial<Record<string, boolean>> | undefined,
-  ids: string[]
+  ids: readonly string[]
 ): AuditProgress {
   const c = checks ?? {};
   let done = 0;
@@ -195,12 +225,14 @@ export interface SceneAuditRollup {
  * scene's checks (Obsidian I/O) then pass the plain data in.
  */
 export function sceneAuditRollup(
-  scenes: { title: string; path: string | null; checks: Partial<Record<string, boolean>> }[]
+  scenes: { title: string; path: string | null; checks: Partial<Record<string, boolean>> }[],
+  /** The effective checkpoint ids (`sceneCheckIds(override)`); shipped by default. */
+  ids: readonly string[] = SCENE_CHECK_IDS
 ): SceneAuditRollup {
   let unaudited = 0;
   let complete = 0;
   const rows: SceneAuditRow[] = scenes.map((s) => {
-    const { done, total } = auditProgress(s.checks, SCENE_CHECK_IDS);
+    const { done, total } = auditProgress(s.checks, ids);
     if (done === 0) unaudited += 1;
     if (done === total) complete += 1;
     return { title: s.title, path: s.path, done, total, audited: done > 0 };

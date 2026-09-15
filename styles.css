@@ -3579,6 +3579,340 @@ body.inkswell-phone .inkswell-codex__toolbar input[type="search"] {
   font-size: var(--font-ui-smaller);
 }
 
+/* ---- Customize destination: catalog (left) + section editor (right) ---- */
+.inkswell-customize {
+  display: flex;
+  flex-direction: row;
+  gap: var(--size-4-4);
+  align-items: flex-start;
+  padding: var(--size-4-3) var(--size-4-4);
+  min-height: 0;
+}
+.inkswell-customize__catalog {
+  flex: 0 0 240px;
+  position: sticky;
+  top: 0;
+}
+.inkswell-customize__group {
+  margin: var(--size-4-3) 0 var(--size-4-1);
+  color: var(--text-accent);
+  border-left: 2px solid var(--interactive-accent);
+  padding-left: var(--size-4-2);
+  font-size: var(--font-ui-smaller);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.inkswell-customize__group:first-child {
+  margin-top: 0;
+}
+.inkswell-customize__row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-2);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+}
+.inkswell-customize__row:hover {
+  background-color: var(--background-modifier-hover);
+}
+.inkswell-customize__row.is-selected {
+  background-color: var(--background-modifier-active-hover);
+  box-shadow: inset 2px 0 0 var(--interactive-accent);
+}
+.inkswell-customize__icon {
+  display: inline-flex;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.inkswell-customize__text {
+  flex: 1;
+  min-width: 0;
+}
+.inkswell-customize__name {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  font-weight: var(--font-medium);
+}
+.inkswell-customize__badge {
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-normal);
+  color: var(--text-muted);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  padding: 0 var(--size-4-1);
+}
+.inkswell-customize__desc {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inkswell-customize__detail {
+  flex: 1;
+  min-width: 0;
+  max-width: 760px;
+}
+.inkswell-customize__head {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-customize__head h3 {
+  margin: 0;
+}
+.inkswell-customize__head .inkswell-customize__icon {
+  color: var(--interactive-accent);
+  margin-top: 0;
+}
+.inkswell-customize__hidden-note {
+  margin-bottom: var(--size-4-3);
+}
+/* Obsidian's Setting rows inside the editor read as a form, not a settings tab. */
+.inkswell-customize__body .setting-item {
+  padding: var(--size-4-2) 0;
+}
+.inkswell-customize__body .setting-item-heading {
+  padding-top: var(--size-4-3);
+}
+/* Section list pages (e.g. the codex types): clickable item rows with chips. */
+.inkswell-customize__items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--size-4-2) 0;
+}
+.inkswell-customize__item {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-3);
+  padding: var(--size-4-2) var(--size-4-3);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+}
+.inkswell-customize__item:hover {
+  background-color: var(--background-modifier-hover);
+}
+.inkswell-customize__chips {
+  display: flex;
+  gap: var(--size-4-1);
+  flex: 0 0 auto;
+}
+.inkswell-customize__item.is-static {
+  cursor: default;
+}
+.inkswell-customize__item.is-static:hover {
+  background: none;
+}
+.inkswell-customize__clickable {
+  cursor: pointer;
+}
+.inkswell-customize__pct {
+  width: 5em;
+  flex: 0 0 auto !important;
+  min-width: 0 !important;
+}
+.inkswell-beats__warning button {
+  margin-left: var(--size-4-2);
+}
+/* Override editors: hidden rows read as parked, custom rows carry a badge. */
+.inkswell-listedit__row.is-hidden .inkswell-listedit__body input[type="text"] {
+  color: var(--text-faint);
+  text-decoration: line-through;
+}
+.inkswell-customize__was {
+  font-size: var(--font-ui-smaller);
+  white-space: nowrap;
+}
+.inkswell-customize__groupsum {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+.inkswell-customize__grouphead {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-customize__grouphead input[type="text"] {
+  flex: 1;
+  min-width: 8ch;
+}
+.inkswell-customize__foot,
+.inkswell-customize__actions {
+  display: flex;
+  gap: var(--size-4-2);
+  align-items: center;
+  margin-top: var(--size-4-3);
+  flex-wrap: wrap;
+}
+/* Type / template pages. */
+.inkswell-customize__back {
+  display: inline-block;
+  margin-bottom: var(--size-4-2);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.inkswell-customize__back:hover {
+  color: var(--text-normal);
+}
+.inkswell-customize__typehead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-3);
+}
+.inkswell-customize__typehead h4 {
+  margin: 0;
+}
+.inkswell-customize__typehead .inkswell-customize__icon {
+  align-self: center;
+  color: var(--interactive-accent);
+}
+.inkswell-customize__card {
+  margin: 0 0 var(--size-4-3);
+  padding: var(--size-4-2) var(--size-4-4);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+.inkswell-customize__card > summary {
+  cursor: pointer;
+  font-weight: var(--font-semibold);
+  padding: var(--size-4-1) 0;
+}
+.inkswell-customize__cardbody {
+  padding: var(--size-4-2) 0 var(--size-4-1);
+}
+.inkswell-customize__kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--size-4-1) var(--size-4-4);
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-customize__kvrow {
+  display: contents;
+}
+.inkswell-customize__kvkey {
+  color: var(--text-muted);
+}
+.inkswell-customize__fieldsrc {
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-customize__key {
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  padding: 0 var(--size-4-1);
+}
+.inkswell-customize__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+/* Template body editor (codex starter content, Scene.md). */
+.inkswell-tplbody__text {
+  width: 100%;
+  resize: vertical;
+  min-height: 4.6em;
+  font-family: var(--font-text);
+}
+.inkswell-tplbody__hint {
+  margin-top: var(--size-4-1);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-tplbody__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-2);
+  font-size: var(--font-ui-smaller);
+}
+
+/* ---- Shared reorderable list editor (src/lib/list-editor.ts) ---- */
+.inkswell-listedit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.inkswell-listedit__row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-1) var(--size-4-2);
+  border-radius: var(--radius-s);
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+}
+.inkswell-listedit__row.is-dragging {
+  opacity: 0.4;
+}
+.inkswell-listedit__row.is-drop-above {
+  box-shadow: inset 0 2px 0 0 var(--interactive-accent);
+}
+.inkswell-listedit__row.is-drop-below {
+  box-shadow: inset 0 -2px 0 0 var(--interactive-accent);
+}
+.inkswell-listedit__grip {
+  color: var(--text-faint);
+  cursor: grab;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+.inkswell-listedit__row.is-pinned .inkswell-listedit__grip {
+  cursor: default;
+}
+.inkswell-listedit__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+.inkswell-listedit__body input[type="text"],
+.inkswell-listedit__body input[type="number"] {
+  flex: 1;
+  min-width: 8ch;
+}
+.inkswell-listedit__body select {
+  max-width: 14em;
+}
+.inkswell-listedit__empty {
+  padding: var(--size-4-2);
+}
+.inkswell-listedit__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-2);
+}
+.inkswell-listedit__reset {
+  margin-left: auto;
+  background: none;
+  box-shadow: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.inkswell-listedit__reset:hover {
+  color: var(--text-normal);
+}
+/* The ⋯ menu button reads as part of the row on touch devices. */
+.inkswell-listedit__row .inkswell-rowmenu {
+  flex: 0 0 auto;
+}
+
 /* ---- Help index destination ---- */
 .inkswell-help {
   padding: var(--size-4-3) var(--size-4-4);

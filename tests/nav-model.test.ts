@@ -18,7 +18,7 @@ describe("nav model", () => {
   it("splits the More sheet into usable rows then redirected ones", () => {
     const { usable, redirected } = phoneMoreDestinations();
     expect(usable.map((d) => d.id)).toEqual(["track", "revise", "help", "search"]);
-    expect(redirected.map((d) => d.id)).toEqual(["plan", "publish"]);
+    expect(redirected.map((d) => d.id)).toEqual(["plan", "publish", "customize"]);
     // Revise's sheet row jumps straight to the phone-usable Todos slice.
     expect(usable.find((d) => d.id === "revise")?.phone?.subtab).toBe("todos");
   });
@@ -32,7 +32,14 @@ describe("nav model", () => {
   });
 
   it("derives the redirect set from destination flags", () => {
-    expect([...PHONE_REDIRECTED].sort()).toEqual(["plan", "publish"]);
+    expect([...PHONE_REDIRECTED].sort()).toEqual(["customize", "plan", "publish"]);
+  });
+
+  it("gives Customize no sub-tabs (its catalog lives inside the panel)", () => {
+    const customize = DESTINATIONS.find((d) => d.id === "customize");
+    expect(customize).toBeDefined();
+    expect(customize?.subtabs).toBeUndefined();
+    expect(customize?.group).toBe("tools");
   });
 
   it("every destination has a unique id and an icon", () => {
@@ -89,6 +96,6 @@ describe("nav model", () => {
     expect(byGroup("hub")).toEqual(["home"]);
     expect(byGroup("pipeline")).toEqual(["plan", "write", "revise", "publish"]);
     expect(byGroup("insight")).toEqual(["codex", "track"]);
-    expect(byGroup("tools")).toEqual(["search", "help"]);
+    expect(byGroup("tools")).toEqual(["search", "customize", "help"]);
   });
 });

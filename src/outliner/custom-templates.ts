@@ -111,8 +111,27 @@ export function parseBeatLines(text: string): { beats: BeatDef[] } | { error: st
     parsed.push({ name, blurb: parts.slice(1).join(" | "), position });
   }
 
+  return { beats: assignBeatIds(parsed) };
+}
+
+/** A beat as entered (text line or editor row) before it has an id. */
+export interface BeatInput {
+  name: string;
+  blurb: string;
+  /** 0–1, or null = auto-spread evenly by list order. */
+  position: number | null;
+}
+
+/**
+ * THE id policy for user-defined beats, shared by the text grammar
+ * ({@link parseBeatLines}) and the Customize row editor ({@link beatsFromRows}):
+ * ids are slugified from names (`beat-N` when a name has no slug), duplicates
+ * get `-2`/`-3`… suffixes in list order, and beats without a pinned position
+ * are spread evenly across 0–1.
+ */
+export function assignBeatIds(parsed: readonly BeatInput[]): BeatDef[] {
   const taken = new Set<string>();
-  const beats: BeatDef[] = parsed.map((b, i) => {
+  return parsed.map((b, i) => {
     const base = slugify(b.name) || `beat-${i + 1}`;
     let id = base;
     for (let n = 2; taken.has(id); n++) id = `${base}-${n}`;
@@ -124,7 +143,43 @@ export function parseBeatLines(text: string): { beats: BeatDef[] } | { error: st
       position: b.position ?? (parsed.length > 1 ? i / (parsed.length - 1) : 0),
     };
   });
-  return { beats };
+}
+
+/** Row-editor counterpart of {@link parseBeatLines}: validates and assigns ids. */
+export function beatsFromRows(rows: readonly BeatInput[]): { beats: BeatDef[] } | { error: string } {
+  const trimmed = rows.map((r) => ({
+    name: r.name.trim(),
+    blurb: r.blurb.trim(),
+    position: r.position === null ? null : Math.min(1, Math.max(0, r.position)),
+  }));
+  if (trimmed.length === 0) return { error: "Add at least one beat." };
+  if (trimmed.length > MAX_BEATS) return { error: `At most ${MAX_BEATS} beats per template.` };
+  const blank = trimmed.findIndex((r) => !r.name);
+  if (blank >= 0) return { error: `Beat ${blank + 1} needs a name.` };
+  return { beats: assignBeatIds(trimmed) };
+}
+
+/**
+ * Move a beat to a new slot in position order: it takes the midpoint between its
+ * new neighbours (or steps just past the end beat), so every other beat's pinned
+ * position is untouched. `to` is the post-removal index, as in `moveItem`.
+ * Returns the beats sorted by position.
+ */
+export function repositionBeat(beats: readonly BeatDef[], from: number, to: number): BeatDef[] {
+  const sorted = [...beats].sort((a, b) => a.position - b.position);
+  if (from < 0 || from >= sorted.length) return sorted;
+  const target = Math.max(0, Math.min(sorted.length - 1, to));
+  if (target === from) return sorted;
+  const [moved] = sorted.splice(from, 1);
+  const prev = target > 0 ? sorted[target - 1].position : null;
+  const next = target < sorted.length ? sorted[target].position : null;
+  let position: number;
+  if (prev !== null && next !== null) position = (prev + next) / 2;
+  else if (prev === null && next !== null) position = Math.max(0, next - 0.05);
+  else if (prev !== null && next === null) position = Math.min(1, prev + 0.05);
+  else position = moved.position;
+  sorted.splice(target, 0, { ...moved, position });
+  return sorted;
 }
 
 /** Editor prefill: the inverse of {@link parseBeatLines}. Positions are always

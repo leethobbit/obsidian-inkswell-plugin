@@ -9,6 +9,8 @@
  * out when it isn't, so a raw token is never shown.
  */
 
+import { ListOverride, visibleItems } from "../lib/list-override";
+
 export type PromptPhase = "draft" | "revise";
 export type PromptCategory =
   | "pov"
@@ -20,9 +22,33 @@ export type PromptCategory =
   | "constraint";
 
 export interface WritingPrompt {
+  /** Stable id: `p` + FNV-1a hash of `phase|category|text` unless set explicitly.
+   *  Customize hides/adds prompts by id, so rewording a shipped prompt changes
+   *  its id (un-hides it) — set an explicit `id` in PROMPT_SOURCE when rewording. */
+  id: string;
   text: string;
   phase: PromptPhase;
   category: PromptCategory;
+}
+
+/** List-specific fields a custom prompt carries (see settings/overridable-lists). */
+export type PromptExtra = { phase: PromptPhase; category: PromptCategory };
+
+type PromptSource = Omit<WritingPrompt, "id"> & { id?: string };
+
+/** FNV-1a 32-bit, as 8 hex chars — deterministic and order-independent. */
+function fnv1a(s: string): string {
+  let h = 0x811c9dc5;
+  for (const ch of s) {
+    h ^= ch.codePointAt(0) ?? 0;
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, "0");
+}
+
+/** The content-derived id for a prompt. */
+export function promptId(p: { phase: PromptPhase; category: PromptCategory; text: string }): string {
+  return `p${fnv1a(`${p.phase}|${p.category}|${p.text}`)}`;
 }
 
 export const PROMPT_CATEGORIES: { id: PromptCategory; label: string }[] = [
@@ -37,7 +63,7 @@ export const PROMPT_CATEGORIES: { id: PromptCategory; label: string }[] = [
 
 const POV_TOKEN = /\{pov\}/;
 
-export const WRITING_PROMPTS: WritingPrompt[] = [
+const PROMPT_SOURCE: PromptSource[] = [
   // --- Draft: generative nudges to write the scene -------------------------
   { phase: "draft", category: "pov", text: "Write the scene from the antagonist's point of view." },
   { phase: "draft", category: "tension", text: "Your character receives a message they were never meant to see." },
@@ -146,6 +172,32 @@ export const WRITING_PROMPTS: WritingPrompt[] = [
   { phase: "revise", category: "structure", text: "Find the line you'd quote to a friend, and make sure the scene builds to it." },
 ];
 
+/** The shipped prompt bank with stable ids (never render from this directly —
+ *  use {@link writingPrompts} so Customize's hides/additions apply). */
+export const WRITING_PROMPTS: WritingPrompt[] = PROMPT_SOURCE.map((p) => ({
+  ...p,
+  id: p.id ?? promptId(p),
+}));
+
+/**
+ * The effective prompt bank: shipped prompts minus hidden ones (a renamed
+ * shipped prompt shows its new text), plus the writer's own.
+ */
+export function writingPrompts(override?: ListOverride<PromptExtra>): WritingPrompt[] {
+  const shipped = WRITING_PROMPTS.map((p) => ({
+    id: p.id,
+    label: p.text,
+    phase: p.phase,
+    category: p.category,
+  }));
+  return visibleItems(shipped, override).map((i) => ({
+    id: i.id,
+    text: i.label,
+    phase: i.extra.phase,
+    category: i.extra.category,
+  }));
+}
+
 /** Replace the `{pov}` token; falls back to a generic phrase when POV is unknown. */
 function resolveText(text: string, pov?: string | null): string {
   const name = pov && pov.trim() ? pov.trim() : "your POV character";
@@ -174,10 +226,11 @@ export interface PickedPrompt {
  */
 export function pickPrompt(
   q: PromptQuery,
-  rng: () => number = Math.random
+  rng: () => number = Math.random,
+  bank: readonly WritingPrompt[] = WRITING_PROMPTS
 ): PickedPrompt | null {
   const hasPov = !!(q.pov && q.pov.trim());
-  let pool = WRITING_PROMPTS.filter((p) => p.phase === q.phase);
+  let pool = bank.filter((p) => p.phase === q.phase);
   if (q.category) pool = pool.filter((p) => p.category === q.category);
   // Without POV context we can't fill {pov} prompts, so drop them.
   if (!hasPov) pool = pool.filter((p) => !POV_TOKEN.test(p.text));

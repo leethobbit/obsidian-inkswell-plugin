@@ -19,7 +19,8 @@ import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
 import { baseDraftFor, groupIntoStories, representativeDrafts, storyOf } from "../projects/stories";
 import { groupIntoSeries, projectSeries } from "../series/series";
-import { readSceneMeta, statusLabel, SCENE_STATUSES } from "../scenes/scene-meta";
+import { SceneStatus, readSceneMeta, visibleStatuses } from "../scenes/scene-meta";
+import type { ListOverrides } from "../settings/overridable-lists";
 import { splitFrontmatter, stripFrontmatter } from "../lib/frontmatter";
 import {
   SearchFilters,
@@ -41,6 +42,8 @@ export interface SearchPanelCallbacks {
   beforeReplace: () => Promise<void>;
   /** Notify that these scene paths were rewritten (so an open editor can reload). */
   afterReplace: (changedPaths: string[]) => void;
+  /** The writer's list overrides (status labels/visibility for the filter). */
+  getListOverrides?: () => ListOverrides;
 }
 
 type SearchScope = "draft" | "story" | "series" | "vault";
@@ -201,10 +204,13 @@ export class SearchPanel {
     this.filterSelect(
       filterRow,
       "Status",
-      SCENE_STATUSES.map((s) => ({ value: s, label: statusLabel(s) })),
+      visibleStatuses(this.cb.getListOverrides?.()["scene.status"]).map((s) => ({
+        value: s.id,
+        label: s.label,
+      })),
       this.filters.status?.[0],
       (v) => {
-        this.filters.status = v ? [v as (typeof SCENE_STATUSES)[number]] : undefined;
+        this.filters.status = v ? [v as SceneStatus] : undefined;
         void this.runScan();
       }
     );

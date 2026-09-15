@@ -43,6 +43,7 @@ import {
   InkswellSettings,
   InkswellSettingTab,
 } from "./src/settings/settings";
+import { normalizeListOverrides } from "./src/settings/overridable-lists";
 import { WelcomeModal } from "./src/help/welcome-modal";
 import { SprintController } from "./src/sprints/sprint-controller";
 import { SprintModal } from "./src/sprints/sprint-modal";
@@ -428,9 +429,15 @@ export default class InkswellPlugin extends Plugin {
       callback: () => this.openHelp(),
     });
     this.addCommand({
+      id: "open-customize",
+      name: "Open customize",
+      callback: () => void this.openCustomize(),
+    });
+    // Kept under its old id so users' hotkeys survive; lands on the Features section.
+    this.addCommand({
       id: "manage-features",
       name: "Manage features",
-      callback: () => this.openFeatureSettings(),
+      callback: () => void this.openCustomize("features"),
     });
     this.addCommand({
       id: "quick-capture",
@@ -465,6 +472,7 @@ export default class InkswellPlugin extends Plugin {
     this.settings.customBeatTemplates = normalizeCustomBeatTemplates(
       this.settings.customBeatTemplates
     );
+    this.settings.listOverrides = normalizeListOverrides(this.settings.listOverrides);
     this.writingLog = Object.assign({}, emptyLog(), stored.writingLog ?? {});
     this.ideas = Array.isArray(stored.ideas) ? stored.ideas : [];
     this.activeProject = new ActiveProject(
@@ -586,14 +594,27 @@ export default class InkswellPlugin extends Plugin {
     return true;
   }
 
-  /** Enable/disable an optional feature (lossless — only gates UI) and re-render. */
-  async setFeatureEnabled(id: FeatureId, enabled: boolean): Promise<void> {
+  /** Enable/disable an optional feature (lossless — only gates UI) and re-render.
+   *  Customize passes `rerender: false`: it is the active view and re-renders
+   *  itself in place; a forced rebuild would tear down the toggle being clicked. */
+  async setFeatureEnabled(
+    id: FeatureId,
+    enabled: boolean,
+    opts: { rerender?: boolean } = {}
+  ): Promise<void> {
     const set = new Set(this.settings.disabledFeatures);
     if (enabled) set.delete(id);
     else set.add(id);
     this.settings.disabledFeatures = [...set];
     await this.saveSettings();
-    this.refreshView();
+    if (opts.rerender !== false) this.refreshView();
+  }
+
+  /** Open Customize, optionally deep-linked to a section (and a sub-target in it). */
+  openCustomize(sectionId?: string, target?: string): Promise<void> {
+    return this.openInkswell("customize", (view) => {
+      if (sectionId) view.openCustomize(sectionId, target);
+    });
   }
 
   /** Push the layout override into the platform module and mirror the result
@@ -610,14 +631,6 @@ export default class InkswellPlugin extends Plugin {
     await this.saveSettings();
     this.applyFormFactor();
     this.refreshView();
-  }
-
-  /** Open plugin settings to the Inkswell tab (the "Manage features" command). */
-  private openFeatureSettings(): void {
-    const setting = (this.app as unknown as { setting: { open(): void; openTabById(id: string): void } })
-      .setting;
-    setting.open();
-    setting.openTabById(this.manifest.id);
   }
 
   refreshStatus(): void {
@@ -779,6 +792,10 @@ export default class InkswellPlugin extends Plugin {
       workspace.getLeavesOfType(VIEW_TYPE_INKSWELL)[0] ?? null;
     if (!leaf) {
       leaf = workspace.getLeaf("tab");
+      await leaf.setViewState({ type: VIEW_TYPE_INKSWELL, active: true });
+    } else if (!(leaf.view instanceof InkswellView)) {
+      // A leaf of our type whose view isn't ours: Obsidian's placeholder left
+      // behind when the plugin was disabled and re-enabled. Re-instantiate in place.
       await leaf.setViewState({ type: VIEW_TYPE_INKSWELL, active: true });
     }
     if (leaf.view instanceof InkswellView) {

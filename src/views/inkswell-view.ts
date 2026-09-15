@@ -38,6 +38,8 @@ import { WritePanel, SceneHighlight } from "./write-panel";
 import { SearchPanel } from "./search-panel";
 import { SceneInspector } from "../scenes/scene-inspector";
 import { HelpPanel } from "../help/help-panel";
+import { CustomizePanel } from "../customize/customize-panel";
+import { attachHideMenu } from "../lib/hide-menu";
 import { renderHint } from "../help/hint";
 import { hintKey } from "../help/help-content";
 import { PhoneShell } from "./phone/phone-shell";
@@ -50,7 +52,6 @@ import {
   enabledSubtabs,
   resolveSubtab,
 } from "./nav-model";
-import { FeatureId } from "../features";
 import type InkswellPlugin from "../../main";
 
 export const VIEW_TYPE_INKSWELL = "inkswell";
@@ -76,6 +77,7 @@ export class InkswellView extends ItemView {
   private launch: LaunchPanel;
   private search: SearchPanel;
   private help: HelpPanel;
+  private customize: CustomizePanel;
   private inspector: SceneInspector;
 
   private mode: InkswellMode = "home";
@@ -147,7 +149,8 @@ export class InkswellView extends ItemView {
       store,
       plugin.activeProject,
       (path) => plugin.selfWrites.mark(path),
-      (path, hl) => this.openSceneInWrite(path, hl)
+      (path, hl) => this.openSceneInWrite(path, hl),
+      () => plugin.settings.listOverrides
     );
     this.analysis = new AnalysisPanel(this.app, store, plugin.activeProject);
     this.compile = new CompilePanel(this.app, plugin, store);
@@ -165,8 +168,10 @@ export class InkswellView extends ItemView {
         const open = this.write.currentScenePath();
         if (open && changedPaths.includes(open)) this.write.handleExternalChange(open);
       },
+      getListOverrides: () => plugin.settings.listOverrides,
     });
     this.help = new HelpPanel(this.app, plugin);
+    this.customize = new CustomizePanel(this.app, plugin);
     this.inspector = new SceneInspector(this.app, plugin, store);
 
     // Re-render the active destination whenever projects, the log, or the active
@@ -455,22 +460,10 @@ export class InkswellView extends ItemView {
     return resolveSubtab(dest, this.subtab[mode], this.plugin.settings.disabledFeatures);
   }
 
-  /** Right-click "Hide <label>" on an optional tab/view → disable + toast. */
-  private attachHideMenu(el: HTMLElement, feature: FeatureId, label: string): void {
-    el.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-      const menu = new Menu();
-      menu.addItem((i) =>
-        i
-          .setTitle(`Hide ${label}`)
-          .setIcon("eye-off")
-          .onClick(() => {
-            void this.plugin.setFeatureEnabled(feature, false);
-            new Notice(`${label} hidden — re-enable in Settings → Features.`);
-          })
-      );
-      menu.showAtMouseEvent(e);
-    });
+  /** Deep-link into Customize: select a section (and optional sub-target), then show it. */
+  openCustomize(sectionId: string, target?: string): void {
+    this.customize.open(sectionId, target);
+    this.setMode("customize");
   }
 
   /** Phone "More → Capture idea" → the shared quick-capture flow. */
@@ -672,8 +665,8 @@ export class InkswellView extends ItemView {
           const b = bar.createEl("button", { cls: "inkswell-subtab", text: st.label });
           b.toggleClass("is-active", st.id === active);
           b.onclick = () => this.setMode(this.mode, st.id);
-          // Optional tabs can be hidden in place (re-enable in Settings → Features).
-          if (st.feature) this.attachHideMenu(b, st.feature, st.label);
+          // Optional tabs can be hidden in place (turn back on under Customize → Features).
+          if (st.feature) attachHideMenu(b, this.plugin, st.feature, st.label);
         }
       }
 
@@ -820,6 +813,11 @@ export class InkswellView extends ItemView {
         }
         return false;
       }
+      case "customize":
+        // Template-note writes from the Codex/Scene-template editors are
+        // self-marked; refresh the catalog + editor in place, never a teardown.
+        this.customize.softRefresh();
+        return true;
       default:
         return false;
     }
@@ -920,6 +918,9 @@ export class InkswellView extends ItemView {
       }
       case "help":
         this.help.render(panel);
+        break;
+      case "customize":
+        this.customize.render(panel);
         break;
     }
   }

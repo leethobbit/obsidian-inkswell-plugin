@@ -445,7 +445,7 @@ export class PlotGridPanel {
         if (scene.status) {
           sub.createSpan({
             cls: `inkswell-status inkswell-status--${scene.status}`,
-            text: statusLabel(scene.status),
+            text: statusLabel(scene.status, this.plugin.settings.listOverrides["scene.status"]),
           });
         }
         for (const v of this.visible) this.renderToggleCell(table, scene, v);
@@ -481,7 +481,7 @@ export class PlotGridPanel {
     if (scene.status) {
       chip.createSpan({
         cls: `inkswell-status inkswell-status--${scene.status}`,
-        text: statusLabel(scene.status),
+        text: statusLabel(scene.status, this.plugin.settings.listOverrides["scene.status"]),
       });
     }
     if (!scene.path) return; // missing file: visible but non-interactive

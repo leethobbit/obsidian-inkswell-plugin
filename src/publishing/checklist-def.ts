@@ -5,6 +5,8 @@
  * task at an existing Inkswell surface instead of duplicating it.
  */
 
+import { ListOverride, applyGroupedOverride } from "../lib/list-override";
+
 export interface ChecklistTaskDef {
   id: string;
   label: string;
@@ -18,6 +20,32 @@ export interface ChecklistPhaseDef {
   id: string;
   label: string;
   tasks: ChecklistTaskDef[];
+}
+
+/** List-specific fields a custom task may carry (see settings/overridable-lists). */
+export type PublishingExtra = { optional?: boolean; deepLink?: "compile" };
+
+/**
+ * The effective checklist: shipped phases/tasks minus hidden ones, renamed
+ * where the writer renamed them, plus custom phases and tasks. Render from this,
+ * never from PUBLISHING_CHECKLIST (AGENTS.md gotcha 17). Phases = groups.
+ */
+export function publishingChecklist(override?: ListOverride<PublishingExtra>): ChecklistPhaseDef[] {
+  const shipped = PUBLISHING_CHECKLIST.map((p) => ({ id: p.id, label: p.label, items: p.tasks }));
+  return applyGroupedOverride(shipped, override)
+    .filter((g) => !g.hidden)
+    .map((g) => ({
+      id: g.id,
+      label: g.label,
+      tasks: g.items
+        .filter((i) => !i.hidden)
+        .map((i) => {
+          const task: ChecklistTaskDef = { id: i.id, label: i.label };
+          if (i.extra.optional) task.optional = true;
+          if (i.extra.deepLink) task.deepLink = i.extra.deepLink;
+          return task;
+        }),
+    }));
 }
 
 export const PUBLISHING_CHECKLIST: ChecklistPhaseDef[] = [
