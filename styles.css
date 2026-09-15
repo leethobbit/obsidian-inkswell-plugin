@@ -236,6 +236,10 @@
 }
 .inkswell-inspector__textarea {
   resize: vertical;
+  /* Floor at ~3 lines (border-box: lines + padding). A prose field must read as
+     a prose field even before autosize has measured it, and a resize-drag can't
+     collapse it to a bare grip. */
+  min-height: 4.6em;
 }
 .inkswell-inspector__pair {
   display: flex;

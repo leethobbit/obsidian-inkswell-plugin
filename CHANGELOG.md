@@ -11,6 +11,7 @@ time the version bump renames that section to the new version and date.
 ## [Unreleased]
 
 ### Fixed
+- **Codex and scene text areas no longer collapse to a one-line sliver.** Multi-line fields (Motivation, Arc, Backstory, a scene's Synopsis…) were sized to their content before the panel was laid out, so they came up as a bare resize grip with the text hidden inside — easy to mistake for a broken input, and nothing hinted they could be dragged taller. They now start at four lines, grow with their content as you type, and never shrink below three.
 - **Tablets that Obsidian mistakes for phones can use the full layout.** Obsidian decides phone-vs-tablet from screen width, and some tablets (a 10" Galaxy Tab, for one) land on the wrong side — Inkswell then showed its phone layout and kept Plan and Publish behind a "needs a larger screen" notice. That notice now offers *Not a phone? Use the full layout*, and the same switch lives under Settings → Layout (it only appears on devices Obsidian flags as a phone, so desktop and correctly detected tablets see no new setting). Turning it on rebuilds the open view in place; turn it off to get the phone layout back. The notice also no longer says "iPad or desktop" when the fix is a tablet. Reported in [#41](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/41).
 
 ## [1.15.0] - 2026-09-11

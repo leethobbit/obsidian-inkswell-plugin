@@ -557,7 +557,7 @@ export class CodexPanel {
       if (field.type === "textarea") {
         const ta = control.createEl("textarea", { cls: "inkswell-inspector__textarea" });
         tagField(ta, `codex:${field.key}`);
-        ta.rows = 3;
+        ta.rows = 4; // prose fields (motivation, arc, voice…) — autosize grows from here
         ta.value = (profile[field.key] as string) ?? "";
         if (field.placeholder) ta.placeholder = field.placeholder;
         ta.onchange = () => void save(ta.value);
