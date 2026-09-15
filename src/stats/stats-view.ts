@@ -29,7 +29,7 @@ import { ProjectStats } from "../projects/project-stats";
 import { ProjectStore } from "../projects/project-store";
 import { baseDraft, draftLabel, groupIntoStories, storyOf } from "../projects/stories";
 import { Project, isMultiScene } from "../projects/types";
-import { SCENE_STATUSES, readSceneMeta, statusLabel } from "../scenes/scene-meta";
+import { SCENE_STATUSES, readSceneMeta, statusLabel, visibleStatuses } from "../scenes/scene-meta";
 import { sprintSeconds, sprintStats, sprintWpm } from "../sprints/sprint-stats";
 import { WritingTracker } from "../tracking/writing-tracker";
 import { dateKey, projectedDaily } from "../tracking/types";
@@ -325,8 +325,10 @@ export class StatsPanel {
     });
 
     body.createDiv({ cls: "inkswell-stats__muted", text: "By status" });
-    this.tallyBars(body, tallyBy(metas.map((m) => m.status), SCENE_STATUSES), (k) =>
-      SCENE_STATUSES.includes(k as never) ? statusLabel(k as never) : k
+    const statusOverride = this.plugin.settings.listOverrides["scene.status"];
+    const statusOrder = visibleStatuses(statusOverride).map((s) => s.id);
+    this.tallyBars(body, tallyBy(metas.map((m) => m.status), statusOrder), (k) =>
+      SCENE_STATUSES.includes(k as never) ? statusLabel(k as never, statusOverride) : k
     );
     body.createDiv({ cls: "inkswell-stats__muted", text: "By act" });
     // Order acts by first appearance in manuscript order (metas is in scene
@@ -446,7 +448,8 @@ export class StatsPanel {
       const f = this.app.vault.getAbstractFileByPath(s.path);
       return f instanceof TFile ? readSceneMeta(this.app, f).status : undefined;
     });
-    const tallies = tallyBy(statuses, SCENE_STATUSES);
+    const statusOverride = this.plugin.settings.listOverrides["scene.status"];
+    const tallies = tallyBy(statuses, visibleStatuses(statusOverride).map((s) => s.id));
     if (tallies.length === 0) {
       host.createSpan({ cls: "inkswell-stats__muted", text: "—" });
       return;
@@ -460,7 +463,7 @@ export class StatsPanel {
           : "inkswell-mixbar__seg inkswell-mixbar__seg--none",
       });
       seg.style.flexGrow = `${t.count}`;
-      const label = isStatus ? statusLabel(t.key as never) : t.key;
+      const label = isStatus ? statusLabel(t.key as never, statusOverride) : t.key;
       seg.setAttribute("aria-label", `${t.count} ${label}`);
     }
   }

@@ -16,6 +16,7 @@ import {
 } from "../../projects/cover";
 import { persistGoalsPatch, persistOverview } from "../../projects/index-writer";
 import { TargetModal } from "../../goals/target-modal";
+import { featureEnabled } from "../../features";
 import { ProjectStats } from "../../projects/project-stats";
 import { ProjectStore } from "../../projects/project-store";
 import { Project } from "../../projects/types";
@@ -88,7 +89,10 @@ export class HeroCard {
     );
     field("Theme", overview.theme, "The deeper meaning / life lesson…", (v) => saveOverview({ theme: v }));
 
-    this.renderHeroTarget(meta, focused, base);
+    // The word target + progress bar is part of the optional "tracking" feature.
+    if (featureEnabled(this.plugin.settings.disabledFeatures, "tracking")) {
+      this.renderHeroTarget(meta, focused, base);
+    }
   }
 
   /**

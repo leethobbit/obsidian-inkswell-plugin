@@ -18,7 +18,7 @@ import { tagScroller } from "../lib/scroll-preserve";
 import { addSceneMenuItems } from "../scenes/scene-actions";
 import { promptNewScene } from "./create-scene";
 import { EditSceneModal } from "../scenes/edit-scene-modal";
-import { readSceneMeta, statusLabel, writeSceneMeta } from "../scenes/scene-meta";
+import { readSceneMeta, sceneStatuses, statusLabel, writeSceneMeta } from "../scenes/scene-meta";
 import { renderEmptyState, renderEmptyStateAction } from "../views/panel-kit";
 import { applyOutline } from "./apply-outline";
 import { OutlineTree, buildOutline, moveScene } from "./outline";
@@ -105,7 +105,7 @@ export class BoardPanel {
     const cols =
       this.field === "act" || this.field === "chapter"
         ? buildOutlineColumns(this.outlineOf(project, items), this.field, items)
-        : buildColumns(items, this.field);
+        : buildColumns(items, this.field, sceneStatuses(this.plugin.settings.listOverrides["scene.status"]));
     this.columns = cols;
     const board = container.createDiv({ cls: "inkswell-board__cols" });
     tagScroller(board, "board-cols");
@@ -176,7 +176,7 @@ export class BoardPanel {
     if (this.field !== "status" && it.status) {
       head.createSpan({
         cls: `inkswell-status inkswell-status--${it.status}`,
-        text: statusLabel(it.status),
+        text: statusLabel(it.status, this.plugin.settings.listOverrides["scene.status"]),
       });
     }
     if (it.synopsis) {

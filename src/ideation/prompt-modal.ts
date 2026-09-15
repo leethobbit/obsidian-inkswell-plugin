@@ -11,6 +11,8 @@ import {
   PROMPT_CATEGORIES,
   PromptCategory,
   PromptPhase,
+  WRITING_PROMPTS,
+  WritingPrompt,
   pickPrompt,
 } from "./prompts";
 
@@ -38,7 +40,13 @@ export class PromptModal extends Modal {
 
   private textEl: HTMLElement | null = null;
 
-  constructor(app: App, init: PromptModalInit, onUse: (result: PromptModalResult) => void) {
+  constructor(
+    app: App,
+    init: PromptModalInit,
+    onUse: (result: PromptModalResult) => void,
+    /** The effective prompt bank (`writingPrompts(override)`); shipped by default. */
+    private bank: readonly WritingPrompt[] = WRITING_PROMPTS
+  ) {
     super(app);
     this.phase = init.phase;
     this.category = init.category;
@@ -104,12 +112,16 @@ export class PromptModal extends Modal {
 
   /** Re-pick a prompt for the current phase/category, avoiding an immediate repeat. */
   private repick(): void {
-    const picked = pickPrompt({
-      phase: this.phase,
-      category: this.category,
-      pov: this.pov,
-      exclude: this.text,
-    });
+    const picked = pickPrompt(
+      {
+        phase: this.phase,
+        category: this.category,
+        pov: this.pov,
+        exclude: this.text,
+      },
+      Math.random,
+      this.bank
+    );
     this.text = picked ? picked.text : "";
     this.renderText();
   }

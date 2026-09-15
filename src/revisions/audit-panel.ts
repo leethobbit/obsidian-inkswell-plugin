@@ -52,12 +52,15 @@ import {
 } from "./stylesheet";
 import {
   Checkpoint,
-  PAGE_GROUPS,
-  SCENE_CHECK_IDS,
-  STORY_CHECKPOINTS,
   auditProgress,
+  pageCheckIds,
+  pageGroups,
   sceneAuditRollup,
+  sceneCheckIds,
+  sceneCheckpoints,
+  storyCheckpoints,
 } from "./audit";
+import type { ListOverrides } from "../settings/overridable-lists";
 import { readSceneAudit } from "./audit-meta";
 import { OPENING_LABEL, OpeningType, classifyOpening, flagOpeningRuns } from "./openings";
 import {
@@ -82,7 +85,10 @@ export class AuditPanel {
     private markWrite?: (path: string) => void,
     /** Open a scene in the Write editor (optionally flashing a range). Falls
      *  back to a plain markdown tab when the host doesn't wire it. */
-    private onOpenInWrite?: (path: string, highlight?: SceneHighlight) => void
+    private onOpenInWrite?: (path: string, highlight?: SceneHighlight) => void,
+    /** The writer's Customize overrides (read at render time, never cached);
+     *  a thunk so the panel stays plugin-free for tests. */
+    private getListOverrides: () => ListOverrides = () => ({})
   ) {
     this.app = app;
     this.store = store;
@@ -120,14 +126,17 @@ export class AuditPanel {
     }
 
     const data = project.inkswell?.revisionChecklist;
-    const story = checklistProgress(data, "story");
-    const page = checklistProgress(data, "page");
+    const o = this.getListOverrides();
+    const storyItems = storyCheckpoints(o["audit.story"]);
+    const story = checklistProgress(data, "story", storyItems.map((c) => c.id));
+    const page = checklistProgress(data, "page", pageCheckIds(o["audit.page"]));
     const rollup = sceneAuditRollup(
       project.scenes.map((s) => ({
         title: s.title,
         path: s.path,
         checks: s.path ? this.checksFor(s.path) : {},
-      }))
+      })),
+      sceneCheckIds(o["audit.scene"])
     );
 
     const summary = container.createDiv({ cls: "inkswell-audit__summary" });
@@ -137,7 +146,7 @@ export class AuditPanel {
     });
 
     this.section(container, "audit-story", `Story-level (${story.done}/${story.total})`, (host) =>
-      this.renderTier(host, project, "story", STORY_CHECKPOINTS)
+      this.renderTier(host, project, "story", storyItems)
     );
     this.section(container, "audit-page", `Prose-level (${page.done}/${page.total})`, (host) =>
       this.renderPageTier(host, project)
@@ -174,7 +183,7 @@ export class AuditPanel {
   }
 
   /** Synchronous read of a scene's ticked checks from the metadata cache. */
-  private checksFor(path: string): Record<string, boolean> {
+  private checksFor(path: string): Partial<Record<string, boolean>> {
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!(file instanceof TFile)) return {};
     return readSceneAudit(this.app, file).checks;
@@ -192,7 +201,7 @@ export class AuditPanel {
 
   private renderPageTier(host: HTMLElement, project: Project): void {
     const state = tierState(project.inkswell?.revisionChecklist, "page");
-    for (const group of PAGE_GROUPS) {
+    for (const group of pageGroups(this.getListOverrides()["audit.page"])) {
       host.createDiv({ cls: "inkswell-audit__grouplabel", text: group.label });
       for (const cp of group.items) this.renderItem(host, project, "page", cp, state);
     }
@@ -260,7 +269,8 @@ export class AuditPanel {
 
   private renderSceneRow(host: HTMLElement, title: string, file: TFile): void {
     const audit = readSceneAudit(this.app, file);
-    const { done, total } = auditProgress(audit.checks, SCENE_CHECK_IDS);
+    const checkpoints = sceneCheckpoints(this.getListOverrides()["audit.scene"]);
+    const { done, total } = auditProgress(audit.checks, checkpoints.map((c) => c.id));
 
     const row = host.createEl("details", { cls: "inkswell-audit__scene" });
     const id = `scene:${file.path}`;
@@ -295,7 +305,8 @@ export class AuditPanel {
           badge.setText(`${n}/${total}`);
           badge.toggleClass("is-complete", n === total);
         },
-        this.markWrite
+        this.markWrite,
+        checkpoints
       );
     };
     if (row.open) build();

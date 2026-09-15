@@ -71,7 +71,7 @@ export class SceneRows {
         if (meta.status) {
           row.createSpan({
             cls: `inkswell-status inkswell-status--${meta.status}`,
-            text: statusLabel(meta.status),
+            text: statusLabel(meta.status, this.plugin.settings.listOverrides["scene.status"]),
           });
         }
       }

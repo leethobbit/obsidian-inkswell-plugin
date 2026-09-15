@@ -185,15 +185,18 @@ export function profileFields(category: string, spec?: FieldSpec[] | null): Prof
  */
 export const FIELDS_KEY = "codex-fields";
 
-/** One requested field: a frontmatter key plus an optional type hint. */
+/** One requested field: a frontmatter key plus an optional type hint and label. */
 export interface FieldSpec {
   key: string;
   /** Raw type hint as written (`text`, `textarea`, `list`, `links`, `links:character`, `links:character:labeled`, `link`, `link:world`). */
   type?: string;
+  /** Display label override (the map value's object form: `{ type, label }`).
+   *  Absent → a built-in field's shipped label, else derived from the key. */
+  label?: string;
 }
 
 /** Keys a template may not turn into panel fields (app-managed, or always present). */
-const RESERVED_FIELD_KEYS = new Set([
+export const RESERVED_FIELD_KEYS = new Set([
   "codex",
   "codex-series",
   "codex-project",
@@ -204,7 +207,9 @@ const RESERVED_FIELD_KEYS = new Set([
 /**
  * Parse a template's `codex-fields` value. Accepts a list of keys
  * (`[species, birthday]`) or a key → type map (`species: text`,
- * `history: textarea`, `allies: links:faction`, `owner: link:character`).
+ * `history: textarea`, `allies: links:faction`, `owner: link:character`). A map
+ * value may also be an object `{ type, label }` — the form the Customize editor
+ * writes when a field carries its own display label.
  * Reserved keys, blanks, duplicates, and non-string entries are skipped.
  * Returns null when the value is absent or not one of those shapes — callers
  * then use the shipped fields — and [] for an empty list (also = shipped).
@@ -213,13 +218,22 @@ export function parseFieldSpec(raw: unknown): FieldSpec[] | null {
   if (raw === undefined || raw === null) return null;
   const out: FieldSpec[] = [];
   const seen = new Set<string>();
-  const push = (keyRaw: unknown, typeRaw?: unknown): void => {
+  const push = (keyRaw: unknown, hintRaw?: unknown): void => {
     if (typeof keyRaw !== "string") return;
     const key = keyRaw.trim();
     if (!key || RESERVED_FIELD_KEYS.has(key) || seen.has(key)) return;
     seen.add(key);
-    const type = typeof typeRaw === "string" && typeRaw.trim() ? typeRaw.trim() : undefined;
-    out.push(type ? { key, type } : { key });
+    const spec: FieldSpec = { key };
+    if (typeof hintRaw === "string") {
+      if (hintRaw.trim()) spec.type = hintRaw.trim();
+    } else if (hintRaw && typeof hintRaw === "object" && !Array.isArray(hintRaw)) {
+      const rec = hintRaw as Record<string, unknown>;
+      const t = rec["type"];
+      const l = rec["label"];
+      if (typeof t === "string" && t.trim()) spec.type = t.trim();
+      if (typeof l === "string" && l.trim()) spec.label = l.trim();
+    }
+    out.push(spec);
   };
   if (Array.isArray(raw)) {
     for (const item of raw) {
@@ -256,6 +270,7 @@ function resolveSpecField(category: string, entry: FieldSpec): ProfileField {
   const base: ProfileField = known
     ? { ...known }
     : { key: entry.key, label: humanizeKey(entry.key), type: "text" };
+  if (entry.label) base.label = entry.label;
   if (!entry.type) return base;
   const hint = parseTypeHint(entry.type);
   if (!hint) return base;
@@ -267,6 +282,80 @@ function resolveSpecField(category: string, entry: FieldSpec): ProfileField {
     if (hint.labeled) next.labeled = true;
   }
   return next;
+}
+
+/** The shipped label for `key` in `category` (own set, generic set, then any
+ *  built-in's), or undefined when no shipped field uses that key. */
+export function knownFieldLabel(category: string, key: string): string | undefined {
+  return findKnownField(category, key)?.label;
+}
+
+/** The label a field gets with NO explicit label: shipped if known, else derived. */
+export function defaultFieldLabel(category: string, key: string): string {
+  return knownFieldLabel(category, key) ?? humanizeKey(key);
+}
+
+/** Every shipped field (the portrait, each built-in's set, the generic set) with
+ *  the category it ships in — the "add a built-in field" menu in Customize. */
+export function knownFieldsCatalog(): { field: ProfileField; source: string }[] {
+  const out: { field: ProfileField; source: string }[] = [{ field: IMAGE, source: "all" }];
+  for (const [cat, fields] of Object.entries(CATEGORY_FIELDS)) {
+    for (const field of fields) out.push({ field, source: cat });
+  }
+  for (const field of GENERIC_FIELDS) out.push({ field, source: "generic" });
+  return out;
+}
+
+/** The type hint that reproduces `field` through {@link parseTypeHint}. */
+export function fieldTypeHint(field: ProfileField): string {
+  if (field.type !== "links") return field.type;
+  const cat = field.linkCategory ? `:${field.linkCategory}` : "";
+  if (field.single) return `link${cat}`;
+  return `links${cat}${field.labeled ? ":labeled" : ""}`;
+}
+
+/**
+ * The spec entry that reproduces `field` for `category` through
+ * {@link resolveSpecField}. Always carries a type hint; carries a label only
+ * when it differs from the default (so shipped fields serialize compactly).
+ */
+export function fieldToSpec(field: ProfileField, category: string): FieldSpec {
+  const spec: FieldSpec = { key: field.key, type: fieldTypeHint(field) };
+  if (field.label !== defaultFieldLabel(category, field.key)) spec.label = field.label;
+  return spec;
+}
+
+/** One serialized `codex-fields` entry value: a bare hint, `{type,label}`, or null. */
+export type FieldSpecValue = string | { type?: string; label?: string } | null;
+
+/**
+ * The canonical `codex-fields` frontmatter value for `spec`: the key → hint map
+ * (`{ type, label }` objects where a label is set; null for "no hint"), which
+ * {@link parseFieldSpec} reads back to the same normalized spec. Keys that are
+ * all digits would be reordered by JS objects, so such a spec is emitted as the
+ * order-safe list-of-one-key-maps form instead. Reserved/blank/duplicate keys are
+ * dropped first, matching the parser.
+ */
+export function serializeFieldSpec(
+  spec: readonly FieldSpec[]
+): Record<string, FieldSpecValue> | Record<string, FieldSpecValue>[] {
+  const entries: [string, FieldSpecValue][] = [];
+  const seen = new Set<string>();
+  for (const s of spec) {
+    const key = s.key.trim();
+    if (!key || RESERVED_FIELD_KEYS.has(key) || seen.has(key)) continue;
+    seen.add(key);
+    const type = s.type?.trim() || undefined;
+    const label = s.label?.trim() || undefined;
+    let value: FieldSpecValue = null;
+    if (label) value = type ? { type, label } : { label };
+    else if (type) value = type;
+    entries.push([key, value]);
+  }
+  if (entries.some(([k]) => /^\d+$/.test(k))) {
+    return entries.map(([k, v]) => ({ [k]: v }));
+  }
+  return Object.fromEntries(entries);
 }
 
 function findKnownField(category: string, key: string): ProfileField | undefined {
@@ -287,7 +376,7 @@ function findKnownField(category: string, key: string): ProfileField | undefined
  * each link carry an alias-stored label (ignored for single `link`, which has
  * no chip to label).
  */
-function parseTypeHint(
+export function parseTypeHint(
   raw: string
 ): { type: ProfileFieldType; linkCategory?: string; single?: boolean; labeled?: boolean } | null {
   const [head, ...rest] = raw.trim().toLowerCase().split(":").map((s) => s.trim());

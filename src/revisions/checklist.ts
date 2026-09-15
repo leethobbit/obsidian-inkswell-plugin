@@ -69,13 +69,15 @@ export interface ChecklistProgress {
   total: number;
 }
 
-/** Count ticked items in a tier against that tier's full checkpoint set. */
+/** Count ticked items in a tier against its EFFECTIVE checkpoint ids
+ *  (`storyCheckpoints(o)` / `pageCheckIds(o)`; shipped by default). A hidden
+ *  item's tick counts toward neither done nor total. */
 export function checklistProgress(
   data: RevisionChecklistData | undefined,
-  tier: ChecklistTier
+  tier: ChecklistTier,
+  ids: readonly string[] = TIER_IDS[tier]
 ): ChecklistProgress {
   const state = tierState(data, tier);
-  const ids = TIER_IDS[tier];
   let done = 0;
   for (const id of ids) if (state[id]?.done) done += 1;
   return { done, total: ids.length };

@@ -13,7 +13,7 @@ import { ProjectStore } from "../../projects/project-store";
 import { baseDraftFor } from "../../projects/stories";
 import { Project } from "../../projects/types";
 import { projectSeries } from "../../series/series";
-import { PUBLISHING_CHECKLIST } from "../../publishing/checklist-def";
+import { publishingChecklist } from "../../publishing/checklist-def";
 import {
   ChecklistTaskState,
   FormatInfo,
@@ -72,7 +72,9 @@ export class ChecklistPanel {
     if (!(file instanceof TFile)) return;
     const data = project.inkswell?.publishing;
 
-    const overall = overallProgress(data);
+    // The EFFECTIVE checklist (Customize → Publishing checklist), read per render.
+    const phases = publishingChecklist(this.plugin.settings.listOverrides.publishing);
+    const overall = overallProgress(data, phases);
     container.createDiv({
       cls: "inkswell-stats__muted",
       text: `Self-publishing checklist — ${overall.done}/${overall.total} tasks done`,
@@ -82,8 +84,8 @@ export class ChecklistPanel {
       this.renderMetadata(host, project, file)
     );
 
-    for (const phase of PUBLISHING_CHECKLIST) {
-      const p = phaseProgress(data, phase.id);
+    for (const phase of phases) {
+      const p = phaseProgress(data, phase.id, phases);
       this.section(container, `pub-${phase.id}`, `${phase.label} (${p.done}/${p.total})`, (host) => {
         const state = data?.checklist?.[phase.id] ?? {};
         for (const task of phase.tasks) this.renderTask(host, file, phase.id, task, state[task.id]);

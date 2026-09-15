@@ -60,3 +60,13 @@ export function splitFrontmatter(text: string): SplitNote {
 export function stripFrontmatter(text: string): string {
   return splitFrontmatter(text).body;
 }
+
+/**
+ * `text` with its body replaced and its frontmatter block kept BYTE-FOR-BYTE
+ * (no YAML re-serialization — so a template's `codex-fields`, tags, and
+ * formatting survive a body edit exactly). A note with no frontmatter becomes
+ * just `body`.
+ */
+export function replaceBody(text: string, body: string): string {
+  return splitFrontmatter(text).frontmatter + body;
+}

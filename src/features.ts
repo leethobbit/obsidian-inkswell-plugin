@@ -23,7 +23,8 @@ export type FeatureId =
   | "analysis"
   | "checklist"
   | "launch"
-  | "prompts";
+  | "prompts"
+  | "tracking";
 
 /** Grouping label for the Settings → Features section. */
 export type FeatureGroup = "Planning" | "Revision" | "Publishing" | "Writing";
@@ -39,9 +40,11 @@ export interface FeatureDef {
 
 /**
  * Every optional feature, in the order (and grouping) the Settings section shows
- * them. Core surfaces (Home, Write, Track, Codex, Search, Help, Plan → Overview,
- * Structure → Tree, Revise → To-dos, Publish → Compile, sprints, ideas) are
- * deliberately absent — they can't be hidden.
+ * them. Core surfaces (Home, Write, Codex, Search, Help, Customize, Plan →
+ * Overview, Structure → Tree, Revise → To-dos, Publish → Compile, ideas) are
+ * deliberately absent — they can't be hidden. Track + sprints + goals hide
+ * together as one "tracking" feature (a whole destination, gated in the rail,
+ * More sheet, status bar, Write toolbar, hero card, and commands).
  */
 export const OPTIONAL_FEATURES: FeatureDef[] = [
   {
@@ -91,6 +94,14 @@ export const OPTIONAL_FEATURES: FeatureDef[] = [
     label: "Writing prompts",
     group: "Writing",
     desc: "The writing-prompt / ideation button on the Write toolbar.",
+  },
+  {
+    id: "tracking",
+    label: "Tracking",
+    group: "Writing",
+    desc:
+      "Word goals, writing sprints, the status-bar counter, and the Track dashboard. " +
+      "Words are still logged while hidden, so turning it back on shows the full history.",
   },
 ];
 

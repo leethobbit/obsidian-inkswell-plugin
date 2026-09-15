@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CodexSettings,
+  appearancesForEntity,
   createEntity,
   createEntityForProject,
   generateCodexTemplates,
@@ -381,5 +382,37 @@ describe("scenesForEntity", () => {
       entity("Amulet", "item", { scope: { project: "BookA" } })
     );
     expect(scoped.map((s) => s.path)).toEqual(["BookA/s1.md"]);
+  });
+});
+
+describe("appearancesForEntity (per book, POV flagged — #40)", () => {
+  it("groups by book in manuscript order, counts POV scenes, omits books with no hits", async () => {
+    const app = new FakeApp();
+    app.vault.seed("BookA/s1.md", "---\npov: \"[[Anna]]\"\n---\nAnna ran.\n");
+    app.vault.seed("BookA/s2.md", "---\npov: Ben\ncharacters:\n  - \"[[Anna]]\"\n---\nHe waited.\n");
+    app.vault.seed("BookA/s3.md", "No one here.\n");
+    app.vault.seed("BookB/s1.md", "---\npov: annie\n---\nAnnie again.\n");
+    app.vault.seed("BookC/s1.md", "Someone else entirely.\n");
+    const projects = [
+      makeProject("BookA/BookA.md", ["BookA/s1.md", "BookA/s2.md", "BookA/s3.md"]),
+      makeProject("BookB/BookB.md", ["BookB/s1.md"]),
+      makeProject("BookC/BookC.md", ["BookC/s1.md"]),
+    ];
+    const books = await appearancesForEntity(
+      app.asApp(),
+      projects,
+      entity("Anna", "character", { aliases: ["Annie"] })
+    );
+    expect(books.map((b) => b.title)).toEqual(["BookA/BookA.md", "BookB/BookB.md"]);
+    expect(books[0].scenes.map((s) => [s.file.basename, s.pov])).toEqual([
+      ["s1", true],
+      ["s2", false],
+    ]);
+    expect(books[0].povCount).toBe(1);
+    // Alias match on pov, case-insensitive, plain (unlinked) value.
+    expect(books[1].scenes.map((s) => [s.file.basename, s.pov])).toEqual([["s1", true]]);
+    // The flat wrapper still returns every file, sorted by basename.
+    const flat = await scenesForEntity(app.asApp(), projects, entity("Anna", "character", { aliases: ["Annie"] }));
+    expect(flat.map((f) => f.path).sort()).toEqual(["BookA/s1.md", "BookA/s2.md", "BookB/s1.md"]);
   });
 });

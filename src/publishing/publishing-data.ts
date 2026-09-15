@@ -7,7 +7,7 @@
  * applied as by-id ops (patchRow/addRow/removeRow) against current state.
  */
 
-import { PUBLISHING_CHECKLIST } from "./checklist-def";
+import { ChecklistPhaseDef, PUBLISHING_CHECKLIST } from "./checklist-def";
 
 export interface ChecklistTaskState {
   done?: boolean;
@@ -92,9 +92,14 @@ export interface Progress {
   total: number;
 }
 
-/** Done/total for one checklist phase (optional tasks still count toward total). */
-export function phaseProgress(data: PublishingData | undefined, phaseId: string): Progress {
-  const phase = PUBLISHING_CHECKLIST.find((p) => p.id === phaseId);
+/** Done/total for one checklist phase (optional tasks still count toward total).
+ *  `phases` is the EFFECTIVE checklist (`publishingChecklist(o)`); shipped by default. */
+export function phaseProgress(
+  data: PublishingData | undefined,
+  phaseId: string,
+  phases: readonly ChecklistPhaseDef[] = PUBLISHING_CHECKLIST
+): Progress {
+  const phase = phases.find((p) => p.id === phaseId);
   if (!phase) return { done: 0, total: 0 };
   const state = data?.checklist?.[phaseId] ?? {};
   let done = 0;
@@ -102,12 +107,15 @@ export function phaseProgress(data: PublishingData | undefined, phaseId: string)
   return { done, total: phase.tasks.length };
 }
 
-/** Done/total across every checklist phase. */
-export function overallProgress(data: PublishingData | undefined): Progress {
+/** Done/total across every (effective) checklist phase. */
+export function overallProgress(
+  data: PublishingData | undefined,
+  phases: readonly ChecklistPhaseDef[] = PUBLISHING_CHECKLIST
+): Progress {
   let done = 0;
   let total = 0;
-  for (const phase of PUBLISHING_CHECKLIST) {
-    const p = phaseProgress(data, phase.id);
+  for (const phase of phases) {
+    const p = phaseProgress(data, phase.id, phases);
     done += p.done;
     total += p.total;
   }

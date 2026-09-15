@@ -10,7 +10,7 @@
  */
 
 import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidian";
-import { isPhone, renderPhoneRedirect } from "../lib/platform";
+import { isMobileApp, isPhone, renderPhoneRedirect } from "../lib/platform";
 import { preserveFocus } from "../lib/focus-preserve";
 import { MarkKind } from "../lib/inline-format";
 import { KeyboardWatcher } from "./phone/keyboard-watch";
@@ -38,6 +38,8 @@ import { WritePanel, SceneHighlight } from "./write-panel";
 import { SearchPanel } from "./search-panel";
 import { SceneInspector } from "../scenes/scene-inspector";
 import { HelpPanel } from "../help/help-panel";
+import { CustomizePanel } from "../customize/customize-panel";
+import { attachHideMenu } from "../lib/hide-menu";
 import { renderHint } from "../help/hint";
 import { hintKey } from "../help/help-content";
 import { PhoneShell } from "./phone/phone-shell";
@@ -47,10 +49,10 @@ import {
   InkswellMode,
   PHONE_REDIRECTED,
   RAIL_FOOTER_GROUP,
+  destinationEnabled,
   enabledSubtabs,
   resolveSubtab,
 } from "./nav-model";
-import { FeatureId } from "../features";
 import type InkswellPlugin from "../../main";
 
 export const VIEW_TYPE_INKSWELL = "inkswell";
@@ -76,6 +78,7 @@ export class InkswellView extends ItemView {
   private launch: LaunchPanel;
   private search: SearchPanel;
   private help: HelpPanel;
+  private customize: CustomizePanel;
   private inspector: SceneInspector;
 
   private mode: InkswellMode = "home";
@@ -147,7 +150,8 @@ export class InkswellView extends ItemView {
       store,
       plugin.activeProject,
       (path) => plugin.selfWrites.mark(path),
-      (path, hl) => this.openSceneInWrite(path, hl)
+      (path, hl) => this.openSceneInWrite(path, hl),
+      () => plugin.settings.listOverrides
     );
     this.analysis = new AnalysisPanel(this.app, store, plugin.activeProject);
     this.compile = new CompilePanel(this.app, plugin, store);
@@ -165,8 +169,10 @@ export class InkswellView extends ItemView {
         const open = this.write.currentScenePath();
         if (open && changedPaths.includes(open)) this.write.handleExternalChange(open);
       },
+      getListOverrides: () => plugin.settings.listOverrides,
     });
     this.help = new HelpPanel(this.app, plugin);
+    this.customize = new CustomizePanel(this.app, plugin);
     this.inspector = new SceneInspector(this.app, plugin, store);
 
     // Re-render the active destination whenever projects, the log, or the active
@@ -212,6 +218,10 @@ export class InkswellView extends ItemView {
       item.dataset.dest = dest.id;
       item.setAttribute("aria-label", dest.label);
       item.onclick = () => this.setMode(dest.id);
+      // A feature-gated destination (Track) can be hidden in place like a sub-tab;
+      // visibility itself is applied per render (renderActive) since the rail is
+      // built once.
+      if (dest.feature) attachHideMenu(item, this.plugin, dest.feature, dest.label);
     }
 
     // Right of the rail: a persistent header (project selector) above the body.
@@ -229,7 +239,8 @@ export class InkswellView extends ItemView {
         openMoreSheet(
           e,
           (mode, subtab) => this.setMode(mode, subtab),
-          () => this.openCapture()
+          () => this.openCapture(),
+          this.plugin.settings.disabledFeatures
         ),
     });
     // Keep the bar flush above Obsidian's mobile navbar across orientation /
@@ -263,7 +274,10 @@ export class InkswellView extends ItemView {
     // navbar lift. Measure twice: once immediately, and again after Obsidian's
     // floating navbar finishes animating back in — measuring mid-animation
     // reads zero overlap and leaves the bar parked under the navbar.
-    if (isPhone()) {
+    // Gated on the DEVICE (mobile app), not the layout: the webview is just as
+    // keyboard-blind under the "use the full layout" override, and creating the
+    // watcher here means flipping that override never needs a view reopen.
+    if (isMobileApp()) {
       const keyboard = new KeyboardWatcher();
       this.register(
         keyboard.attach(root, () => {
@@ -452,22 +466,10 @@ export class InkswellView extends ItemView {
     return resolveSubtab(dest, this.subtab[mode], this.plugin.settings.disabledFeatures);
   }
 
-  /** Right-click "Hide <label>" on an optional tab/view → disable + toast. */
-  private attachHideMenu(el: HTMLElement, feature: FeatureId, label: string): void {
-    el.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-      const menu = new Menu();
-      menu.addItem((i) =>
-        i
-          .setTitle(`Hide ${label}`)
-          .setIcon("eye-off")
-          .onClick(() => {
-            void this.plugin.setFeatureEnabled(feature, false);
-            new Notice(`${label} hidden — re-enable in Settings → Features.`);
-          })
-      );
-      menu.showAtMouseEvent(e);
-    });
+  /** Deep-link into Customize: select a section (and optional sub-target), then show it. */
+  openCustomize(sectionId: string, target?: string): void {
+    this.customize.open(sectionId, target);
+    this.setMode("customize");
   }
 
   /** Phone "More → Capture idea" → the shared quick-capture flow. */
@@ -620,9 +622,18 @@ export class InkswellView extends ItemView {
     }
     this.pendingRender = false;
 
-    // Rail highlight (desktop/tablet) + bottom-bar highlight (phone).
+    // A destination whose feature was just hidden can't stay the active mode —
+    // fall back to Home rather than rendering a hidden surface.
+    const disabled = this.plugin.settings.disabledFeatures;
+    const current = DESTINATIONS.find((d) => d.id === this.mode);
+    if (current && !destinationEnabled(current, disabled)) this.mode = "home";
+
+    // Rail highlight (desktop/tablet) + bottom-bar highlight (phone). The rail
+    // is built once in onOpen, so feature-gated visibility is applied here.
     this.rail.querySelectorAll<HTMLElement>(".inkswell-rail__item").forEach((b) => {
       b.toggleClass("is-active", b.dataset.dest === this.mode);
+      const dest = DESTINATIONS.find((d) => d.id === b.dataset.dest);
+      b.toggleClass("is-hidden", !!dest && !destinationEnabled(dest, disabled));
     });
     if (isPhone()) {
       this.phone.setActive(this.mode);
@@ -669,8 +680,8 @@ export class InkswellView extends ItemView {
           const b = bar.createEl("button", { cls: "inkswell-subtab", text: st.label });
           b.toggleClass("is-active", st.id === active);
           b.onclick = () => this.setMode(this.mode, st.id);
-          // Optional tabs can be hidden in place (re-enable in Settings → Features).
-          if (st.feature) this.attachHideMenu(b, st.feature, st.label);
+          // Optional tabs can be hidden in place (turn back on under Customize → Features).
+          if (st.feature) attachHideMenu(b, this.plugin, st.feature, st.label);
         }
       }
 
@@ -817,6 +828,11 @@ export class InkswellView extends ItemView {
         }
         return false;
       }
+      case "customize":
+        // Template-note writes from the Codex/Scene-template editors are
+        // self-marked; refresh the catalog + editor in place, never a teardown.
+        this.customize.softRefresh();
+        return true;
       default:
         return false;
     }
@@ -835,7 +851,12 @@ export class InkswellView extends ItemView {
     // instead of a cramped, unusable layout (the "writing companion" scope).
     if (isPhone() && this.isRedirected(this.mode)) {
       const label = DESTINATIONS.find((d) => d.id === this.mode)?.label ?? "This view";
-      renderPhoneRedirect(content, label);
+      // The link is how a misdetected tablet (#41) finds the override: it flips
+      // the same setting as Settings → Layout, and the mutator rebuilds this view.
+      renderPhoneRedirect(content, label, () => {
+        void this.plugin.setForceTabletLayout(true);
+        new Notice("Full layout on — switch back under Settings → Layout.");
+      });
       return;
     }
 
@@ -912,6 +933,9 @@ export class InkswellView extends ItemView {
       }
       case "help":
         this.help.render(panel);
+        break;
+      case "customize":
+        this.customize.render(panel);
         break;
     }
   }

@@ -18,10 +18,11 @@ import {
   promptText,
 } from "../scenes/scene-actions";
 import {
+  BookAppearances,
+  appearancesForEntity,
   createEntityForProject,
   getCodexEntities,
   resolveEntityImage,
-  scenesForEntity,
   writeEntityScope,
 } from "./codex-store";
 import { firstMentionOffset, linkAlias, linkTarget, toLink } from "./codex";
@@ -44,10 +45,9 @@ import {
   CodexEntity,
   EntityScope,
   allCategories,
-  builtinCategories,
   categoryLabel,
 } from "./types";
-import { CategoryModal } from "./category-modal";
+import { openCategoryEditor } from "./category-actions";
 import { Project } from "../projects/types";
 import { groupIntoSeries } from "../series/series";
 import { baseDraft, groupIntoStories } from "../projects/stories";
@@ -260,24 +260,13 @@ export class CodexPanel {
     }
   }
 
-  /** Open the add-custom-type dialog; on submit persist + rebuild with it selected. */
+  /** Open the add-custom-type dialog; on submit rebuild with the new type selected.
+   *  (Persistence lives in category-actions, shared with Customize → Codex types.) */
   private openNewTypeModal(): void {
-    const merged = this.categories();
-    // Shipped built-in names stay reserved even when renamed away from (they're
-    // that built-in's template fallback), so a custom type can't take them.
-    const takenLabels = new Set(merged.map((c) => c.label.toLowerCase()));
-    for (const c of builtinCategories()) takenLabels.add(c.label.toLowerCase());
-    new CategoryModal(this.app, {
-      existing: null,
-      takenIds: merged.map((c) => c.id),
-      takenLabels: [...takenLabels],
-      onSubmit: async (def) => {
-        this.plugin.settings.customCategories.push(def);
-        await this.plugin.saveSettings();
-        this.pendingCategoryId = def.id;
-        this.plugin.refreshView();
-      },
-    }).open();
+    openCategoryEditor(this.app, this.plugin, null, (def) => {
+      this.pendingCategoryId = def.id;
+      this.plugin.refreshView();
+    });
   }
 
   private renderRow(parent: HTMLElement, icon: string, entity: CodexEntity): void {
@@ -366,13 +355,28 @@ export class CodexPanel {
       if (field.type === "image") continue;
       this.renderField(host, file, entity, fields, field, profile, entities);
     }
+    // Where the fields come from, and the door to changing them: Customize →
+    // Codex types → this type (the discovery path for "can I add a field?").
+    const src = host.createDiv({ cls: "inkswell-codex__fields-src inkswell-stats__muted" });
+    const customize = () => void this.plugin.openCustomize("codex-types", entity.category);
     if (template) {
-      const src = host.createDiv({ cls: "inkswell-codex__fields-src inkswell-stats__muted" });
       src.appendText("Fields from ");
       const link = src.createEl("a", { text: template.name });
       link.onclick = (e) => {
         e.preventDefault();
+        customize();
+      };
+      src.appendText(" · ");
+      const note = src.createEl("a", { text: "open note" });
+      note.onclick = (e) => {
+        e.preventDefault();
         openScene(this.app, template);
+      };
+    } else {
+      const link = src.createEl("a", { text: "Customize fields…" });
+      link.onclick = (e) => {
+        e.preventDefault();
+        customize();
       };
     }
 
@@ -383,22 +387,43 @@ export class CodexPanel {
     const token = ++this.appearsToken;
     this.field(host, "Appears in", (control) => {
       control.createSpan({ cls: "inkswell-stats__muted", text: "Scanning scenes…" });
-      void scenesForEntity(
+      void appearancesForEntity(
         this.app,
         this.plugin.store.getProjects(),
         entity,
         this.plugin.activeProject.get()
-      ).then((scenes) => {
+      ).then((books) => {
         if (token !== this.appearsToken) return;
         control.empty();
-        if (scenes.length === 0) {
+        if (books.length === 0) {
           control.createSpan({ cls: "inkswell-stats__muted", text: "No scenes mention this yet." });
           return;
         }
-        const wrap = control.createDiv({ cls: "inkswell-codex__refs" });
-        for (const s of scenes) {
-          const ref = wrap.createSpan({ cls: "inkswell-chip", text: s.basename });
-          ref.onclick = () => void this.openReferencingScene(s, entity);
+        // Grouped by book (a series character reads per book), scenes in
+        // manuscript order, POV scenes marked. One book → counts line only.
+        const counts = (b: BookAppearances): string =>
+          b.povCount > 0
+            ? `POV in ${b.povCount} · appears in ${b.scenes.length}`
+            : `appears in ${b.scenes.length} scene${b.scenes.length === 1 ? "" : "s"}`;
+        for (const book of books) {
+          const group = control.createDiv({ cls: "inkswell-codex__refbook" });
+          const head = group.createDiv({ cls: "inkswell-codex__refhead inkswell-stats__muted" });
+          if (books.length > 1) {
+            head.createSpan({ cls: "inkswell-codex__refbook-title", text: book.title });
+            head.appendText(` — ${counts(book)}`);
+          } else {
+            head.setText(counts(book));
+          }
+          const wrap = group.createDiv({ cls: "inkswell-codex__refs" });
+          for (const s of book.scenes) {
+            const ref = wrap.createSpan({ cls: "inkswell-chip", text: s.file.basename });
+            if (s.pov) {
+              ref.addClass("is-pov");
+              ref.setAttribute("aria-label", "POV scene");
+              ref.prepend(createSpan({ cls: "inkswell-codex__povtag", text: "POV" }));
+            }
+            ref.onclick = () => void this.openReferencingScene(s.file, entity);
+          }
         }
       });
     });
@@ -557,7 +582,7 @@ export class CodexPanel {
       if (field.type === "textarea") {
         const ta = control.createEl("textarea", { cls: "inkswell-inspector__textarea" });
         tagField(ta, `codex:${field.key}`);
-        ta.rows = 3;
+        ta.rows = 4; // prose fields (motivation, arc, voice…) — autosize grows from here
         ta.value = (profile[field.key] as string) ?? "";
         if (field.placeholder) ta.placeholder = field.placeholder;
         ta.onchange = () => void save(ta.value);

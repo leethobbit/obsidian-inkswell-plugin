@@ -48,10 +48,12 @@ import { LinkCandidate } from "../lib/link-complete";
 import { featureEnabled } from "../features";
 import { tryFileOp } from "../lib/notify";
 import { isPhone } from "../lib/platform";
+import { attachHideMenu } from "../lib/hide-menu";
 import { nearestIndexOf } from "../lib/text-locate";
 import { attachRowMenu } from "../lib/row-menu";
 import { addSceneMenuItems } from "../scenes/scene-actions";
 import { PromptModal } from "../ideation/prompt-modal";
+import { writingPrompts } from "../ideation/prompts";
 import { RevisionModal } from "../revisions/revision-modal";
 import { renderEmptyState } from "./panel-kit";
 import { preserveFocus, tagField } from "../lib/focus-preserve";
@@ -731,19 +733,23 @@ export class WritePanel implements HoverParent {
       if (c) c.toggleClass("nav-open", !c.hasClass("nav-open"));
     };
 
-    // Sprint group.
-    const sprintGroup = bar.createDiv({ cls: "inkswell-write__group" });
+    // Sprint group — part of the optional "tracking" feature. A sprint already
+    // running still shows its controls so it can be ended, hidden or not.
     const active = this.sprints.getActive();
-    if (active) {
-      sprintGroup.createSpan({
-        cls: "inkswell-stats__muted",
-        text: `Sprint: ${active.words}w · ${this.sprints.remainingSec()}s`,
-      });
-      const end = sprintGroup.createEl("button", { text: "End sprint" });
-      end.onclick = () => this.sprints.finish();
-    } else {
-      const sprint = sprintGroup.createEl("button", { text: "Start sprint" });
-      sprint.onclick = () => this.plugin.startSprint();
+    if (active || featureEnabled(this.plugin.settings.disabledFeatures, "tracking")) {
+      const sprintGroup = bar.createDiv({ cls: "inkswell-write__group" });
+      if (active) {
+        sprintGroup.createSpan({
+          cls: "inkswell-stats__muted",
+          text: `Sprint: ${active.words}w · ${this.sprints.remainingSec()}s`,
+        });
+        const end = sprintGroup.createEl("button", { text: "End sprint" });
+        end.onclick = () => this.sprints.finish();
+      } else {
+        const sprint = sprintGroup.createEl("button", { text: "Start sprint" });
+        sprint.onclick = () => this.plugin.startSprint();
+        attachHideMenu(sprint, this.plugin, "tracking", "tracking");
+      }
     }
 
     // Prompt group — separated from the sprint controls by a divider; the chosen
@@ -755,21 +761,8 @@ export class WritePanel implements HoverParent {
       });
       const promptBtn = promptGroup.createEl("button", { text: "Prompt" });
       promptBtn.onclick = () => this.openPromptModal();
-      // Right-click to hide (re-enable in Settings → Features).
-      promptBtn.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        const menu = new Menu();
-        menu.addItem((i) =>
-          i
-            .setTitle("Hide writing prompts")
-            .setIcon("eye-off")
-            .onClick(() => {
-              void this.plugin.setFeatureEnabled("prompts", false);
-              new Notice("Writing prompts hidden — re-enable in Settings → Features.");
-            })
-        );
-        menu.showAtMouseEvent(e);
-      });
+      // Right-click to hide (turn back on under Customize → Features).
+      attachHideMenu(promptBtn, this.plugin, "prompts", "writing prompts");
       const promptEl = promptGroup.createSpan({
         cls: "inkswell-write__prompt",
         text: this.promptText,
@@ -843,17 +836,28 @@ export class WritePanel implements HoverParent {
     const selChapter =
       selFile instanceof TFile ? readSceneMeta(this.app, selFile).chapter ?? "" : "";
 
-    let currentChapter = "";
+    // Contiguous runs of one chapter label (the Tree keeps chapters contiguous).
+    type Row = { scene: Project["scenes"][number]; file: TFile | null };
+    const runs: { chapter: string; rows: Row[] }[] = [];
     for (const scene of project.scenes) {
       const sceneFile = scene.path && this.app.vault.getAbstractFileByPath(scene.path);
       const file = sceneFile instanceof TFile ? sceneFile : null;
       const chapter = (file ? readSceneMeta(this.app, file).chapter : undefined) ?? "";
-      if (chapter !== currentChapter) {
-        currentChapter = chapter;
-        if (chapter) this.navGroupHead(nav, project, chapter, chapter === selChapter);
+      const last = runs[runs.length - 1];
+      if (last && last.chapter === chapter) last.rows.push({ scene, file });
+      else runs.push({ chapter, rows: [{ scene, file }] });
+    }
+    for (const run of runs) {
+      // A one-scene chapter collapses to a single row carrying the chapter name:
+      // a header plus one child says nothing the row can't say itself (#40).
+      if (run.chapter && run.rows.length === 1) {
+        const { scene, file } = run.rows[0];
+        this.navSceneRow(nav, project, scene, file, run.chapter);
+        continue;
       }
-      if (chapter && this.navCollapsed.has(chapter)) continue;
-      this.navSceneRow(nav, project, scene, file);
+      if (run.chapter) this.navGroupHead(nav, project, run.chapter, run.chapter === selChapter);
+      if (run.chapter && this.navCollapsed.has(run.chapter)) continue;
+      for (const { scene, file } of run.rows) this.navSceneRow(nav, project, scene, file);
     }
   }
 
@@ -886,10 +890,16 @@ export class WritePanel implements HoverParent {
     nav: HTMLElement,
     project: Project,
     scene: Project["scenes"][number],
-    file: TFile | null
+    file: TFile | null,
+    /** Set when this row stands in for a whole one-scene chapter. */
+    chapterLabel?: string
   ): void {
     const row = nav.createDiv({ cls: "inkswell-write__scene" });
     if (scene.path === this.selectedScene) row.addClass("is-active");
+    if (chapterLabel) {
+      row.addClass("is-chapter-row");
+      row.createSpan({ cls: "inkswell-write__scenechapter", text: chapterLabel });
+    }
     row.createSpan({ cls: "inkswell-scene__title", text: scene.title });
     if (file) {
       const meta = readSceneMeta(this.app, file);
@@ -1216,7 +1226,9 @@ export class WritePanel implements HoverParent {
         this.promptCategory = res.category;
         this.promptText = res.text;
         this.renderTopbar();
-      }
+      },
+      // The effective bank: shipped prompts minus hidden, plus the writer's own.
+      writingPrompts(this.plugin.settings.listOverrides.prompts)
     ).open();
   }
 

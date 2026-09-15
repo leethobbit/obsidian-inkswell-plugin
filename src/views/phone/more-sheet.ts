@@ -6,16 +6,20 @@
  * larger screen" redirect when tapped). Bar destinations aren't repeated here.
  */
 import { Menu } from "obsidian";
-import { Destination, InkswellMode, phoneMoreDestinations } from "../nav-model";
+import { Destination, InkswellMode, destinationEnabled, phoneMoreDestinations } from "../nav-model";
 
 export function openMoreSheet(
   e: MouseEvent,
   go: (mode: InkswellMode, subtab?: string) => void,
-  onCapture: () => void
+  onCapture: () => void,
+  /** Feature ids the writer hid — a gated destination (Track) drops out of the sheet. */
+  disabledFeatures: readonly string[] = []
 ): void {
   const menu = new Menu();
   menu.addItem((i) => i.setTitle("Capture idea").setIcon("plus").onClick(() => onCapture()));
-  const { usable, redirected } = phoneMoreDestinations();
+  const all = phoneMoreDestinations();
+  const usable = all.usable.filter((d) => destinationEnabled(d, disabledFeatures));
+  const redirected = all.redirected.filter((d) => destinationEnabled(d, disabledFeatures));
   const addRow = (d: Destination) =>
     menu.addItem((i) =>
       i

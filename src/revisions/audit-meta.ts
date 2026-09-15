@@ -14,7 +14,6 @@
 import type { App, TFile } from "obsidian";
 import { asRecord } from "../lib/frontmatter";
 import { ArcSnapshot, parseSceneArc, serializeSceneArc } from "./arc";
-import { SCENE_CHECK_IDS, SceneCheckId } from "./audit";
 import { OpeningType } from "./openings";
 
 const SCENE_KEY = "revScene";
@@ -30,8 +29,10 @@ const VERDICTS: SceneVerdict[] = ["keep", "cut", "merge"];
 const OPENINGS: OpeningType[] = ["action", "dialogue", "thought", "reflection", "unknown"];
 
 export interface SceneAudit {
-  /** Ticked scene-level checkpoints (only `true` ones are present). */
-  checks: Partial<Record<SceneCheckId, boolean>>;
+  /** Ticked scene-level checkpoints (only `true` ones are present). Keys are
+   *  shipped `SceneCheckId`s or custom `sc-…` ids from Customize; a stale id
+   *  (a since-removed custom) is read back too and simply not rendered. */
+  checks: Partial<Record<string, boolean>>;
   /** Freeform revision note for the scene. */
   note?: string;
   /** Lift-out test cascade note ("if removed, what breaks?"). */
@@ -46,7 +47,7 @@ export interface SceneAudit {
 
 /** A patch for `writeSceneAudit`: any subset of fields to set/clear. */
 export interface SceneAuditPatch {
-  checks?: Partial<Record<SceneCheckId, boolean>>;
+  checks?: Partial<Record<string, boolean>>;
   note?: string;
   purpose?: string;
   verdict?: SceneVerdict | "";
@@ -60,10 +61,11 @@ export function readSceneAudit(app: App, file: TFile): SceneAudit {
   const fm: Record<string, unknown> =
     app.metadataCache.getFileCache(file)?.frontmatter ?? {};
   const raw = fm[SCENE_KEY];
-  const checks: Partial<Record<SceneCheckId, boolean>> = {};
+  const checks: Partial<Record<string, boolean>> = {};
   if (raw && typeof raw === "object") {
-    for (const id of SCENE_CHECK_IDS) {
-      if ((raw as Record<string, unknown>)[id] === true) checks[id] = true;
+    // Every ticked key, not just the shipped 14 — custom checkpoints live here too.
+    for (const [id, v] of Object.entries(raw as Record<string, unknown>)) {
+      if (v === true) checks[id] = true;
     }
   }
   const note = typeof fm[NOTE_KEY] === "string" ? fm[NOTE_KEY] : undefined;
@@ -95,9 +97,9 @@ export async function writeSceneAudit(
   await app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
     if (patch.checks) {
       const cur: Record<string, unknown> = { ...asRecord(fm[SCENE_KEY]) };
-      for (const id of SCENE_CHECK_IDS) {
-        if (!(id in patch.checks)) continue;
-        if (patch.checks[id]) cur[id] = true;
+      // Only the ids in the patch are touched; unknown/stale ids already stored stay.
+      for (const [id, on] of Object.entries(patch.checks)) {
+        if (on) cur[id] = true;
         else delete cur[id];
       }
       if (Object.keys(cur).length === 0) delete fm[SCENE_KEY];

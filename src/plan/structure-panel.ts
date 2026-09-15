@@ -14,8 +14,9 @@
  * `container.empty()` when it self-rerenders (a Group-by change, a drag write).
  */
 
-import { App, Menu, Notice } from "obsidian";
+import { App } from "obsidian";
 import { FeatureId, featureEnabled } from "../features";
+import { attachHideMenu } from "../lib/hide-menu";
 import { preserveUi } from "../lib/scroll-preserve";
 import { renderHint } from "../help/hint";
 import { BoardPanel } from "../outliner/board-panel";
@@ -81,24 +82,6 @@ export class StructurePanel {
     }
   }
 
-  /** Right-click an optional view button to hide it (re-enable in Settings). */
-  private attachHideMenu(el: HTMLElement, feature: FeatureId, label: string): void {
-    el.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-      const menu = new Menu();
-      menu.addItem((i) =>
-        i
-          .setTitle(`Hide ${label}`)
-          .setIcon("eye-off")
-          .onClick(() => {
-            void this.plugin.setFeatureEnabled(feature, false);
-            new Notice(`${label} hidden — re-enable in Settings → Features.`);
-          })
-      );
-      menu.showAtMouseEvent(e);
-    });
-  }
-
   render(container: HTMLElement): void {
     this.container = container;
     container.empty();
@@ -120,8 +103,8 @@ export class StructurePanel {
         btn.toggleClass("is-active", v.id === this.view);
         btn.setAttribute("aria-label", `${v.label} view`);
         btn.onclick = () => this.setView(v.id);
-        // Right-click an optional view to hide it (re-enable in Settings → Features).
-        if (v.feature) this.attachHideMenu(btn, v.feature, `${v.label} view`);
+        // Right-click an optional view to hide it (turn back on under Customize → Features).
+        if (v.feature) attachHideMenu(btn, this.plugin, v.feature, `${v.label} view`);
       }
     }
 

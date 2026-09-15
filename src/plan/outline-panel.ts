@@ -108,7 +108,11 @@ export class OutlinePanel {
     for (const act of this.tree.acts) this.renderAct(container, act, fills);
 
     if (this.tree.looseChapters.length > 0) {
-      const box = this.bucket(container, "Chapters with no act", "chapter", null);
+      // A project that doesn't use acts at all shouldn't see an "Act" concept
+      // — its chapters are simply the top level. The bucket label only earns
+      // its place when acts exist and these chapters sit outside them (#40).
+      const label = this.tree.acts.length > 0 ? "Chapters with no act" : null;
+      const box = this.bucket(container, label, "chapter", null);
       for (const c of this.tree.looseChapters) this.renderChapter(box, c, null, fills);
     }
     if (this.tree.unassignedScenes.length > 0) {
@@ -286,9 +290,14 @@ export class OutlinePanel {
   }
 
   /** A labelled bucket container that is itself a drop target. */
-  private bucket(container: HTMLElement, label: string, accept: DragKind, target: null): HTMLElement {
+  private bucket(
+    container: HTMLElement,
+    label: string | null,
+    accept: DragKind,
+    target: null
+  ): HTMLElement {
     const box = container.createDiv({ cls: "inkswell-outline__bucket" });
-    box.createDiv({ cls: "inkswell-outline__subhead", text: label });
+    if (label) box.createDiv({ cls: "inkswell-outline__subhead", text: label });
     const body = box.createDiv({ cls: "inkswell-outline__children" });
     this.dropZone(body, (kind, id) => {
       if (kind !== accept) return;

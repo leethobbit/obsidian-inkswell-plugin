@@ -3,6 +3,7 @@ import {
   DESTINATIONS,
   PHONE_REDIRECTED,
   RAIL_GROUP_ORDER,
+  destinationEnabled,
   phoneBarDestinations,
   phoneMoreDestinations,
   phoneTabForMode,
@@ -18,7 +19,7 @@ describe("nav model", () => {
   it("splits the More sheet into usable rows then redirected ones", () => {
     const { usable, redirected } = phoneMoreDestinations();
     expect(usable.map((d) => d.id)).toEqual(["track", "revise", "help", "search"]);
-    expect(redirected.map((d) => d.id)).toEqual(["plan", "publish"]);
+    expect(redirected.map((d) => d.id)).toEqual(["plan", "publish", "customize"]);
     // Revise's sheet row jumps straight to the phone-usable Todos slice.
     expect(usable.find((d) => d.id === "revise")?.phone?.subtab).toBe("todos");
   });
@@ -32,7 +33,22 @@ describe("nav model", () => {
   });
 
   it("derives the redirect set from destination flags", () => {
-    expect([...PHONE_REDIRECTED].sort()).toEqual(["plan", "publish"]);
+    expect([...PHONE_REDIRECTED].sort()).toEqual(["customize", "plan", "publish"]);
+  });
+
+  it("gates the whole Track destination on the tracking feature; everything else is core", () => {
+    const track = DESTINATIONS.find((d) => d.id === "track");
+    expect(track?.feature).toBe("tracking");
+    expect(destinationEnabled(track!, [])).toBe(true);
+    expect(destinationEnabled(track!, ["tracking"])).toBe(false);
+    for (const d of DESTINATIONS) if (d.id !== "track") expect(d.feature).toBeUndefined();
+  });
+
+  it("gives Customize no sub-tabs (its catalog lives inside the panel)", () => {
+    const customize = DESTINATIONS.find((d) => d.id === "customize");
+    expect(customize).toBeDefined();
+    expect(customize?.subtabs).toBeUndefined();
+    expect(customize?.group).toBe("tools");
   });
 
   it("every destination has a unique id and an icon", () => {
@@ -89,6 +105,6 @@ describe("nav model", () => {
     expect(byGroup("hub")).toEqual(["home"]);
     expect(byGroup("pipeline")).toEqual(["plan", "write", "revise", "publish"]);
     expect(byGroup("insight")).toEqual(["codex", "track"]);
-    expect(byGroup("tools")).toEqual(["search", "help"]);
+    expect(byGroup("tools")).toEqual(["search", "customize", "help"]);
   });
 });

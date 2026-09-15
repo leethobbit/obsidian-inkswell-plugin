@@ -236,6 +236,10 @@
 }
 .inkswell-inspector__textarea {
   resize: vertical;
+  /* Floor at ~3 lines (border-box: lines + padding). A prose field must read as
+     a prose field even before autosize has measured it, and a resize-drag can't
+     collapse it to a bare grip. */
+  min-height: 4.6em;
 }
 .inkswell-inspector__pair {
   display: flex;
@@ -463,7 +467,7 @@
 .inkswell-codex__portrait.is-missing .inkswell-codex__portrait-placeholder {
   color: var(--text-error);
 }
-body.is-phone .inkswell-codex__portrait {
+body.inkswell-phone .inkswell-codex__portrait {
   width: 120px;
 }
 .inkswell-codex__fields-src {
@@ -472,6 +476,44 @@ body.is-phone .inkswell-codex__portrait {
 }
 .inkswell-codex__fields-src a {
   cursor: pointer;
+}
+/* "Appears in": grouped per book, POV scenes tagged. */
+.inkswell-codex__refbook + .inkswell-codex__refbook {
+  margin-top: var(--size-4-2);
+}
+.inkswell-codex__refhead {
+  font-size: var(--font-ui-smaller);
+  margin-bottom: 2px;
+}
+.inkswell-codex__refbook-title {
+  color: var(--text-normal);
+  font-weight: var(--font-medium);
+}
+.inkswell-codex__refs .inkswell-chip.is-pov {
+  box-shadow: inset 2px 0 0 var(--interactive-accent);
+}
+.inkswell-codex__povtag {
+  font-size: 0.7em;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.04em;
+  color: var(--text-accent);
+}
+/* Write navigator: a one-scene chapter shown as a single row. */
+.inkswell-write__scenechapter {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  flex: 0 0 auto;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inkswell-write__scenechapter::after {
+  content: " ·";
+}
+/* Rail: a feature-gated destination (Track) hidden by the writer. */
+.inkswell-rail__item.is-hidden {
+  display: none;
 }
 .inkswell-codex__refs {
   display: flex;
@@ -1883,7 +1925,7 @@ body.is-phone .inkswell-codex__portrait {
   line-height: inherit;
   vertical-align: top;
 }
-body.is-phone .inkswell-write__cm .cm-milestone-gutter {
+body.inkswell-phone .inkswell-write__cm .cm-milestone-gutter {
   display: none;
 }
 
@@ -3136,11 +3178,17 @@ body.is-phone .inkswell-write__cm .cm-milestone-gutter {
 /* ===================================================================
    Responsive / mobile adaptations
    -------------------------------------------------------------------
-   Layout keys off the body classes Obsidian adds: `is-mobile` (phone OR
-   tablet) and `is-phone` (narrow screens only). Desktop keeps the base
-   fixed-width layout untouched. Form factor here is a screen-WIDTH heuristic,
-   not device identity — there is no iPad-vs-iPhone or e-ink signal to key on.
-   Phone-only single-column + drawer rules live further down.
+   Two body classes, two meanings:
+     - `is-mobile` (Obsidian's; phone OR tablet) = a TOUCH device. Touch-target
+       sizing and the row-menu affordance key on it — they apply to tablets too.
+     - `inkswell-phone` (OURS; set by the plugin from `isPhone()` in
+       src/lib/platform.ts) = the PHONE LAYOUT: single column, bottom bar,
+       drawer navigator, redirected destinations. Never key layout on Obsidian's
+       `is-phone`: the user can override a misdetected tablet (#41), and that
+       override flips only our class.
+   Desktop keeps the base fixed-width layout untouched. Form factor is a
+   screen-WIDTH heuristic, not device identity — there is no iPad-vs-iPhone or
+   e-ink signal to key on. Phone-only single-column + drawer rules live further down.
    =================================================================== */
 
 /* --- Tablets + phones: shrink the multi-pane chrome so three columns still
@@ -3202,6 +3250,15 @@ body.is-mobile .inkswell-rowmenu {
   height: 18px;
 }
 
+/* --- Full layout on a device Obsidian flags as a phone (the #41 override):
+       Obsidian's fixed mobile navbar still overlays the bottom of the app
+       (its own views only pad the safe area because the nav auto-hides), so
+       keep our multi-pane content above it. This is the one legitimate use of
+       Obsidian's `is-phone` here — it's shell geometry, not layout. --- */
+body.is-phone:not(.inkswell-phone) .inkswell-host__main {
+  padding-bottom: calc(var(--mobile-toolbar-height, 0px) + var(--safe-area-inset-bottom, 0px));
+}
+
 /* --- Phone "use a larger screen" placeholder (redirected destinations). --- */
 .inkswell-phone-redirect {
   display: flex;
@@ -3229,6 +3286,18 @@ body.is-mobile .inkswell-rowmenu {
   font-size: var(--font-ui-small);
   line-height: var(--line-height-normal);
 }
+/* "Not a phone? Use the full layout" — the in-place escape hatch for tablets
+   Obsidian misclassifies (#41). A 44px hit area, like the other phone controls. */
+.inkswell-phone-redirect__link {
+  margin-top: var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-3);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--font-ui-small);
+  color: var(--text-accent);
+  cursor: pointer;
+}
 
 /* --- Phone: Write collapses to a single column. The scene navigator slides in
        as a drawer (toggled from the topbar); the inspector is hidden (its data
@@ -3239,7 +3308,7 @@ body.is-mobile .inkswell-rowmenu {
 .inkswell-write__backdrop {
   display: none;
 }
-body.is-phone .inkswell-write__navtoggle {
+body.inkswell-phone .inkswell-write__navtoggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3247,19 +3316,19 @@ body.is-phone .inkswell-write__navtoggle {
   min-height: 44px;
   margin-right: auto;
 }
-body.is-phone .inkswell-write__inspector {
+body.inkswell-phone .inkswell-write__inspector {
   display: none;
 }
 /* The writing-prompt control doesn't earn its width on a phone (and crowded the
    Insert control); drop it. Prompts remain available on tablet/desktop. */
-body.is-phone .inkswell-write__group--prompt {
+body.inkswell-phone .inkswell-write__group--prompt {
   display: none;
 }
-body.is-phone .inkswell-write__main {
+body.inkswell-phone .inkswell-write__main {
   position: relative;
   overflow: hidden;
 }
-body.is-phone .inkswell-write__nav {
+body.inkswell-phone .inkswell-write__nav {
   position: absolute;
   z-index: 20;
   top: 0;
@@ -3271,10 +3340,10 @@ body.is-phone .inkswell-write__nav {
   transition: transform 0.18s ease;
   box-shadow: 2px 0 12px rgba(0, 0, 0, 0.3);
 }
-body.is-phone .inkswell-write.nav-open .inkswell-write__nav {
+body.inkswell-phone .inkswell-write.nav-open .inkswell-write__nav {
   transform: translateX(0);
 }
-body.is-phone .inkswell-write.nav-open .inkswell-write__backdrop {
+body.inkswell-phone .inkswell-write.nav-open .inkswell-write__backdrop {
   display: block;
   position: absolute;
   inset: 0;
@@ -3287,10 +3356,10 @@ body.is-phone .inkswell-write.nav-open .inkswell-write__backdrop {
 .inkswell-bottombar {
   display: none;
 }
-body.is-phone .inkswell-rail {
+body.inkswell-phone .inkswell-rail {
   display: none;
 }
-body.is-phone .inkswell-bottombar {
+body.inkswell-phone .inkswell-bottombar {
   display: flex;
   align-items: stretch;
   flex-shrink: 0;
@@ -3316,22 +3385,22 @@ body.is-phone .inkswell-bottombar {
   font-size: var(--font-ui-smaller);
 }
 /* Obsidian's mobile theme styles bare <button>s as rounded, filled capsules
-   (`.is-mobile button` out-specifies a plain class). Override under body.is-phone
+   (`.is-mobile button` out-specifies a plain class). Override under body.inkswell-phone
    so the tabs read as one flat bar, not pills floating on a rectangle. */
-body.is-phone .inkswell-bottombar__tab,
-body.is-phone .inkswell-bottombar__tab:hover,
-body.is-phone .inkswell-bottombar__tab:focus {
+body.inkswell-phone .inkswell-bottombar__tab,
+body.inkswell-phone .inkswell-bottombar__tab:hover,
+body.inkswell-phone .inkswell-bottombar__tab:focus {
   background-color: transparent;
   border: none;
   border-radius: 0;
   box-shadow: none;
 }
 /* Touch press feedback: a brief, full-cell tint (no pill). */
-body.is-phone .inkswell-bottombar__tab:active {
+body.inkswell-phone .inkswell-bottombar__tab:active {
   background-color: var(--background-modifier-hover);
 }
 /* Selected tab: accent color + a top indicator line, the standard bottom-nav cue. */
-body.is-phone .inkswell-bottombar__tab.is-active {
+body.inkswell-phone .inkswell-bottombar__tab.is-active {
   color: var(--text-accent);
   box-shadow: inset 0 2px 0 0 var(--interactive-accent);
 }
@@ -3344,31 +3413,31 @@ body.is-phone .inkswell-bottombar__tab.is-active {
 }
 
 /* Single-column surfaces on phones */
-body.is-phone .inkswell-main {
+body.inkswell-phone .inkswell-main {
   flex-direction: column;
 }
-body.is-phone .inkswell-inspector-col {
+body.inkswell-phone .inkswell-inspector-col {
   width: 100%;
 }
 
 /* Codex master-detail → single-column drill-down. List screen hides the (empty)
    detail pane; the detail screen (.is-codex-detail) hides the list + toolbar and
    shows the detail full-width. */
-body.is-phone .inkswell-codex__body {
+body.inkswell-phone .inkswell-codex__body {
   flex-direction: column;
 }
-body.is-phone .inkswell-codex__list,
-body.is-phone .inkswell-codex__detail {
+body.inkswell-phone .inkswell-codex__list,
+body.inkswell-phone .inkswell-codex__detail {
   width: 100%;
 }
-body.is-phone .inkswell-codex__detail {
+body.inkswell-phone .inkswell-codex__detail {
   display: none;
 }
-body.is-phone .inkswell-codex.is-codex-detail .inkswell-codex__list,
-body.is-phone .inkswell-codex.is-codex-detail .inkswell-codex__toolbar {
+body.inkswell-phone .inkswell-codex.is-codex-detail .inkswell-codex__list,
+body.inkswell-phone .inkswell-codex.is-codex-detail .inkswell-codex__toolbar {
   display: none;
 }
-body.is-phone .inkswell-codex.is-codex-detail .inkswell-codex__detail {
+body.inkswell-phone .inkswell-codex.is-codex-detail .inkswell-codex__detail {
   display: block;
 }
 
@@ -3376,7 +3445,7 @@ body.is-phone .inkswell-codex.is-codex-detail .inkswell-codex__detail {
 .inkswell-phonehdr {
   display: none;
 }
-body.is-phone .inkswell-phonehdr {
+body.inkswell-phone .inkswell-phonehdr {
   display: flex;
   align-items: center;
   gap: var(--size-4-2);
@@ -3400,11 +3469,11 @@ body.is-phone .inkswell-phonehdr {
 
 /* Write: phone "Scene details" disclosure (the Inspector lives here when the
    side column is hidden). */
-body.is-phone .inkswell-write__scenemeta {
+body.inkswell-phone .inkswell-write__scenemeta {
   border-bottom: 1px solid var(--background-modifier-border);
   padding: 0 var(--size-4-3);
 }
-body.is-phone .inkswell-write__scenemeta > summary {
+body.inkswell-phone .inkswell-write__scenemeta > summary {
   cursor: pointer;
   min-height: 44px;
   display: flex;
@@ -3421,10 +3490,10 @@ body.is-phone .inkswell-write__scenemeta > summary {
    the UI. Absolute positioning resolves against the host's (correct) rect
    and dodges the bug. Phone-only: the rail is display:none there, so
    inset:0 overlays nothing; desktop/tablet keep the normal flex flow. */
-body.is-phone .inkswell-host {
+body.inkswell-phone .inkswell-host {
   position: relative;
 }
-body.is-phone .inkswell-host__main {
+body.inkswell-phone .inkswell-host__main {
   position: absolute;
   inset: 0;
 }
@@ -3435,36 +3504,36 @@ body.is-phone .inkswell-host__main {
    column (with its navbar lift) squeezes the content to nothing. While
    typing, the bar gets out of the way; tab-switching mid-edit isn't a flow
    to protect. */
-body.is-phone .inkswell-host.is-keyboard-open .inkswell-bottombar {
+body.inkswell-phone .inkswell-host.is-keyboard-open .inkswell-bottombar {
   display: none;
 }
 
 /* Form fields at ≥16px: sub-16px focused inputs trigger auto-zoom in mobile
    webviews — the "field takes over the screen" effect. Also comfortable
    touch heights for every profile/meta control. */
-body.is-phone .inkswell-inspector__control input,
-body.is-phone .inkswell-inspector__control select,
-body.is-phone .inkswell-inspector__control textarea,
-body.is-phone .inkswell-codex__toolbar input,
-body.is-phone .inkswell-codex__toolbar select {
+body.inkswell-phone .inkswell-inspector__control input,
+body.inkswell-phone .inkswell-inspector__control select,
+body.inkswell-phone .inkswell-inspector__control textarea,
+body.inkswell-phone .inkswell-codex__toolbar input,
+body.inkswell-phone .inkswell-codex__toolbar select {
   font-size: max(16px, var(--font-ui-medium));
 }
-body.is-phone .inkswell-inspector__control input,
-body.is-phone .inkswell-inspector__control select,
-body.is-phone .inkswell-codex__toolbar input,
-body.is-phone .inkswell-codex__toolbar select,
-body.is-phone .inkswell-inspector__addrow button {
+body.inkswell-phone .inkswell-inspector__control input,
+body.inkswell-phone .inkswell-inspector__control select,
+body.inkswell-phone .inkswell-codex__toolbar input,
+body.inkswell-phone .inkswell-codex__toolbar select,
+body.inkswell-phone .inkswell-inspector__addrow button {
   min-height: 44px;
 }
 
 /* Codex list toolbar: search + two selects + New don't fit one phone row —
    search spans the top, the selects and New share the second row. */
-body.is-phone .inkswell-codex__toolbar {
+body.inkswell-phone .inkswell-codex__toolbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   gap: var(--size-4-2);
 }
-body.is-phone .inkswell-codex__toolbar input[type="search"] {
+body.inkswell-phone .inkswell-codex__toolbar input[type="search"] {
   grid-column: 1 / -1;
 }
 
@@ -3546,6 +3615,340 @@ body.is-phone .inkswell-codex__toolbar input[type="search"] {
   border-radius: var(--radius-s);
   padding: 0 var(--size-4-1);
   font-size: var(--font-ui-smaller);
+}
+
+/* ---- Customize destination: catalog (left) + section editor (right) ---- */
+.inkswell-customize {
+  display: flex;
+  flex-direction: row;
+  gap: var(--size-4-4);
+  align-items: flex-start;
+  padding: var(--size-4-3) var(--size-4-4);
+  min-height: 0;
+}
+.inkswell-customize__catalog {
+  flex: 0 0 240px;
+  position: sticky;
+  top: 0;
+}
+.inkswell-customize__group {
+  margin: var(--size-4-3) 0 var(--size-4-1);
+  color: var(--text-accent);
+  border-left: 2px solid var(--interactive-accent);
+  padding-left: var(--size-4-2);
+  font-size: var(--font-ui-smaller);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.inkswell-customize__group:first-child {
+  margin-top: 0;
+}
+.inkswell-customize__row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-2);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+}
+.inkswell-customize__row:hover {
+  background-color: var(--background-modifier-hover);
+}
+.inkswell-customize__row.is-selected {
+  background-color: var(--background-modifier-active-hover);
+  box-shadow: inset 2px 0 0 var(--interactive-accent);
+}
+.inkswell-customize__icon {
+  display: inline-flex;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.inkswell-customize__text {
+  flex: 1;
+  min-width: 0;
+}
+.inkswell-customize__name {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  font-weight: var(--font-medium);
+}
+.inkswell-customize__badge {
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-normal);
+  color: var(--text-muted);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  padding: 0 var(--size-4-1);
+}
+.inkswell-customize__desc {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inkswell-customize__detail {
+  flex: 1;
+  min-width: 0;
+  max-width: 760px;
+}
+.inkswell-customize__head {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-customize__head h3 {
+  margin: 0;
+}
+.inkswell-customize__head .inkswell-customize__icon {
+  color: var(--interactive-accent);
+  margin-top: 0;
+}
+.inkswell-customize__hidden-note {
+  margin-bottom: var(--size-4-3);
+}
+/* Obsidian's Setting rows inside the editor read as a form, not a settings tab. */
+.inkswell-customize__body .setting-item {
+  padding: var(--size-4-2) 0;
+}
+.inkswell-customize__body .setting-item-heading {
+  padding-top: var(--size-4-3);
+}
+/* Section list pages (e.g. the codex types): clickable item rows with chips. */
+.inkswell-customize__items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--size-4-2) 0;
+}
+.inkswell-customize__item {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-3);
+  padding: var(--size-4-2) var(--size-4-3);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+}
+.inkswell-customize__item:hover {
+  background-color: var(--background-modifier-hover);
+}
+.inkswell-customize__chips {
+  display: flex;
+  gap: var(--size-4-1);
+  flex: 0 0 auto;
+}
+.inkswell-customize__item.is-static {
+  cursor: default;
+}
+.inkswell-customize__item.is-static:hover {
+  background: none;
+}
+.inkswell-customize__clickable {
+  cursor: pointer;
+}
+.inkswell-customize__pct {
+  width: 5em;
+  flex: 0 0 auto !important;
+  min-width: 0 !important;
+}
+.inkswell-beats__warning button {
+  margin-left: var(--size-4-2);
+}
+/* Override editors: hidden rows read as parked, custom rows carry a badge. */
+.inkswell-listedit__row.is-hidden .inkswell-listedit__body input[type="text"] {
+  color: var(--text-faint);
+  text-decoration: line-through;
+}
+.inkswell-customize__was {
+  font-size: var(--font-ui-smaller);
+  white-space: nowrap;
+}
+.inkswell-customize__groupsum {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+.inkswell-customize__grouphead {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-customize__grouphead input[type="text"] {
+  flex: 1;
+  min-width: 8ch;
+}
+.inkswell-customize__foot,
+.inkswell-customize__actions {
+  display: flex;
+  gap: var(--size-4-2);
+  align-items: center;
+  margin-top: var(--size-4-3);
+  flex-wrap: wrap;
+}
+/* Type / template pages. */
+.inkswell-customize__back {
+  display: inline-block;
+  margin-bottom: var(--size-4-2);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.inkswell-customize__back:hover {
+  color: var(--text-normal);
+}
+.inkswell-customize__typehead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-3);
+}
+.inkswell-customize__typehead h4 {
+  margin: 0;
+}
+.inkswell-customize__typehead .inkswell-customize__icon {
+  align-self: center;
+  color: var(--interactive-accent);
+}
+.inkswell-customize__card {
+  margin: 0 0 var(--size-4-3);
+  padding: var(--size-4-2) var(--size-4-4);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+.inkswell-customize__card > summary {
+  cursor: pointer;
+  font-weight: var(--font-semibold);
+  padding: var(--size-4-1) 0;
+}
+.inkswell-customize__cardbody {
+  padding: var(--size-4-2) 0 var(--size-4-1);
+}
+.inkswell-customize__kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--size-4-1) var(--size-4-4);
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-customize__kvrow {
+  display: contents;
+}
+.inkswell-customize__kvkey {
+  color: var(--text-muted);
+}
+.inkswell-customize__fieldsrc {
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-customize__key {
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  padding: 0 var(--size-4-1);
+}
+.inkswell-customize__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+/* Template body editor (codex starter content, Scene.md). */
+.inkswell-tplbody__text {
+  width: 100%;
+  resize: vertical;
+  min-height: 4.6em;
+  font-family: var(--font-text);
+}
+.inkswell-tplbody__hint {
+  margin-top: var(--size-4-1);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-tplbody__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-2);
+  font-size: var(--font-ui-smaller);
+}
+
+/* ---- Shared reorderable list editor (src/lib/list-editor.ts) ---- */
+.inkswell-listedit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.inkswell-listedit__row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-1) var(--size-4-2);
+  border-radius: var(--radius-s);
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+}
+.inkswell-listedit__row.is-dragging {
+  opacity: 0.4;
+}
+.inkswell-listedit__row.is-drop-above {
+  box-shadow: inset 0 2px 0 0 var(--interactive-accent);
+}
+.inkswell-listedit__row.is-drop-below {
+  box-shadow: inset 0 -2px 0 0 var(--interactive-accent);
+}
+.inkswell-listedit__grip {
+  color: var(--text-faint);
+  cursor: grab;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+.inkswell-listedit__row.is-pinned .inkswell-listedit__grip {
+  cursor: default;
+}
+.inkswell-listedit__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+.inkswell-listedit__body input[type="text"],
+.inkswell-listedit__body input[type="number"] {
+  flex: 1;
+  min-width: 8ch;
+}
+.inkswell-listedit__body select {
+  max-width: 14em;
+}
+.inkswell-listedit__empty {
+  padding: var(--size-4-2);
+}
+.inkswell-listedit__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-2);
+}
+.inkswell-listedit__reset {
+  margin-left: auto;
+  background: none;
+  box-shadow: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.inkswell-listedit__reset:hover {
+  color: var(--text-normal);
+}
+/* The ⋯ menu button reads as part of the row on touch devices. */
+.inkswell-listedit__row .inkswell-rowmenu {
+  flex: 0 0 auto;
 }
 
 /* ---- Help index destination ---- */

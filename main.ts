@@ -17,6 +17,7 @@ import { Idea, newIdeaId } from "./src/ideation/types";
 import { baseDraftFor } from "./src/projects/stories";
 import { backupPluginData } from "./src/lib/data-backup";
 import { MarkKind } from "./src/lib/inline-format";
+import { PHONE_BODY_CLASS, isPhone, setForceTabletLayout } from "./src/lib/platform";
 import { countWords } from "./src/lib/wordcount";
 import { promptText } from "./src/scenes/scene-actions";
 import { ActiveProject, resolveActive } from "./src/projects/active-project";
@@ -42,6 +43,7 @@ import {
   InkswellSettings,
   InkswellSettingTab,
 } from "./src/settings/settings";
+import { normalizeListOverrides } from "./src/settings/overridable-lists";
 import { WelcomeModal } from "./src/help/welcome-modal";
 import { SprintController } from "./src/sprints/sprint-controller";
 import { SprintModal } from "./src/sprints/sprint-modal";
@@ -74,6 +76,10 @@ export default class InkswellPlugin extends Plugin {
 
   async onload(): Promise<void> {
     await this.loadPersisted();
+    // Phone layout keys on our own body class (not Obsidian's is-phone) so the
+    // "use the full layout" override can flip it. Must not outlive the plugin.
+    this.applyFormFactor();
+    this.register(() => document.body.removeClass(PHONE_BODY_CLASS));
     // Daily rolling backup of data.json (settings, writing log, sprints,
     // ideas) — File Recovery never sees files outside the vault, so this is
     // that data's only safety net. Runs right after load so it captures the
@@ -162,7 +168,8 @@ export default class InkswellPlugin extends Plugin {
       this.tracker,
       this.sprints,
       () => this.settings.dailyWordGoal,
-      () => void this.openStats()
+      () => void this.openStats(),
+      () => featureEnabled(this.settings.disabledFeatures, "tracking")
     );
     this.register(() => this.statusBar?.destroy());
 
@@ -267,7 +274,8 @@ export default class InkswellPlugin extends Plugin {
     this.addCommand({
       id: "open-stats",
       name: "Open writing stats (Track)",
-      callback: () => this.openStats(),
+      checkCallback: (checking) =>
+        this.featureCommand(checking, "tracking", () => void this.openStats()),
     });
     this.addCommand({
       id: "open-compile",
@@ -353,10 +361,13 @@ export default class InkswellPlugin extends Plugin {
         new Notice(`Typewriter mode ${this.settings.typewriterMode ? "on" : "off"}`);
       },
     });
+    // Sprints belong to the "tracking" feature: hidden with it. End/cancel stay
+    // reachable while a sprint is actually running so one can't get stranded.
     this.addCommand({
       id: "start-sprint",
       name: "Start a writing sprint",
-      callback: () => this.startSprint(),
+      checkCallback: (checking) =>
+        this.featureCommand(checking, "tracking", () => this.startSprint()),
     });
     this.addCommand({
       id: "end-sprint",
@@ -423,9 +434,15 @@ export default class InkswellPlugin extends Plugin {
       callback: () => this.openHelp(),
     });
     this.addCommand({
+      id: "open-customize",
+      name: "Open customize",
+      callback: () => void this.openCustomize(),
+    });
+    // Kept under its old id so users' hotkeys survive; lands on the Features section.
+    this.addCommand({
       id: "manage-features",
       name: "Manage features",
-      callback: () => this.openFeatureSettings(),
+      callback: () => void this.openCustomize("features"),
     });
     this.addCommand({
       id: "quick-capture",
@@ -460,6 +477,7 @@ export default class InkswellPlugin extends Plugin {
     this.settings.customBeatTemplates = normalizeCustomBeatTemplates(
       this.settings.customBeatTemplates
     );
+    this.settings.listOverrides = normalizeListOverrides(this.settings.listOverrides);
     this.writingLog = Object.assign({}, emptyLog(), stored.writingLog ?? {});
     this.ideas = Array.isArray(stored.ideas) ? stored.ideas : [];
     this.activeProject = new ActiveProject(
@@ -581,22 +599,44 @@ export default class InkswellPlugin extends Plugin {
     return true;
   }
 
-  /** Enable/disable an optional feature (lossless — only gates UI) and re-render. */
-  async setFeatureEnabled(id: FeatureId, enabled: boolean): Promise<void> {
+  /** Enable/disable an optional feature (lossless — only gates UI) and re-render.
+   *  Customize passes `rerender: false`: it is the active view and re-renders
+   *  itself in place; a forced rebuild would tear down the toggle being clicked. */
+  async setFeatureEnabled(
+    id: FeatureId,
+    enabled: boolean,
+    opts: { rerender?: boolean } = {}
+  ): Promise<void> {
     const set = new Set(this.settings.disabledFeatures);
     if (enabled) set.delete(id);
     else set.add(id);
     this.settings.disabledFeatures = [...set];
     await this.saveSettings();
-    this.refreshView();
+    if (opts.rerender !== false) this.refreshView();
+    this.refreshStatus(); // the status-bar counter is part of "tracking"
   }
 
-  /** Open plugin settings to the Inkswell tab (the "Manage features" command). */
-  private openFeatureSettings(): void {
-    const setting = (this.app as unknown as { setting: { open(): void; openTabById(id: string): void } })
-      .setting;
-    setting.open();
-    setting.openTabById(this.manifest.id);
+  /** Open Customize, optionally deep-linked to a section (and a sub-target in it). */
+  openCustomize(sectionId?: string, target?: string): Promise<void> {
+    return this.openInkswell("customize", (view) => {
+      if (sectionId) view.openCustomize(sectionId, target);
+    });
+  }
+
+  /** Push the layout override into the platform module and mirror the result
+   *  onto <body> for the stylesheet. Idempotent; called on load and on toggle. */
+  private applyFormFactor(): void {
+    setForceTabletLayout(this.settings.forceTabletLayout);
+    document.body.toggleClass(PHONE_BODY_CLASS, isPhone());
+  }
+
+  /** "Use the full layout on this device" (#41): a tablet Obsidian flags as a
+   *  phone opts out of the phone layout. Rebuilds the open view in place. */
+  async setForceTabletLayout(on: boolean): Promise<void> {
+    this.settings.forceTabletLayout = on;
+    await this.saveSettings();
+    this.applyFormFactor();
+    this.refreshView();
   }
 
   refreshStatus(): void {
@@ -758,6 +798,10 @@ export default class InkswellPlugin extends Plugin {
       workspace.getLeavesOfType(VIEW_TYPE_INKSWELL)[0] ?? null;
     if (!leaf) {
       leaf = workspace.getLeaf("tab");
+      await leaf.setViewState({ type: VIEW_TYPE_INKSWELL, active: true });
+    } else if (!(leaf.view instanceof InkswellView)) {
+      // A leaf of our type whose view isn't ours: Obsidian's placeholder left
+      // behind when the plugin was disabled and re-enabled. Re-instantiate in place.
       await leaf.setViewState({ type: VIEW_TYPE_INKSWELL, active: true });
     }
     if (leaf.view instanceof InkswellView) {

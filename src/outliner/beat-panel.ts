@@ -79,13 +79,15 @@ export class BeatPanel {
     // notes stay visible/editable and reattach when the template comes back.
     // NEVER fall back to another template's beats over these assignments.
     if (resolved === null) {
-      container.createDiv({
-        cls: "inkswell-beats__warning",
-        text:
-          `Template "${sheet?.template ?? ""}" isn't available on this device — it may have ` +
-          "been deleted under Settings → Beat sheet templates. Your beat notes are preserved " +
-          "below; re-create the template (same name) or pick another to continue.",
-      });
+      const warn = container.createDiv({ cls: "inkswell-beats__warning" });
+      warn.appendText(
+        `Template "${sheet?.template ?? ""}" isn't available on this device — it may have ` +
+          "been deleted under Customize → Beat templates. Your beat notes are preserved " +
+          "below; re-create the template (same name) or pick another to continue. "
+      );
+      const open = warn.createEl("button", { text: "Open Customize" });
+      open.type = "button";
+      open.onclick = () => void this.plugin.openCustomize("beat-templates");
     }
     const template = resolved ?? synthesizeBeats(sheet?.assignments ?? {});
     const beats = mergeBeats(sheet, template);
@@ -124,7 +126,20 @@ export class BeatPanel {
       const o = tsel.createEl("option", { text: `${current} (missing)`, value: current });
       o.selected = true;
     }
-    tsel.onchange = () => this.setTemplate(project, tsel.value);
+    // Last option opens Customize instead of being a selection; the select snaps
+    // back so cancelling leaves the sheet's template untouched (same pattern as
+    // the Codex panel's "New type…").
+    const MANAGE = "__manage__";
+    tsel.createEl("option", { text: "Manage templates…", value: MANAGE });
+    const prev = tsel.value;
+    tsel.onchange = () => {
+      if (tsel.value === MANAGE) {
+        tsel.value = prev;
+        void this.plugin.openCustomize("beat-templates");
+        return;
+      }
+      this.setTemplate(project, tsel.value);
+    };
 
     const scaffold = bar.createEl("button", { text: "Scaffold structure" });
     scaffold.setAttribute(
@@ -235,7 +250,7 @@ export class BeatPanel {
         if (status) {
           chip.createSpan({
             cls: `inkswell-status inkswell-status--${status}`,
-            text: statusLabel(status),
+            text: statusLabel(status, this.plugin.settings.listOverrides["scene.status"]),
           });
         }
       }

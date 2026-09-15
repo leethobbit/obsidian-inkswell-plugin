@@ -6,29 +6,16 @@
  * it belongs in the project index's `inkswell` frontmatter.
  */
 
-import { App, Notice, PluginSettingTab, Setting, setIcon } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import type { SettingDefinition, SettingDefinitionItem } from "obsidian";
-import { tryFileOp } from "../lib/notify";
 import type InkswellPlugin from "../../main";
 import { OutputFormat } from "../compile/types";
 import { WeekStart } from "../goals/goals";
 import { WORD_CATEGORIES, WordCategory } from "../tracking/types";
-import { FeatureGroup, FeatureId, OPTIONAL_FEATURES, featureEnabled } from "../features";
-import { generateCodexTemplates, getCodexEntities } from "../codex/codex-store";
-import {
-  BuiltinCodexCategory,
-  CategoryDef,
-  CategoryOverrides,
-  allCategories,
-  builtinCategories,
-  defaultBuiltinDef,
-  takenLabelsForBuiltin,
-} from "../codex/types";
-import { CategoryModal } from "../codex/category-modal";
-import { BeatTemplateDef, allTemplateMeta } from "../outliner/custom-templates";
-import { BeatTemplateModal } from "../outliner/beat-template-modal";
-import { confirmDelete } from "../scenes/scene-actions";
-import { resolveTemplateFolder } from "./folders";
+import { CategoryDef, CategoryOverrides } from "../codex/types";
+import { BeatTemplateDef } from "../outliner/custom-templates";
+import { deviceFlaggedAsPhone } from "../lib/platform";
+import type { ListOverrides } from "./overridable-lists";
 import { resetHelpState } from "../help/hint";
 import { WelcomeModal } from "../help/welcome-modal";
 
@@ -133,6 +120,19 @@ export interface InkswellSettings {
   manuscriptTypography: boolean;
   /** Write editor: gutter tag where the scene's running count passes each multiple of N. 0 = off. */
   milestoneWords: number;
+  /**
+   * Ignore Obsidian's "this is a phone" classification and use the full
+   * (tablet/desktop) layout — for tablets Obsidian misdetects (#41). Only
+   * offered in Settings while the device IS flagged as a phone; a no-op elsewhere.
+   */
+  forceTabletLayout: boolean;
+  /**
+   * Customize's overrides for the shipped lists (revision checkpoints, the
+   * publishing checklist, writing prompts, scene statuses): lossless hide /
+   * rename / reorder / add, one optional entry per list id. Normalized on load
+   * (`normalizeListOverrides`). Absent key = shipped list verbatim.
+   */
+  listOverrides: ListOverrides;
 }
 
 export const DEFAULT_SETTINGS: InkswellSettings = {
@@ -168,6 +168,29 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   typewriterMode: false,
   manuscriptTypography: false,
   milestoneWords: 0,
+  forceTabletLayout: false,
+  listOverrides: {},
+};
+
+/**
+ * The pointer to the in-app Customize destination — the ONE row Settings keeps
+ * for shape-of-the-tool customization. Settings is for preferences; anything
+ * that reshapes Inkswell (types, fields, templates, structures, checklists,
+ * prompts, features) is a Customize section, never a Settings row.
+ */
+const CUSTOMIZE_ROW = {
+  name: "Customize Inkswell",
+  desc:
+    "Codex types and fields, starter templates, beat structures, scene statuses, writing " +
+    "prompts, checklists, and which features are shown — all edited inside Inkswell.",
+};
+
+/** Copy for the one platform-conditional row (shared by both renderers). */
+const LAYOUT_TOGGLE = {
+  name: "Use the full layout on this device",
+  desc:
+    "Obsidian classifies this screen as phone-sized, so Inkswell shows its phone layout and " +
+    "keeps Plan and Publish behind a “needs a larger screen” notice. Turn this on if you're on a tablet.",
 };
 
 /** Milestone spacing: 0 = off; anything else at least 100 words (a tag per few words is noise). */
@@ -308,6 +331,11 @@ export class InkswellSettingTab extends PluginSettingTab {
     const s = this.plugin.settings;
     const items: SettingDefinitionItem[] = [
       {
+        name: CUSTOMIZE_ROW.name,
+        desc: CUSTOMIZE_ROW.desc,
+        action: () => this.openCustomize(),
+      },
+      {
         name: "Default compile format",
         desc: "Format pre-selected when you open the compile dialog.",
         control: {
@@ -328,22 +356,6 @@ export class InkswellSettingTab extends PluginSettingTab {
         control: { type: "slider", key: "sceneHeadingLevel", min: 1, max: 6, step: 1 },
       },
     ];
-
-    // Features — one group per feature area, mirroring the tab's sub-headings.
-    let group: { type: "group"; heading: string; items: SettingDefinition[] } | null = null;
-    let lastGroup: FeatureGroup | null = null;
-    for (const f of OPTIONAL_FEATURES) {
-      if (f.group !== lastGroup) {
-        group = { type: "group", heading: f.group, items: [] };
-        items.push(group);
-        lastGroup = f.group;
-      }
-      group?.items.push({
-        name: f.label,
-        desc: f.desc,
-        control: { type: "toggle", key: `feature:${f.id}`, defaultValue: true },
-      });
-    }
 
     items.push(
       {
@@ -418,61 +430,24 @@ export class InkswellSettingTab extends PluginSettingTab {
           },
         ],
       },
-      {
+    );
+    // The only platform-conditional row: offered ONLY where it can do anything
+    // (Obsidian flagged this device as a phone). Desktop and correctly detected
+    // tablets never see it — one fewer toggle for everyone it doesn't concern.
+    if (deviceFlaggedAsPhone()) {
+      items.push({
         type: "group",
-        heading: "Codex types",
-        items: builtinCategories(s.categoryOverrides).map((cat) => ({
-          name: cat.label,
-          desc: this.builtinDesc(cat),
-          action: () => this.openBuiltinCategoryModal(cat.id as BuiltinCodexCategory),
-        })),
-      },
-      {
-        type: "list",
-        heading: "Custom Codex types",
-        emptyState:
-          "Add your own codex types (creatures, spells, ships…) next to the built-in seven.",
-        items: s.customCategories.map((cat) => ({
-          name: cat.label,
-          desc: `${cat.plural} · codex: ${cat.id}`,
-          action: () => this.openCategoryModal(cat),
-        })),
-        onDelete: (i) => {
-          const cat = this.plugin.settings.customCategories[i];
-          if (cat) void this.deleteCategory(cat);
-        },
-        addItem: { name: "Add custom type", action: () => this.openCategoryModal(null) },
-      },
-      {
-        type: "list",
-        heading: "Beat sheet templates",
-        emptyState:
-          "Add your own beat structures next to the built-in eight in Plan → Beats.",
-        items: s.customBeatTemplates.map((tpl) => ({
-          name: tpl.name,
-          desc: `${tpl.beats.length} beats · template: ${tpl.id}`,
-          action: () => this.openBeatTemplateModal(tpl),
-        })),
-        onDelete: (i) => {
-          const tpl = this.plugin.settings.customBeatTemplates[i];
-          if (tpl) void this.deleteBeatTemplate(tpl);
-        },
-        addItem: { name: "Add beat template", action: () => this.openBeatTemplateModal(null) },
-      },
-      {
-        type: "group",
-        heading: "Templates",
+        heading: "Layout",
         items: [
           {
-            name: "Generate starter templates",
-            desc:
-              "Create an editable note for each codex type — plus Scene.md for new scenes. " +
-              "New entries and scenes are scaffolded from the matching note's frontmatter and body. " +
-              "A codex-fields property on a type's template picks which fields the Codex panel shows.",
-            action: () => void this.generateTemplates(),
+            name: LAYOUT_TOGGLE.name,
+            desc: LAYOUT_TOGGLE.desc,
+            control: { type: "toggle", key: "forceTabletLayout", defaultValue: false },
           },
         ],
-      },
+      });
+    }
+    items.push(
       {
         type: "group",
         heading: "Help",
@@ -497,9 +472,6 @@ export class InkswellSettingTab extends PluginSettingTab {
 
   /** Resolve a definition key — virtual (`feature:`/`counts:`) or a settings field. */
   getControlValue(key: string): unknown {
-    if (key.startsWith("feature:")) {
-      return featureEnabled(this.plugin.settings.disabledFeatures, key.slice(8) as FeatureId);
-    }
     if (key.startsWith("counts:")) {
       return !this.plugin.settings.excludedFromGoals.includes(key.slice(7) as WordCategory);
     }
@@ -510,8 +482,8 @@ export class InkswellSettingTab extends PluginSettingTab {
    *  as the imperative tab (the two paths must never disagree). */
   async setControlValue(key: string, value: unknown): Promise<void> {
     const s = this.plugin.settings;
-    if (key.startsWith("feature:")) {
-      await this.plugin.setFeatureEnabled(key.slice(8) as FeatureId, !!value);
+    if (key === "forceTabletLayout") {
+      await this.plugin.setForceTabletLayout(!!value); // saves + swaps layout itself
       return;
     }
     if (key.startsWith("counts:")) {
@@ -606,293 +578,14 @@ export class InkswellSettingTab extends PluginSettingTab {
   }
 
   /**
-   * The "Features" section: a toggle per optional surface, grouped by area.
-   * Hiding is lossless (only rendering/commands are gated) — the intro says so.
+   * Hand off to the in-app Customize destination. The settings modal is closed
+   * first (else it sits over the view). `app.setting` is untyped in the public
+   * API, hence the guarded lookup.
    */
-  private renderFeatures(containerEl: HTMLElement): void {
-    new Setting(containerEl).setName("Features").setHeading();
-    containerEl.createEl("p", {
-      cls: "setting-item-description",
-      text:
-        "Hide surfaces you don't use to keep Inkswell lean. Hiding only hides — " +
-        "your notes and data are kept, and turning a feature back on restores everything. " +
-        "You can also right-click an optional tab in the app to hide it.",
-    });
-
-    let lastGroup: FeatureGroup | null = null;
-    for (const f of OPTIONAL_FEATURES) {
-      if (f.group !== lastGroup) {
-        new Setting(containerEl).setName(f.group).setHeading();
-        lastGroup = f.group;
-      }
-      new Setting(containerEl)
-        .setName(f.label)
-        .setDesc(f.desc)
-        .addToggle((t) =>
-          t
-            .setValue(featureEnabled(this.plugin.settings.disabledFeatures, f.id))
-            .onChange((v) => void this.plugin.setFeatureEnabled(f.id, v))
-        );
-    }
-  }
-
-  /**
-   * Re-render the tab after a mutation that changes its structure (custom
-   * codex types / beat templates added, edited, or deleted). On the
-   * declarative path (1.13+, where display() is never called) `update()`
-   * re-captures getSettingDefinitions() and re-renders; on older installs the
-   * imperative rebuild does it. Without the update() call the definitions stay
-   * as captured at plugin load, so new rows never appear and deleted ones
-   * linger until the plugin reloads.
-   */
-  private refreshTab(): void {
-    // SettingTab.update() ships with the declarative renderer (typed @since
-    // 1.13.0; present on the late-1.12 builds that render declaratively too).
-    // Looked up untyped because the API-floor linter can't model progressive
-    // enhancement — installs without it take the imperative rebuild instead,
-    // so no minAppVersion user loses anything. See AGENTS.md gotcha 12.
-    const update = (this as unknown as { update?: unknown }).update;
-    if (typeof update === "function") (update as () => void).call(this);
-    else this.rerender();
-  }
-
-  /** Delete a custom codex type after confirmation (shared by the imperative
-   *  trash button and the declarative list's delete affordance). */
-  private async deleteCategory(cat: CategoryDef): Promise<void> {
-    const n = getCodexEntities(this.app).filter((e) => e.category === cat.id).length;
-    const msg =
-      n > 0
-        ? `Delete the "${cat.label}" type? ${n} existing entr${n === 1 ? "y" : "ies"} ` +
-          "will show under Uncategorized — the notes themselves are not touched."
-        : `Delete the "${cat.label}" type?`;
-    if (!(await confirmDelete(this.app, msg))) return;
-    this.plugin.settings.customCategories = this.plugin.settings.customCategories.filter(
-      (c) => c.id !== cat.id
-    );
-    await this.plugin.saveSettings();
-    this.plugin.refreshView();
-    this.refreshTab();
-  }
-
-  /** Delete a custom beat template after confirmation (shared by the imperative
-   *  trash button and the declarative list's delete affordance). */
-  private async deleteBeatTemplate(tpl: BeatTemplateDef): Promise<void> {
-    const msg =
-      `Delete the "${tpl.name}" template? Projects using it keep every beat ` +
-      "note — they show a missing-template notice until you re-create it " +
-      "(same name) or pick another template.";
-    if (!(await confirmDelete(this.app, msg))) return;
-    this.plugin.settings.customBeatTemplates = this.plugin.settings.customBeatTemplates.filter(
-      (t) => t.id !== tpl.id
-    );
-    await this.plugin.saveSettings();
-    this.plugin.refreshView();
-    this.refreshTab();
-  }
-
-  /** Row description for a built-in type (flags a renamed one). */
-  private builtinDesc(cat: CategoryDef): string {
-    const shipped = defaultBuiltinDef(cat.id);
-    const renamed = shipped && shipped.label !== cat.label ? ` · renamed from ${shipped.label}` : "";
-    return `${cat.plural} · codex: ${cat.id}${renamed}`;
-  }
-
-  /**
-   * The "Codex types" section: the seven built-ins, each renameable (label,
-   * plural, icon) but never removable. Renaming touches no notes — the id in
-   * `codex:` is fixed — and the shipped template note keeps working.
-   */
-  private renderBuiltinCategories(containerEl: HTMLElement): void {
-    new Setting(containerEl).setName("Codex types").setHeading();
-    containerEl.createEl("p", {
-      cls: "setting-item-description",
-      text:
-        "The built-in types. Rename one (e.g. Factions → Groups, Concepts → Magic) or " +
-        "change its icon — entries keep their codex: id, so nothing in your notes " +
-        "changes, and its original template note keeps working. Built-ins can't be removed.",
-    });
-
-    for (const cat of builtinCategories(this.plugin.settings.categoryOverrides)) {
-      const row = new Setting(containerEl)
-        .setName(cat.label)
-        .setDesc(this.builtinDesc(cat))
-        .addButton((b) =>
-          b
-            .setButtonText("Edit")
-            .onClick(() => this.openBuiltinCategoryModal(cat.id as BuiltinCodexCategory))
-        );
-      const iconEl = createSpan({ cls: "inkswell-settings__caticon" });
-      setIcon(iconEl, cat.icon);
-      row.nameEl.prepend(iconEl);
-    }
-  }
-
-  /** Rename / re-icon a built-in type, or reset it to the shipped display. */
-  private openBuiltinCategoryModal(id: BuiltinCodexCategory): void {
-    const s = this.plugin.settings;
-    const current = builtinCategories(s.categoryOverrides).find((c) => c.id === id);
-    const shipped = defaultBuiltinDef(id);
-    if (!current || !shipped) return;
-    new CategoryModal(this.app, {
-      existing: current,
-      builtin: shipped,
-      takenIds: [],
-      takenLabels: takenLabelsForBuiltin(id, s.customCategories, s.categoryOverrides),
-      onSubmit: async (def: CategoryDef): Promise<void> => {
-        const next: CategoryOverrides = { ...s.categoryOverrides };
-        const o: Partial<CategoryDef> = {};
-        if (def.label !== shipped.label) o.label = def.label;
-        if (def.plural !== shipped.plural) o.plural = def.plural;
-        if (def.icon !== shipped.icon) o.icon = def.icon;
-        if (Object.keys(o).length > 0) next[id] = o;
-        else delete next[id];
-        s.categoryOverrides = next;
-        await this.plugin.saveSettings();
-        this.plugin.refreshView();
-        this.refreshTab();
-      },
-    }).open();
-  }
-
-  /**
-   * The "Custom codex types" section: the user's own categories alongside the
-   * seven built-ins. Add/edit go through CategoryModal; deleting a type never
-   * touches notes — its entries show as "Uncategorized" in the Codex panel.
-   */
-  private renderCustomCategories(containerEl: HTMLElement): void {
-    new Setting(containerEl).setName("Custom Codex types").setHeading();
-    containerEl.createEl("p", {
-      cls: "setting-item-description",
-      text:
-        "Add your own codex types (creatures, spells, ships…) next to the built-in " +
-        "seven. Entries get a generic profile — Aliases, Type, Description, " +
-        "Significance, Related entries — unless the type's template note lists its " +
-        "own fields with a codex-fields property (see Templates below).",
-    });
-
-    for (const cat of this.plugin.settings.customCategories) {
-      const row = new Setting(containerEl)
-        .setName(cat.label)
-        .setDesc(`${cat.plural} · codex: ${cat.id}`)
-        .addButton((b) =>
-          b.setButtonText("Edit").onClick(() => this.openCategoryModal(cat))
-        )
-        .addExtraButton((b) =>
-          b
-            .setIcon("trash")
-            .setTooltip("Delete")
-            .onClick(() => void this.deleteCategory(cat))
-        );
-      const iconEl = createSpan({ cls: "inkswell-settings__caticon" });
-      setIcon(iconEl, cat.icon);
-      row.nameEl.prepend(iconEl);
-    }
-
-    new Setting(containerEl).addButton((b) =>
-      b
-        .setButtonText("Add custom type")
-        .setCta()
-        .onClick(() => this.openCategoryModal(null))
-    );
-  }
-
-  /** Add-or-edit a custom codex type (shared by the tab and settings search). */
-  private openCategoryModal(existing: CategoryDef | null): void {
-    // Ids/labels a new or edited type may not collide with (excludes itself).
-    // Shipped built-in names stay reserved even when renamed away from (they're
-    // the built-in's fallback), so they're taken too.
-    const s = this.plugin.settings;
-    const others = allCategories(s.customCategories, s.categoryOverrides).filter(
-      (c) => c.id !== existing?.id
-    );
-    const takenLabels = new Set(others.map((c) => c.label.toLowerCase()));
-    for (const c of builtinCategories()) takenLabels.add(c.label.toLowerCase());
-    new CategoryModal(this.app, {
-      existing,
-      takenIds: others.map((c) => c.id),
-      takenLabels: [...takenLabels],
-      onSubmit: async (def: CategoryDef): Promise<void> => {
-        const list = this.plugin.settings.customCategories;
-        const i = list.findIndex((c) => c.id === def.id);
-        if (i >= 0) list[i] = def;
-        else list.push(def);
-        await this.plugin.saveSettings();
-        this.plugin.refreshView();
-        this.refreshTab();
-      },
-    }).open();
-  }
-
-  /**
-   * The "Beat sheet templates" section: the user's own beat structures alongside
-   * the built-in eight. Add/edit go through BeatTemplateModal; deleting one
-   * never touches project notes — sheets using it show a missing-template
-   * notice in Plan → Beats with every saved note intact.
-   */
-  private renderBeatTemplates(containerEl: HTMLElement): void {
-    new Setting(containerEl).setName("Beat sheet templates").setHeading();
-    containerEl.createEl("p", {
-      cls: "setting-item-description",
-      text:
-        "Add your own beat structures next to the built-in eight in Plan → Beats. " +
-        "Built-in templates can't be edited or removed. Deleting a custom template " +
-        "never touches your notes — projects using it show a missing-template notice " +
-        "with everything intact until you re-create it or pick another.",
-    });
-
-    for (const tpl of this.plugin.settings.customBeatTemplates) {
-      new Setting(containerEl)
-        .setName(tpl.name)
-        .setDesc(`${tpl.beats.length} beats · template: ${tpl.id}`)
-        .addButton((b) => b.setButtonText("Edit").onClick(() => this.openBeatTemplateModal(tpl)))
-        .addExtraButton((b) =>
-          b
-            .setIcon("trash")
-            .setTooltip("Delete")
-            .onClick(() => void this.deleteBeatTemplate(tpl))
-        );
-    }
-
-    new Setting(containerEl).addButton((b) =>
-      b
-        .setButtonText("Add beat template")
-        .setCta()
-        .onClick(() => this.openBeatTemplateModal(null))
-    );
-  }
-
-  /** Add-or-edit a custom beat template (shared by the tab and settings search). */
-  private openBeatTemplateModal(existing: BeatTemplateDef | null): void {
-    new BeatTemplateModal(this.app, {
-      existing,
-      takenIds: allTemplateMeta(this.plugin.settings.customBeatTemplates)
-        .map((m) => m.id)
-        .filter((id) => id !== existing?.id),
-      onSubmit: async (def: BeatTemplateDef): Promise<void> => {
-        const list = this.plugin.settings.customBeatTemplates;
-        const i = list.findIndex((t) => t.id === def.id);
-        if (i >= 0) list[i] = def;
-        else list.push(def);
-        await this.plugin.saveSettings();
-        this.plugin.refreshView();
-        this.refreshTab();
-      },
-    }).open();
-  }
-
-  /** Generate the starter template notes (shared by the tab and settings search). */
-  private async generateTemplates(): Promise<void> {
-    const templateFolder = resolveTemplateFolder(this.plugin.settings) || "(vault root)";
-    const created = await tryFileOp(
-      () => generateCodexTemplates(this.app, this.plugin.settings),
-      "Couldn't generate the starter templates."
-    );
-    if (created === null) return;
-    new Notice(
-      created.length > 0
-        ? `Created ${created.length} template${created.length === 1 ? "" : "s"} in "${templateFolder}".`
-        : "Templates already exist — nothing to create."
-    );
+  private openCustomize(): void {
+    const setting = (this.app as unknown as { setting?: { close?: unknown } }).setting;
+    if (setting && typeof setting.close === "function") (setting.close as () => void).call(setting);
+    void this.plugin.openCustomize();
   }
 
   /** Reset dismissed tips + replay the welcome modal (shared by tab and search). */
@@ -911,6 +604,11 @@ export class InkswellSettingTab extends PluginSettingTab {
   private rerender(): void {
     const { containerEl } = this;
     containerEl.empty();
+
+    new Setting(containerEl)
+      .setName(CUSTOMIZE_ROW.name)
+      .setDesc(CUSTOMIZE_ROW.desc)
+      .addButton((b) => b.setButtonText("Open customize").setCta().onClick(() => this.openCustomize()));
 
     new Setting(containerEl)
       .setName("Default compile format")
@@ -953,7 +651,6 @@ export class InkswellSettingTab extends PluginSettingTab {
           })
       );
 
-    this.renderFeatures(containerEl);
     this.renderWriteEditor(containerEl);
 
     new Setting(containerEl).setName("Goals & sprints").setHeading();
@@ -1137,26 +834,18 @@ export class InkswellSettingTab extends PluginSettingTab {
         })
       );
 
-    this.renderBuiltinCategories(containerEl);
-    this.renderCustomCategories(containerEl);
-    this.renderBeatTemplates(containerEl);
-
-    new Setting(containerEl).setName("Templates").setHeading();
-
-    const templateFolder = resolveTemplateFolder(this.plugin.settings) || "(vault root)";
-    new Setting(containerEl)
-      .setName("Generate starter templates")
-      .setDesc(
-        `Create an editable note for each codex type — plus Scene.md for new scenes — in ` +
-          `"${templateFolder}". New entries and scenes are scaffolded from the matching ` +
-          "note's frontmatter and body — add your own tags, fields, or sections (use " +
-          "{{title}} for the new note's name). Inkswell still sets codex:, scope, and a " +
-          "default scene status automatically. A codex-fields property on a type's template " +
-          "picks which fields the Codex panel shows for it. Delete a template to return to the default."
-      )
-      .addButton((b) =>
-        b.setButtonText("Generate starter templates").onClick(() => void this.generateTemplates())
-      );
+    // Mirrors the conditional "Layout" group in getSettingDefinitions().
+    if (deviceFlaggedAsPhone()) {
+      new Setting(containerEl).setName("Layout").setHeading();
+      new Setting(containerEl)
+        .setName(LAYOUT_TOGGLE.name)
+        .setDesc(LAYOUT_TOGGLE.desc)
+        .addToggle((t) =>
+          t
+            .setValue(this.plugin.settings.forceTabletLayout)
+            .onChange((v) => void this.plugin.setForceTabletLayout(v))
+        );
+    }
 
     new Setting(containerEl).setName("Help").setHeading();
 
