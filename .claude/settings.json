@@ -289,7 +289,9 @@
       "Bash(obsidian vault=dev-vault eval code=\"\\(\\(\\)=>{const el=app.setting.activeTab.containerEl;const names=[...el.querySelectorAll\\('.setting-item-name'\\)].map\\(e=>e.textContent\\);return JSON.stringify\\({hasLayout:names.includes\\('Layout'\\),hasToggle:names.includes\\('Use the full layout on this device'\\),count:names.length}\\);}\\)\\(\\)\")",
       "Bash(obsidian vault=dev-vault eval code=\"\\(\\(\\)=>{app.setting.close\\(\\); return 'closed';}\\)\\(\\)\")",
       "Bash(obsidian vault=dev-vault eval code=\"\\(\\(\\)=>{const sheets=[...document.querySelectorAll\\('style'\\)];const hit=sheets.find\\(s=>s.textContent.includes\\('inkswell-host'\\)\\);return JSON.stringify\\({pluginStyleFound:!!hit,hasRule:!!hit&&hit.textContent.includes\\(':not\\(.inkswell-phone\\)'\\),hasOldIsPhone:!!hit&&/body\\\\.is-phone \\\\.inkswell/.test\\(hit.textContent\\),len:hit&&hit.textContent.length}\\);}\\)\\(\\)\")",
-      "Bash(obsidian vault=dev-vault eval code=\"\\(\\(\\)=>{const main=document.querySelector\\('.inkswell-host__main'\\);return JSON.stringify\\({matches:main.matches\\('body.is-phone:not\\(.inkswell-phone\\) .inkswell-host__main'\\),bodyCls:document.body.className}\\);}\\)\\(\\)\")"
+      "Bash(obsidian vault=dev-vault eval code=\"\\(\\(\\)=>{const main=document.querySelector\\('.inkswell-host__main'\\);return JSON.stringify\\({matches:main.matches\\('body.is-phone:not\\(.inkswell-phone\\) .inkswell-host__main'\\),bodyCls:document.body.className}\\);}\\)\\(\\)\")",
+      "Bash(node -e \"console.log\\(require\\('./package.json'\\).version, require\\('./manifest.json'\\).version, require\\('./manifest.json'\\).minAppVersion, JSON.stringify\\(require\\('./versions.json'\\)\\)\\)\")",
+      "Bash(node -e \"const p=require\\('./package.json'\\).version,m=require\\('./manifest.json'\\).version,v=require\\('./versions.json'\\);console.log\\(JSON.stringify\\({package:p,manifest:m,versionsEntry:v[m],minApp:require\\('./manifest.json'\\).minAppVersion}\\)\\)\")"
     ],
     "additionalDirectories": [
       "X:\\DKB\\100 Interests\\102 Writing",

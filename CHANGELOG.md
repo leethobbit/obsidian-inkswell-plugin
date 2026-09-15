@@ -10,6 +10,10 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-09-15
+
+The customization release. A new **Customize** destination brings everything that shapes Inkswell — codex types and fields, templates, beat structures, statuses, prompts, checklists, feature visibility — inside the plugin, and the Settings tab shrinks to preferences. Also: a fix for tablets Obsidian mistakes for phones, per-book "Appears in" with POV counts, hideable tracking, and act-free outlines.
+
 ### Added
 - **Customize — shape Inkswell to your process, inside Inkswell.** A new *Customize* destination on the rail (next to Search and Help) gathers everything that changes the shape of the tool: **codex types & fields** (rename or add types; pick, reorder, rename, and type the fields each shows; edit what a new entry starts with), the **scene template**, **beat templates** (duplicate a built-in and edit its beats as rows, or as text), **scene statuses** (rename, hide, reorder), **writing prompts** (hide, reword, add your own), the **revision checklists** (Story / Scene / Prose — rename, reorder, hide, add), the **publishing checklist** (phases and tasks), and **which features are shown**. Everything saves as you edit; built-ins are never deleted — hiding is lossless, renames keep the stored id, and every section has a reset. Codex fields and starter content still live in the type's template note under your base folder's `Templates/` folder — Customize edits that note, and you can still open it directly. Requested across [#35](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/35), [#38](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/38), and [#40](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/40).
 - **Doors into Customize where you'd look for them.** The Codex panel's fields footer now reads *Customize fields…* (or links the template note's name to its Customize page); Plan → Beats gains a *Manage templates…* option in the template picker and an *Open Customize* button on the missing-template notice; the Help index links Customize; and the *Manage features* command lands on Customize → Features. The "Hide …" right-click toast now offers **Undo**.
@@ -327,7 +331,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.15.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.16.0...HEAD
+[1.16.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.15.0...1.16.0
 [1.15.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.14.0...1.15.0
 [1.14.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.13.0...1.14.0
 [1.13.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.12.0...1.13.0
