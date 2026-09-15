@@ -62,6 +62,9 @@ export interface Destination {
   phone?: PhonePlacement;
   /** Always shows the "use a larger screen" notice on phones. */
   phoneRedirect?: boolean;
+  /** Optional-feature id gating the WHOLE destination (rail item, More-sheet
+   *  row, commands); absent = core, always shown. */
+  feature?: FeatureId;
 }
 
 export const DESTINATIONS: Destination[] = [
@@ -130,6 +133,7 @@ export const DESTINATIONS: Destination[] = [
     icon: "bar-chart-3",
     group: "insight",
     phone: { slot: "more", order: 1 },
+    feature: "tracking",
   },
   // Tools — occasional utilities, floated to the bottom of the rail.
   {
@@ -192,6 +196,11 @@ export function phoneMoreDestinations(): { usable: Destination[]; redirected: De
 export function phoneTabForMode(mode: InkswellMode): string {
   const dest = DESTINATIONS.find((d) => d.id === mode);
   return dest?.phone?.slot === "bar" ? dest.id : "more";
+}
+
+/** Whether a destination is shown at all (its gating feature, if any, is on). */
+export function destinationEnabled(dest: Destination, disabled: readonly string[]): boolean {
+  return !dest.feature || featureEnabled(disabled, dest.feature);
 }
 
 /** A destination's sub-tabs with feature-gated ones dropped when disabled. */

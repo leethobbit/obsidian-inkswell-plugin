@@ -19,7 +19,9 @@ export class StatusBar {
     tracker: WritingTracker,
     sprints: SprintController,
     getGoal: () => number,
-    onClick: () => void
+    onClick: () => void,
+    /** The "tracking" feature toggle — hidden means the item disappears entirely. */
+    private isEnabled: () => boolean = () => true
   ) {
     this.el = el;
     this.tracker = tracker;
@@ -39,6 +41,11 @@ export class StatusBar {
   }
 
   render(): void {
+    if (!this.isEnabled()) {
+      this.el.hide();
+      return;
+    }
+    this.el.show();
     const active = this.sprints.getActive();
     if (active) {
       const rem = this.sprints.remainingSec();

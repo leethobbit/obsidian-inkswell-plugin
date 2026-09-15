@@ -477,6 +477,44 @@ body.inkswell-phone .inkswell-codex__portrait {
 .inkswell-codex__fields-src a {
   cursor: pointer;
 }
+/* "Appears in": grouped per book, POV scenes tagged. */
+.inkswell-codex__refbook + .inkswell-codex__refbook {
+  margin-top: var(--size-4-2);
+}
+.inkswell-codex__refhead {
+  font-size: var(--font-ui-smaller);
+  margin-bottom: 2px;
+}
+.inkswell-codex__refbook-title {
+  color: var(--text-normal);
+  font-weight: var(--font-medium);
+}
+.inkswell-codex__refs .inkswell-chip.is-pov {
+  box-shadow: inset 2px 0 0 var(--interactive-accent);
+}
+.inkswell-codex__povtag {
+  font-size: 0.7em;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.04em;
+  color: var(--text-accent);
+}
+/* Write navigator: a one-scene chapter shown as a single row. */
+.inkswell-write__scenechapter {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  flex: 0 0 auto;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inkswell-write__scenechapter::after {
+  content: " ·";
+}
+/* Rail: a feature-gated destination (Track) hidden by the writer. */
+.inkswell-rail__item.is-hidden {
+  display: none;
+}
 .inkswell-codex__refs {
   display: flex;
   flex-wrap: wrap;

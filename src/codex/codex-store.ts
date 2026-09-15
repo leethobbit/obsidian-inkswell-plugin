@@ -133,30 +133,78 @@ export async function scenesForEntity(
   entity: CodexEntity,
   activePath: string | null = null
 ): Promise<TFile[]> {
-  const files: TFile[] = [];
+  const books = await appearancesForEntity(app, projects, entity, activePath);
+  const out = books.flatMap((b) => b.scenes.map((s) => s.file));
+  out.sort((a, b) => a.basename.localeCompare(b.basename));
+  return out;
+}
+
+/** One scene an entity appears in, and whether it is that scene's POV character. */
+export interface SceneAppearance {
+  file: TFile;
+  /** The scene's `pov` names this entity (by name or alias). */
+  pov: boolean;
+}
+
+/** An entity's appearances in one book (one representative draft per story). */
+export interface BookAppearances {
+  project: Project;
+  /** The book's title (`longform.title`). */
+  title: string;
+  /** Scenes in MANUSCRIPT order. */
+  scenes: SceneAppearance[];
+  povCount: number;
+}
+
+/** Does this scene's `pov` frontmatter name the entity (name or alias, link or plain)? */
+function isPovOf(app: App, file: TFile, entity: CodexEntity): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- cast tames Obsidian's `any`-typed frontmatter
+  const fm = app.metadataCache.getFileCache(file)?.frontmatter as Record<string, unknown> | undefined;
+  const raw = fm?.["pov"];
+  if (typeof raw !== "string" || !raw.trim()) return false;
+  const pov = linkTarget(raw).trim().toLowerCase();
+  if (pov === entity.name.toLowerCase()) return true;
+  return entity.aliases.some((a) => a.trim().toLowerCase() === pov);
+}
+
+/**
+ * {@link scenesForEntity} grouped BY BOOK, each scene flagged when the entity is
+ * its POV character — so a series character's "Appears in" reads "Book 2: POV
+ * in 4, appears in 9" instead of one alphabetical pile across six books (#40).
+ * Books with no appearances are omitted; the active book's story comes first.
+ */
+export async function appearancesForEntity(
+  app: App,
+  projects: Project[],
+  entity: CodexEntity,
+  activePath: string | null = null
+): Promise<BookAppearances[]> {
+  const out: BookAppearances[] = [];
   const seen = new Set<string>();
   for (const project of representativeDrafts(projects, activePath)) {
     if (!isEntityVisible(entity, scopeContextForProject(project, projects))) continue;
+    const scenes: SceneAppearance[] = [];
     for (const scene of project.scenes) {
       if (!scene.path || seen.has(scene.path)) continue;
-      const f = app.vault.getAbstractFileByPath(scene.path);
-      if (f instanceof TFile) {
-        seen.add(scene.path);
-        files.push(f);
+      const file = app.vault.getAbstractFileByPath(scene.path);
+      if (!(file instanceof TFile)) continue;
+      seen.add(scene.path);
+      let appears = referencesByFrontmatter(app, file, entity.name);
+      if (!appears) {
+        const text = await app.vault.cachedRead(file);
+        appears = detectMentions(text, [entity]).length > 0;
       }
+      if (appears) scenes.push({ file, pov: isPovOf(app, file, entity) });
+    }
+    if (scenes.length > 0) {
+      out.push({
+        project,
+        title: project.draft.title,
+        scenes,
+        povCount: scenes.filter((s) => s.pov).length,
+      });
     }
   }
-
-  const out: TFile[] = [];
-  for (const file of files) {
-    if (referencesByFrontmatter(app, file, entity.name)) {
-      out.push(file);
-      continue;
-    }
-    const text = await app.vault.cachedRead(file);
-    if (detectMentions(text, [entity]).length > 0) out.push(file);
-  }
-  out.sort((a, b) => a.basename.localeCompare(b.basename));
   return out;
 }
 

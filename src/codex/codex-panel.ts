@@ -18,10 +18,11 @@ import {
   promptText,
 } from "../scenes/scene-actions";
 import {
+  BookAppearances,
+  appearancesForEntity,
   createEntityForProject,
   getCodexEntities,
   resolveEntityImage,
-  scenesForEntity,
   writeEntityScope,
 } from "./codex-store";
 import { firstMentionOffset, linkAlias, linkTarget, toLink } from "./codex";
@@ -386,22 +387,43 @@ export class CodexPanel {
     const token = ++this.appearsToken;
     this.field(host, "Appears in", (control) => {
       control.createSpan({ cls: "inkswell-stats__muted", text: "Scanning scenes…" });
-      void scenesForEntity(
+      void appearancesForEntity(
         this.app,
         this.plugin.store.getProjects(),
         entity,
         this.plugin.activeProject.get()
-      ).then((scenes) => {
+      ).then((books) => {
         if (token !== this.appearsToken) return;
         control.empty();
-        if (scenes.length === 0) {
+        if (books.length === 0) {
           control.createSpan({ cls: "inkswell-stats__muted", text: "No scenes mention this yet." });
           return;
         }
-        const wrap = control.createDiv({ cls: "inkswell-codex__refs" });
-        for (const s of scenes) {
-          const ref = wrap.createSpan({ cls: "inkswell-chip", text: s.basename });
-          ref.onclick = () => void this.openReferencingScene(s, entity);
+        // Grouped by book (a series character reads per book), scenes in
+        // manuscript order, POV scenes marked. One book → counts line only.
+        const counts = (b: BookAppearances): string =>
+          b.povCount > 0
+            ? `POV in ${b.povCount} · appears in ${b.scenes.length}`
+            : `appears in ${b.scenes.length} scene${b.scenes.length === 1 ? "" : "s"}`;
+        for (const book of books) {
+          const group = control.createDiv({ cls: "inkswell-codex__refbook" });
+          const head = group.createDiv({ cls: "inkswell-codex__refhead inkswell-stats__muted" });
+          if (books.length > 1) {
+            head.createSpan({ cls: "inkswell-codex__refbook-title", text: book.title });
+            head.appendText(` — ${counts(book)}`);
+          } else {
+            head.setText(counts(book));
+          }
+          const wrap = group.createDiv({ cls: "inkswell-codex__refs" });
+          for (const s of book.scenes) {
+            const ref = wrap.createSpan({ cls: "inkswell-chip", text: s.file.basename });
+            if (s.pov) {
+              ref.addClass("is-pov");
+              ref.setAttribute("aria-label", "POV scene");
+              ref.prepend(createSpan({ cls: "inkswell-codex__povtag", text: "POV" }));
+            }
+            ref.onclick = () => void this.openReferencingScene(s.file, entity);
+          }
         }
       });
     });

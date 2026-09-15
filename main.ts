@@ -168,7 +168,8 @@ export default class InkswellPlugin extends Plugin {
       this.tracker,
       this.sprints,
       () => this.settings.dailyWordGoal,
-      () => void this.openStats()
+      () => void this.openStats(),
+      () => featureEnabled(this.settings.disabledFeatures, "tracking")
     );
     this.register(() => this.statusBar?.destroy());
 
@@ -273,7 +274,8 @@ export default class InkswellPlugin extends Plugin {
     this.addCommand({
       id: "open-stats",
       name: "Open writing stats (Track)",
-      callback: () => this.openStats(),
+      checkCallback: (checking) =>
+        this.featureCommand(checking, "tracking", () => void this.openStats()),
     });
     this.addCommand({
       id: "open-compile",
@@ -359,10 +361,13 @@ export default class InkswellPlugin extends Plugin {
         new Notice(`Typewriter mode ${this.settings.typewriterMode ? "on" : "off"}`);
       },
     });
+    // Sprints belong to the "tracking" feature: hidden with it. End/cancel stay
+    // reachable while a sprint is actually running so one can't get stranded.
     this.addCommand({
       id: "start-sprint",
       name: "Start a writing sprint",
-      callback: () => this.startSprint(),
+      checkCallback: (checking) =>
+        this.featureCommand(checking, "tracking", () => this.startSprint()),
     });
     this.addCommand({
       id: "end-sprint",
@@ -608,6 +613,7 @@ export default class InkswellPlugin extends Plugin {
     this.settings.disabledFeatures = [...set];
     await this.saveSettings();
     if (opts.rerender !== false) this.refreshView();
+    this.refreshStatus(); // the status-bar counter is part of "tracking"
   }
 
   /** Open Customize, optionally deep-linked to a section (and a sub-target in it). */

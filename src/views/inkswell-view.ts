@@ -49,6 +49,7 @@ import {
   InkswellMode,
   PHONE_REDIRECTED,
   RAIL_FOOTER_GROUP,
+  destinationEnabled,
   enabledSubtabs,
   resolveSubtab,
 } from "./nav-model";
@@ -217,6 +218,10 @@ export class InkswellView extends ItemView {
       item.dataset.dest = dest.id;
       item.setAttribute("aria-label", dest.label);
       item.onclick = () => this.setMode(dest.id);
+      // A feature-gated destination (Track) can be hidden in place like a sub-tab;
+      // visibility itself is applied per render (renderActive) since the rail is
+      // built once.
+      if (dest.feature) attachHideMenu(item, this.plugin, dest.feature, dest.label);
     }
 
     // Right of the rail: a persistent header (project selector) above the body.
@@ -234,7 +239,8 @@ export class InkswellView extends ItemView {
         openMoreSheet(
           e,
           (mode, subtab) => this.setMode(mode, subtab),
-          () => this.openCapture()
+          () => this.openCapture(),
+          this.plugin.settings.disabledFeatures
         ),
     });
     // Keep the bar flush above Obsidian's mobile navbar across orientation /
@@ -616,9 +622,18 @@ export class InkswellView extends ItemView {
     }
     this.pendingRender = false;
 
-    // Rail highlight (desktop/tablet) + bottom-bar highlight (phone).
+    // A destination whose feature was just hidden can't stay the active mode —
+    // fall back to Home rather than rendering a hidden surface.
+    const disabled = this.plugin.settings.disabledFeatures;
+    const current = DESTINATIONS.find((d) => d.id === this.mode);
+    if (current && !destinationEnabled(current, disabled)) this.mode = "home";
+
+    // Rail highlight (desktop/tablet) + bottom-bar highlight (phone). The rail
+    // is built once in onOpen, so feature-gated visibility is applied here.
     this.rail.querySelectorAll<HTMLElement>(".inkswell-rail__item").forEach((b) => {
       b.toggleClass("is-active", b.dataset.dest === this.mode);
+      const dest = DESTINATIONS.find((d) => d.id === b.dataset.dest);
+      b.toggleClass("is-hidden", !!dest && !destinationEnabled(dest, disabled));
     });
     if (isPhone()) {
       this.phone.setActive(this.mode);

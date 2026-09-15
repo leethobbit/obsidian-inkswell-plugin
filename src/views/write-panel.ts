@@ -733,19 +733,23 @@ export class WritePanel implements HoverParent {
       if (c) c.toggleClass("nav-open", !c.hasClass("nav-open"));
     };
 
-    // Sprint group.
-    const sprintGroup = bar.createDiv({ cls: "inkswell-write__group" });
+    // Sprint group — part of the optional "tracking" feature. A sprint already
+    // running still shows its controls so it can be ended, hidden or not.
     const active = this.sprints.getActive();
-    if (active) {
-      sprintGroup.createSpan({
-        cls: "inkswell-stats__muted",
-        text: `Sprint: ${active.words}w · ${this.sprints.remainingSec()}s`,
-      });
-      const end = sprintGroup.createEl("button", { text: "End sprint" });
-      end.onclick = () => this.sprints.finish();
-    } else {
-      const sprint = sprintGroup.createEl("button", { text: "Start sprint" });
-      sprint.onclick = () => this.plugin.startSprint();
+    if (active || featureEnabled(this.plugin.settings.disabledFeatures, "tracking")) {
+      const sprintGroup = bar.createDiv({ cls: "inkswell-write__group" });
+      if (active) {
+        sprintGroup.createSpan({
+          cls: "inkswell-stats__muted",
+          text: `Sprint: ${active.words}w · ${this.sprints.remainingSec()}s`,
+        });
+        const end = sprintGroup.createEl("button", { text: "End sprint" });
+        end.onclick = () => this.sprints.finish();
+      } else {
+        const sprint = sprintGroup.createEl("button", { text: "Start sprint" });
+        sprint.onclick = () => this.plugin.startSprint();
+        attachHideMenu(sprint, this.plugin, "tracking", "tracking");
+      }
     }
 
     // Prompt group — separated from the sprint controls by a divider; the chosen
@@ -832,17 +836,28 @@ export class WritePanel implements HoverParent {
     const selChapter =
       selFile instanceof TFile ? readSceneMeta(this.app, selFile).chapter ?? "" : "";
 
-    let currentChapter = "";
+    // Contiguous runs of one chapter label (the Tree keeps chapters contiguous).
+    type Row = { scene: Project["scenes"][number]; file: TFile | null };
+    const runs: { chapter: string; rows: Row[] }[] = [];
     for (const scene of project.scenes) {
       const sceneFile = scene.path && this.app.vault.getAbstractFileByPath(scene.path);
       const file = sceneFile instanceof TFile ? sceneFile : null;
       const chapter = (file ? readSceneMeta(this.app, file).chapter : undefined) ?? "";
-      if (chapter !== currentChapter) {
-        currentChapter = chapter;
-        if (chapter) this.navGroupHead(nav, project, chapter, chapter === selChapter);
+      const last = runs[runs.length - 1];
+      if (last && last.chapter === chapter) last.rows.push({ scene, file });
+      else runs.push({ chapter, rows: [{ scene, file }] });
+    }
+    for (const run of runs) {
+      // A one-scene chapter collapses to a single row carrying the chapter name:
+      // a header plus one child says nothing the row can't say itself (#40).
+      if (run.chapter && run.rows.length === 1) {
+        const { scene, file } = run.rows[0];
+        this.navSceneRow(nav, project, scene, file, run.chapter);
+        continue;
       }
-      if (chapter && this.navCollapsed.has(chapter)) continue;
-      this.navSceneRow(nav, project, scene, file);
+      if (run.chapter) this.navGroupHead(nav, project, run.chapter, run.chapter === selChapter);
+      if (run.chapter && this.navCollapsed.has(run.chapter)) continue;
+      for (const { scene, file } of run.rows) this.navSceneRow(nav, project, scene, file);
     }
   }
 
@@ -875,10 +890,16 @@ export class WritePanel implements HoverParent {
     nav: HTMLElement,
     project: Project,
     scene: Project["scenes"][number],
-    file: TFile | null
+    file: TFile | null,
+    /** Set when this row stands in for a whole one-scene chapter. */
+    chapterLabel?: string
   ): void {
     const row = nav.createDiv({ cls: "inkswell-write__scene" });
     if (scene.path === this.selectedScene) row.addClass("is-active");
+    if (chapterLabel) {
+      row.addClass("is-chapter-row");
+      row.createSpan({ cls: "inkswell-write__scenechapter", text: chapterLabel });
+    }
     row.createSpan({ cls: "inkswell-scene__title", text: scene.title });
     if (file) {
       const meta = readSceneMeta(this.app, file);

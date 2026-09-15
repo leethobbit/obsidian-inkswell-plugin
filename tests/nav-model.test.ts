@@ -3,6 +3,7 @@ import {
   DESTINATIONS,
   PHONE_REDIRECTED,
   RAIL_GROUP_ORDER,
+  destinationEnabled,
   phoneBarDestinations,
   phoneMoreDestinations,
   phoneTabForMode,
@@ -33,6 +34,14 @@ describe("nav model", () => {
 
   it("derives the redirect set from destination flags", () => {
     expect([...PHONE_REDIRECTED].sort()).toEqual(["customize", "plan", "publish"]);
+  });
+
+  it("gates the whole Track destination on the tracking feature; everything else is core", () => {
+    const track = DESTINATIONS.find((d) => d.id === "track");
+    expect(track?.feature).toBe("tracking");
+    expect(destinationEnabled(track!, [])).toBe(true);
+    expect(destinationEnabled(track!, ["tracking"])).toBe(false);
+    for (const d of DESTINATIONS) if (d.id !== "track") expect(d.feature).toBeUndefined();
   });
 
   it("gives Customize no sub-tabs (its catalog lives inside the panel)", () => {
