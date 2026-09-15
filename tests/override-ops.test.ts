@@ -50,6 +50,14 @@ describe("override ops", () => {
     expect(p.added?.[0]).toEqual({ id: "wp-1", label: "x", phase: "revise" });
   });
 
+  it("patchItem on a SHIPPED item records an extras override (and never touches label)", () => {
+    const p = patchItem<{ phase: string }>(undefined, "p1", { phase: "revise", label: "nope" } as never);
+    expect(p.extras).toEqual({ p1: { phase: "revise" } });
+    expect(p.labels).toEqual({});
+    const again = patchItem(p, "p1", { phase: "draft" } as never);
+    expect(again.extras).toEqual({ p1: { phase: "draft" } });
+  });
+
   it("groups: rename shipped (cleared when equal), add custom, remove custom with its items", () => {
     const groups = [{ id: "g1", label: "One", items: [{ id: "a", label: "A" }] }];
     let o = setGroupLabel(undefined, "g1", "First", "One");

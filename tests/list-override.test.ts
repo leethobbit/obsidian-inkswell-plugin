@@ -49,6 +49,14 @@ describe("applyOverride", () => {
     expect(applyOverride(shipped, { added: [{ id: "a", label: "dupe" }] })).toHaveLength(3);
   });
 
+  it("extras override a shipped item's list-specific fields", () => {
+    const eff = applyOverride(
+      [{ id: "p1", label: "Text", phase: "draft", category: "pov" }],
+      { extras: { p1: { phase: "revise" } } }
+    );
+    expect(eff[0].extra).toEqual({ phase: "revise", category: "pov" });
+  });
+
   it("carries list-specific extras through", () => {
     const eff = applyOverride(
       [{ id: "p1", label: "Text", phase: "draft" }],
@@ -153,6 +161,21 @@ describe("normalizeListOverride", () => {
     );
     expect(out).toEqual({ added: [{ id: "wp-1", label: "ok", phase: "draft" }] });
     expect(normalizeListOverride({ added: [{ id: "x", label: "y" }] }, { ...spec, allowAdded: false })).toBeUndefined();
+  });
+
+  it("extras: validated through parseExtra, diffed against shipped, unknown ids dropped", () => {
+    const withExtra: ListSpec<{ phase: string }> = {
+      shipped: [{ id: "p1", label: "One", phase: "draft" } as never, { id: "p2", label: "Two", phase: "revise" } as never],
+      allowAdded: true,
+      allowGroups: false,
+      allowOrder: false,
+      parseExtra: (rec) => (rec["phase"] === "draft" || rec["phase"] === "revise" ? { phase: rec["phase"] } : null),
+    };
+    const out = normalizeListOverride(
+      { extras: { p1: { phase: "revise" }, p2: { phase: "revise" }, zzz: { phase: "draft" }, p3: { phase: "nope" } } },
+      withExtra
+    );
+    expect(out).toEqual({ extras: { p1: { phase: "revise" } } });
   });
 
   it("uniqueLabels drops clashing renames and customs", () => {

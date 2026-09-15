@@ -86,16 +86,22 @@ export const SPEC_AUDIT_PAGE: ListSpec = {
   allowOrder: true,
 };
 export const SPEC_PUBLISHING: ListSpec<PublishingExtra> = {
-  shipped: flatten(PUBLISHING_CHECKLIST.map((p) => ({ id: p.id, items: p.tasks }))),
+  shipped: PUBLISHING_CHECKLIST.flatMap((p) =>
+    p.tasks.map((t) => ({ id: t.id, label: t.label, group: p.id, ...(t.optional ? { optional: true } : {}) }))
+  ),
   shippedGroups: PUBLISHING_CHECKLIST.map((p) => ({ id: p.id, label: p.label })),
   allowAdded: true,
   allowGroups: true,
   allowOrder: true,
-  // `deepLink` is never user-settable; only the optional flag survives.
-  parseExtra: (rec) => (rec["optional"] === true ? { optional: true } : {}),
+  // `deepLink` is never user-settable; only the optional flag survives. An
+  // explicit `optional: false` is kept so a shipped optional task can be made
+  // required (it differs from shipped, so normalize stores it).
+  parseExtra: (rec) =>
+    rec["optional"] === true ? { optional: true } : rec["optional"] === false ? { optional: false } : {},
 };
 export const SPEC_PROMPTS: ListSpec<PromptExtra> = {
-  shipped: WRITING_PROMPTS.map((p) => ({ id: p.id, label: p.text })),
+  // Shipped extras ride along so `extras` overrides can be diffed against them.
+  shipped: WRITING_PROMPTS.map((p) => ({ id: p.id, label: p.text, phase: p.phase, category: p.category })),
   allowAdded: true,
   allowGroups: false,
   allowOrder: false,

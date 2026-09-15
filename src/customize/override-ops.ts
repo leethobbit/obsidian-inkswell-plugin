@@ -16,6 +16,7 @@ function clone<X>(o: ListOverride<X> | undefined): ListOverride<X> {
     order: [...(o?.order ?? [])],
     added: (o?.added ?? []).map((a) => ({ ...a })),
     groups: (o?.groups ?? []).map((g) => ({ ...g })),
+    extras: Object.fromEntries(Object.entries(o?.extras ?? {}).map(([k, v]) => [k, { ...v }])),
   };
 }
 
@@ -61,14 +62,23 @@ export function addItem<X>(o: ListOverride<X> | undefined, item: AddedItem<X>): 
   return next;
 }
 
-/** Update a custom item's extra fields (phase/category, optional…). */
+/** Update an item's extra fields (phase/category, optional…): a custom item in
+ *  place; a shipped item via `extras[id]` (never its id/label/group here). */
 export function patchItem<X>(
   o: ListOverride<X> | undefined,
   id: string,
   patch: Partial<AddedItem<X>>
 ): ListOverride<X> {
   const next = clone(o);
-  next.added = (next.added ?? []).map((a) => (a.id === id ? { ...a, ...patch, id: a.id } : a));
+  const rest = { ...(patch as Record<string, unknown>) };
+  delete rest["id"];
+  delete rest["label"];
+  delete rest["group"];
+  if ((next.added ?? []).some((a) => a.id === id)) {
+    next.added = (next.added ?? []).map((a) => (a.id === id ? { ...a, ...rest, id: a.id } : a));
+    return next;
+  }
+  next.extras = { ...(next.extras ?? {}), [id]: { ...(next.extras?.[id] ?? {}), ...(rest as Partial<X>) } };
   return next;
 }
 

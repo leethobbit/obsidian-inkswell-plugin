@@ -32,20 +32,19 @@ export const writingPromptsSection: CustomizeSection = {
       intro:
         "The prompts behind the Write toolbar's Prompt button. Hide the ones you never want to see " +
         "again, reword any, or add your own — write {pov} where the scene's POV character's name " +
-        "should go. Each prompt has a phase (drafting or revising) and a category the button filters on.",
+        "should go. Each prompt has a phase (drafting or revising) and a category the button filters " +
+        "on — change either on any prompt, including the built-in ones.",
       newItemExtra: () => ({ phase: "draft", category: "structure" }),
       renderExtra(el, it, patch) {
         const phase = taggedSelect(el, `customize:prompts:phase:${it.id}`, { cls: "dropdown" });
         for (const p of ["draft", "revise"] as PromptPhase[]) phase.createEl("option", { text: PHASE_LABEL[p], value: p });
         phase.value = it.extra.phase;
-        phase.disabled = !it.custom;
         phase.setAttribute("aria-label", "Phase");
         phase.onchange = () => patch({ phase: phase.value as PromptPhase });
 
         const cat = taggedSelect(el, `customize:prompts:category:${it.id}`, { cls: "dropdown" });
         for (const c of PROMPT_CATEGORIES) cat.createEl("option", { text: c.label, value: c.id });
         cat.value = it.extra.category;
-        cat.disabled = !it.custom;
         cat.setAttribute("aria-label", "Category");
         cat.onchange = () => patch({ category: cat.value as PromptCategory });
       },

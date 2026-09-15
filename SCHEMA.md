@@ -186,7 +186,7 @@ For completeness: writing history & baselines, daily word counts, streaks, sprin
 
 ### E.1 List overrides — `settings.listOverrides` (Customize)
 
-One optional entry per overridable list id, each a `ListOverride`: `{ hidden?: id[], hiddenGroups?: id[], labels?: {id: label}, order?: id[], added?: [{id, label, group?, …extras}], groups?: [{id, label}] }`. Source: `src/lib/list-override.ts` (shape + `applyOverride`), `src/settings/overridable-lists.ts` (list ids, specs, `normalizeListOverrides` on load).
+One optional entry per overridable list id, each a `ListOverride`: `{ hidden?: id[], hiddenGroups?: id[], labels?: {id: label}, order?: id[], added?: [{id, label, group?, …extras}], groups?: [{id, label}], extras?: {shippedId: {…changed extras}} }` (`extras` re-files a shipped prompt's phase/category or flips a shipped task's `optional`; only values differing from shipped are stored). Source: `src/lib/list-override.ts` (shape + `applyOverride`), `src/settings/overridable-lists.ts` (list ids, specs, `normalizeListOverrides` on load).
 
 | List id | Shipped list | Custom item prefix | Adds? | Groups? |
 |---------|--------------|--------------------|-------|---------|

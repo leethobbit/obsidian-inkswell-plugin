@@ -41,6 +41,9 @@ export interface ListOverride<X = object> {
   order?: string[];
   /** User-added items (ids from {@link newListItemId}). */
   added?: AddedItem<X>[];
+  /** Shipped id → changed list-specific fields (a prompt re-filed under another
+   *  phase/category, a task made optional). Merged over the shipped extras. */
+  extras?: Record<string, Partial<X>>;
   /** Grouped lists: a shipped group id renames it; a new id declares a custom group. */
   groups?: ListGroup[];
 }
@@ -86,7 +89,7 @@ export function applyOverride<X = object>(
     custom: false,
     hidden: hidden.has(s.id) || (!!s.group && hiddenGroups.has(s.group)),
     shippedLabel: s.label,
-    extra: stripCore(s),
+    extra: { ...stripCore(s), ...(override?.extras?.[s.id] ?? {}) } as X,
   }));
   for (const a of override?.added ?? []) {
     if (shippedIds.has(a.id) || all.some((i) => i.id === a.id)) continue;
@@ -284,6 +287,28 @@ export function normalizeListOverride<X = object>(
       added.push({ id, label, ...(group ? { group } : {}), ...extra } as AddedItem<X>);
     }
     if (added.length > 0) out.added = added;
+  }
+
+  // Extras on shipped items: merge over the shipped fields, validate with the
+  // list's parser, keep only what actually differs from shipped.
+  if (spec.parseExtra && rec["extras"] && typeof rec["extras"] === "object" && !Array.isArray(rec["extras"])) {
+    const extras: Record<string, Partial<X>> = {};
+    for (const [id, raw] of Object.entries(rec["extras"] as Record<string, unknown>)) {
+      if (!shippedIds.has(id) || !raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+      const shippedItem = spec.shipped.find((s) => s.id === id) as AddedItem<X> | undefined;
+      if (!shippedItem) continue;
+      const shippedExtra = stripCore(shippedItem) as Record<string, unknown>;
+      const parsed = spec.parseExtra({ ...shippedExtra, ...(raw as Record<string, unknown>) });
+      if (parsed === null) continue;
+      const diff: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+        if (shippedExtra[k] !== v) diff[k] = v;
+      }
+      // A key present in shipped but absent from the parse result (e.g. optional
+      // switched off) reads as a reset to shipped — nothing to store.
+      if (Object.keys(diff).length > 0) extras[id] = diff as Partial<X>;
+    }
+    if (Object.keys(extras).length > 0) out.extras = extras;
   }
 
   const idList = (v: unknown, known: ReadonlySet<string>): string[] => {
