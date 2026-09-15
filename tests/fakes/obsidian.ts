@@ -187,6 +187,16 @@ export class Setting {
 
 export function setIcon(_el: unknown, _icon: string): void {}
 
+/** Mutable so tests can flip form-factor flags (reset them in afterEach). */
+export const Platform = {
+  isDesktopApp: true,
+  isMobileApp: false,
+  isPhone: false,
+  isTablet: false,
+  isIosApp: false,
+  isAndroidApp: false,
+};
+
 /** Real Obsidian renders markdown; tests that reach this should stub per-case. */
 export const MarkdownRenderer = {
   render: async (

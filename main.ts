@@ -17,6 +17,7 @@ import { Idea, newIdeaId } from "./src/ideation/types";
 import { baseDraftFor } from "./src/projects/stories";
 import { backupPluginData } from "./src/lib/data-backup";
 import { MarkKind } from "./src/lib/inline-format";
+import { PHONE_BODY_CLASS, isPhone, setForceTabletLayout } from "./src/lib/platform";
 import { countWords } from "./src/lib/wordcount";
 import { promptText } from "./src/scenes/scene-actions";
 import { ActiveProject, resolveActive } from "./src/projects/active-project";
@@ -74,6 +75,10 @@ export default class InkswellPlugin extends Plugin {
 
   async onload(): Promise<void> {
     await this.loadPersisted();
+    // Phone layout keys on our own body class (not Obsidian's is-phone) so the
+    // "use the full layout" override can flip it. Must not outlive the plugin.
+    this.applyFormFactor();
+    this.register(() => document.body.removeClass(PHONE_BODY_CLASS));
     // Daily rolling backup of data.json (settings, writing log, sprints,
     // ideas) — File Recovery never sees files outside the vault, so this is
     // that data's only safety net. Runs right after load so it captures the
@@ -588,6 +593,22 @@ export default class InkswellPlugin extends Plugin {
     else set.add(id);
     this.settings.disabledFeatures = [...set];
     await this.saveSettings();
+    this.refreshView();
+  }
+
+  /** Push the layout override into the platform module and mirror the result
+   *  onto <body> for the stylesheet. Idempotent; called on load and on toggle. */
+  private applyFormFactor(): void {
+    setForceTabletLayout(this.settings.forceTabletLayout);
+    document.body.toggleClass(PHONE_BODY_CLASS, isPhone());
+  }
+
+  /** "Use the full layout on this device" (#41): a tablet Obsidian flags as a
+   *  phone opts out of the phone layout. Rebuilds the open view in place. */
+  async setForceTabletLayout(on: boolean): Promise<void> {
+    this.settings.forceTabletLayout = on;
+    await this.saveSettings();
+    this.applyFormFactor();
     this.refreshView();
   }
 

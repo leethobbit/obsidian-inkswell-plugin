@@ -10,7 +10,7 @@
  */
 
 import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidian";
-import { isPhone, renderPhoneRedirect } from "../lib/platform";
+import { isMobileApp, isPhone, renderPhoneRedirect } from "../lib/platform";
 import { preserveFocus } from "../lib/focus-preserve";
 import { MarkKind } from "../lib/inline-format";
 import { KeyboardWatcher } from "./phone/keyboard-watch";
@@ -263,7 +263,10 @@ export class InkswellView extends ItemView {
     // navbar lift. Measure twice: once immediately, and again after Obsidian's
     // floating navbar finishes animating back in — measuring mid-animation
     // reads zero overlap and leaves the bar parked under the navbar.
-    if (isPhone()) {
+    // Gated on the DEVICE (mobile app), not the layout: the webview is just as
+    // keyboard-blind under the "use the full layout" override, and creating the
+    // watcher here means flipping that override never needs a view reopen.
+    if (isMobileApp()) {
       const keyboard = new KeyboardWatcher();
       this.register(
         keyboard.attach(root, () => {
@@ -835,7 +838,12 @@ export class InkswellView extends ItemView {
     // instead of a cramped, unusable layout (the "writing companion" scope).
     if (isPhone() && this.isRedirected(this.mode)) {
       const label = DESTINATIONS.find((d) => d.id === this.mode)?.label ?? "This view";
-      renderPhoneRedirect(content, label);
+      // The link is how a misdetected tablet (#41) finds the override: it flips
+      // the same setting as Settings → Layout, and the mutator rebuilds this view.
+      renderPhoneRedirect(content, label, () => {
+        void this.plugin.setForceTabletLayout(true);
+        new Notice("Full layout on — switch back under Settings → Layout.");
+      });
       return;
     }
 

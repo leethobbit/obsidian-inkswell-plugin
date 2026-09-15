@@ -29,6 +29,7 @@ import { BeatTemplateDef, allTemplateMeta } from "../outliner/custom-templates";
 import { BeatTemplateModal } from "../outliner/beat-template-modal";
 import { confirmDelete } from "../scenes/scene-actions";
 import { resolveTemplateFolder } from "./folders";
+import { deviceFlaggedAsPhone } from "../lib/platform";
 import { resetHelpState } from "../help/hint";
 import { WelcomeModal } from "../help/welcome-modal";
 
@@ -133,6 +134,12 @@ export interface InkswellSettings {
   manuscriptTypography: boolean;
   /** Write editor: gutter tag where the scene's running count passes each multiple of N. 0 = off. */
   milestoneWords: number;
+  /**
+   * Ignore Obsidian's "this is a phone" classification and use the full
+   * (tablet/desktop) layout — for tablets Obsidian misdetects (#41). Only
+   * offered in Settings while the device IS flagged as a phone; a no-op elsewhere.
+   */
+  forceTabletLayout: boolean;
 }
 
 export const DEFAULT_SETTINGS: InkswellSettings = {
@@ -168,6 +175,15 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   typewriterMode: false,
   manuscriptTypography: false,
   milestoneWords: 0,
+  forceTabletLayout: false,
+};
+
+/** Copy for the one platform-conditional row (shared by both renderers). */
+const LAYOUT_TOGGLE = {
+  name: "Use the full layout on this device",
+  desc:
+    "Obsidian classifies this screen as phone-sized, so Inkswell shows its phone layout and " +
+    "keeps Plan and Publish behind a “needs a larger screen” notice. Turn this on if you're on a tablet.",
 };
 
 /** Milestone spacing: 0 = off; anything else at least 100 words (a tag per few words is noise). */
@@ -472,7 +488,25 @@ export class InkswellSettingTab extends PluginSettingTab {
             action: () => void this.generateTemplates(),
           },
         ],
-      },
+      }
+    );
+    // The only platform-conditional row: offered ONLY where it can do anything
+    // (Obsidian flagged this device as a phone). Desktop and correctly detected
+    // tablets never see it — one fewer toggle for everyone it doesn't concern.
+    if (deviceFlaggedAsPhone()) {
+      items.push({
+        type: "group",
+        heading: "Layout",
+        items: [
+          {
+            name: LAYOUT_TOGGLE.name,
+            desc: LAYOUT_TOGGLE.desc,
+            control: { type: "toggle", key: "forceTabletLayout", defaultValue: false },
+          },
+        ],
+      });
+    }
+    items.push(
       {
         type: "group",
         heading: "Help",
@@ -512,6 +546,10 @@ export class InkswellSettingTab extends PluginSettingTab {
     const s = this.plugin.settings;
     if (key.startsWith("feature:")) {
       await this.plugin.setFeatureEnabled(key.slice(8) as FeatureId, !!value);
+      return;
+    }
+    if (key === "forceTabletLayout") {
+      await this.plugin.setForceTabletLayout(!!value); // saves + swaps layout itself
       return;
     }
     if (key.startsWith("counts:")) {
@@ -1157,6 +1195,19 @@ export class InkswellSettingTab extends PluginSettingTab {
       .addButton((b) =>
         b.setButtonText("Generate starter templates").onClick(() => void this.generateTemplates())
       );
+
+    // Mirrors the conditional "Layout" group in getSettingDefinitions().
+    if (deviceFlaggedAsPhone()) {
+      new Setting(containerEl).setName("Layout").setHeading();
+      new Setting(containerEl)
+        .setName(LAYOUT_TOGGLE.name)
+        .setDesc(LAYOUT_TOGGLE.desc)
+        .addToggle((t) =>
+          t
+            .setValue(this.plugin.settings.forceTabletLayout)
+            .onChange((v) => void this.plugin.setForceTabletLayout(v))
+        );
+    }
 
     new Setting(containerEl).setName("Help").setHeading();
 
