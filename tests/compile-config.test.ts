@@ -15,7 +15,7 @@ function project(compile?: unknown): Project {
 describe("resolveCompileConfig", () => {
   it("returns an equal but CLONED config when one is saved", () => {
     const saved = {
-      version: 2,
+      version: COMPILE_CONFIG_VERSION, // already current — no migration adds steps
       sceneSteps: [{ id: "strip-frontmatter", options: {} }],
       manuscriptSteps: [],
       separator: "\n\n",
@@ -85,7 +85,7 @@ describe("resolveCompileConfig", () => {
       format: "md",
     });
 
-    it("adds flatten-links to a pre-versioned config, after the cleanup steps, and stamps v2", () => {
+    it("adds flatten-links and html-align to a pre-versioned config, after the cleanup steps, and stamps the current version", () => {
       const c = resolveCompileConfig(
         project(v1(["strip-frontmatter", "remove-comments", "group-by-chapter"]))
       );
@@ -93,19 +93,29 @@ describe("resolveCompileConfig", () => {
         "strip-frontmatter",
         "remove-comments",
         "flatten-links",
+        "html-align",
         "group-by-chapter",
       ]);
       expect(c.version).toBe(COMPILE_CONFIG_VERSION);
     });
 
-    it("puts flatten-links first when no cleanup steps are enabled", () => {
+    it("puts the new defaults first when no cleanup steps are enabled", () => {
       const c = resolveCompileConfig(project(v1(["prepend-title"])));
-      expect(c.sceneSteps.map((s) => s.id)).toEqual(["flatten-links", "prepend-title"]);
+      expect(c.sceneSteps.map((s) => s.id)).toEqual(["flatten-links", "html-align", "prepend-title"]);
     });
 
-    it("does NOT re-add flatten-links to a v2 config where the user turned it off", () => {
+    it("does NOT re-add flatten-links to a v2 config where the user turned it off (but does add html-align)", () => {
       const c = resolveCompileConfig(project({ ...v1(["strip-frontmatter"]), version: 2 }));
+      expect(c.sceneSteps.map((s) => s.id)).toEqual(["strip-frontmatter", "html-align"]);
+    });
+
+    it("does NOT re-add html-align to a v3 config where the user turned it off", () => {
+      const c = resolveCompileConfig(project({ ...v1(["strip-frontmatter"]), version: 3 }));
       expect(c.sceneSteps.map((s) => s.id)).toEqual(["strip-frontmatter"]);
+    });
+
+    it("html-align is on in the default config", () => {
+      expect(DEFAULT_COMPILE_CONFIG.sceneSteps.map((s) => s.id)).toContain("html-align");
     });
 
     it("is idempotent — resolving an already-migrated config changes nothing", () => {

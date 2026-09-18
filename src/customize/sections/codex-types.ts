@@ -34,7 +34,7 @@ import {
   writeTemplateBody,
   writeTemplateFields,
 } from "../../codex/codex-template-io";
-import { ProfileField, knownFieldsCatalog } from "../../codex/profile-schema";
+import { knownFieldsCatalog } from "../../codex/profile-schema";
 import {
   CategoryDef,
   allCategories,
@@ -232,10 +232,11 @@ function renderDisplay(body: HTMLElement, ctx: SectionCtx, cat: CategoryDef): vo
   const { app, plugin } = ctx;
   const shipped = defaultBuiltinDef(cat.id);
   const kv = body.createDiv({ cls: "inkswell-customize__kv" });
+  // Key and value are direct grid cells (no wrapper row — `display: contents`
+  // is only partially supported by the review bot's baseline).
   const line = (k: string, v: string): void => {
-    const r = kv.createDiv({ cls: "inkswell-customize__kvrow" });
-    r.createSpan({ cls: "inkswell-customize__kvkey", text: k });
-    r.createSpan({ text: v });
+    kv.createSpan({ cls: "inkswell-customize__kvkey", text: k });
+    kv.createSpan({ text: v });
   };
   line("Name", cat.label);
   line("Plural", cat.plural);
@@ -468,7 +469,7 @@ class AddFieldModal extends FormModal {
       const [, key] = this.builtin.split("|");
       const hit = knownFieldsCatalog().find(({ field }) => field.key === key);
       if (hit) {
-        const row = rowsFromFields([hit.field as ProfileField])[0];
+        const row = rowsFromFields([hit.field])[0];
         this.opts.onAdd(row);
         return true;
       }

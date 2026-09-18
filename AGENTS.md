@@ -48,7 +48,8 @@ Obsidian plugin conventions (toolchain, Vault API rules, deferred views, mobile,
 | [src/scenes/](src/scenes/) | Per-scene frontmatter (scene-meta.ts), Scene Inspector, scene actions (rename/synopsis/delete) |
 | [src/codex/](src/codex/) | Codex entities (notes w/ `codex` frontmatter), scanner, panel, pure detect/link helpers; `codex-scope.ts` = per-entity project/series scoping; categories = 7 built-ins (display renameable via `settings.categoryOverrides`) + settings-defined customs merged via `allCategories(settings.customCategories, settings.categoryOverrides)`; panel fields resolve per type via `resolveProfileFields` (template `codex-fields` or shipped schema) |
 | [src/lib/wordcount.ts](src/lib/wordcount.ts) | Shared markdown-aware word counter |
-| [src/lib/markdown-syntax.ts](src/lib/markdown-syntax.ts) | Pure Live-Preview syntax scanner (no CM/Obsidian import) → decoration intents |
+| [src/lib/markdown-syntax.ts](src/lib/markdown-syntax.ts) | Pure Live-Preview syntax scanner (no CM/Obsidian import) → decoration intents; raw HTML tags are markers, aligned blocks get `cm-md-line-align-*` |
+| [src/lib/html-tags.ts](src/lib/html-tags.ts) | Allowlisted raw-HTML tags + `tagAlignment` — shared by the scanner, the `html-align` compile step (`src/compile/html-align.ts`) and preflight |
 | [src/lib/inline-format.ts](src/lib/inline-format.ts) | Pure bold/italic/strike toggle (Obsidian's rules) → `formatSelection` adapter + Mod-b/Mod-i keymap in scene-editor.ts; `toggle-*` commands in main.ts |
 | [src/lib/smart-typography.ts](src/lib/smart-typography.ts) | Pure typed-char → dash/quote/ellipsis rules (code/link guards) → `EditorView.inputHandler` adapter in scene-editor.ts; opt-in via `settings.smart*` |
 | [src/views/scene-editor.ts](src/views/scene-editor.ts) | Custom CM6 `EditorView` manuscript surface (Write panel); thin adapter over the scanner |
@@ -66,7 +67,7 @@ Obsidian plugin conventions (toolchain, Vault API rules, deferred views, mobile,
 | Export docx/pdf | Optional pandoc manuscript step; detect binary, disable if missing |
 
 ## Adding a compile step (in order)
-1. Implement the `CompileStep` interface in [src/compile/steps.ts](src/compile/steps.ts), setting `kind: "scene" | "manuscript"`.
+1. Implement the `CompileStep` interface in [src/compile/steps.ts](src/compile/steps.ts), setting `kind: "scene" | "manuscript"`. `run` receives `(input, options, ctx)` — `ctx` is the run's output format + pandoc target, so a target-specific step (e.g. `html-align`) returns its input unchanged elsewhere rather than corrupting md/html output.
 2. Register it in the step registry so it appears in the compile UI.
 3. Add/extend a vitest case asserting pipeline ordering and output.
 4. Should it be ON for existing projects? A saved `sceneSteps` list is taken verbatim, so also add it to `DEFAULT_COMPILE_CONFIG`, bump `COMPILE_CONFIG_VERSION` ([src\compile\types.ts](src\compile\types.ts)), and add a version case to `migrateCompileConfig` ([src\compile\config.ts](src\compile\config.ts)) with a test in `tests/compile-config.test.ts`.

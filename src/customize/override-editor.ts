@@ -27,7 +27,7 @@ import {
 import { renderListEditor } from "../lib/list-editor";
 import { promptText } from "../scenes/scene-actions";
 import { taggedInput } from "../views/panel-kit";
-import { LIST_META, ListOverrides, OverridableListId } from "../settings/overridable-lists";
+import { LIST_META, OverridableListId } from "../settings/overridable-lists";
 import * as ops from "./override-ops";
 import type { SectionCtx } from "./section";
 
@@ -66,7 +66,7 @@ async function persist<X>(
   const all = ctx.plugin.settings.listOverrides as Record<string, unknown>;
   if (normalized) all[id] = normalized;
   else delete all[id];
-  ctx.plugin.settings.listOverrides = all as ListOverrides;
+  ctx.plugin.settings.listOverrides = all;
   await ctx.plugin.saveSettings();
   ctx.rerender();
 }

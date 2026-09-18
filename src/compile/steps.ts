@@ -7,6 +7,7 @@
 
 import { stripFrontmatter as stripLeadingFrontmatter } from "../lib/frontmatter";
 import { stripPlaceholders } from "../lib/placeholders";
+import { convertHtmlAlignment, htmlAlignApplies } from "./html-align";
 import { CompileScene, CompileStep, ManuscriptStep, SceneStep } from "./types";
 
 const OBSIDIAN_COMMENT_RE = /%%[\s\S]*?%%/g;
@@ -115,6 +116,23 @@ const flattenLinks: SceneStep = {
     scenes.map((s) => ({ ...s, contents: flattenLinkSyntax(s.contents) })),
 };
 
+/**
+ * Rewrite HTML alignment blocks (`<p align="right">…</p>`, `<div align>`,
+ * `<center>`) as pandoc fenced divs carrying a Word paragraph style, so the
+ * text keeps its lines and a nameable style in docx/pdf — pandoc's writers for
+ * those targets drop raw HTML outright. No-op for md/html/epub, where the raw
+ * HTML renders natively (see `html-align.ts`). Default-on since config v3.
+ */
+const htmlAlign: SceneStep = {
+  id: "html-align",
+  description: "Convert HTML alignment (<p align>, <center>) to Word paragraph styles — Word/PDF only",
+  kind: "scene",
+  run: (scenes, _options, ctx) => {
+    if (!htmlAlignApplies(ctx)) return scenes;
+    return scenes.map((s) => ({ ...s, contents: convertHtmlAlignment(s.contents) }));
+  },
+};
+
 /** Prepend a markdown heading (scene title) to each scene. */
 const prependTitle: SceneStep = {
   id: "prepend-title",
@@ -184,6 +202,7 @@ export const BUILTIN_STEPS: CompileStep[] = [
   removeComments,
   removeTodos,
   flattenLinks,
+  htmlAlign,
   prependTitle,
   groupByChapter,
   trimBlankLines,

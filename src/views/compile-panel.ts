@@ -227,6 +227,14 @@ export class CompilePanel {
         });
       };
     }
+    if (config.sceneSteps.some((s) => s.id === "html-align")) {
+      field.createDiv({
+        cls: "inkswell-stats__muted",
+        text:
+          "Aligned blocks (<p align>, <center>) come out in the Word styles “Right Aligned” / " +
+          "“Centered” — set their alignment once in your reference doc; pandoc creates them unaligned.",
+      });
+    }
 
     if (!vaultHasFilesystem(this.app)) {
       field.createDiv({ cls: "inkswell-stats__muted", text: "Desktop only (needs pandoc)." });

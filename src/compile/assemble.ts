@@ -14,6 +14,7 @@ import {
   CompileStep,
   ManuscriptStep,
   SceneStep,
+  StepContext,
 } from "./types";
 
 export function assembleManuscript(
@@ -22,17 +23,22 @@ export function assembleManuscript(
   registry: Map<string, CompileStep> = STEP_REGISTRY
 ): string {
   let working = scenes.map((s) => ({ ...s }));
+  // Every step sees the same output target (a step may adapt to it or skip).
+  const ctx: StepContext = {
+    format: config.format,
+    ...(config.pandoc ? { target: config.pandoc.to } : {}),
+  };
 
   for (const cfg of config.sceneSteps) {
     const step = resolveStep(registry, cfg.id, "scene") as SceneStep;
-    working = step.run(working, cfg.options);
+    working = step.run(working, cfg.options, ctx);
   }
 
   let manuscript = working.map((s) => s.contents).join(config.separator);
 
   for (const cfg of config.manuscriptSteps) {
     const step = resolveStep(registry, cfg.id, "manuscript") as ManuscriptStep;
-    manuscript = step.run(manuscript, cfg.options);
+    manuscript = step.run(manuscript, cfg.options, ctx);
   }
 
   return manuscript;

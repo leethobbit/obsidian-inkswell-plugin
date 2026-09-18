@@ -61,6 +61,18 @@ export function migrateCompileConfig(config: CompileConfig): CompileConfig {
       config.sceneSteps.splice(at, 0, { id: "flatten-links", options: {} });
     }
   }
+  if (from < 3) {
+    // v3: `html-align` becomes default-on. Slot it after the last of the
+    // text-cleanup steps (a no-op outside Word/PDF, so it's safe everywhere).
+    if (!config.sceneSteps.some((s) => s.id === "html-align")) {
+      const before = ["strip-frontmatter", "remove-comments", "remove-todos", "flatten-links"];
+      let at = 0;
+      config.sceneSteps.forEach((s, i) => {
+        if (before.includes(s.id)) at = i + 1;
+      });
+      config.sceneSteps.splice(at, 0, { id: "html-align", options: {} });
+    }
+  }
   config.version = COMPILE_CONFIG_VERSION;
   return config;
 }

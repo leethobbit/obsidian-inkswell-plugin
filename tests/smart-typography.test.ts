@@ -100,6 +100,15 @@ describe("smartTypography — guards", () => {
   it("treats to-do placeholders as prose", () => {
     expect(ins("[TODO: he said ", '"')).toBe("“");
   });
+  it("keeps straight quotes inside an HTML tag being typed, and leaves `<!--` alone", () => {
+    expect(type("<p align=", '"')).toBeNull();
+    expect(type('<p align="right', '"')).toBeNull();
+    expect(ins('<p align="right"> ', '"')).toBe("“"); // tag closed — prose again
+    expect(type("</p", "'")).toBeNull();
+    expect(type("<!-", "-")).toBeNull();
+    expect(ins("<!-- note --> he said ", '"')).toBe("“");
+    expect(ins('a < b ', '"')).toBe("“"); // a bare `<` in prose is not a tag
+  });
   it("clamps an out-of-range position", () => {
     expect(type("a-", "-", ALL, 99)).toEqual({ from: 1, to: 2, insert: "–" });
   });

@@ -328,7 +328,6 @@ export class InkswellSettingTab extends PluginSettingTab {
    * KEEP IN LOCKSTEP with display(): same names, descriptions, and controls.
    */
   getSettingDefinitions(): SettingDefinitionItem[] {
-    const s = this.plugin.settings;
     const items: SettingDefinitionItem[] = [
       {
         name: CUSTOMIZE_ROW.name,

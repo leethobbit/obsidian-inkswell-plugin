@@ -10,6 +10,13 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Added
+- **The Write editor renders HTML alignment.** A reader-facing dateline such as `<p align="right">POV | DATE<br>Location</p>` (also `<div align>`, `<div style="text-align: …">`, `<center>`) now shows right-aligned in Inkswell's editor as it does in Obsidian's Live Preview, with the tags hidden until your cursor is on that line — the same way `**` and `#` markers behave. Common inline tags (`<b>`, `<i>`, `<br>`, `<span>`…) are hidden until touched too. Requested in [#40](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/40).
+- **Aligned blocks survive Word and PDF export.** Pandoc drops raw HTML for those targets, leaving the words run together on one unaligned line. A new default-on compile step, *Convert HTML alignment to Word paragraph styles*, rewrites each aligned block as paragraphs in the Word styles “Right Aligned” / “Centered” / “Left Aligned” / “Justified” — pandoc creates the styles, and you set their alignment once in your reference doc. Markdown, HTML and EPUB output is untouched (the raw HTML renders there).
+
+### Fixed
+- Smart quotes no longer curl inside an HTML tag you're typing (`<p align="right">` kept its straight quotes), and `<!--` no longer turns into `<!–`.
+
 ## [1.16.0] - 2026-09-15
 
 The customization release. A new **Customize** destination brings everything that shapes Inkswell — codex types and fields, templates, beat structures, statuses, prompts, checklists, feature visibility — inside the plugin, and the Settings tab shrinks to preferences. Also: a fix for tablets Obsidian mistakes for phones, per-book "Appears in" with POV counts, hideable tracking, and act-free outlines.

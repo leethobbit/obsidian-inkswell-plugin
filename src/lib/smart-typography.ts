@@ -20,7 +20,9 @@
  *
  * Never fires: for multi-character input (paste, IME commits), after a
  * backslash, inside inline code, inside a fenced code block, inside an
- * unclosed `[[wikilink`, or inside a markdown link target `](…`.
+ * unclosed `[[wikilink`, inside a markdown link target `](…`, or inside an
+ * unclosed HTML tag / comment opener (`<p align="` must keep straight quotes;
+ * `<!--` must not become `<!–`).
  */
 
 export interface TypographyRules {
@@ -56,9 +58,14 @@ function countChar(s: string, ch: string): number {
   return n;
 }
 
-/** Code spans, code fences, wikilinks and link targets are never touched. */
+// An unclosed `<tag …` or `<!--` before the cursor (`<` followed by a space, as
+// in `a < b`, is prose and doesn't match).
+const OPEN_TAG_RE = /<[a-zA-Z!/][^<>]*$/;
+
+/** Code spans, code fences, wikilinks, link targets and HTML tags are never touched. */
 function inProtectedContext(doc: string, lineStart: number, prefix: string): boolean {
   if (countChar(prefix, "`") % 2 === 1) return true;
+  if (OPEN_TAG_RE.test(prefix)) return true;
   let fences = 0;
   for (const line of doc.slice(0, lineStart).split("\n")) {
     if (FENCE_RE.test(line)) fences++;
