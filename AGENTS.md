@@ -86,7 +86,15 @@ Cut `1.0.0` only once the Longform-compatible frontmatter format is stable enoug
 
 **Release notes are mandatory.** Every change toward a release — feature, fix, or user-facing behavior change — adds a line under the `## [Unreleased]` section of [CHANGELOG.md](CHANGELOG.md) **in the same commit/PR that makes the change** (Keep a Changelog format: Added / Changed / Fixed / Removed). Don't defer it to release time; the changelog is how we always have a current description of what's shipping (store listing, GitHub release, Discord post).
 
-**This is enforced**, not just expected: a pre-commit hook (`scripts/check-changelog.mjs`, wired as a `PreToolUse` hook in `.claude/settings.json`) **blocks any commit that stages source (`src/`, `main.ts`, `styles.css`) without a CHANGELOG.md change.** For a genuinely non-user-facing commit (pure refactor, internal tooling, chore), append `[skip changelog]` to the commit message to bypass it deliberately.
+[scripts/check-changelog.mjs](scripts/check-changelog.mjs) **blocks any commit that stages source (`src/`, `main.ts`, `styles.css`) without a CHANGELOG.md change.** For a genuinely non-user-facing commit (pure refactor, internal tooling, chore), append `[skip changelog]` to the commit message to bypass it deliberately.
+
+`.claude/` is git-ignored (machine-specific), so the guard is **not** wired automatically in a fresh clone — add it to your own `.claude/settings.json`:
+
+```json
+{ "hooks": { "PreToolUse": [{ "matcher": "Bash", "hooks": [
+  { "type": "command", "command": "node scripts/check-changelog.mjs", "if": "Bash(git*)" }
+]}]}}
+```
 
 ### Bumping a version (in order)
 1. **Promote the changelog** — in [CHANGELOG.md](CHANGELOG.md), rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, add a fresh empty `## [Unreleased]` above it, and update the link refs at the bottom. The release workflow injects this section as the GitHub release body, so it must be accurate before you tag.

@@ -18,6 +18,10 @@ _harness.*
 # local, machine-specific agent instructions (AGENTS.md is the committed guide)
 CLAUDE.md
 
+# agent harness config — machine-specific (permission allowlists accumulate
+# absolute local paths). AGENTS.md carries the one hook worth reproducing.
+.claude/
+
 # obsidian notes surfaced via junction (DKB owns these)
 docs/
 
