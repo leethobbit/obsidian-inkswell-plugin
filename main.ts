@@ -9,7 +9,7 @@
  * (compile, goals, revisions) lives in the project index's `inkswell` frontmatter.
  */
 
-import { Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import { Notice, Plugin, TFile, WorkspaceLeaf, normalizePath } from "obsidian";
 import { runCompile } from "./src/compile/engine";
 import { resolveCompileConfig } from "./src/compile/config";
 import { TargetModal } from "./src/goals/target-modal";
@@ -19,7 +19,9 @@ import { backupPluginData } from "./src/lib/data-backup";
 import { MarkKind } from "./src/lib/inline-format";
 import { PHONE_BODY_CLASS, isPhone, setForceTabletLayout } from "./src/lib/platform";
 import { countWords } from "./src/lib/wordcount";
-import { promptText } from "./src/scenes/scene-actions";
+import { openScene, promptText } from "./src/scenes/scene-actions";
+import { tryFileOp } from "./src/lib/notify";
+import { joinPath, sanitizeSegment } from "./src/settings/folders";
 import { ActiveProject, resolveActive } from "./src/projects/active-project";
 import { NewProjectModal, NewProjectPreset } from "./src/projects/new-project-modal";
 import { seriesForPicker } from "./src/series/series-modal";
@@ -542,6 +544,38 @@ export default class InkswellPlugin extends Plugin {
     this.ideas = this.ideas.map((i) => (i.id === id ? { ...i, pinned: !i.pinned } : i));
     void this.persist();
     this.refreshExplorer();
+  }
+
+  updateIdea(id: string, text: string): void {
+    const t = text.trim();
+    if (!t) return;
+    this.ideas = this.ideas.map((i) => (i.id === id ? { ...i, text: t } : i));
+    void this.persist();
+    this.refreshExplorer();
+  }
+
+  /**
+   * Promote an idea to a vault note under `<baseFolder>/Ideas/` (named after its
+   * first line, numbered on collision), open it, and drop it from the inbox —
+   * the note is now the idea's home.
+   */
+  async saveIdeaAsNote(idea: Idea): Promise<void> {
+    const folder = normalizePath(joinPath(this.settings.baseFolder, "Ideas"));
+    const firstLine = (idea.text.split(/\r?\n/)[0] ?? "").trim().slice(0, 60);
+    const name = sanitizeSegment(firstLine) || "Idea";
+    const file = await tryFileOp(async () => {
+      if (!this.app.vault.getAbstractFileByPath(folder)) await this.app.vault.createFolder(folder);
+      let path = normalizePath(joinPath(folder, `${name}.md`));
+      for (let n = 2; this.app.vault.getAbstractFileByPath(path); n++) {
+        path = normalizePath(joinPath(folder, `${name} ${n}.md`));
+      }
+      const body = `---\ncreated: ${idea.created}\n---\n\n${idea.text}\n`;
+      return this.app.vault.create(path, body);
+    }, "Couldn't save the idea as a note.");
+    if (!file) return;
+    this.removeIdea(idea.id);
+    new Notice(`Saved to ${file.path}`);
+    openScene(this.app, file);
   }
 
   /** Back-compat alias used by the settings tab. */

@@ -345,7 +345,10 @@ export const HELP_SECTIONS: HelpSection[] = [
       p(
         el,
         "Capture story ideas in the inbox below the shelves without leaving the page — " +
-          "press Enter to save, and pin the ones worth keeping at the top."
+          "press Enter to save. Click an idea to edit it in place; its ⋯ / right-click " +
+          "menu copies it, saves it as a note under your base folder's Ideas folder " +
+          "(and clears it from the inbox), pins it to the top, or deletes it. Click the " +
+          "Ideas header to collapse the section."
       );
       el.createEl("h4", { text: "Series" });
       p(

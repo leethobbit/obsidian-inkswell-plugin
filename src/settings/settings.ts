@@ -24,6 +24,8 @@ export interface InkswellSettings {
   defaultCompileFormat: OutputFormat;
   /** Show word counts in the explorer. */
   showWordCounts: boolean;
+  /** Home: whether the ideas inbox section is expanded (UI state, not a Settings row). */
+  homeIdeasOpen: boolean;
   /** Heading level used by the "prepend title" compile step. */
   sceneHeadingLevel: number;
   /** Daily word goal shown in the status bar / stats. */
@@ -138,6 +140,7 @@ export interface InkswellSettings {
 export const DEFAULT_SETTINGS: InkswellSettings = {
   defaultCompileFormat: "md",
   showWordCounts: true,
+  homeIdeasOpen: true,
   sceneHeadingLevel: 1,
   dailyWordGoal: 500,
   weeklyWordGoal: 3500,
