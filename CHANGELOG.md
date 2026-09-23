@@ -10,6 +10,9 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Changed
+- **The Codex Scope field is a switcher and pills, not two dropdowns.** Pick the kind of scope — *Global*, *Series*, or *Books* — from a segmented control (the entry's current kind is highlighted), then tap book pills to say exactly which books see the entry (filled = in, outlined = out). Switching to Series or Books applies the active story's series or book at once, so nothing is left half-set; a single series shows as a caption rather than a choice; a vault with one book names it on the segment. The old "N books — current" placeholder and the second "+ add book" dropdown are gone. Frontmatter is unchanged.
+
 ## [1.17.0] - 2026-09-23
 
 ### Added

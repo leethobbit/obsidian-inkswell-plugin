@@ -52,7 +52,7 @@ import {
 import { openCategoryEditor } from "./category-actions";
 import { Project } from "../projects/types";
 import { groupIntoSeries } from "../series/series";
-import { baseDraft, groupIntoStories } from "../projects/stories";
+import { baseDraft, baseDraftFor, groupIntoStories } from "../projects/stories";
 import type InkswellPlugin from "../../main";
 
 export class CodexPanel {
@@ -751,12 +751,20 @@ export class CodexPanel {
   }
 
   /**
-   * Scope selector for the open entity: Global, any series, or one or more books.
-   * Series wins over project (one tag is written); writes go straight to the note's
-   * frontmatter. Picking a book from the dropdown makes that the only book; the
-   * chip row beneath adds/removes further books through `updateEntityProjects`
-   * (a delta writer — never a list rebuilt from this render). A tag pointing at
-   * something no longer in the lists is preserved and shown as-is.
+   * Scope selector for the open entity — two questions, two controls, no dropdowns:
+   *
+   * 1. A segmented switcher for the KIND of scope: Global / Series / Books.
+   *    Switching kind writes a sensible default at once (the active story's
+   *    series or book, else the first) so the entry is never left half-set.
+   * 2. Beneath it, toggle pills for the SET: one pill per series (only when the
+   *    vault has more than one — a single series is a caption), or one pill per
+   *    story (filled = in scope). Tapping a book pill adds/removes it through
+   *    `updateEntityProjects` (a delta writer — never a list rebuilt from this
+   *    render). The last book can't be toggled off: leaving Books is the
+   *    switcher's job, otherwise the entry would silently turn global.
+   *
+   * Series wins over project (one tag is written). A tag pointing at something no
+   * longer in the vault is kept and shown as a flagged pill, still removable.
    *
    * Cache-lag rule (AGENTS.md gotcha 18): the metadata cache re-indexes after the
    * write, so the panel renders from `pendingScope` until `awaitCacheUpdate`
@@ -764,11 +772,13 @@ export class CodexPanel {
    */
   private renderScopeField(host: HTMLElement, file: TFile, entity: CodexEntity): void {
     const projects = this.plugin.store.getProjects();
-    const seriesNames = groupIntoSeries(projects).series.map((s) => s.name);
-    // One option per STORY (not per draft): the label is the story title, the
-    // value its base draft's basename — the canonical scope every draft of the
-    // story resolves (a legacy value naming another draft falls through to the
-    // "— current" branch below and normalizes the next time the user picks).
+    const active = this.activeProject();
+    const seriesList = groupIntoSeries(projects).series;
+    const seriesNames = seriesList.map((s) => s.name);
+    // One pill per STORY (not per draft): the label is the story title, the value
+    // its base draft's basename — the canonical scope every draft of the story
+    // resolves (a legacy value naming another draft is matched by `titleFor` and
+    // normalizes the next time the user toggles).
     const stories = groupIntoStories(projects);
     const books = stories
       .map((s) => ({ label: s.title, value: projectName(baseDraft(s)) }))
@@ -778,17 +788,20 @@ export class CodexPanel {
       books.find((b) => b.value === basename)?.label ??
       stories.find((s) => s.drafts.some((d) => projectName(d) === basename))?.title ??
       basename;
+    /** Books in a series, counted per story (drafts of one book are one book). */
+    const seriesBookCount = (name: string): number => {
+      const s = seriesList.find((x) => x.name === name);
+      return s ? new Set(s.books.map((b) => b.draft.title)).size : 0;
+    };
 
     const scope =
       this.pendingScope?.path === entity.path ? this.pendingScope.scope : entity.scope ?? {};
     const list = scope.projects ?? [];
-    const current = scope.series
-      ? `s:${scope.series}`
-      : list.length === 1
-        ? `p:${list[0]}`
-        : list.length > 1
-          ? "multi"
-          : "";
+    const kind: "global" | "series" | "books" = scope.series
+      ? "series"
+      : list.length > 0
+        ? "books"
+        : "global";
 
     const commit = (write: () => Promise<void>, next: EntityScope): void => {
       void (async () => {
@@ -801,68 +814,120 @@ export class CodexPanel {
         this.refreshPanes();
       })();
     };
+    const setScope = (next: EntityScope): void =>
+      commit(() => writeEntityScope(this.app, file, next), next);
     const updateBooks = (fn: (cur: string[]) => string[]): void =>
       commit(
         () => updateEntityProjects(this.app, file, fn),
         { projects: fn(list) } // optimistic preview; the write uses the CURRENT list
       );
 
-    this.field(host, "Scope", (control) => {
-      const sel = control.createEl("select", { cls: "dropdown" });
-      tagField(sel, "codex:scope");
-      sel.createEl("option", { text: "Global (all projects)", value: "" });
-      if (seriesNames.length) {
-        const grp = sel.createEl("optgroup");
-        grp.label = "Series";
-        for (const name of seriesNames) grp.createEl("option", { text: name, value: `s:${name}` });
-      }
-      if (books.length) {
-        const grp = sel.createEl("optgroup");
-        grp.label = "Books";
-        for (const b of books) grp.createEl("option", { text: b.label, value: `p:${b.value}` });
-      }
-      if (current === "multi") {
-        sel.createEl("option", { text: `${list.length} books — current`, value: "multi" });
-      } else if (current && !Array.from(sel.options).some((o) => o.value === current)) {
-        const label = scope.series ? `${scope.series} (series)` : `${list[0]} (book)`;
-        sel.createEl("option", { text: `${label} — current`, value: current });
-      }
-      sel.value = current;
-      sel.onchange = () => {
-        const v = sel.value;
-        if (v === "multi") return; // the current state; nothing to write
-        const next: EntityScope = !v
-          ? {}
-          : v.startsWith("s:")
-            ? { series: v.slice(2) }
-            : { projects: [v.slice(2)] };
-        commit(() => writeEntityScope(this.app, file, next), next);
-      };
+    // Defaults when the user switches kind: the active story's series/book wins.
+    const activeCtx = scopeContextForProject(active, projects);
+    const defaultSeries = activeCtx.seriesName ?? seriesNames[0];
+    const defaultBook = active ? projectName(baseDraftFor(projects, active)) : books[0]?.value;
 
-      if (list.length === 0) return;
-      const chips = control.createDiv({ cls: "inkswell-inspector__chips" });
-      for (const book of list) {
-        const chip = chips.createSpan({ cls: "inkswell-chip", text: titleFor(book) });
-        if (!books.some((b) => b.value === book)) {
-          chip.setAttribute("aria-label", `"${book}" — no project with this name was found`);
-        }
-        const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
-        x.setAttribute("aria-label", `Remove ${titleFor(book)}`);
-        x.onclick = () => updateBooks((cur) => cur.filter((p) => p !== book));
-      }
-      const remaining = books.filter((b) => !list.includes(b.value));
-      if (remaining.length > 0) {
-        const add = control.createEl("select", { cls: "dropdown" });
-        tagField(add, "codex:scope-add");
-        add.createEl("option", { text: "+ add book", value: "" });
-        for (const b of remaining) add.createEl("option", { text: b.label, value: b.value });
-        add.value = "";
-        add.onchange = () => {
-          const v = add.value;
-          if (v) updateBooks((cur) => [...cur, v]);
+    this.field(host, "Scope", (control) => {
+      const wrap = control.createDiv({ cls: "inkswell-scope" });
+
+      // --- kind switcher ---------------------------------------------------
+      const seg = wrap.createDiv({ cls: "inkswell-viewswitch inkswell-scope__kinds" });
+      const segBtn = (label: string, id: typeof kind, hint: string, onPick: () => void) => {
+        const btn = seg.createEl("button", { cls: "inkswell-viewswitch__btn", text: label });
+        btn.toggleClass("is-active", kind === id);
+        btn.setAttribute("aria-pressed", String(kind === id));
+        btn.setAttribute("aria-label", hint);
+        btn.onclick = () => {
+          if (kind !== id) onPick();
         };
+      };
+      segBtn("Global", "global", "Visible from every project", () => setScope({}));
+      // Series/Books segments only when there is something to point at — or the
+      // entry already does (a stale tag still needs a home so it can be changed).
+      if (seriesNames.length > 0 || kind === "series") {
+        segBtn("Series", "series", "Shared across every book in a series", () => {
+          if (defaultSeries) setScope({ series: defaultSeries });
+        });
+      }
+      if (books.length > 0 || kind === "books") {
+        // A vault with one story: the segment IS the book, so name it.
+        const single = books.length === 1 && seriesNames.length === 0 ? books[0].label : "Books";
+        segBtn(single, "books", "Visible only from the books you pick", () => {
+          if (defaultBook) setScope({ projects: [defaultBook] });
+        });
+      }
+
+      // --- the set ------------------------------------------------------------
+      if (kind === "series") {
+        const name = scope.series ?? "";
+        const known = seriesNames.includes(name);
+        if (seriesNames.length > 1) {
+          const pills = wrap.createDiv({ cls: "inkswell-scope__pills" });
+          for (const s of seriesNames) {
+            const pill = this.scopePill(pills, s, s === name, `Share across the “${s}” series`);
+            pill.onclick = () => {
+              if (s !== name) setScope({ series: s });
+            };
+          }
+          if (!known && name) {
+            const pill = this.scopePill(pills, name, true, `No series named “${name}” was found`);
+            pill.addClass("is-unknown");
+          }
+        } else {
+          const n = seriesBookCount(name);
+          wrap.createDiv({
+            cls: "inkswell-stats__muted inkswell-scope__caption",
+            text: known
+              ? `Shared across the “${name}” series${n ? ` · ${n} book${n === 1 ? "" : "s"}` : ""}`
+              : `“${name}” — no series with this name was found`,
+          });
+        }
+        return;
+      }
+
+      if (kind !== "books") return;
+      const unknown = list.filter((b) => !books.some((k) => k.value === b));
+      // One known story and nothing stale: the segment label already says it all.
+      if (books.length <= 1 && unknown.length === 0) return;
+      const pills = wrap.createDiv({ cls: "inkswell-scope__pills" });
+      const toggle = (book: string, on: boolean): void => {
+        if (on && list.length <= 1) {
+          new Notice("Keep at least one book — switch the scope kind above to widen it.");
+          return;
+        }
+        updateBooks((cur) => (on ? cur.filter((p) => p !== book) : [...cur, book]));
+      };
+      for (const b of books) {
+        const on = list.includes(b.value);
+        const pill = this.scopePill(
+          pills,
+          b.label,
+          on,
+          on ? `Remove “${b.label}” from this entry's books` : `Add “${b.label}” to this entry's books`
+        );
+        pill.onclick = () => toggle(b.value, on);
+      }
+      for (const b of unknown) {
+        const pill = this.scopePill(
+          pills,
+          titleFor(b),
+          true,
+          `“${b}” — no project with this name was found. Tap to remove.`
+        );
+        pill.addClass("is-unknown");
+        pill.onclick = () => toggle(b, true);
       }
     });
+  }
+
+  /** One toggle pill of the Scope field: a real button (keyboard + screen reader
+   *  friendly) styled as a chip, `aria-pressed` carrying its state. */
+  private scopePill(host: HTMLElement, label: string, on: boolean, hint: string): HTMLElement {
+    const pill = host.createEl("button", { cls: "inkswell-chip inkswell-chip--toggle", text: label });
+    pill.toggleClass("is-active", on);
+    pill.setAttribute("aria-pressed", String(on));
+    pill.setAttribute("aria-label", hint);
+    return pill;
   }
 
   private async rename(file: TFile): Promise<void> {

@@ -191,7 +191,7 @@ export const HINTS: Record<string, HintEntry> = {
       p(el, "Every entry has a scope that controls where it shows up:");
       steps(el, [
         "Global (default) — available in every project.",
-        "Project — set codex-project on the note; only that book sees it. List several books (Scope → “+ add book”) to share an entry between some books of a series without making it series-wide.",
+        "Project — set codex-project on the note; only that book sees it. Pick Books in the Scope field and tap the book pills to share an entry between some books of a series without making it series-wide.",
         "Series — set codex-series; shared across the books in a series.",
       ]);
       p(

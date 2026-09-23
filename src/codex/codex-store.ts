@@ -131,7 +131,7 @@ export async function writeEntityScope(
 /**
  * Delta writer for the book list of a project-scoped entity: `fn` receives the
  * CURRENT list parsed inside `processFrontMatter` (never a panel snapshot, so two
- * quick "+ add book" clicks both survive — AGENTS.md gotcha 10) and returns the
+ * quick book-pill toggles both survive — AGENTS.md gotcha 10) and returns the
  * next one. The result is project-scoped, so any series tag is cleared; an empty
  * result makes the entity global.
  */

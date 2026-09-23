@@ -2962,6 +2962,64 @@ body.inkswell-phone .inkswell-write__cm .cm-milestone-gutter {
   font-weight: var(--font-bold);
 }
 
+/* Codex Scope field: a kind switcher (Global / Series / Books) above toggle pills
+   for the set. Pills are real <button>s reset to chip geometry; filled = in scope,
+   outlined = not; `.is-unknown` marks a stored name with no matching project. */
+.inkswell-scope {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+  align-items: flex-start;
+}
+.inkswell-scope__kinds .inkswell-viewswitch__btn {
+  font-size: var(--font-ui-small);
+  padding: 2px var(--size-4-2);
+}
+/* The current kind must read at a glance — the generic switcher's hover-tint is
+   near-invisible on dark themes, so the active segment takes the accent fill. */
+.inkswell-scope__kinds .inkswell-viewswitch__btn.is-active {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+.inkswell-scope__kinds .inkswell-viewswitch__btn.is-active:hover {
+  background-color: var(--interactive-accent-hover);
+}
+.inkswell-scope__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-1);
+}
+.inkswell-scope__caption {
+  padding-left: 2px;
+}
+.inkswell-chip--toggle {
+  cursor: pointer;
+  height: auto;
+  line-height: normal;
+  box-shadow: none;
+  border: 1px solid var(--background-modifier-border);
+  background: transparent;
+  color: var(--text-muted);
+}
+.inkswell-chip--toggle:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+.inkswell-chip--toggle.is-active {
+  background: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+.inkswell-chip--toggle.is-active:hover {
+  background: var(--interactive-accent-hover);
+  border-color: var(--interactive-accent-hover);
+}
+.inkswell-chip--toggle.is-unknown {
+  border-style: dashed;
+  background: transparent;
+  color: var(--text-error);
+}
+
 .inkswell-chip__x:hover {
   color: var(--text-error);
 }
