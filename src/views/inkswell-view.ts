@@ -15,7 +15,8 @@ import { preserveFocus } from "../lib/focus-preserve";
 import { MarkKind } from "../lib/inline-format";
 import { KeyboardWatcher } from "./phone/keyboard-watch";
 import { createDraft, deleteDraft, renameDraft } from "../projects/draft-actions";
-import { baseDraftFor, draftLabel, groupIntoStories, Story, storyOf } from "../projects/stories";
+import { baseDraft, baseDraftFor, draftLabel, groupIntoStories, Story, storyOf } from "../projects/stories";
+import { groupIntoSeries } from "../series/series";
 import { promptText } from "../scenes/scene-actions";
 import { Project } from "../projects/types";
 import { NewDraftModal } from "./drafts-modal";
@@ -346,8 +347,31 @@ export class InkswellView extends ItemView {
     // project. Project-scoped tabs fall back to the first project when nothing
     // specific is selected (see resolveActive).
     sel.createEl("option", { text: "All projects", value: "" });
-    for (const s of stories) {
-      sel.createEl("option", { text: s.title, value: s.title });
+    // Grouped by series (membership is story-level → read off each base draft),
+    // in book order, so the switcher tells the same story as Home's shelves.
+    const addStory = (parent: HTMLElement, story: Story) =>
+      parent.createEl("option", { text: story.title, value: story.title });
+    const storyFor = (p: Project) => stories.find((s) => s.title === p.draft.title);
+    const { series, standalone } = groupIntoSeries(stories.map(baseDraft));
+    if (series.length === 0) {
+      for (const s of stories) addStory(sel, s);
+    } else {
+      for (const grp of series) {
+        const og = sel.createEl("optgroup");
+        og.label = grp.name;
+        for (const book of grp.books) {
+          const story = storyFor(book);
+          if (story) addStory(og, story);
+        }
+      }
+      if (standalone.length > 0) {
+        const og = sel.createEl("optgroup");
+        og.label = "Standalone";
+        for (const book of standalone) {
+          const story = storyFor(book);
+          if (story) addStory(og, story);
+        }
+      }
     }
     sel.value = activeStory?.title ?? "";
     sel.onchange = () => {

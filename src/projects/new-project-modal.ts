@@ -3,14 +3,18 @@
  * *discovers* projects (notes with a `longform` key), with no way to bootstrap
  * one — this modal + helper close that gap. It writes a fresh `longform` block to
  * a new index note via the same `persistDraft` path the rest of the app uses, so
- * the project is immediately Longform-compatible.
+ * the project is immediately Longform-compatible. A book can be born into a
+ * series (the dialog embeds the shared series fields).
  */
 
-import { App, Modal, Notice, Setting, TFile, normalizePath } from "obsidian";
-import { persistDraft } from "./index-writer";
-import { MultipleSceneDraft } from "./types";
+import { App, Notice, Setting, TFile, normalizePath } from "obsidian";
+import { persistDraft, writeSeries } from "./index-writer";
+import { MultipleSceneDraft, SeriesInfo } from "./types";
 import { FolderSettings, joinPath, projectFolder, sanitizeSegment } from "../settings/folders";
+import { FormModal } from "../lib/form-modal";
 import { tryFileOp } from "../lib/notify";
+import { Series } from "../series/series";
+import { SeriesFieldsHandle, renderSeriesFields } from "../series/series-modal";
 
 export interface NewProjectOptions {
   title: string;
@@ -20,6 +24,20 @@ export interface NewProjectOptions {
   sceneFolder: string;
   /** Folder layout settings (codex subfolder name + co-location). */
   folders: FolderSettings;
+  /** Series membership to write on the new index note (null/undefined = standalone). */
+  series?: SeriesInfo | null;
+}
+
+/** Prefill for the dialog (e.g. "New book in this series"). */
+export interface NewProjectPreset {
+  series?: SeriesInfo | null;
+}
+
+export interface NewProjectModalOptions {
+  folders: FolderSettings;
+  /** Existing series, for the picker. */
+  series: Series[];
+  preset?: NewProjectPreset;
 }
 
 const trimSlashes = (s: string): string => s.trim().replace(/^\/+|\/+$/g, "");
@@ -75,6 +93,7 @@ export async function createProject(
       sceneTemplate: null,
     };
     await persistDraft(app, file, draft);
+    if (opts.series) await writeSeries(app, file, opts.series);
 
     // Scene subfolder (relative to the project folder) when it's not the folder itself.
     if (sceneFolder !== "/") {
@@ -90,30 +109,28 @@ export async function createProject(
   }, `Couldn't create the project "${safe}".`);
 }
 
-export class NewProjectModal extends Modal {
+export class NewProjectModal extends FormModal {
   private title = "";
   private baseFolder: string;
   private sceneFolder = "Draft 1";
-  private folders: FolderSettings;
-  private onCreated: (file: TFile) => void;
+  private seriesFields!: SeriesFieldsHandle;
 
-  constructor(app: App, folders: FolderSettings, onCreated: (file: TFile) => void) {
+  constructor(
+    app: App,
+    private opts: NewProjectModalOptions,
+    private onCreated: (file: TFile) => void
+  ) {
     super(app);
-    this.folders = folders;
-    this.baseFolder = folders.baseFolder;
-    this.onCreated = onCreated;
+    this.baseFolder = opts.folders.baseFolder;
+    this.cta = "Create";
   }
 
-  onOpen(): void {
-    const { contentEl } = this;
+  protected renderForm(contentEl: HTMLElement): void {
     contentEl.createEl("h3", { text: "New project" });
 
+    // FormModal autofocuses this first input and submits on Enter.
     new Setting(contentEl).setName("Title").addText((t) => {
       t.setPlaceholder("My Novel").onChange((v) => (this.title = v));
-      window.setTimeout(() => t.inputEl.focus(), 0);
-      t.inputEl.onkeydown = (e) => {
-        if (e.key === "Enter") void this.submit();
-      };
     });
 
     new Setting(contentEl)
@@ -131,27 +148,23 @@ export class NewProjectModal extends Modal {
       .setDesc('Where scene files live, relative to the project folder. "/" = the folder itself.')
       .addText((t) => t.setValue(this.sceneFolder).onChange((v) => (this.sceneFolder = v)));
 
-    new Setting(contentEl).addButton((b) =>
-      b
-        .setButtonText("Create")
-        .setCta()
-        .onClick(() => void this.submit())
-    );
+    this.seriesFields = renderSeriesFields(contentEl, {
+      series: this.opts.series,
+      preset: this.opts.preset?.series ?? null,
+    });
   }
 
-  private async submit(): Promise<void> {
+  protected async submit(): Promise<boolean | void> {
+    const series = this.seriesFields.read();
+    if (series === false) return false;
     const file = await createProject(this.app, {
       title: this.title,
       baseFolder: this.baseFolder,
       sceneFolder: this.sceneFolder,
-      folders: this.folders,
+      folders: this.opts.folders,
+      series,
     });
-    if (!file) return; // createProject already surfaced the reason
-    this.close();
+    if (!file) return false; // createProject already surfaced the reason
     this.onCreated(file);
-  }
-
-  onClose(): void {
-    this.contentEl.empty();
   }
 }

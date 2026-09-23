@@ -1,7 +1,7 @@
 /**
- * Series-membership menu for a project header row (right-click / "⋯" tap):
- * add to / change / leave a series, and set the book number within it.
- * Extracted from explorer-view.ts.
+ * Home's project and series menus: the per-book menu (rename, series
+ * membership) and the per-series menu (new book, add an existing project,
+ * rename, reorder). Extracted from explorer-view.ts.
  */
 
 import { App, Menu, TFile } from "obsidian";
@@ -9,107 +9,105 @@ import { tryFileOp } from "../../lib/notify";
 import { writeSeries } from "../../projects/index-writer";
 import { ProjectStore } from "../../projects/project-store";
 import { baseDraftFor } from "../../projects/stories";
-import { Project } from "../../projects/types";
-import { projectSeries } from "../../series/series";
-import { promptText } from "../../scenes/scene-actions";
+import { Project, SeriesInfo } from "../../projects/types";
+import { Series, projectSeries } from "../../series/series";
+import {
+  ReorderBooksModal,
+  addExistingToSeries,
+  promptRenameSeries,
+} from "../../series/series-actions";
+import { SeriesModal } from "../../series/series-modal";
+import { nextBookOrder } from "../../series/series-ops";
+
+export interface SeriesMenuCallbacks {
+  renameProject(project: Project): void;
+  /** Open the New project dialog, optionally preset to a series. */
+  newProject(preset?: { series?: SeriesInfo | null }): void;
+  /** The current Home selection (drives which draft represents each story). */
+  activePath(): string | null;
+}
 
 export class SeriesMenu {
-  private app: App;
-  private store: ProjectStore;
+  constructor(
+    private app: App,
+    private store: ProjectStore,
+    private cb: SeriesMenuCallbacks
+  ) {}
 
-  private renameProject: (project: Project) => void;
-
-  constructor(app: App, store: ProjectStore, renameProject: (project: Project) => void) {
-    this.app = app;
-    this.store = store;
-    this.renameProject = renameProject;
-  }
-
-  /** Right-click menu on a project header: rename + series membership. */
+  /** Right-click / ⋯ menu on a project: rename + series membership. */
   projectMenu(row: Project): Menu {
     const menu = new Menu();
     menu.addItem((i) =>
       i
         .setTitle("Rename project")
         .setIcon("text-cursor-input")
-        .onClick(() => this.renameProject(row))
+        .onClick(() => this.cb.renameProject(row))
     );
     menu.addSeparator();
     // Series membership is STORY-level (it describes the book): always read
     // and write the base draft, whichever draft the row currently represents —
     // a series tag written to a copy vanishes the moment the story unfocuses,
     // and breaks series codex scoping from the base draft's vantage.
-    const project = baseDraftFor(this.store.getProjects(), row);
-    const file = this.indexFile(project);
-    if (!file) return menu;
+    const projects = this.store.getProjects();
+    const project = baseDraftFor(projects, row);
     const info = projectSeries(project);
 
     menu.addItem((i) =>
       i
-        .setTitle(info ? "Change series…" : "Add to series…")
+        .setTitle(info ? "Series…" : "Add to series…")
         .setIcon("library")
-        .onClick(() => void this.setSeries(project, file))
+        .onClick(() => new SeriesModal(this.app, projects, project, this.cb.activePath()).open())
     );
     if (info) {
       menu.addItem((i) =>
         i
-          .setTitle("Set book number…")
-          .setIcon("list-ordered")
-          .onClick(() => void this.setBookNumber(project, file))
-      );
-      menu.addItem((i) =>
-        i
           .setTitle("Remove from series")
           .setIcon("link-2-off")
-          .onClick(() => void tryFileOp(() => writeSeries(this.app, file, null), "Couldn't remove the book from the series."))
+          .onClick(() => {
+            const file = this.indexFile(project);
+            if (!file) return;
+            void tryFileOp(
+              () => writeSeries(this.app, file, null),
+              "Couldn't remove the book from the series."
+            );
+          })
       );
     }
     return menu;
   }
 
-  private async setSeries(project: Project, file: TFile): Promise<void> {
-    const cur = projectSeries(project);
-    const name = await promptText(this.app, {
-      title: "Series name",
-      value: cur?.name ?? "",
-      multiline: false,
-      cta: "Save",
-    });
-    if (name === null) return;
-    const trimmed = name.trim();
-    if (!trimmed) {
-      await tryFileOp(() => writeSeries(this.app, file, null), "Couldn't update the series.");
-      return;
-    }
-    // A book that's alone in its series is Book 1 by default; joining a series
-    // that already has other books keeps any existing number (set via the menu).
-    // "Other books" means other STORIES — a sibling draft of this story that
-    // byte-copied the series tag must not count as another book.
+  /** Right-click / ⋯ menu on a series header: grow, rename, reorder. */
+  seriesMenu(series: Series): Menu {
+    const menu = new Menu();
     const projects = this.store.getProjects();
-    const others = projects.filter(
-      (p) =>
-        baseDraftFor(projects, p).vaultPath !== project.vaultPath &&
-        projectSeries(p)?.name === trimmed
+    menu.addItem((i) =>
+      i
+        .setTitle("New book in this series…")
+        .setIcon("book-plus")
+        .onClick(() =>
+          this.cb.newProject({ series: { name: series.name, order: nextBookOrder(series.books) } })
+        )
     );
-    const order = others.length === 0 ? 1 : cur?.order;
-    await tryFileOp(() => writeSeries(this.app, file, { name: trimmed, order }), "Couldn't update the series.");
-  }
-
-  private async setBookNumber(project: Project, file: TFile): Promise<void> {
-    const cur = projectSeries(project);
-    if (!cur) return;
-    const raw = await promptText(this.app, {
-      title: "Book number",
-      value: cur.order != null ? String(cur.order) : "",
-      multiline: false,
-      cta: "Save",
-    });
-    if (raw === null) return;
-    const n = Math.floor(Number(raw));
-    await tryFileOp(
-      () => writeSeries(this.app, file, { name: cur.name, order: Number.isFinite(n) && n > 0 ? n : undefined }),
-      "Couldn't set the book number."
+    menu.addItem((i) =>
+      i
+        .setTitle("Add existing project…")
+        .setIcon("book-copy")
+        .onClick(() => addExistingToSeries(this.app, projects, this.cb.activePath(), series))
     );
+    menu.addSeparator();
+    menu.addItem((i) =>
+      i
+        .setTitle("Rename series…")
+        .setIcon("text-cursor-input")
+        .onClick(() => void promptRenameSeries(this.app, projects, series))
+    );
+    menu.addItem((i) =>
+      i
+        .setTitle("Reorder books…")
+        .setIcon("list-ordered")
+        .onClick(() => new ReorderBooksModal(this.app, projects, series).open())
+    );
+    return menu;
   }
 
   private indexFile(project: Project): TFile | null {

@@ -337,6 +337,21 @@ export const HELP_SECTIONS: HelpSection[] = [
         "Capture story ideas in the inbox at the top without leaving the page — press " +
           "Enter to save, and pin the ones worth keeping at the top."
       );
+      el.createEl("h4", { text: "Series" });
+      p(
+        el,
+        "A series is a set of books sharing a name — no extra note, just a tag on each " +
+          "book. Add a book to one from its ⋯ / right-click menu (Series…) or the series " +
+          "line under the title on its hero card: pick an existing series or start a new " +
+          "one, and set the book number (it defaults to the next free slot). New project " +
+          "has the same fields, so a book can be created straight into a series."
+      );
+      p(
+        el,
+        "The series header's ⋯ / right-click menu manages the whole set: New book in this " +
+          "series, Add existing project, Rename series (every book and every series-scoped " +
+          "codex entry follow), and Reorder books (drag, then Save renumbers 1, 2, 3…)."
+      );
     },
   },
   {

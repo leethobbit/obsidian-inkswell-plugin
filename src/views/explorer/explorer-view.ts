@@ -61,7 +61,11 @@ export class ExplorerPanel {
 
     this.hero = new HeroCard(app, plugin, store, stats);
     this.reconcile = new ReconcileBanner(app, (p) => plugin.selfWrites.mark(p));
-    this.seriesMenu = new SeriesMenu(app, store, (p) => plugin.renameProject(p));
+    this.seriesMenu = new SeriesMenu(app, store, {
+      renameProject: (p) => plugin.renameProject(p),
+      newProject: (preset) => plugin.newProject(preset),
+      activePath: () => plugin.activeProject.get(),
+    });
     this.sceneRows = new SceneRows(app, plugin, stats, onSelectScene);
   }
 
@@ -154,6 +158,8 @@ export class ExplorerPanel {
     const books = series.books.length;
     meta.setText(`${books} book${books === 1 ? "" : "s"}`);
     if (this.plugin.settings.showWordCounts) void this.renderSeriesTotals(meta, series);
+    // Right-click (desktop) / "⋯" tap (touch) → series menu (new book, rename, reorder…).
+    attachRowMenu(header, header, () => this.seriesMenu.seriesMenu(series));
     for (const book of series.books) this.renderProject(sec, book);
   }
 

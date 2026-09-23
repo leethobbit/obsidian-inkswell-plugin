@@ -21,7 +21,8 @@ import { PHONE_BODY_CLASS, isPhone, setForceTabletLayout } from "./src/lib/platf
 import { countWords } from "./src/lib/wordcount";
 import { promptText } from "./src/scenes/scene-actions";
 import { ActiveProject, resolveActive } from "./src/projects/active-project";
-import { NewProjectModal } from "./src/projects/new-project-modal";
+import { NewProjectModal, NewProjectPreset } from "./src/projects/new-project-modal";
+import { seriesForPicker } from "./src/series/series-modal";
 import { executeProjectRename } from "./src/projects/rename-project";
 import { RenameProjectModal } from "./src/views/rename-project-modal";
 import { groupIntoStories } from "./src/projects/stories";
@@ -747,9 +748,11 @@ export default class InkswellPlugin extends Plugin {
     ).open();
   }
 
-  /** Create a new project, make it active, and land on Plan to start outlining. */
-  newProject(): void {
-    new NewProjectModal(this.app, this.settings, (file) => {
+  /** Create a new project (optionally preset into a series), make it active, and
+   *  land on Plan to start outlining. */
+  newProject(preset?: NewProjectPreset): void {
+    const series = seriesForPicker(this.store.getProjects(), this.activeProject.get());
+    new NewProjectModal(this.app, { folders: this.settings, series, preset }, (file) => {
       this.activeProject.set(file.path);
       this.refreshExplorer();
       void this.openInkswell("plan");

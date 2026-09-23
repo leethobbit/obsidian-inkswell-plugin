@@ -94,7 +94,7 @@ Short, single-line planning fields: `logline` · `theme` · `genre` · `audience
 ISO 8601 string, stamped when a draft is created via **New draft** (a draft's own file ctime is unreliable). Absent on drafts that predate this field or were imported — treat absence as "unknown", not "day zero". Used for the draft-age column in the Track → Drafts comparison.
 
 ### `inkswell.series` — series membership
-`name` (string; books sharing a name form one series) · `order` (number, 1-based).
+`name` (string; books sharing a name form one series) · `order` (number, 1-based). A series is implicit — there is no series note. **Rename series** (`src/series/series-ops.ts`) rewrites `name` on every draft carrying the old name (sibling drafts byte-copy the tag) and every codex note's `codex-series`; **Reorder books** rewrites `order` as 1..n across the series; a book joining a series defaults to `max(order) + 1`.
 
 ### `inkswell.beats` — beat sheet
 `template` (a built-in id: `save-the-cat` · `three-act` · `heros-journey` · `seven-point` · `story-circle` · `romancing-the-beat` · `twenty-seven-chapter` · `ten-point` — **or** a user-defined custom-template slug, see below) · `assignments` (map of `beatId → {scenes?: string[], note?: string, done?: boolean}`).

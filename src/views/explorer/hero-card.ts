@@ -21,6 +21,8 @@ import { ProjectStats } from "../../projects/project-stats";
 import { ProjectStore } from "../../projects/project-store";
 import { Project } from "../../projects/types";
 import { baseDraftFor } from "../../projects/stories";
+import { projectSeries } from "../../series/series";
+import { SeriesModal } from "../../series/series-modal";
 import type InkswellPlugin from "../../../main";
 
 export class HeroCard {
@@ -75,7 +77,21 @@ export class HeroCard {
     const meta = hero.createDiv({ cls: "inkswell-hero__meta" });
     meta.createDiv({ cls: "inkswell-hero__title", text: focused.draft.title });
 
-    const field = (label: string, value: string | undefined, placeholder: string, save: (v: string) => void) => {
+    // Series membership, always visible — the desktop door into the series
+    // dialog (the row menu alone was right-click-only there).
+    const info = projectSeries(base);
+    const seriesLine = meta.createDiv({ cls: "inkswell-hero__series" });
+    if (info) {
+      seriesLine.setText(info.order != null ? `${info.name} · Book ${info.order}` : info.name);
+    } else {
+      seriesLine.addClass("is-empty");
+      seriesLine.setText("Add to series…");
+    }
+    seriesLine.setAttribute("aria-label", "Edit series membership");
+    seriesLine.onclick = () =>
+      new SeriesModal(this.app, this.store.getProjects(), base, this.plugin.activeProject.get()).open();
+
+    const field =(label: string, value: string | undefined, placeholder: string, save: (v: string) => void) => {
       const row = meta.createDiv({ cls: "inkswell-hero__field" });
       row.createDiv({ cls: "inkswell-hero__label", text: label });
       const input = row.createEl("input", { type: "text", cls: "inkswell-hero__input" });

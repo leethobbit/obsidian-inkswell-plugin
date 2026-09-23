@@ -2147,6 +2147,23 @@ body.inkswell-phone .inkswell-write__cm .cm-milestone-gutter {
   font-weight: var(--font-bold);
   font-size: var(--font-ui-large);
 }
+/* Series membership line under the hero title — click opens the series dialog. */
+.inkswell-hero__series {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  cursor: pointer;
+  width: fit-content;
+}
+.inkswell-hero__series:hover {
+  color: var(--text-accent);
+}
+.inkswell-hero__series.is-empty {
+  text-decoration: underline dotted;
+}
+/* Book-number input in the series dialog / New project. */
+.inkswell-series__ordernum {
+  width: 8ch;
+}
 .inkswell-hero__field {
   display: flex;
   flex-direction: column;

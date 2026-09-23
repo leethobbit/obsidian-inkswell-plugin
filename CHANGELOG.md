@@ -10,8 +10,15 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Added
+- **Series are now easy to start and manage.** A new **Series** dialog — from a book's ⋯ / right-click menu on Home, or the series line under the title on the focused project's hero card — lets you pick an existing series from a dropdown (no more re-typing the name and accidentally forking a series on a typo) or start a new one, and set the book number, which defaults to the next free slot. The **New project** dialog carries the same fields, so a book can be created straight into *Book 3 of The Lattice Cycle*. A series header on Home now has its own menu: **New book in this series…**, **Add existing project…**, **Rename series…** (every book and every `codex-series` codex entry follow; renaming onto an existing series merges after a confirm), and **Reorder books…** (drag, then Save renumbers 1, 2, 3…). The header project switcher groups stories by series. Frontmatter is unchanged — `inkswell.series` on each book, no series note. Requested in [#38](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/38) and [#44](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/44).
+
 ### Changed
 - **The Codex Scope field is a switcher and pills, not two dropdowns.** Pick the kind of scope — *Global*, *Series*, or *Books* — from a segmented control (the entry's current kind is highlighted), then tap book pills to say exactly which books see the entry (filled = in, outlined = out). Switching to Series or Books applies the active story's series or book at once, so nothing is left half-set; a single series shows as a caption rather than a choice; a vault with one book names it on the segment. The old "N books — current" placeholder and the second "+ add book" dropdown are gone. Frontmatter is unchanged.
+
+### Fixed
+- **"Add to series" was unreachable on desktop.** The only door was a right-click on a project row, with no visible control (the ⋯ button appeared on touch only) — reported in [#44](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/44). Series membership now has a visible, clickable line on the hero card, and a field in New project.
+- **Joining an existing series left the book unnumbered** — it showed without a "N." and sorted after every numbered book. A book added to an existing series now defaults to the next free number (you can still clear it).
 
 ## [1.17.0] - 2026-09-23
 
