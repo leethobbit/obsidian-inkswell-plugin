@@ -6,7 +6,7 @@
  * A project's name is really three loosely-coupled things (see AGENTS.md gotcha):
  *   - `longform.title` on EVERY draft of the story (story grouping + plan-note name),
  *   - the base draft's folder and index basename (`<Title>/<Title>.md`, as scaffolded),
- *   - the index basename again, as the codex `scope.project` key.
+ *   - the index basename again, as a codex `scope.projects` entry.
  * The planner renames whichever of those still follow the scaffold convention and
  * leaves anything the user has customised alone (a folder called `Book` stays
  * `Book`). Stored absolute paths (`overview.planningNote`, `overview.cover`,
@@ -41,7 +41,7 @@ export interface ProjectRenamePlan {
   fileMoves: PathMove[];
   /** One patch per draft of the story. */
   patches: DraftPatch[];
-  /** Codex `scope.project` basename rewrites implied by the index renames. */
+  /** Codex `scope.projects` basename rewrites implied by the index renames. */
   codexRenames: PathMove[];
   /** Every old→new path pair (folder prefix + file moves), for path-keyed caches. */
   remap: (path: string) => string;

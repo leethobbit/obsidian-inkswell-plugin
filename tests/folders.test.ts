@@ -65,7 +65,8 @@ describe("projectFolder", () => {
 });
 
 describe("resolveCodexFolder", () => {
-  const book: EntityScope = { project: "Book One" };
+  const book: EntityScope = { projects: ["Book One"] };
+  const multi: EntityScope = { projects: ["Book One", "Book Two"] };
   const series: EntityScope = { series: "Saga" };
   const global: EntityScope = {};
   const indexPath = "Inkswell/Book One/Book One.md";
@@ -76,10 +77,11 @@ describe("resolveCodexFolder", () => {
     );
   });
 
-  it("sends series/global entries to the shared base codex even when co-locating", () => {
+  it("sends series/global/multi-book entries to the shared base codex even when co-locating", () => {
     const s = settings({ baseFolder: "Inkswell" });
     expect(resolveCodexFolder(s, series, indexPath)).toBe("Inkswell/Codex");
     expect(resolveCodexFolder(s, global, indexPath)).toBe("Inkswell/Codex");
+    expect(resolveCodexFolder(s, multi, indexPath)).toBe("Inkswell/Codex");
   });
 
   it("uses the shared base codex for everything when co-location is off", () => {

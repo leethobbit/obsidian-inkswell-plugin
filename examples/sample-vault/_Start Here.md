@@ -72,7 +72,7 @@ Nothing here is magic — it's all plain Markdown you can inspect:
   Each entry here also carries `codex-series: The Lattice Cycle`, which **scopes**
   it to that series — it shows in pickers for every book in the cycle but is hidden
   from unrelated projects. (Use `codex-project: "[[Book]]"` to scope to a single
-  book, or leave both off to share an entry globally. New entries inherit the
+  book, a list of such links for several books, or leave both off to share an entry globally. New entries inherit the
   active project's scope automatically; folder location is just tidy storage —
   the tag is what controls visibility.)
 - **Sprint and daily-word history** is *not* in these notes — it lives in the
