@@ -101,6 +101,7 @@ describe("isArrayField", () => {
     expect(isArrayField(field({ type: "links", single: true }))).toBe(false);
     expect(isArrayField(field({ type: "text" }))).toBe(false);
     expect(isArrayField(field({ type: "textarea" }))).toBe(false);
+    expect(isArrayField(field({ type: "number" }))).toBe(false);
   });
 });
 
@@ -111,16 +112,45 @@ describe("coerceValue", () => {
     expect(coerceValue(field({ type: "links", single: true }), "[[Anna]]")).toBe("[[Anna]]");
   });
 
-  it("coerces array fields to a string array, dropping non-strings", () => {
+  it("coerces array fields to a string array, keeping bare numbers as strings (#40) and dropping the rest", () => {
     expect(coerceValue(field({ type: "list" }), ["a", "b"])).toEqual(["a", "b"]);
-    expect(coerceValue(field({ type: "list" }), [1, "b", null])).toEqual(["b"]);
+    expect(coerceValue(field({ type: "list" }), [1, "b", null, true, {}, NaN])).toEqual(["1", "b"]);
+    expect(coerceValue(field({ type: "list" }), 42)).toEqual(["42"]);
+    expect(coerceValue(field({ type: "list" }), [7.5, "", "x"])).toEqual(["7.5", "", "x"]);
     expect(coerceValue(field({ type: "links" }), "[[Anna]]")).toEqual(["[[Anna]]"]);
     expect(coerceValue(field({ type: "list" }), undefined)).toEqual([]);
     expect(coerceValue(field({ type: "list" }), "  ")).toEqual([]);
   });
 });
 
+describe("coerceValue for number fields (#40)", () => {
+  const num = field({ type: "number" });
+
+  it("reads a YAML number, or a numeric string, as a number", () => {
+    expect(coerceValue(num, 42)).toBe(42);
+    expect(coerceValue(num, 0)).toBe(0);
+    expect(coerceValue(num, -3.25)).toBe(-3.25);
+    expect(coerceValue(num, "42")).toBe(42);
+    expect(coerceValue(num, " 7.5 ")).toBe(7.5);
+    expect(coerceValue(num, "1e3")).toBe(1000);
+  });
+
+  it("reads anything non-numeric as empty (shown blank, stored value untouched)", () => {
+    for (const raw of ["abc", "mid-thirties", "1,000", "", "  ", null, undefined, true, {}, [], NaN, Infinity]) {
+      expect(coerceValue(num, raw), `raw=${String(raw)}`).toBe("");
+    }
+  });
+});
+
 describe("isEmptyValue", () => {
+  it("a number is never empty (0 is a value); only NaN/Infinity clear the key", () => {
+    expect(isEmptyValue(0)).toBe(false);
+    expect(isEmptyValue(42)).toBe(false);
+    expect(isEmptyValue(-1.5)).toBe(false);
+    expect(isEmptyValue(NaN)).toBe(true);
+    expect(isEmptyValue(Infinity)).toBe(true);
+  });
+
   it("flags blank strings and empty arrays for clearing", () => {
     expect(isEmptyValue(undefined)).toBe(true);
     expect(isEmptyValue("")).toBe(true);

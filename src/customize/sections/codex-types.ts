@@ -461,7 +461,11 @@ class AddFieldModal extends FormModal {
   private refreshKeyLine(): void {
     if (!this.keyLine) return;
     const key = keyFromLabel(this.label);
-    this.keyLine.setText(key ? `Stored as ${key}` : "");
+    // A non-blank label that derives no key starts with a digit or symbol —
+    // say so live rather than on submit.
+    this.keyLine.setText(
+      key ? `Stored as ${key}` : this.label.trim() ? "Start the label with a letter." : ""
+    );
   }
 
   protected submit(): boolean {
@@ -475,7 +479,7 @@ class AddFieldModal extends FormModal {
       }
     }
     const key = keyFromLabel(this.label);
-    const check = isValidNewKey(key, this.opts.existingKeys);
+    const check = isValidNewKey(key, this.opts.existingKeys, this.label);
     if (!check.ok) {
       new Notice(check.reason);
       return false;

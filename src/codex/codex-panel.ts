@@ -627,6 +627,25 @@ export class CodexPanel {
         addBtn.onclick = commit;
         return;
       }
+      if (field.type === "number") {
+        // Saved as a JS number → a bare YAML number, so Bases/Dataview can sort
+        // and sum it. A non-numeric stored value shows empty and is only
+        // overwritten when the user actually edits the field (onchange).
+        const t = control.createEl("input", {
+          type: "number",
+          attr: { step: "any", inputmode: "decimal" },
+        });
+        tagField(t, `codex:${field.key}`);
+        const v = profile[field.key];
+        t.value = typeof v === "number" ? String(v) : "";
+        if (field.placeholder) t.placeholder = field.placeholder;
+        t.onchange = () => {
+          const s = t.value.trim();
+          const n = Number(s);
+          void save(s !== "" && Number.isFinite(n) ? n : "");
+        };
+        return;
+      }
       // links
       this.renderLinkField(control, field, profile, entities, entity, (value) =>
         void saveAndRefresh(value)

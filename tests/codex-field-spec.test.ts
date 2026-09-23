@@ -13,6 +13,8 @@ import {
   serializeFieldSpec,
 } from "../src/codex/profile-schema";
 import {
+  FIELD_KINDS,
+  FIELD_KIND_LABELS,
   isValidNewKey,
   keyFromLabel,
   rowTypeHint,
@@ -76,7 +78,16 @@ describe("serializeFieldSpec ↔ parseFieldSpec", () => {
     expect(Object.keys(written)).toEqual(["role"]);
   });
 
+  it("a number field round-trips through the spec and normalizes hand-written synonyms", () => {
+    const written = serializeFieldSpec([{ key: "age", type: "number" }, { key: "role", type: "text" }]);
+    const fields = profileFields("character", parseFieldSpec(written));
+    expect(fields.find((f) => f.key === "age")).toMatchObject({ type: "number", label: "Age" });
+    const viaInt = profileFields("character", parseFieldSpec({ age: "int" }));
+    expect(fieldToSpec(viaInt.find((f) => f.key === "age")!, "character")).toEqual({ key: "age", type: "number" });
+  });
+
   it("fieldTypeHint is the inverse of the hint grammar", () => {
+    expect(fieldTypeHint({ key: "k", label: "L", type: "number" })).toBe("number");
     expect(fieldTypeHint({ key: "k", label: "L", type: "textarea" })).toBe("textarea");
     expect(fieldTypeHint({ key: "k", label: "L", type: "links" })).toBe("links");
     expect(fieldTypeHint({ key: "k", label: "L", type: "links", linkCategory: "faction" })).toBe("links:faction");
@@ -112,7 +123,18 @@ describe("fields editor row model", () => {
     });
   });
 
+  it("FIELD_KINDS (dropdown order) covers exactly the labelled kinds", () => {
+    expect([...FIELD_KINDS].sort()).toEqual(Object.keys(FIELD_KIND_LABELS).sort());
+    expect(FIELD_KIND_LABELS.number).toBe("Number");
+  });
+
+  it("rowsFromFields maps a number field to the number kind", () => {
+    const rows = rowsFromFields(profileFields("character", [{ key: "age", type: "number" }]));
+    expect(rows).toEqual([{ id: "age", key: "age", label: "Age", kind: "number" }]);
+  });
+
   it("rowTypeHint mirrors fieldTypeHint for every kind", () => {
+    expect(rowTypeHint({ id: "a", key: "a", label: "A", kind: "number" })).toBe("number");
     expect(rowTypeHint({ id: "a", key: "a", label: "A", kind: "text" })).toBe("text");
     expect(rowTypeHint({ id: "a", key: "a", label: "A", kind: "links", linkCategory: "character", labeled: true })).toBe(
       "links:character:labeled"
@@ -135,5 +157,16 @@ describe("fields editor row model", () => {
     expect(isValidNewKey("bad key", [])).toMatchObject({ ok: false });
     expect(isValidNewKey("", [])).toMatchObject({ ok: false });
     expect(isValidNewKey("birthDate", ["role"])).toEqual({ ok: true });
+  });
+
+  it("a digit-leading label gets a reason that names the rule, a blank one asks for a label", () => {
+    expect(isValidNewKey(keyFromLabel("5 stars"), [], "5 stars")).toEqual({
+      ok: false,
+      reason: "Start the label with a letter.",
+    });
+    expect(isValidNewKey(keyFromLabel("2024"), [], "2024")).toMatchObject({ reason: "Start the label with a letter." });
+    expect(isValidNewKey("", [], "   ")).toMatchObject({ reason: "Enter a label." });
+    expect(isValidNewKey("", [])).toMatchObject({ reason: "Enter a label." });
+    expect(isValidNewKey(keyFromLabel("Level 5"), [], "Level 5")).toEqual({ ok: true });
   });
 });
