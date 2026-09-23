@@ -10,6 +10,8 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-09-23
+
 ### Added
 - **A codex entry can belong to several books.** The Codex panel's Scope field now lets a book-scoped entry list more than one book — pick a book, then *+ add book* for the others — so a character who appears in books 2 and 3 of a six-book series, but not the rest, shows up in exactly those books without being series-wide. Under the hood `codex-project` accepts a list of wikilinks; a single book is still written exactly as before, so existing entries are untouched (an older Inkswell reads a multi-book entry as global). Requested in [#40](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/40).
 - **Number codex fields.** Customize → Codex types → Fields now offers a *Number* kind (`number` in a template's `codex-fields`; `int`/`float` are accepted as synonyms). Values are stored as real YAML numbers, so Bases and Dataview sort and sum them instead of seeing text. Shipped fields keep their types — retype `age`, `population`, or a field of your own per type if you want numbers there. Requested in [#40](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/40).
@@ -342,7 +344,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.16.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.17.0...HEAD
+[1.17.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.16.0...1.17.0
 [1.16.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.15.0...1.16.0
 [1.15.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.14.0...1.15.0
 [1.14.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.13.0...1.14.0
