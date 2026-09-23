@@ -226,3 +226,138 @@ describe("buildSyntaxIntents — line classes (manuscript typography)", () => {
     expect(hides(out).map((i) => i.from)).toEqual([0, 5, 7]);
   });
 });
+
+describe("buildSyntaxIntents — HTML tags", () => {
+  const nonLine = (out: SyntaxIntent[]) => out.filter((i) => i.type !== "line");
+
+  it("hides inline tags when the cursor is away and never styles their content", () => {
+    const out = buildSyntaxIntents("<b>x</b>", []);
+    expect(hides(out).map((i) => [i.from, i.to])).toEqual([
+      [0, 3],
+      [4, 8],
+    ]);
+    expect(out.filter((i) => i.type === "style")).toEqual([]);
+  });
+
+  it("reveals an inline tag per tag — only the one the cursor touches", () => {
+    const inClose = buildSyntaxIntents("<b>x</b>", [{ from: 5, to: 5 }]);
+    expect(inClose).toContainEqual({ from: 4, to: 8, type: "style", cls: "cm-md-mark" });
+    expect(hides(inClose).map((i) => [i.from, i.to])).toEqual([[0, 3]]);
+    const inOpen = buildSyntaxIntents("<b>x</b>", [{ from: 1, to: 1 }]);
+    expect(inOpen).toContainEqual({ from: 0, to: 3, type: "style", cls: "cm-md-mark" });
+    expect(hides(inOpen).map((i) => [i.from, i.to])).toEqual([[4, 8]]);
+  });
+
+  it("does not reveal a second inline tag pair on the same line", () => {
+    // "<b>x</b> <i>y</i>" — <i> at 9, </i> at 13.
+    const out = buildSyntaxIntents("<b>x</b> <i>y</i>", [{ from: 1, to: 1 }]);
+    expect(hides(out).map((i) => [i.from, i.to])).toEqual([
+      [4, 8],
+      [9, 12],
+      [13, 17],
+    ]);
+  });
+
+  it("hides a line-leading block tag WITH its trailing space; reveals it per line", () => {
+    // `<p align="right">` is 17 chars; the space is 17; POV starts at 18.
+    const away = buildSyntaxIntents('<p align="right"> POV', []);
+    expect(hides(away).map((i) => [i.from, i.to])).toEqual([[0, 18]]);
+    const onLine = buildSyntaxIntents('<p align="right"> POV', [{ from: 20, to: 20 }]);
+    expect(onLine).toContainEqual({ from: 0, to: 17, type: "style", cls: "cm-md-mark" });
+    expect(hides(onLine)).toHaveLength(0);
+  });
+
+  it("hides a closing block tag without swallowing the whitespace before it", () => {
+    const away = buildSyntaxIntents("Location</p>", []);
+    expect(hides(away).map((i) => [i.from, i.to])).toEqual([[8, 12]]);
+    const onLine = buildSyntaxIntents("Location</p>", [{ from: 2, to: 2 }]);
+    expect(onLine).toContainEqual({ from: 8, to: 12, type: "style", cls: "cm-md-mark" });
+    expect(hides(onLine)).toHaveLength(0);
+  });
+
+  it("hides every <br> spelling as one token", () => {
+    for (const br of ["<br>", "<br/>", "<br />"]) {
+      expect(hides(buildSyntaxIntents(br, [])).map((i) => [i.from, i.to])).toEqual([[0, br.length]]);
+    }
+  });
+
+  it("leaves unknown tags alone — they are prose, not markers", () => {
+    expect(hides(buildSyntaxIntents("<Insert name>", []))).toEqual([]);
+    expect(hides(buildSyntaxIntents("<pre>x</pre>", []))).toEqual([]);
+    expect(styles(buildSyntaxIntents("<Insert *x*>", []), "cm-md-em")).toHaveLength(1);
+  });
+
+  it("keeps a tag quoted in inline code as code (code runs first)", () => {
+    const out = buildSyntaxIntents("`<b>`", []);
+    expect(out).toContainEqual({ from: 1, to: 4, type: "style", cls: "cm-md-code" });
+    expect(hides(out).map((i) => [i.from, i.to])).toEqual([
+      [0, 1],
+      [4, 5],
+    ]);
+  });
+
+  it("protects attributes from emphasis and underscore rules", () => {
+    expect(styles(buildSyntaxIntents('<font color="*red*">x</font>', []), "cm-md-em")).toHaveLength(0);
+    const span = buildSyntaxIntents('<span class="a_b">', []);
+    expect(nonLine(span).every((i) => i.type === "hide")).toBe(true);
+    expect(nonLine(span)).toHaveLength(1);
+  });
+
+  it("does not style emphasis that straddles a tag pair (documented limitation)", () => {
+    expect(styles(buildSyntaxIntents("*a <b>x</b> c*", []), "cm-md-em")).toHaveLength(0);
+  });
+});
+
+describe("buildSyntaxIntents — HTML alignment line classes", () => {
+  const lines = (out: SyntaxIntent[], cls: string) =>
+    out.filter((i) => i.type === "line" && i.cls === cls).map((i) => i.from);
+
+  it("classifies every line of a block through its close tag; the next paragraph is first", () => {
+    // Lines start at 0, 20 (<br>), 25 (B</p>), 31 (blank), 32 (C).
+    const out = buildSyntaxIntents('<p align="right"> A\n<br>\nB</p>\n\nC', []);
+    expect(lines(out, "cm-md-line-align-right")).toEqual([0, 20, 25]);
+    expect(lines(out, "cm-md-line-first")).toEqual([32]);
+  });
+
+  it("a blank line ends an unclosed block", () => {
+    const out = buildSyntaxIntents('<p align="right">A\n\nB', []);
+    expect(lines(out, "cm-md-line-align-right")).toEqual([0]);
+    expect(lines(out, "cm-md-line-first")).toEqual([20]);
+  });
+
+  it("a block opened and closed on one line classifies that line only", () => {
+    const out = buildSyntaxIntents('<p align="right">A</p>\nB', []);
+    expect(lines(out, "cm-md-line-align-right")).toEqual([0]);
+    expect(lines(out, "cm-md-line-first")).toEqual([23]);
+  });
+
+  it("reads alignment from style=, unquoted align=, and <center>", () => {
+    for (const doc of ['<div style="text-align: center">x</div>', "<center>x</center>", "<p align=center>x</p>"]) {
+      expect(lines(buildSyntaxIntents(doc, []), "cm-md-line-align-center")).toEqual([0]);
+    }
+  });
+
+  it("an unaligned <p> is not a block: no class, and prose after it is not first", () => {
+    const out = buildSyntaxIntents("<p>x</p>\nB", []);
+    expect(out.filter((i) => i.type === "line" && i.cls?.startsWith("cm-md-line-align"))).toEqual([]);
+    expect(lines(out, "cm-md-line-first")).toEqual([0]);
+  });
+
+  it("a lone <br> between paragraphs does not make the next paragraph first", () => {
+    expect(lines(buildSyntaxIntents("A\n<br>\nB", []), "cm-md-line-first")).toEqual([0]);
+  });
+
+  it("an <hr> line is a thematic break", () => {
+    const out = buildSyntaxIntents("<hr>\n\nB", []);
+    expect(lines(out, "cm-md-line-hr")).toEqual([0]);
+    expect(lines(out, "cm-md-line-first")).toEqual([6]);
+  });
+
+  it("line intents stay zero-width alongside tag hides, and output stays sorted", () => {
+    const out = buildSyntaxIntents('<p align="right">A</p>\n\n*x*', []);
+    for (const i of out.filter((i) => i.type === "line")) expect(i.from).toBe(i.to);
+    expect(hides(out).map((i) => i.from)).toEqual([0, 18, 24, 26]);
+    const froms = out.map((i) => i.from);
+    expect(froms).toEqual([...froms].sort((a, b) => a - b));
+  });
+});

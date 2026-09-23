@@ -15,11 +15,14 @@ import {
   resolveCodexTemplate,
   resolveEntityImage,
   scenesForEntity,
+  updateEntityProjects,
+  writeEntityScope,
 } from "../src/codex/codex-store";
 import { CategoryDef, CodexCategory, CodexEntity, EntityScope } from "../src/codex/types";
 import { Project } from "../src/projects/types";
 import { TFile } from "./fakes/obsidian";
 import { FakeApp } from "./fakes/fake-app";
+import { isEntityVisible as isVisible } from "../src/codex/codex-scope";
 
 describe("createEntity filename safety", () => {
   it('rejects ".." / "." / dot-only names without creating any file', async () => {
@@ -190,7 +193,7 @@ describe("createEntity from a template", () => {
       "character",
       "Anna",
       "Codex",
-      { project: "Book" },
+      { projects: ["Book"] },
       tpl as never
     );
     const fm = app.metadataCache.getFileCache(file as never)?.frontmatter ?? {};
@@ -379,7 +382,7 @@ describe("scenesForEntity", () => {
     const scoped = await scenesForEntity(
       app.asApp(),
       projects,
-      entity("Amulet", "item", { scope: { project: "BookA" } })
+      entity("Amulet", "item", { scope: { projects: ["BookA"] } })
     );
     expect(scoped.map((s) => s.path)).toEqual(["BookA/s1.md"]);
   });
@@ -414,5 +417,94 @@ describe("appearancesForEntity (per book, POV flagged — #40)", () => {
     // The flat wrapper still returns every file, sorted by basename.
     const flat = await scenesForEntity(app.asApp(), projects, entity("Anna", "character", { aliases: ["Annie"] }));
     expect(flat.map((f) => f.path).sort()).toEqual(["BookA/s1.md", "BookA/s2.md", "BookB/s1.md"]);
+  });
+});
+
+describe("codex-project scope: one book or several (#40)", () => {
+  const fmOf = (app: FakeApp, path: string) =>
+    app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(path) as never)?.frontmatter ?? {};
+  const scopeOf = (app: FakeApp, name: string) =>
+    getCodexEntities(app.asApp()).find((e) => e.name === name)?.scope;
+
+  it("reads the pre-1.17 single wikilink, a list, a list with junk, and ignores a non-string scalar", () => {
+    const app = new FakeApp();
+    app.vault.seed("Codex/One.md", '---\ncodex: character\ncodex-project: "[[Book A]]"\n---\n');
+    app.vault.seed(
+      "Codex/Two.md",
+      '---\ncodex: character\ncodex-project:\n  - "[[Book A]]"\n  - "[[Book B]]"\n---\n'
+    );
+    app.vault.seed(
+      "Codex/Junk.md",
+      '---\ncodex: character\ncodex-project:\n  - "[[Book A]]"\n  - 42\n  - ""\n  - "[[Book A]]"\n---\n'
+    );
+    app.vault.seed("Codex/Num.md", "---\ncodex: character\ncodex-project: 42\n---\n");
+    expect(scopeOf(app, "One")).toEqual({ projects: ["Book A"] });
+    expect(scopeOf(app, "Two")).toEqual({ projects: ["Book A", "Book B"] });
+    expect(scopeOf(app, "Junk")).toEqual({ projects: ["Book A"] });
+    expect(scopeOf(app, "Num")).toBeUndefined(); // global, not a crash
+  });
+
+  it("series still wins when both keys are present", () => {
+    const app = new FakeApp();
+    app.vault.seed(
+      "Codex/Both.md",
+      '---\ncodex: character\ncodex-series: Saga\ncodex-project: "[[Book A]]"\n---\n'
+    );
+    const scope = scopeOf(app, "Both");
+    expect(scope?.series).toBe("Saga");
+    const ctx = { projectNames: ["Other"], seriesName: "Saga" };
+    expect(getCodexEntities(app.asApp()).filter((e) => e.scope && isVisible(e, ctx)).length).toBe(1);
+  });
+
+  it("writes one book as the plain wikilink string (1.16-compatible) and several as a list", async () => {
+    const app = new FakeApp();
+    const file = app.vault.seed("Codex/Anna.md", "---\ncodex: character\n---\n");
+    await writeEntityScope(app.asApp(), file as never, { projects: ["Book A"] });
+    expect(fmOf(app, "Codex/Anna.md")["codex-project"]).toBe("[[Book A]]");
+    await writeEntityScope(app.asApp(), file as never, { projects: ["Book A", "Book B", "Book A"] });
+    expect(fmOf(app, "Codex/Anna.md")["codex-project"]).toEqual(["[[Book A]]", "[[Book B]]"]);
+    expect(app.vault.raw("Codex/Anna.md")).toContain('- "[[Book A]]"');
+    // Series clears the book list; global clears both.
+    await writeEntityScope(app.asApp(), file as never, { series: "Saga" });
+    expect(fmOf(app, "Codex/Anna.md")["codex-project"]).toBeUndefined();
+    expect(fmOf(app, "Codex/Anna.md")["codex-series"]).toBe("Saga");
+    await writeEntityScope(app.asApp(), file as never, {});
+    expect(fmOf(app, "Codex/Anna.md")["codex-series"]).toBeUndefined();
+    await writeEntityScope(app.asApp(), file as never, { projects: [] });
+    expect("codex-project" in fmOf(app, "Codex/Anna.md")).toBe(false);
+  });
+
+  it("updateEntityProjects: add, add, remove round-trip; two adds from the same pre-state both survive", async () => {
+    const app = new FakeApp();
+    const file = app.vault.seed(
+      "Codex/Anna.md",
+      '---\ncodex: character\ncodex-series: Saga\ncodex-project: "[[Book A]]"\n---\n'
+    );
+    // Fired back-to-back without awaiting — each transform must see the other's result.
+    const p1 = updateEntityProjects(app.asApp(), file as never, (cur) => [...cur, "Book B"]);
+    const p2 = updateEntityProjects(app.asApp(), file as never, (cur) => [...cur, "Book C"]);
+    await Promise.all([p1, p2]);
+    expect(fmOf(app, "Codex/Anna.md")["codex-project"]).toEqual([
+      "[[Book A]]",
+      "[[Book B]]",
+      "[[Book C]]",
+    ]);
+    expect(fmOf(app, "Codex/Anna.md")["codex-series"]).toBeUndefined(); // now book-scoped
+    await updateEntityProjects(app.asApp(), file as never, (cur) => cur.filter((b) => b !== "Book A"));
+    await updateEntityProjects(app.asApp(), file as never, (cur) => cur.filter((b) => b !== "Book C"));
+    expect(fmOf(app, "Codex/Anna.md")["codex-project"]).toBe("[[Book B]]"); // back to the string form
+    await updateEntityProjects(app.asApp(), file as never, () => []);
+    expect("codex-project" in fmOf(app, "Codex/Anna.md")).toBe(false); // global
+  });
+
+  it("createEntity (no template) scaffolds a multi-book scope that parses back", async () => {
+    const app = new FakeApp();
+    const file = await createEntity(app.asApp(), "character", "Anna", "Codex", {
+      projects: ["Book A", "Book B"],
+    });
+    expect(app.vault.raw(file!.path)).toContain('codex-project:\n  - "[[Book A]]"\n  - "[[Book B]]"');
+    expect(scopeOf(app, "Anna")).toEqual({ projects: ["Book A", "Book B"] });
+    const one = await createEntity(app.asApp(), "character", "Solo", "Codex", { projects: ["Book A"] });
+    expect(app.vault.raw(one!.path)).toContain('codex-project: "[[Book A]]"');
   });
 });

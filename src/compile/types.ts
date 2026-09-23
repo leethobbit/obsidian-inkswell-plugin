@@ -20,18 +20,29 @@ export interface CompileScene {
 /** Options bag passed to a step instance (step-specific shape). */
 export type StepOptions = Record<string, unknown>;
 
+/**
+ * What the run is producing — the same for every step in a run. Lets a step
+ * adapt to (or skip) an output target: `html-align` rewrites HTML alignment
+ * only for pandoc targets whose writer drops raw HTML.
+ */
+export interface StepContext {
+  format: OutputFormat;
+  /** pandoc `--to` value (docx / pdf / epub) when `format` is "pandoc". */
+  target?: string;
+}
+
 export interface SceneStep {
   id: string;
   description: string;
   kind: "scene";
-  run(scenes: CompileScene[], options: StepOptions): CompileScene[];
+  run(scenes: CompileScene[], options: StepOptions, ctx: StepContext): CompileScene[];
 }
 
 export interface ManuscriptStep {
   id: string;
   description: string;
   kind: "manuscript";
-  run(manuscript: string, options: StepOptions): string;
+  run(manuscript: string, options: StepOptions, ctx: StepContext): string;
 }
 
 export type CompileStep = SceneStep | ManuscriptStep;
@@ -60,8 +71,9 @@ export interface PandocOutput {
  * `sceneSteps` list is otherwise taken verbatim and never learns about new steps.
  *   1 (implicit — no `version` key): pre-1.14 configs
  *   2: `flatten-links` scene step added, default-on
+ *   3: `html-align` scene step added, default-on (1.17)
  */
-export const COMPILE_CONFIG_VERSION = 2;
+export const COMPILE_CONFIG_VERSION = 3;
 
 export interface CompileConfig {
   /** Schema version (see {@link COMPILE_CONFIG_VERSION}); absent = 1. */
@@ -86,6 +98,7 @@ export const DEFAULT_COMPILE_CONFIG: CompileConfig = {
     { id: "remove-comments", options: {} },
     { id: "remove-todos", options: {} },
     { id: "flatten-links", options: {} },
+    { id: "html-align", options: {} },
   ],
   manuscriptSteps: [{ id: "trim-blank-lines", options: {} }],
   separator: "\n\n",

@@ -82,5 +82,6 @@ describe("codexTemplatesReadme", () => {
   it("documents the codex-fields property", () => {
     expect(codexTemplatesReadme()).toContain("codex-fields:");
     expect(codexTemplatesReadme()).toContain("textarea");
+    expect(codexTemplatesReadme()).toContain("`number`");
   });
 });

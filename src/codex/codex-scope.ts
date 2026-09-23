@@ -2,13 +2,13 @@
  * Codex scoping (pure, Obsidian-free, unit-tested). Decides whether an entity is
  * visible from a given project's vantage point.
  *
- * An entity is visible when it is global (no scope), or its `project` scope names
+ * An entity is visible when it is global (no scope), or its `projects` scope names
  * any draft of the active STORY (drafts sharing one `longform.title` — a codex
- * describes the book, not one draft of it), or its `series` scope is the active
- * story's series. Series membership is derived from the active project — there is
- * no separate "series selector"; the codex is shared across a series exactly
- * because every book in it resolves to the same series name. See
- * {@link ../series/series}.
+ * describes the book, not one draft of it) for ANY of its listed books, or its
+ * `series` scope is the active story's series. Series membership is derived from
+ * the active project — there is no separate "series selector"; the codex is shared
+ * across a series exactly because every book in it resolves to the same series
+ * name. See {@link ../series/series}.
  *
  * New entities are scoped to the story's BASE draft basename (see
  * {@link ../projects/stories}), so writes stay canonical while reads tolerate
@@ -18,6 +18,7 @@
 import { Project } from "../projects/types";
 import { baseDraftFor, groupIntoStories } from "../projects/stories";
 import { projectSeries } from "../series/series";
+import { linkTarget } from "./codex";
 import { CodexEntity, EntityScope } from "./types";
 
 /** The vantage point a visibility check is made from. */
@@ -32,6 +33,27 @@ export interface ScopeContext {
 export function projectName(project: Project): string {
   const base = project.vaultPath.split("/").pop() ?? project.vaultPath;
   return base.replace(/\.md$/i, "");
+}
+
+/** Order-preserving de-duplication. */
+export function dedupe(values: readonly string[]): string[] {
+  return Array.from(new Set(values));
+}
+
+/**
+ * The book basenames a `codex-project` frontmatter value names: one wikilink
+ * string (the pre-1.17 form) or a YAML list of them. Blank and non-string items
+ * are skipped, duplicates collapse, order is kept. Anything else → [] (global).
+ */
+export function parseProjectScopeValue(raw: unknown): string[] {
+  const items = Array.isArray(raw) ? raw : [raw];
+  const names: string[] = [];
+  for (const item of items) {
+    if (typeof item !== "string" || !item.trim()) continue;
+    const name = linkTarget(item);
+    if (name) names.push(name);
+  }
+  return dedupe(names);
 }
 
 /** All drafts of the story containing `project` (or just `project` if ungrouped). */
@@ -78,30 +100,32 @@ export function defaultScopeForProject(
   // Series wins: most entities in a series book are shared across the series.
   const series = storySeries(project, allProjects);
   if (series) return { series };
-  return { project: projectName(baseDraftFor(allProjects, project)) };
+  return { projects: [projectName(baseDraftFor(allProjects, project))] };
 }
 
 /** One sentence for the UI: where a newly created entry will be tagged. */
 export function describeCreateScope(scope: EntityScope): string {
   if (scope.series) return `New entries are tagged for the “${scope.series}” series.`;
-  if (scope.project) return `New entries are tagged for “${scope.project}”.`;
+  const books = scope.projects ?? [];
+  if (books.length === 1) return `New entries are tagged for “${books[0]}”.`;
+  if (books.length > 1) return `New entries are tagged for ${books.length} books.`;
   return "New entries are created global — no project selected.";
 }
 
 /** Whether `scope` carries any actual constraint (vs. global). */
 export function isGlobalScope(scope: EntityScope | undefined): boolean {
-  return !scope || (!scope.project && !scope.series);
+  return !scope || ((scope.projects?.length ?? 0) === 0 && !scope.series);
 }
 
 /**
  * Is `entity` visible from `ctx`? Global entities are always visible; scoped ones
- * only when their project names a draft of the vantage story, or their series
- * matches the vantage series.
+ * only when any of their books names a draft of the vantage story, or their
+ * series matches the vantage series.
  */
 export function isEntityVisible(entity: CodexEntity, ctx: ScopeContext): boolean {
   const scope = entity.scope;
   if (isGlobalScope(scope)) return true;
-  if (scope?.project && ctx.projectNames.includes(scope.project)) return true;
+  if (scope?.projects?.some((p) => ctx.projectNames.includes(p))) return true;
   if (scope?.series && ctx.seriesName && scope.series === ctx.seriesName) return true;
   return false;
 }
@@ -116,8 +140,10 @@ export function filterToScope(entities: CodexEntity[], ctx: ScopeContext): Codex
  * candidates to what that entity can actually see (a series-scoped character must
  * not link a character from another series it can't even see). Returns null for a
  * global entity: it has no scope to constrain by, so candidates aren't filtered. A
- * project-scoped entity resolves its owning STORY from `projects` — matching any
- * draft's basename — so its story- and series-mates stay linkable.
+ * project-scoped entity resolves each listed book's owning STORY from `projects` —
+ * matching any draft's basename — so its story- and series-mates stay linkable;
+ * the union of those stories is its vantage. A book that no longer exists keeps
+ * its recorded name so same-scoped entities stay linkable, but widens nothing.
  */
 export function scopeContextForEntity(
   entity: CodexEntity,
@@ -126,11 +152,31 @@ export function scopeContextForEntity(
   const scope = entity.scope;
   if (isGlobalScope(scope)) return null;
   if (scope?.series) return { projectNames: [], seriesName: scope.series };
-  const owner = projects.find((p) => projectName(p) === scope?.project);
-  if (!owner) {
-    // Scoped to a draft that no longer exists: keep the recorded name so
-    // same-scoped entities stay linkable, but no story/series to widen to.
-    return { projectNames: scope?.project ? [scope.project] : [], seriesName: null };
+  const names: string[] = [];
+  let seriesName: string | null = null;
+  for (const book of scope?.projects ?? []) {
+    const owner = projects.find((p) => projectName(p) === book);
+    if (!owner) {
+      names.push(book);
+      continue;
+    }
+    const ctx = scopeContextForProject(owner, projects);
+    names.push(...ctx.projectNames);
+    if (!seriesName && ctx.seriesName) seriesName = ctx.seriesName;
   }
-  return scopeContextForProject(owner, projects);
+  return { projectNames: dedupe(names), seriesName };
+}
+
+/**
+ * `scope` with every book basename found in `byOld` replaced by its new name
+ * (project rename), or null when nothing in it changed. Series scopes are never
+ * touched — a series name is not an index basename.
+ */
+export function remapScopeProjects(
+  scope: EntityScope,
+  byOld: ReadonlyMap<string, string>
+): EntityScope | null {
+  const books = scope.projects ?? [];
+  if (scope.series || !books.some((b) => byOld.has(b))) return null;
+  return { ...scope, projects: dedupe(books.map((b) => byOld.get(b) ?? b)) };
 }

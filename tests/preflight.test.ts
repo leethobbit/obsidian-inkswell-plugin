@@ -28,6 +28,12 @@ describe("preflight", () => {
     expect(ids).toContain("page-break");
   });
 
+  it("counts every allowlisted HTML tag, including <em>/<strong>", () => {
+    expect(ruleIds([{ title: "A", text: "An <em>x</em> here." }])).toContain("html");
+    // Not a tag the editor or the compile know — not counted either.
+    expect(ruleIds([{ title: "A", text: "An <Insert name> here." }])).not.toContain("html");
+  });
+
   it("flags empty scenes", () => {
     const found = preflight([
       { title: "Blank", text: "---\nstatus: idea\n---\n   " },

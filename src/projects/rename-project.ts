@@ -7,6 +7,7 @@
 
 import { App, Notice, TAbstractFile, TFile, normalizePath } from "obsidian";
 import { getCodexEntities, writeEntityScope } from "../codex/codex-store";
+import { remapScopeProjects } from "../codex/codex-scope";
 import { tryFileOp } from "../lib/notify";
 import { persistOverview, updateDraftFields } from "./index-writer";
 import { expectInAppRename } from "./rename-heal";
@@ -72,10 +73,10 @@ export async function executeProjectRename(
     if (plan.codexRenames.length) {
       const byOld = new Map(plan.codexRenames.map((r) => [r.from, r.to]));
       for (const e of getCodexEntities(app)) {
-        const to = e.scope?.project ? byOld.get(e.scope.project) : undefined;
-        if (!to) continue;
+        const next = e.scope ? remapScopeProjects(e.scope, byOld) : null;
+        if (!next) continue;
         const f = app.vault.getAbstractFileByPath(e.path);
-        if (f instanceof TFile) await writeEntityScope(app, f, { ...e.scope, project: to });
+        if (f instanceof TFile) await writeEntityScope(app, f, next);
       }
     }
   }, `Couldn't finish renaming "${plan.oldTitle}" — some files may have moved; check the project folder.`);

@@ -48,7 +48,8 @@ Obsidian plugin conventions (toolchain, Vault API rules, deferred views, mobile,
 | [src/scenes/](src/scenes/) | Per-scene frontmatter (scene-meta.ts), Scene Inspector, scene actions (rename/synopsis/delete) |
 | [src/codex/](src/codex/) | Codex entities (notes w/ `codex` frontmatter), scanner, panel, pure detect/link helpers; `codex-scope.ts` = per-entity project/series scoping; categories = 7 built-ins (display renameable via `settings.categoryOverrides`) + settings-defined customs merged via `allCategories(settings.customCategories, settings.categoryOverrides)`; panel fields resolve per type via `resolveProfileFields` (template `codex-fields` or shipped schema) |
 | [src/lib/wordcount.ts](src/lib/wordcount.ts) | Shared markdown-aware word counter |
-| [src/lib/markdown-syntax.ts](src/lib/markdown-syntax.ts) | Pure Live-Preview syntax scanner (no CM/Obsidian import) → decoration intents |
+| [src/lib/markdown-syntax.ts](src/lib/markdown-syntax.ts) | Pure Live-Preview syntax scanner (no CM/Obsidian import) → decoration intents; raw HTML tags are markers, aligned blocks get `cm-md-line-align-*` |
+| [src/lib/html-tags.ts](src/lib/html-tags.ts) | Allowlisted raw-HTML tags + `tagAlignment` — shared by the scanner, the `html-align` compile step (`src/compile/html-align.ts`) and preflight |
 | [src/lib/inline-format.ts](src/lib/inline-format.ts) | Pure bold/italic/strike toggle (Obsidian's rules) → `formatSelection` adapter + Mod-b/Mod-i keymap in scene-editor.ts; `toggle-*` commands in main.ts |
 | [src/lib/smart-typography.ts](src/lib/smart-typography.ts) | Pure typed-char → dash/quote/ellipsis rules (code/link guards) → `EditorView.inputHandler` adapter in scene-editor.ts; opt-in via `settings.smart*` |
 | [src/views/scene-editor.ts](src/views/scene-editor.ts) | Custom CM6 `EditorView` manuscript surface (Write panel); thin adapter over the scanner |
@@ -66,7 +67,7 @@ Obsidian plugin conventions (toolchain, Vault API rules, deferred views, mobile,
 | Export docx/pdf | Optional pandoc manuscript step; detect binary, disable if missing |
 
 ## Adding a compile step (in order)
-1. Implement the `CompileStep` interface in [src/compile/steps.ts](src/compile/steps.ts), setting `kind: "scene" | "manuscript"`.
+1. Implement the `CompileStep` interface in [src/compile/steps.ts](src/compile/steps.ts), setting `kind: "scene" | "manuscript"`. `run` receives `(input, options, ctx)` — `ctx` is the run's output format + pandoc target, so a target-specific step (e.g. `html-align`) returns its input unchanged elsewhere rather than corrupting md/html output.
 2. Register it in the step registry so it appears in the compile UI.
 3. Add/extend a vitest case asserting pipeline ordering and output.
 4. Should it be ON for existing projects? A saved `sceneSteps` list is taken verbatim, so also add it to `DEFAULT_COMPILE_CONFIG`, bump `COMPILE_CONFIG_VERSION` ([src\compile\types.ts](src\compile\types.ts)), and add a version case to `migrateCompileConfig` ([src\compile\config.ts](src\compile\config.ts)) with a test in `tests/compile-config.test.ts`.
@@ -85,7 +86,15 @@ Cut `1.0.0` only once the Longform-compatible frontmatter format is stable enoug
 
 **Release notes are mandatory.** Every change toward a release — feature, fix, or user-facing behavior change — adds a line under the `## [Unreleased]` section of [CHANGELOG.md](CHANGELOG.md) **in the same commit/PR that makes the change** (Keep a Changelog format: Added / Changed / Fixed / Removed). Don't defer it to release time; the changelog is how we always have a current description of what's shipping (store listing, GitHub release, Discord post).
 
-**This is enforced**, not just expected: a pre-commit hook (`scripts/check-changelog.mjs`, wired as a `PreToolUse` hook in `.claude/settings.json`) **blocks any commit that stages source (`src/`, `main.ts`, `styles.css`) without a CHANGELOG.md change.** For a genuinely non-user-facing commit (pure refactor, internal tooling, chore), append `[skip changelog]` to the commit message to bypass it deliberately.
+[scripts/check-changelog.mjs](scripts/check-changelog.mjs) **blocks any commit that stages source (`src/`, `main.ts`, `styles.css`) without a CHANGELOG.md change.** For a genuinely non-user-facing commit (pure refactor, internal tooling, chore), append `[skip changelog]` to the commit message to bypass it deliberately.
+
+`.claude/` is git-ignored (machine-specific), so the guard is **not** wired automatically in a fresh clone — add it to your own `.claude/settings.json`:
+
+```json
+{ "hooks": { "PreToolUse": [{ "matcher": "Bash", "hooks": [
+  { "type": "command", "command": "node scripts/check-changelog.mjs", "if": "Bash(git*)" }
+]}]}}
+```
 
 ### Bumping a version (in order)
 1. **Promote the changelog** — in [CHANGELOG.md](CHANGELOG.md), rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, add a fresh empty `## [Unreleased]` above it, and update the link refs at the bottom. The release workflow injects this section as the GitHub release body, so it must be accurate before you tag.

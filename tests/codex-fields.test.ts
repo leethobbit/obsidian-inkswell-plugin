@@ -86,6 +86,51 @@ describe("image fields", () => {
   });
 });
 
+describe("number fields (#40)", () => {
+  const spec = (key: string, type: string) =>
+    profileFields("creature", [{ key, type }]).find((f) => f.key === key);
+
+  it("parses the number type hint and its hand-written synonyms", () => {
+    for (const hint of ["number", "Number", "numeric", "int", "integer", "float", "decimal"]) {
+      expect(spec("age", hint), hint).toMatchObject({ key: "age", type: "number" });
+    }
+  });
+
+  it("a shipped text field hinted number becomes a number and keeps its placeholder", () => {
+    const role = profileFields("character", [{ key: "role", type: "number" }]).find((f) => f.key === "role");
+    expect(role).toMatchObject({ key: "role", label: "Role", type: "number" });
+    expect(role?.placeholder).toBe(profileFields("character").find((f) => f.key === "role")?.placeholder);
+  });
+
+  it("reads a quoted numeric string as a number, writes a bare YAML number, and clears on empty", async () => {
+    const app = new FakeApp();
+    const file = app.vault.seed(
+      "Codex/Anna.md",
+      '---\ncodex: character\naliases: []\nage: "34"\nheight: tall\n---\nBody.\n'
+    );
+    const fields = profileFields("character", [
+      { key: "age", type: "number" },
+      { key: "height", type: "number" },
+    ]);
+    expect(readProfile(app.asApp(), file as never, fields)).toEqual({ aliases: [], age: 34, height: "" });
+
+    await writeProfile(app.asApp(), file as never, fields, { age: 42 });
+    let fm = app.metadataCache.getFileCache(file as never)?.frontmatter ?? {};
+    expect(fm["age"]).toBe(42);
+    expect(typeof fm["age"]).toBe("number");
+    expect(app.vault.raw("Codex/Anna.md")).toMatch(/^age: 42$/m); // bare, not quoted
+    expect(fm["height"]).toBe("tall"); // not edited -> untouched
+
+    await writeProfile(app.asApp(), file as never, fields, { age: 0 });
+    fm = app.metadataCache.getFileCache(file as never)?.frontmatter ?? {};
+    expect(fm["age"]).toBe(0); // 0 is a value, not "empty"
+
+    await writeProfile(app.asApp(), file as never, fields, { age: "" });
+    fm = app.metadataCache.getFileCache(file as never)?.frontmatter ?? {};
+    expect("age" in fm).toBe(false);
+  });
+});
+
 describe("labeled link hints", () => {
   const spec = (key: string, type: string) =>
     profileFields("creature", [{ key, type }]).find((f) => f.key === key);

@@ -23,8 +23,10 @@ import {
   createEntityForProject,
   getCodexEntities,
   resolveEntityImage,
+  updateEntityProjects,
   writeEntityScope,
 } from "./codex-store";
+import { awaitCacheUpdate } from "./codex-template-io";
 import { firstMentionOffset, linkAlias, linkTarget, toLink } from "./codex";
 import { stripFrontmatter } from "../lib/frontmatter";
 import type { SceneHighlight } from "../views/write-panel";
@@ -67,6 +69,12 @@ export class CodexPanel {
   /** Category to preselect in the rebuilt dropdown after "New type…" adds one. */
   private pendingCategoryId: string | null = null;
   /**
+   * The scope just written for an entry, rendered until the metadata cache has
+   * caught up (`awaitCacheUpdate`) — otherwise the Scope field flashes the stale
+   * pre-write value. See `renderScopeField`.
+   */
+  private pendingScope: { path: string; scope: EntityScope } | null = null;
+  /**
    * Optional intercept for a row tap. When it returns true the tap is considered
    * handled (the phone shell drills into a single-column detail screen) and the
    * panel's own inline master-detail update is skipped. Unset / returns false on
@@ -106,6 +114,7 @@ export class CodexPanel {
   /** Set which entry the detail pane shows (the phone shell drives this from its
    *  drill-down state; pass null for the list screen). */
   setSelected(path: string | null): void {
+    if (path !== this.selectedPath) this.pendingScope = null;
     this.selectedPath = path;
   }
 
@@ -618,6 +627,25 @@ export class CodexPanel {
         addBtn.onclick = commit;
         return;
       }
+      if (field.type === "number") {
+        // Saved as a JS number → a bare YAML number, so Bases/Dataview can sort
+        // and sum it. A non-numeric stored value shows empty and is only
+        // overwritten when the user actually edits the field (onchange).
+        const t = control.createEl("input", {
+          type: "number",
+          attr: { step: "any", inputmode: "decimal" },
+        });
+        tagField(t, `codex:${field.key}`);
+        const v = profile[field.key];
+        t.value = typeof v === "number" ? String(v) : "";
+        if (field.placeholder) t.placeholder = field.placeholder;
+        t.onchange = () => {
+          const s = t.value.trim();
+          const n = Number(s);
+          void save(s !== "" && Number.isFinite(n) ? n : "");
+        };
+        return;
+      }
       // links
       this.renderLinkField(control, field, profile, entities, entity, (value) =>
         void saveAndRefresh(value)
@@ -723,9 +751,16 @@ export class CodexPanel {
   }
 
   /**
-   * Scope selector for the open entity: Global, any series, or any single book.
+   * Scope selector for the open entity: Global, any series, or one or more books.
    * Series wins over project (one tag is written); writes go straight to the note's
-   * frontmatter. A tag pointing at something no longer in the lists is preserved.
+   * frontmatter. Picking a book from the dropdown makes that the only book; the
+   * chip row beneath adds/removes further books through `updateEntityProjects`
+   * (a delta writer — never a list rebuilt from this render). A tag pointing at
+   * something no longer in the lists is preserved and shown as-is.
+   *
+   * Cache-lag rule (AGENTS.md gotcha 18): the metadata cache re-indexes after the
+   * write, so the panel renders from `pendingScope` until `awaitCacheUpdate`
+   * resolves, then re-reads the (now current) cache.
    */
   private renderScopeField(host: HTMLElement, file: TFile, entity: CodexEntity): void {
     const projects = this.plugin.store.getProjects();
@@ -734,12 +769,43 @@ export class CodexPanel {
     // value its base draft's basename — the canonical scope every draft of the
     // story resolves (a legacy value naming another draft falls through to the
     // "— current" branch below and normalizes the next time the user picks).
-    const books = groupIntoStories(projects)
+    const stories = groupIntoStories(projects);
+    const books = stories
       .map((s) => ({ label: s.title, value: projectName(baseDraft(s)) }))
       .sort((a, b) => a.label.localeCompare(b.label));
+    /** Story title for a stored basename — base draft first, then any draft. */
+    const titleFor = (basename: string): string =>
+      books.find((b) => b.value === basename)?.label ??
+      stories.find((s) => s.drafts.some((d) => projectName(d) === basename))?.title ??
+      basename;
 
-    const scope = entity.scope ?? {};
-    const current = scope.series ? `s:${scope.series}` : scope.project ? `p:${scope.project}` : "";
+    const scope =
+      this.pendingScope?.path === entity.path ? this.pendingScope.scope : entity.scope ?? {};
+    const list = scope.projects ?? [];
+    const current = scope.series
+      ? `s:${scope.series}`
+      : list.length === 1
+        ? `p:${list[0]}`
+        : list.length > 1
+          ? "multi"
+          : "";
+
+    const commit = (write: () => Promise<void>, next: EntityScope): void => {
+      void (async () => {
+        this.plugin.selfWrites.mark(file.path);
+        await write();
+        this.pendingScope = { path: file.path, scope: next };
+        this.refreshPanes();
+        await awaitCacheUpdate(this.app, file);
+        if (this.pendingScope?.path === file.path) this.pendingScope = null;
+        this.refreshPanes();
+      })();
+    };
+    const updateBooks = (fn: (cur: string[]) => string[]): void =>
+      commit(
+        () => updateEntityProjects(this.app, file, fn),
+        { projects: fn(list) } // optimistic preview; the write uses the CURRENT list
+      );
 
     this.field(host, "Scope", (control) => {
       const sel = control.createEl("select", { cls: "dropdown" });
@@ -755,24 +821,47 @@ export class CodexPanel {
         grp.label = "Books";
         for (const b of books) grp.createEl("option", { text: b.label, value: `p:${b.value}` });
       }
-      if (current && !Array.from(sel.options).some((o) => o.value === current)) {
-        const label = scope.series ? `${scope.series} (series)` : `${scope.project} (book)`;
+      if (current === "multi") {
+        sel.createEl("option", { text: `${list.length} books — current`, value: "multi" });
+      } else if (current && !Array.from(sel.options).some((o) => o.value === current)) {
+        const label = scope.series ? `${scope.series} (series)` : `${list[0]} (book)`;
         sel.createEl("option", { text: `${label} — current`, value: current });
       }
       sel.value = current;
       sel.onchange = () => {
         const v = sel.value;
+        if (v === "multi") return; // the current state; nothing to write
         const next: EntityScope = !v
           ? {}
           : v.startsWith("s:")
             ? { series: v.slice(2) }
-            : { project: v.slice(2) };
-        void (async () => {
-          this.plugin.selfWrites.mark(file.path);
-          await writeEntityScope(this.app, file, next);
-          this.refreshPanes();
-        })();
+            : { projects: [v.slice(2)] };
+        commit(() => writeEntityScope(this.app, file, next), next);
       };
+
+      if (list.length === 0) return;
+      const chips = control.createDiv({ cls: "inkswell-inspector__chips" });
+      for (const book of list) {
+        const chip = chips.createSpan({ cls: "inkswell-chip", text: titleFor(book) });
+        if (!books.some((b) => b.value === book)) {
+          chip.setAttribute("aria-label", `"${book}" — no project with this name was found`);
+        }
+        const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
+        x.setAttribute("aria-label", `Remove ${titleFor(book)}`);
+        x.onclick = () => updateBooks((cur) => cur.filter((p) => p !== book));
+      }
+      const remaining = books.filter((b) => !list.includes(b.value));
+      if (remaining.length > 0) {
+        const add = control.createEl("select", { cls: "dropdown" });
+        tagField(add, "codex:scope-add");
+        add.createEl("option", { text: "+ add book", value: "" });
+        for (const b of remaining) add.createEl("option", { text: b.label, value: b.value });
+        add.value = "";
+        add.onchange = () => {
+          const v = add.value;
+          if (v) updateBooks((cur) => [...cur, v]);
+        };
+      }
     });
   }
 

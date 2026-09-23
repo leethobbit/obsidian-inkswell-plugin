@@ -10,7 +10,13 @@
 import { App, TFile, normalizePath } from "obsidian";
 import { detectMentions, imageRefTarget, linkTarget } from "./codex";
 import { isImage } from "../lib/images";
-import { defaultScopeForProject, isEntityVisible, scopeContextForProject } from "./codex-scope";
+import {
+  dedupe,
+  defaultScopeForProject,
+  isEntityVisible,
+  parseProjectScopeValue,
+  scopeContextForProject,
+} from "./codex-scope";
 import { starterCodexTemplate, codexTemplatesReadme } from "./codex-template";
 import { SCENE_TEMPLATE_BASENAME, starterSceneTemplate } from "../scenes/scene-template";
 import { applyTemplateVars } from "../lib/template";
@@ -72,12 +78,40 @@ export function getCodexEntities(app: App): CodexEntity[] {
 
 /** Parse scope keys from a note's frontmatter into an EntityScope (or undefined). */
 function readEntityScope(fm: Record<string, unknown> | undefined): EntityScope | undefined {
-  const proj = fm?.[SCOPE_PROJECT_KEY];
+  const projects = parseProjectScopeValue(fm?.[SCOPE_PROJECT_KEY]);
   const ser = fm?.[SCOPE_SERIES_KEY];
   const scope: EntityScope = {};
-  if (typeof proj === "string" && proj.trim()) scope.project = linkTarget(proj);
+  if (projects.length > 0) scope.projects = projects;
   if (typeof ser === "string" && ser.trim()) scope.series = ser.trim();
-  return scope.project || scope.series ? scope : undefined;
+  return scope.projects || scope.series ? scope : undefined;
+}
+
+/**
+ * Write `scope` into a frontmatter object: at most one of the two keys — series
+ * wins; a global scope clears both. One book is written as the plain wikilink
+ * string (byte-identical to pre-1.17 output, which older readers understand);
+ * two or more as a YAML list of wikilinks.
+ */
+function applyScopeToFrontmatter(fm: Record<string, unknown>, scope: EntityScope): void {
+  delete fm[SCOPE_PROJECT_KEY];
+  delete fm[SCOPE_SERIES_KEY];
+  if (scope.series) {
+    fm[SCOPE_SERIES_KEY] = scope.series;
+    return;
+  }
+  const books = dedupe(scope.projects ?? []);
+  if (books.length === 1) fm[SCOPE_PROJECT_KEY] = `[[${books[0]}]]`;
+  else if (books.length > 1) fm[SCOPE_PROJECT_KEY] = books.map((b) => `[[${b}]]`);
+}
+
+/** The raw-YAML lines for `scope` in a freshly scaffolded note (same shapes as
+ *  {@link applyScopeToFrontmatter}). */
+function scopeYamlLines(scope: EntityScope): string[] {
+  if (scope.series) return [`${SCOPE_SERIES_KEY}: ${yamlScalar(scope.series)}`];
+  const books = dedupe(scope.projects ?? []);
+  if (books.length === 1) return [`${SCOPE_PROJECT_KEY}: "[[${books[0]}]]"`];
+  if (books.length > 1) return [`${SCOPE_PROJECT_KEY}:`, ...books.map((b) => `  - "[[${b}]]"`)];
+  return [];
 }
 
 /**
@@ -90,10 +124,25 @@ export async function writeEntityScope(
   scope: EntityScope
 ): Promise<void> {
   await app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
-    delete fm[SCOPE_PROJECT_KEY];
-    delete fm[SCOPE_SERIES_KEY];
-    if (scope.series) fm[SCOPE_SERIES_KEY] = scope.series;
-    else if (scope.project) fm[SCOPE_PROJECT_KEY] = `[[${scope.project}]]`;
+    applyScopeToFrontmatter(fm, scope);
+  });
+}
+
+/**
+ * Delta writer for the book list of a project-scoped entity: `fn` receives the
+ * CURRENT list parsed inside `processFrontMatter` (never a panel snapshot, so two
+ * quick "+ add book" clicks both survive — AGENTS.md gotcha 10) and returns the
+ * next one. The result is project-scoped, so any series tag is cleared; an empty
+ * result makes the entity global.
+ */
+export async function updateEntityProjects(
+  app: App,
+  file: TFile,
+  fn: (current: string[]) => string[]
+): Promise<void> {
+  await app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+    const next = dedupe(fn(parseProjectScopeValue(fm[SCOPE_PROJECT_KEY])));
+    applyScopeToFrontmatter(fm, { projects: next });
   });
 }
 
@@ -246,18 +295,13 @@ export async function createEntity(
       delete fm[FIELDS_KEY]; // template-only directive — never part of an entry
       if (!Array.isArray(fm["aliases"])) fm["aliases"] = [];
       // Series wins over project; force exactly one (or neither) scope key.
-      delete fm[SCOPE_SERIES_KEY];
-      delete fm[SCOPE_PROJECT_KEY];
-      if (scope.series) fm[SCOPE_SERIES_KEY] = scope.series;
-      else if (scope.project) fm[SCOPE_PROJECT_KEY] = `[[${scope.project}]]`;
+      applyScopeToFrontmatter(fm, scope);
     });
     return file;
   }
 
-  const lines = [`codex: ${category}`, "aliases: []"];
   // Series wins over project (mirrors writeEntityScope / isEntityVisible).
-  if (scope.series) lines.push(`${SCOPE_SERIES_KEY}: ${yamlScalar(scope.series)}`);
-  else if (scope.project) lines.push(`${SCOPE_PROJECT_KEY}: "[[${scope.project}]]"`);
+  const lines = [`codex: ${category}`, "aliases: []", ...scopeYamlLines(scope)];
   const fm = `---\n${lines.join("\n")}\n---\n\n# ${safe}\n`;
   return app.vault.create(path, fm);
 }

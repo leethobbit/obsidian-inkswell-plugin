@@ -11,19 +11,21 @@ import {
   defaultFieldLabel,
 } from "../codex/profile-schema";
 
-/** The six kinds a writer picks from (single link is its own kind for clarity). */
-export type FieldKind = "text" | "textarea" | "list" | "image" | "links" | "link";
+/** The seven kinds a writer picks from (single link is its own kind for clarity). */
+export type FieldKind = "text" | "textarea" | "number" | "list" | "image" | "links" | "link";
 
 export const FIELD_KIND_LABELS: Record<FieldKind, string> = {
   text: "Text",
   textarea: "Long text",
+  number: "Number",
   list: "List",
   image: "Image",
   links: "Links",
   link: "Single link",
 };
 
-export const FIELD_KINDS: FieldKind[] = ["text", "textarea", "list", "image", "links", "link"];
+/** Dropdown order. Kept in sync with FIELD_KIND_LABELS by a test. */
+export const FIELD_KINDS: FieldKind[] = ["text", "textarea", "number", "list", "image", "links", "link"];
 
 export interface FieldRow {
   /** = key (the list editor needs an id). */
@@ -88,13 +90,21 @@ export function keyFromLabel(label: string): string {
 
 const KEY_RE = /^\p{L}[\p{L}\p{N}_-]*$/u;
 
-/** Whether `key` may become a new field alongside `existing` keys. */
+/** Whether `key` may become a new field alongside `existing` keys. `label` is
+ *  the text the key was derived from, so a label that yields NO key ("5 stars",
+ *  "2024" — keys must start with a letter) gets a reason that says so. */
 export function isValidNewKey(
   key: string,
-  existing: readonly string[]
+  existing: readonly string[],
+  label = ""
 ): { ok: true } | { ok: false; reason: string } {
   const k = key.trim();
-  if (!k) return { ok: false, reason: "Enter a label." };
+  if (!k) {
+    return {
+      ok: false,
+      reason: label.trim() ? "Start the label with a letter." : "Enter a label.",
+    };
+  }
   if (RESERVED_FIELD_KEYS.has(k)) return { ok: false, reason: `"${k}" is managed by Inkswell.` };
   if (existing.includes(k)) return { ok: false, reason: `"${k}" is already a field.` };
   if (!KEY_RE.test(k)) return { ok: false, reason: "Use letters and numbers (no spaces or symbols)." };

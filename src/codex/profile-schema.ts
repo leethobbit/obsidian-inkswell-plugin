@@ -13,6 +13,7 @@ import { BuiltinCodexCategory, isBuiltinCategory } from "./types";
 export type ProfileFieldType =
   | "text" // single-line string
   | "textarea" // multi-line string
+  | "number" // numeric value, stored as a bare YAML number (Bases/Dataview-sortable)
   | "list" // array of plain strings (e.g. aliases)
   | "links" // wikilink(s) to other codex entities
   | "image"; // vault path (or wikilink) to an image, shown as the entry's portrait
@@ -188,7 +189,7 @@ export const FIELDS_KEY = "codex-fields";
 /** One requested field: a frontmatter key plus an optional type hint and label. */
 export interface FieldSpec {
   key: string;
-  /** Raw type hint as written (`text`, `textarea`, `list`, `links`, `links:character`, `links:character:labeled`, `link`, `link:world`). */
+  /** Raw type hint as written (`text`, `textarea`, `number`, `list`, `links`, `links:character`, `links:character:labeled`, `link`, `link:world`). */
   type?: string;
   /** Display label override (the map value's object form: `{ type, label }`).
    *  Absent → a built-in field's shipped label, else derived from the key. */
@@ -371,10 +372,11 @@ function findKnownField(category: string, key: string): ProfileField | undefined
 }
 
 /**
- * `text` | `textarea` | `list` | `links[:cat][:labeled]` | `link[:cat]` (single)
- * → field shape; null if unknown. A trailing `labeled` segment on `links` lets
- * each link carry an alias-stored label (ignored for single `link`, which has
- * no chip to label).
+ * `text` | `textarea` | `number` | `list` | `links[:cat][:labeled]` | `link[:cat]`
+ * (single) → field shape; null if unknown. A trailing `labeled` segment on
+ * `links` lets each link carry an alias-stored label (ignored for single `link`,
+ * which has no chip to label). `number` also accepts `int`/`integer`/`float`/
+ * `decimal`/`numeric` as written by hand; Customize normalizes them to `number`.
  */
 export function parseTypeHint(
   raw: string
@@ -394,6 +396,13 @@ export function parseTypeHint(
     case "multiline":
     case "prose":
       return { type: "textarea" };
+    case "number":
+    case "numeric":
+    case "int":
+    case "integer":
+    case "float":
+    case "decimal":
+      return { type: "number" };
     case "list":
     case "tags":
       return { type: "list" };
@@ -421,14 +430,16 @@ export function humanizeKey(key: string): string {
   return words[0].charAt(0).toUpperCase() + words[0].slice(1) + (words.length > 1 ? " " + words.slice(1).join(" ") : "");
 }
 
-/** A profile value is a string (text/textarea/single link) or string[] (list/links). */
-export type ProfileValue = string | string[];
+/** A profile value is a string (text/textarea/image/single link), a number
+ *  (`number` — written as a bare YAML number), or string[] (list/links). */
+export type ProfileValue = string | string[] | number;
 export type Profile = Record<string, ProfileValue | undefined>;
 
 /** True if a field's value is empty and should be cleared from frontmatter. */
 export function isEmptyValue(value: ProfileValue | undefined): boolean {
   if (value === undefined || value === null) return true;
   if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === "number") return !Number.isFinite(value); // 0 is a value
   return String(value).trim() === "";
 }
 
@@ -437,13 +448,31 @@ export function isArrayField(field: ProfileField): boolean {
   return field.type === "list" || (field.type === "links" && !field.single);
 }
 
-/** Coerce a raw frontmatter value into the shape expected by a field. */
+/** A finite number from a YAML number or a numeric string; null otherwise
+ *  (`Number(" ")` is 0, so the blank check comes first). */
+function toFiniteNumber(raw: unknown): number | null {
+  if (typeof raw === "number") return Number.isFinite(raw) ? raw : null;
+  if (typeof raw !== "string" || raw.trim() === "") return null;
+  const n = Number(raw.trim());
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Coerce a raw frontmatter value into the shape expected by a field. Array
+ * fields keep strings and stringify bare numbers (a hand-typed `- 42` is a
+ * chip, not a vanished entry). A `number` field reads a YAML number or a
+ * numeric string as a number and anything else as "" (shown empty; the stored
+ * value is left alone until the user edits the field).
+ */
 export function coerceValue(field: ProfileField, raw: unknown): ProfileValue {
   if (isArrayField(field)) {
-    if (Array.isArray(raw)) {
-      return raw.filter((x): x is string => typeof x === "string");
-    }
-    return typeof raw === "string" && raw.trim() !== "" ? [raw] : [];
+    const items = Array.isArray(raw) ? raw : [raw];
+    return items.flatMap((x) => {
+      if (typeof x === "string") return x.trim() !== "" || Array.isArray(raw) ? [x] : [];
+      if (typeof x === "number" && Number.isFinite(x)) return [String(x)];
+      return [];
+    });
   }
+  if (field.type === "number") return toFiniteNumber(raw) ?? "";
   return raw === undefined || raw === null ? "" : String(raw);
 }

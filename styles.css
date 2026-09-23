@@ -1834,12 +1834,11 @@ body.inkswell-phone .inkswell-codex__portrait {
    text cursor rather than promising a navigation. */
 .cm-md-link {
   color: var(--link-color);
-  text-decoration-line: var(--link-decoration);
-  text-decoration-color: var(--link-color);
+  text-decoration: var(--link-decoration);
   cursor: text;
 }
 .cm-md-link:hover {
-  text-decoration-line: underline;
+  text-decoration: underline;
   color: var(--link-color-hover);
 }
 .cm-md-quote {
@@ -1863,6 +1862,21 @@ body.inkswell-phone .inkswell-codex__portrait {
 .cm-md-h5,
 .cm-md-h6 {
   font-size: 1.05em;
+}
+/* Raw HTML alignment blocks (<p align="right">, <div style="text-align: …">,
+   <center>) — the scanner classifies every line of the block; the tags
+   themselves are hidden markers (revealed dimmed via .cm-md-mark). */
+.cm-md-line-align-left {
+  text-align: left;
+}
+.cm-md-line-align-right {
+  text-align: right;
+}
+.cm-md-line-align-center {
+  text-align: center;
+}
+.cm-md-line-align-justify {
+  text-align: justify;
 }
 
 /* [[ link completion popup: CM's autocomplete tooltip, dressed like Obsidian's
@@ -1935,12 +1949,20 @@ body.inkswell-phone .inkswell-write__cm .cm-milestone-gutter {
    decorations): headings center, and the first paragraph of a section — after a
    heading or a scene break, or at the top — stays flush, as in a typeset book. */
 .inkswell-write__cm.is-manuscript .cm-line {
+  /* "css-text-indent" is flagged partial only for the `hanging`/`each-line`
+     keywords, which aren't used here; a plain length is supported everywhere. */
+  /* stylelint-disable-next-line plugin/no-unsupported-browser-features */
   text-indent: 1.5em;
 }
 .inkswell-write__cm.is-manuscript .cm-line.cm-md-line-heading,
 .inkswell-write__cm.is-manuscript .cm-line.cm-md-line-quote,
 .inkswell-write__cm.is-manuscript .cm-line.cm-md-line-hr,
-.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-first {
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-first,
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-align-left,
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-align-right,
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-align-center,
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-align-justify {
+  /* stylelint-disable-next-line plugin/no-unsupported-browser-features */
   text-indent: 0;
 }
 .inkswell-write__cm.is-manuscript .cm-line.cm-md-line-heading {
@@ -3748,10 +3770,13 @@ body.inkswell-phone .inkswell-codex__toolbar input[type="search"] {
 .inkswell-customize__clickable {
   cursor: pointer;
 }
-.inkswell-customize__pct {
+/* Beats "at %" field: out-specifies the generic number-input rule below
+   (.inkswell-listedit__body input[type="number"], 0-2-1) so it stays a fixed
+   5em regardless of source order. */
+.inkswell-listedit__body input[type="number"].inkswell-customize__pct {
   width: 5em;
-  flex: 0 0 auto !important;
-  min-width: 0 !important;
+  flex: 0 0 auto;
+  min-width: 0;
 }
 .inkswell-beats__warning button {
   margin-left: var(--size-4-2);
@@ -3831,9 +3856,6 @@ body.inkswell-phone .inkswell-codex__toolbar input[type="search"] {
   grid-template-columns: max-content 1fr;
   gap: var(--size-4-1) var(--size-4-4);
   margin-bottom: var(--size-4-2);
-}
-.inkswell-customize__kvrow {
-  display: contents;
 }
 .inkswell-customize__kvkey {
   color: var(--text-muted);

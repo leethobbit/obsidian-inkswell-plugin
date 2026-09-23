@@ -197,17 +197,20 @@ export function normalizeCustomCategories(
  * Frontmatter keys carrying an entity's scope. An entity scopes to AT MOST one of
  * these (series wins if both are somehow present); neither key = global (shared
  * across every project — the default and back-compatible behavior).
+ * `codex-project` holds one `[[wikilink]]` (a single book — the only form before
+ * 1.17) or a YAML list of them (several books, since 1.17).
  */
 export const SCOPE_PROJECT_KEY = "codex-project";
 export const SCOPE_SERIES_KEY = "codex-series";
 
 /**
- * An entity's visibility scope. `project` is a project index-note basename (the
- * target of a `[[wikilink]]`), `series` is a series name. Both unset = global.
+ * An entity's visibility scope. `projects` are project index-note basenames (the
+ * targets of `[[wikilinks]]`), `series` is a series name. Neither set = global.
+ * Series and projects are mutually exclusive; series wins.
  */
 export interface EntityScope {
-  /** Index-note basename of the single book this entity belongs to. */
-  project?: string;
+  /** Index-note basenames of the book(s) this entity belongs to — one or more. */
+  projects?: string[];
   /** Name of the series whose books all share this entity. */
   series?: string;
 }

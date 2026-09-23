@@ -57,9 +57,9 @@ export function resolveTemplateFolder(settings: FolderSettings): string {
 
 /**
  * Resolve the folder a new codex entity should be created in, given its scope and
- * (when known) the active project's index-note path. Book-scoped entries co-locate
- * in their project's folder when co-location is on; everything else (series, global,
- * or shared mode) lands in `<base>/<codexFolder>`.
+ * (when known) the active project's index-note path. Single-book entries co-locate
+ * in their project's folder when co-location is on; everything else (several books,
+ * series, global, or shared mode) lands in `<base>/<codexFolder>`.
  */
 export function resolveCodexFolder(
   settings: FolderSettings,
@@ -67,7 +67,8 @@ export function resolveCodexFolder(
   activeProjectIndexPath?: string | null
 ): string {
   const name = settings.codexFolder.trim() || "Codex";
-  if (settings.coLocateCodex && scope.project && !scope.series && activeProjectIndexPath) {
+  const singleBook = scope.projects?.length === 1 && !scope.series;
+  if (settings.coLocateCodex && singleBook && activeProjectIndexPath) {
     return joinPath(parentFolder(activeProjectIndexPath), name);
   }
   return joinPath(settings.baseFolder, name);

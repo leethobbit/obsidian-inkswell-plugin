@@ -64,8 +64,8 @@ function buildDecorations(view: EditorView): { all: DecorationSet; hidden: Decor
       all.push(d.range(it.from, it.to));
       hidden.push(d.range(it.from, it.to));
     } else if (it.type === "line") {
-      // Block classification (heading / quote / hr / first paragraph) for the
-      // manuscript-typography CSS; never atomic.
+      // Block classification (heading / quote / hr / first paragraph / HTML
+      // alignment) for the manuscript-typography CSS; never atomic.
       all.push(Decoration.line({ class: it.cls }).range(it.from));
     } else {
       all.push(

@@ -89,7 +89,7 @@ export function applyOverride<X = object>(
     custom: false,
     hidden: hidden.has(s.id) || (!!s.group && hiddenGroups.has(s.group)),
     shippedLabel: s.label,
-    extra: { ...stripCore(s), ...(override?.extras?.[s.id] ?? {}) } as X,
+    extra: { ...stripCore(s), ...(override?.extras?.[s.id] ?? {}) },
   }));
   for (const a of override?.added ?? []) {
     if (shippedIds.has(a.id) || all.some((i) => i.id === a.id)) continue;
@@ -284,7 +284,7 @@ export function normalizeListOverride<X = object>(
         extra = parsed;
       }
       knownIds.add(id);
-      added.push({ id, label, ...(group ? { group } : {}), ...extra } as AddedItem<X>);
+      added.push({ id, label, ...(group ? { group } : {}), ...extra });
     }
     if (added.length > 0) out.added = added;
   }

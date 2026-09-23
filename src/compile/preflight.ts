@@ -6,6 +6,7 @@
  * stripped first, exactly as the compile does, so they never false-flag.
  */
 
+import { htmlTagRe } from "../lib/html-tags";
 import { scanPlaceholders } from "../lib/placeholders";
 import { stripFrontmatter } from "../lib/frontmatter";
 import { isImageEmbedTarget } from "./steps";
@@ -59,7 +60,9 @@ function breakStyle(line: string): string | null {
   return null;
 }
 
-const RAW_HTML_RE = /<\/?(?:div|span|center|font|hr|br|p|sub|sup|u|b|i|small)\b[^>]*>/gi;
+// The same allowlist the editor and the html-align step understand. Safe as a
+// module-level /g instance: `String.match` resets lastIndex on every call.
+const RAW_HTML_RE = htmlTagRe();
 const PAGEBREAK_RE = /\f|<!--\s*page\s*break\s*-->|\\newpage|\\pagebreak/gi;
 const DOUBLE_SPACE_RE = /\S {2,}/g; // a non-space then 2+ spaces (e.g. double space after a period)
 
@@ -105,7 +108,11 @@ export function preflight(scenes: SceneText[]): PreflightFinding[] {
 
   fromMap("tabs", "Tab characters — set indents in the publishing tool, not with tabs", tabs);
   fromMap("double-space", "Double spaces — collapse to single spaces", doubleSpace);
-  fromMap("html", "Raw HTML tags — won't survive cleanly into DOCX", html);
+  fromMap(
+    "html",
+    "Raw HTML tags — alignment blocks (<p align>, <center>) become Word styles when that step is on; other tags won't survive into DOCX",
+    html
+  );
   fromMap("page-break", "Manual page breaks — let the chapter style handle breaks", pagebreak);
   fromMap(
     "todos",

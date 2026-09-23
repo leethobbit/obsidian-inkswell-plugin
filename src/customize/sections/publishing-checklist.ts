@@ -47,7 +47,7 @@ export const publishingChecklistSection: CustomizeSection = {
         const wrap = el.createEl("label", { cls: "inkswell-customize__check" });
         const cb = wrap.createEl("input", { type: "checkbox" });
         cb.checked = !!it.extra.optional;
-        cb.onchange = () => patch({ optional: cb.checked } as Partial<PublishingExtra>);
+        cb.onchange = () => patch({ optional: cb.checked });
         wrap.appendText(" Optional");
       },
     });

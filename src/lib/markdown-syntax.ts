@@ -8,6 +8,7 @@
  * text. The CM adapter (`views/scene-editor.ts`) maps each intent to a decoration:
  *   - "style" → a mark with the given CSS class (italic/bold/heading/etc.)
  *   - "hide"  → a replace that collapses the range (used for syntax markers)
+ *   - "line"  → a line class (block classification for manuscript CSS)
  *
  * Live-Preview behavior lives here: a construct's content is always styled, but
  * its markers (`*`, `**`, backticks, heading `#`s, quote `>`) are HIDDEN unless a
@@ -15,12 +16,22 @@
  * can edit them. Reveal is per-span for inline constructs and per-line for block
  * markers, matching Obsidian.
  *
+ * Raw HTML (allowlist in `lib/html-tags.ts`) follows the same model: tags are
+ * markers — block tags (`<p>`, `<div>`, `<center>`, `<hr>`) reveal per line,
+ * inline tags (`<b>`, `<br>`…) per span — and an aligned block (`<p align="right">`,
+ * `<div style="text-align: center">`, `<center>`) classifies every line through
+ * its close tag (or a blank line, which ends an HTML block as in CommonMark) with
+ * `cm-md-line-align-<side>`. Tag interiors are protected so `class="a_b"` and
+ * `color="*red*"` never emphasise. Known limitation (shared with wikilinks):
+ * emphasis that STRADDLES a tag pair (`*a <b>x</b> c*`) is not styled.
+ *
  * To-do markers (`[TODO: …]`, `[DIALOGUE: …]`, etc. — see
  * `lib/placeholders.ts`) are styled as whole-token marks (never hidden, so the
  * cursor edits inside them normally) and their interiors are protected from
  * emphasis/code scanning so `[DIALOGUE: he *runs*]` isn't half-italicised.
  */
 
+import { Align, htmlTagRe, isBlockHtmlTag, tagAlignment } from "./html-tags";
 import { PLACEHOLDER_CLASS, scanPlaceholders } from "./placeholders";
 import { scanWikilinks } from "./wikilinks";
 
@@ -43,8 +54,18 @@ export interface SyntaxIntent {
   attrs?: Record<string, string>;
 }
 
-/** Block classification of one line, for the cross-line "first paragraph" rule. */
-export type LineKind = "blank" | "heading" | "quote" | "hr" | "prose";
+/**
+ * Block classification of one line, for the cross-line "first paragraph" rule.
+ * "html" = a line inside an aligned HTML block (the paragraph after it is flush,
+ * like the one after a heading). A tag-only line outside a block (`<br>`, `</p>`)
+ * is "blank" so it never resets that rule.
+ */
+export type LineKind = "blank" | "heading" | "quote" | "hr" | "prose" | "html";
+
+/** Cross-line scanner state: the alignment of the currently open HTML block. */
+interface BlockState {
+  align: Align | null;
+}
 
 const HEADING_RE = /^(#{1,6})\s+/;
 const QUOTE_RE = /^\s{0,3}>\s?/;
@@ -92,7 +113,8 @@ function scanLine(
   base: number,
   sels: Sel[],
   out: SyntaxIntent[],
-  seedProtected: [number, number][] = []
+  seedProtected: [number, number][],
+  state: BlockState
 ): LineKind {
   const lineFrom = base;
   const lineTo = base + text.length;
@@ -100,6 +122,13 @@ function scanLine(
   // Seeded with placeholder-token interiors so emphasis/code never style inside them.
   const protectedSpans: [number, number][] = [...seedProtected];
   let kind: LineKind = text.trim() ? "prose" : "blank";
+
+  // A blank line ends an HTML block (CommonMark) — which also bounds the damage
+  // of a forgotten `</p>`.
+  if (kind === "blank") {
+    state.align = null;
+    return "blank";
+  }
 
   if (HR_RE.test(text)) {
     pushLine(out, base, "cm-md-line-hr");
@@ -149,6 +178,42 @@ function scanLine(
     pushMarker(out, base + e - ml, base + e, revealed);
   }
 
+  // --- Raw HTML tags (allowlist): markers, hidden unless touched. Runs AFTER
+  // code (a tag quoted in backticks stays code) and BEFORE wikilinks/emphasis
+  // (attributes are protected). Block tags reveal per line, inline per span. ---
+  const tagRe = htmlTagRe();
+  let visible = text; // the line with every tag blanked, for the kind rules below
+  let closesBlock = false;
+  let sawHr = false;
+  let tag: RegExpExecArray | null;
+  while ((tag = tagRe.exec(text)) !== null) {
+    const s = tag.index;
+    const e = s + tag[0].length;
+    if (overlapsLocal(s, e, protectedSpans)) continue;
+    protectedSpans.push([s, e]);
+    visible = visible.slice(0, s) + " ".repeat(e - s) + visible.slice(e);
+    const name = tag[2].toLowerCase();
+    const closing = tag[1] === "/";
+    const block = isBlockHtmlTag(name);
+    if (name === "hr") {
+      sawHr = true;
+    } else if (block) {
+      if (closing) closesBlock = true;
+      else {
+        const align = tagAlignment(name, tag[0]);
+        if (align) state.align = align;
+      }
+    }
+    const revealed = block ? lineTouched : anyTouch(base + s, base + e, sels);
+    // A hidden tag that leads the line also swallows the whitespace after it (as
+    // a hidden `# ` does), so `<p align="right"> POV` shows no stray leading space.
+    let hideTo = e;
+    if (!revealed && /^\s*$/.test(text.slice(0, s))) {
+      hideTo = e + (/^\s*/.exec(text.slice(e))?.[0].length ?? 0);
+    }
+    pushMarker(out, base + s, base + hideTo, revealed);
+  }
+
   // --- Wikilinks: styled content, hidden brackets (and `Target|` when aliased);
   // the whole link is protected so `[[snake_case]]` / `[[Note*]]` never emphasise ---
   for (const link of scanWikilinks(text)) {
@@ -190,6 +255,22 @@ function scanLine(
     pushMarker(out, base + s, base + s + ml, revealed);
     pushMarker(out, base + e - ml, base + e, revealed);
   }
+
+  // --- HTML block classification: every line of an aligned block (opening and
+  // closing lines included) carries the alignment class; the block closes AFTER
+  // this line when its close tag was seen. Tag-only lines outside a block
+  // (`<br>`, `</p>`) report "blank" so they never reset the first-paragraph rule.
+  if (state.align) {
+    pushLine(out, base, `cm-md-line-align-${state.align}`);
+    if (kind === "prose") kind = "html";
+  }
+  if (closesBlock) state.align = null;
+  if (sawHr && !visible.trim()) {
+    pushLine(out, base, "cm-md-line-hr");
+    kind = "hr";
+  } else if (kind === "prose" && !visible.trim()) {
+    kind = "blank";
+  }
   return kind;
 }
 
@@ -209,10 +290,12 @@ export function buildSyntaxIntents(text: string, selections: Sel[]): SyntaxInten
 
   let base = 0;
   // The last non-blank line's kind; null at document start. A prose line that
-  // follows nothing, a heading, or a thematic break is a section's FIRST
-  // paragraph (`cm-md-line-first`) — manuscript typography leaves it unindented,
-  // which pure CSS can't express because a blank line breaks sibling adjacency.
+  // follows nothing, a heading, a thematic break, or an aligned HTML block is a
+  // section's FIRST paragraph (`cm-md-line-first`) — manuscript typography
+  // leaves it unindented, which pure CSS can't express because a blank line
+  // breaks sibling adjacency.
   let prevSignificant: LineKind | null = null;
+  const state: BlockState = { align: null };
   // Split on \n; a trailing \r (CRLF docs) stays in the line text and counts
   // toward its length, so absolute offsets remain correct.
   for (const line of text.split("\n")) {
@@ -223,9 +306,14 @@ export function buildSyntaxIntents(text: string, selections: Sel[]): SyntaxInten
         seed.push([Math.max(p.from, base) - base, Math.min(p.to, lineTo) - base]);
       }
     }
-    const kind = scanLine(line, base, selections, out, seed);
+    const kind = scanLine(line, base, selections, out, seed, state);
     if (kind === "prose") {
-      if (prevSignificant === null || prevSignificant === "heading" || prevSignificant === "hr") {
+      if (
+        prevSignificant === null ||
+        prevSignificant === "heading" ||
+        prevSignificant === "hr" ||
+        prevSignificant === "html"
+      ) {
         pushLine(out, base, "cm-md-line-first");
       }
     }
