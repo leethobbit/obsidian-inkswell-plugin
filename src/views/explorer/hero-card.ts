@@ -5,15 +5,11 @@
  * single focused project (never in the multi-project list).
  */
 
-import { App, Menu, Notice, TFile } from "obsidian";
+import { App, TFile } from "obsidian";
 import { tagField } from "../../lib/focus-preserve";
 import { tryFileOp } from "../../lib/notify";
-import {
-  cleanupOwnedCover,
-  pickVaultImage,
-  resolveCoverSrc,
-  setCoverFromUpload,
-} from "../../projects/cover";
+import { resolveCoverSrc } from "../../projects/cover";
+import { coverMenu } from "../../projects/cover-actions";
 import { persistGoalsPatch, persistOverview } from "../../projects/index-writer";
 import { TargetModal } from "../../goals/target-modal";
 import { featureEnabled } from "../../features";
@@ -71,7 +67,8 @@ export class HeroCard {
       cover.createSpan({ cls: "inkswell-hero__placeholder", text: "+ Add cover" });
     }
     cover.setAttribute("aria-label", "Set cover image");
-    cover.onclick = (e) => this.coverMenu(base, !!src).showAtMouseEvent(e);
+    cover.onclick = (e) =>
+      coverMenu(this.app, base, (p) => this.plugin.selfWrites.mark(p)).showAtMouseEvent(e);
 
     // Meta column: title, logline, theme, target/progress.
     const meta = hero.createDiv({ cls: "inkswell-hero__meta" });
@@ -162,66 +159,6 @@ export class HeroCard {
         stat.setText(`${w.toLocaleString()} words`);
       }
     });
-  }
-
-  /** Cover action menu: upload, pick from vault, and (when set) remove. */
-  private coverMenu(project: Project, hasCover: boolean): Menu {
-    const menu = new Menu();
-    menu.addItem((i) =>
-      i.setTitle("Upload…").setIcon("upload").onClick(() => this.uploadCover(project))
-    );
-    menu.addItem((i) =>
-      i.setTitle("Choose from vault…").setIcon("image").onClick(() => void this.chooseCover(project))
-    );
-    if (hasCover) {
-      menu.addSeparator();
-      menu.addItem((i) =>
-        i.setTitle("Remove cover").setIcon("trash").onClick(() => void this.removeCover(project))
-      );
-    }
-    return menu;
-  }
-
-  /** Open an OS file picker, copy the chosen image into the project folder, persist its path. */
-  private uploadCover(project: Project): void {
-    const input = createEl("input", { type: "file" });
-    input.accept = "image/*";
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      const indexFile = this.indexFile(project);
-      if (!indexFile) return;
-      try {
-        const path = await setCoverFromUpload(this.app, project, file);
-        this.plugin.selfWrites.mark(indexFile.path);
-        await persistOverview(this.app, indexFile, { cover: path });
-      } catch (e) {
-        console.error(e);
-        new Notice("Couldn't set the cover image.");
-      }
-    };
-    input.click();
-  }
-
-  private async chooseCover(project: Project): Promise<void> {
-    const file = await pickVaultImage(this.app);
-    if (!file) return;
-    const indexFile = this.indexFile(project);
-    if (indexFile) {
-      this.plugin.selfWrites.mark(indexFile.path);
-      await tryFileOp(() => persistOverview(this.app, indexFile, { cover: file.path }), "Couldn't set the cover image.");
-    }
-  }
-
-  private async removeCover(project: Project): Promise<void> {
-    await tryFileOp(async () => {
-      await cleanupOwnedCover(this.app, project);
-      const indexFile = this.indexFile(project);
-      if (indexFile) {
-        this.plugin.selfWrites.mark(indexFile.path);
-        await persistOverview(this.app, indexFile, { cover: "" });
-      }
-    }, "Couldn't remove the cover image.");
   }
 
   private indexFile(project: Project): TFile | null {

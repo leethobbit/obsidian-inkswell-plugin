@@ -1,15 +1,19 @@
 /**
- * Projects panel: lists every project and its scene tree. Rendered inside the
- * single Inkswell host view (see src/views/inkswell-view.ts), not as its own tab.
+ * Home panel, rendered inside the single Inkswell host view (see
+ * src/views/inkswell-view.ts), not as its own tab.
  *
- * Scenes can be opened (click), reordered (drag), and re-nested (context menu).
- * All structural edits go through the index writer, which touches only the index
- * note's frontmatter — never a scene body.
+ * Two states, driven by the shared `activeProject`:
+ *   - All projects: shelves of book cards — one shelf per series (in book
+ *     order), one for standalone books — plus the ideas inbox. Cards navigate.
+ *   - Focused: the hero card (cover / logline / theme / target), a strip of the
+ *     series' other covers when the book belongs to one, and THIS book's scene
+ *     tree. Scenes can be opened (click), reordered (drag), re-nested (menu).
  *
- * Six previously-inlined responsibilities now live in sibling modules this panel
- * composes: the hero card (hero-card.ts), the ideas inbox (ideas-inbox.ts), the
- * reconcile/relink banner (reconcile-banner.ts), scene-row rendering
- * (scene-rows.ts), and series-membership management (series-menu.ts).
+ * All structural edits go through the index writer, which touches only the
+ * index note's frontmatter — never a scene body.
+ *
+ * Composed from sibling modules: hero-card.ts, book-card.ts, ideas-inbox.ts,
+ * reconcile-banner.ts, scene-rows.ts, series-menu.ts.
  */
 
 import { App, TFile } from "obsidian";
@@ -20,6 +24,7 @@ import { Project, isMultiScene } from "../../projects/types";
 import { baseDraftFor, groupIntoStories, representativeDrafts } from "../../projects/stories";
 import { Series, groupIntoSeries, projectSeries } from "../../series/series";
 import { promptNewScene } from "../../outliner/create-scene";
+import { BookCardContext, renderBookCard, renderCoverThumb } from "./book-card";
 import { HeroCard } from "./hero-card";
 import { renderIdeas } from "./ideas-inbox";
 import { ReconcileBanner } from "./reconcile-banner";
@@ -65,6 +70,7 @@ export class ExplorerPanel {
       renameProject: (p) => plugin.renameProject(p),
       newProject: (preset) => plugin.newProject(preset),
       activePath: () => plugin.activeProject.get(),
+      markSelfWrite: (p) => plugin.selfWrites.mark(p),
     });
     this.sceneRows = new SceneRows(app, plugin, stats, onSelectScene);
   }
@@ -120,8 +126,8 @@ export class ExplorerPanel {
     const { series, standalone } = groupIntoSeries(representatives);
 
     // Project focus: with a project selected (shared activeProject — also the
-    // header dropdown), Home narrows to just that project, or its whole series if
-    // it belongs to one. With nothing selected, list everything.
+    // header dropdown), Home narrows to just that book. With nothing selected,
+    // list everything.
     const focused = activePath
       ? representatives.find((p) => p.vaultPath === activePath) ?? null
       : null;
@@ -135,63 +141,113 @@ export class ExplorerPanel {
       });
       back.onclick = () => this.plugin.activeProject.set(null);
 
-      const info = projectSeries(focused);
+      // Series membership is story-level — read it off the base draft.
+      const info = projectSeries(baseDraftFor(projects, focused));
       const owningSeries = info ? series.find((s) => s.name === info.name) : null;
-      if (owningSeries) this.renderSeries(container, owningSeries);
-      else this.renderProject(container, focused);
+      if (owningSeries) this.renderSeriesStrip(container, owningSeries, focused);
+      this.renderProject(container, focused);
       return;
     }
 
-    // Unfocused = the global "all projects" dashboard: the idea inbox (a store of
-    // cross-project story seeds) lives here, not inside a focused project's view.
+    // Unfocused = the global "all projects" dashboard: shelves of cards, then
+    // the idea inbox (a store of cross-project story seeds — it lives here, not
+    // inside a focused project's view).
+    if (series.length === 0) {
+      this.renderGrid(container, standalone, null);
+    } else {
+      for (const s of series) this.renderShelf(container, s.name, s.books, s);
+      if (standalone.length > 0) this.renderShelf(container, "Standalone", standalone, null);
+    }
     renderIdeas(container, this.plugin);
-    for (const s of series) this.renderSeries(container, s);
-    for (const project of standalone) this.renderProject(container, project);
   }
 
-  /** A named series: header with aggregate progress, then its books in order. */
-  private renderSeries(parent: HTMLElement, series: Series): void {
-    const sec = parent.createDiv({ cls: "inkswell-series" });
-    const header = sec.createDiv({ cls: "inkswell-series__header" });
-    header.createSpan({ cls: "inkswell-series__name", text: series.name });
-    const meta = header.createSpan({ cls: "inkswell-series__meta" });
-    const books = series.books.length;
-    meta.setText(`${books} book${books === 1 ? "" : "s"}`);
-    if (this.plugin.settings.showWordCounts) void this.renderSeriesTotals(meta, series);
-    // Right-click (desktop) / "⋯" tap (touch) → series menu (new book, rename, reorder…).
-    attachRowMenu(header, header, () => this.seriesMenu.seriesMenu(series));
-    for (const book of series.books) this.renderProject(sec, book);
+  /** A shelf: header (name, aggregate progress, series menu) + a grid of book cards. */
+  private renderShelf(parent: HTMLElement, name: string, books: Project[], series: Series | null): void {
+    const sec = parent.createDiv({ cls: "inkswell-shelf" });
+    const header = sec.createDiv({ cls: "inkswell-shelf__header" });
+    header.createSpan({ cls: "inkswell-shelf__name", text: name });
+    const meta = header.createSpan({ cls: "inkswell-shelf__meta" });
+    void this.renderShelfMeta(meta, books);
+    // Right-click / ⋯ → series menu (new book, add existing, rename, reorder).
+    if (series) attachRowMenu(header, header, () => this.seriesMenu.seriesMenu(series));
+    this.renderGrid(sec, books, series);
   }
 
-  /** Sum words (and targets, if any) across a series and write them to `el`. */
-  private async renderSeriesTotals(el: HTMLElement, series: Series): Promise<void> {
+  /** The card grid; a series shelf ends with a "+ Add book" ghost card. */
+  private renderGrid(parent: HTMLElement, books: Project[], series: Series | null): void {
+    const grid = parent.createDiv({ cls: "inkswell-shelf__grid" });
+    const ctx = this.cardContext();
+    for (const book of books) renderBookCard(grid, book, ctx);
+    if (series) {
+      const ghost = grid.createDiv({ cls: "inkswell-card inkswell-card--ghost", text: "+ Add book" });
+      ghost.setAttribute("role", "button");
+      ghost.tabIndex = 0;
+      ghost.setAttribute("aria-label", `Add a book to ${series.name}`);
+      ghost.onclick = (e) => this.seriesMenu.seriesMenu(series).showAtMouseEvent(e);
+      ghost.onkeydown = (e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        const r = ghost.getBoundingClientRect();
+        this.seriesMenu.seriesMenu(series).showAtPosition({ x: r.left, y: r.bottom });
+      };
+    }
+  }
+
+  private cardContext(): BookCardContext {
+    return {
+      app: this.app,
+      stats: this.stats,
+      projects: this.store.getProjects(),
+      showWordCounts: this.plugin.settings.showWordCounts,
+      draftCount: (title) => this.storyCounts.get(title) ?? 1,
+      menu: (p) => this.seriesMenu.projectMenu(p),
+      onOpen: (p) => this.plugin.activeProject.set(p.vaultPath),
+    };
+  }
+
+  /** "N books · X words / target (P%)" for a shelf (targets are story-level → base drafts). */
+  private async renderShelfMeta(el: HTMLElement, books: Project[]): Promise<void> {
+    const n = books.length;
+    let text = `${n} book${n === 1 ? "" : "s"}`;
+    el.setText(text);
+    if (!this.plugin.settings.showWordCounts) return;
     let words = 0;
     let target = 0;
     const all = this.store.getProjects();
-    for (const book of series.books) {
+    for (const book of books) {
       words += await this.stats.projectWords(book);
-      // Target is story-level — read it off the book's base draft.
       const t = baseDraftFor(all, book).inkswell?.goals?.target;
       if (typeof t === "number" && t > 0) target += t;
     }
-    const books = series.books.length;
-    let text = `${books} book${books === 1 ? "" : "s"} · ${words.toLocaleString()} words`;
+    text += ` · ${words.toLocaleString()} words`;
     if (target > 0) {
       text += ` / ${target.toLocaleString()} (${Math.round((words / target) * 100)}%)`;
     }
     el.setText(text);
   }
 
+  /** Focused view: the series' covers in order; click one to switch books. */
+  private renderSeriesStrip(parent: HTMLElement, series: Series, focused: Project): void {
+    const strip = parent.createDiv({ cls: "inkswell-seriesstrip" });
+    // Label + thumbs scroll sideways on narrow screens; the ⋯ stays put outside.
+    const scroll = strip.createDiv({ cls: "inkswell-seriesstrip__scroll" });
+    scroll.createSpan({ cls: "inkswell-seriesstrip__label", text: series.name });
+    const projects = this.store.getProjects();
+    for (const book of series.books) {
+      renderCoverThumb(scroll, this.app, projects, book, book.vaultPath === focused.vaultPath, (b) =>
+        this.plugin.activeProject.set(b.vaultPath)
+      );
+    }
+    // The series menu is reachable here too (right-click the strip / ⋯).
+    attachRowMenu(strip, strip, () => this.seriesMenu.seriesMenu(series));
+  }
+
   private renderProject(parent: HTMLElement, project: Project): void {
     const section = parent.createDiv({ cls: "inkswell-project" });
     const header = section.createDiv({ cls: "inkswell-project__header" });
-    const info = projectSeries(project);
+    const info = projectSeries(baseDraftFor(this.store.getProjects(), project));
     const title = info?.order != null ? `${info.order}. ${project.draft.title}` : project.draft.title;
-    // Clicking the title focuses Home on this project (and its series). It's the
-    // same selection the header dropdown drives, so the two stay in lockstep.
-    const titleEl = header.createSpan({ cls: "inkswell-project__title", text: title });
-    titleEl.setAttribute("aria-label", "Focus on this project");
-    titleEl.onclick = () => this.plugin.activeProject.set(project.vaultPath);
+    header.createSpan({ cls: "inkswell-project__title", text: title });
     const right = header.createDiv({ cls: "inkswell-project__right" });
     const draftCount = this.storyCounts.get(project.draft.title) ?? 1;
     if (draftCount > 1) {

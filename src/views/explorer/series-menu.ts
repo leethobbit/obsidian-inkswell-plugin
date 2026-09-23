@@ -6,6 +6,7 @@
 
 import { App, Menu, TFile } from "obsidian";
 import { tryFileOp } from "../../lib/notify";
+import { addCoverMenuItems } from "../../projects/cover-actions";
 import { writeSeries } from "../../projects/index-writer";
 import { ProjectStore } from "../../projects/project-store";
 import { baseDraftFor } from "../../projects/stories";
@@ -25,6 +26,8 @@ export interface SeriesMenuCallbacks {
   newProject(preset?: { series?: SeriesInfo | null }): void;
   /** The current Home selection (drives which draft represents each story). */
   activePath(): string | null;
+  /** Mark an index path as our own write (softens the resulting refresh). */
+  markSelfWrite(path: string): void;
 }
 
 export class SeriesMenu {
@@ -73,6 +76,9 @@ export class SeriesMenu {
           })
       );
     }
+    // Cover art is story-level too — same base draft.
+    menu.addSeparator();
+    addCoverMenuItems(menu, this.app, project, (p) => this.cb.markSelfWrite(p));
     return menu;
   }
 

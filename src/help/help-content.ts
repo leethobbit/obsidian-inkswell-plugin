@@ -324,18 +324,28 @@ export const HELP_SECTIONS: HelpSection[] = [
   {
     phase: "Home",
     icon: "home",
-    summary: "Projects, scenes, and a quick-capture inbox for story ideas.",
+    summary: "Your books on shelves, one book's scene tree, and an inbox for story ideas.",
     body: (el) => {
       p(
         el,
-        "Your hub. Every project and its scene tree lives here; drag scene rows to " +
-          "reorder, or use the ⋯ menu to move, rename, or delete. The Inspector on the " +
-          "right edits the selected scene's metadata."
+        "Your hub. All projects shows your books as cards on shelves — one shelf per " +
+          "series, in book order, plus one for standalone books — each with its cover " +
+          "(or a generated stand-in), book number, scenes and words, progress toward the " +
+          "target, and when you last edited it. Click a card to focus on that book; its " +
+          "⋯ menu (hover on desktop, always on touch) renames it, sets its series, or " +
+          "changes the cover."
       );
       p(
         el,
-        "Capture story ideas in the inbox at the top without leaving the page — press " +
-          "Enter to save, and pin the ones worth keeping at the top."
+        "A focused book shows the hero card (cover, logline, theme, target), a strip of " +
+          "the other covers in its series (click one to switch), and its scene tree; " +
+          "drag scene rows to reorder, or use the ⋯ menu to move, rename, or delete. The " +
+          "Inspector on the right edits the selected scene's metadata."
+      );
+      p(
+        el,
+        "Capture story ideas in the inbox below the shelves without leaving the page — " +
+          "press Enter to save, and pin the ones worth keeping at the top."
       );
       el.createEl("h4", { text: "Series" });
       p(
