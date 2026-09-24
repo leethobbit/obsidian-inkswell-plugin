@@ -40,7 +40,8 @@ export function renderCoverArt(parent: HTMLElement, app: App, project: Project, 
     img.loading = "lazy";
     return;
   }
-  const ph = parent.createDiv({ cls: "inkswell-card__placeholder", text: project.draft.title });
+  const ph = parent.createDiv({ cls: "inkswell-card__placeholder" });
+  ph.createSpan({ cls: "inkswell-card__placeholder-title", text: project.draft.title });
   ph.style.setProperty("--inkswell-card-hue", String(hueFor(project.draft.title)));
 }
 

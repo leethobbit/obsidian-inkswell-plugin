@@ -1,0 +1,11 @@
+{
+  "$comment": "Mirrors the community-store CSS lint: stylelint core rules + browser-compat at the Chromium of minAppVersion (1.7.4 -> Chrome 128; bump with minAppVersion). Warnings fail locally on purpose (--max-warnings 0) — the store only warns, which is how they slipped through.",
+  "plugins": ["stylelint-no-unsupported-browser-features"],
+  "rules": {
+    "declaration-block-no-duplicate-properties": true,
+    "plugin/no-unsupported-browser-features": [
+      true,
+      { "browsers": ["Chrome 128"], "severity": "warning" }
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 {
   "name": "obsidian-inkswell-plugin",
   "version": "1.18.0",
-  "description": "Inkswell — a full writer's suite for Obsidian: projects, compile, goals, sprints, and an invisible-revision decision log.",
+  "description": "Inkswell â€” a full writer's suite for Obsidian: projects, compile, goals, sprints, and an invisible-revision decision log.",
   "main": "main.js",
   "type": "module",
   "scripts": {
@@ -11,7 +11,8 @@
     "dev-vault:reset": "node scripts/reset-dev-vault.mjs",
     "gen:sample-data": "node scripts/gen-sample-data.mjs",
     "typecheck": "tsc -noEmit -skipLibCheck",
-    "lint": "eslint src main.ts",
+    "lint": "eslint src main.ts && npm run lint:css",
+    "lint:css": "stylelint styles.css --max-warnings 0",
     "test": "vitest run",
     "test:watch": "vitest",
     "version": "node version-bump.mjs && git add manifest.json versions.json"
@@ -39,6 +40,8 @@
     "globals": "^17.7.0",
     "happy-dom": "^20.11.2",
     "obsidian": "latest",
+    "stylelint": "^17.15.0",
+    "stylelint-no-unsupported-browser-features": "^8.1.2",
     "tslib": "^2.6.2",
     "typescript": "^5.4.0",
     "typescript-eslint": "^8.62.0",
