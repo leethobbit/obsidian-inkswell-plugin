@@ -336,7 +336,10 @@ export function normalizeListOverride<X = object>(
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
-/** A minted, self-describing id for a custom item: `<prefix>-<time36>-<rand36>`. */
+/** A minted, self-describing id for a custom item: `<prefix>-<time36>-<rand36>`.
+ *  Eight base-36 digits of randomness (~2.8e12) — the old six-digit decimal
+ *  space collided about one run in ten when ids were minted in a tight loop. */
 export function newListItemId(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
+  const rand = Math.random().toString(36).slice(2, 10).padEnd(8, "0");
+  return `${prefix}-${Date.now().toString(36)}-${rand}`;
 }
