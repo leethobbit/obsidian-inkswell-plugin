@@ -26,6 +26,8 @@ export interface InkswellSettings {
   showWordCounts: boolean;
   /** Home: whether the ideas inbox section is expanded (UI state, not a Settings row). */
   homeIdeasOpen: boolean;
+  /** Mirror this device's writing history to a vault note and merge other devices' (#44). */
+  syncWritingHistory: boolean;
   /** Heading level used by the "prepend title" compile step. */
   sceneHeadingLevel: number;
   /** Daily word goal shown in the status bar / stats. */
@@ -141,6 +143,7 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   defaultCompileFormat: "md",
   showWordCounts: true,
   homeIdeasOpen: true,
+  syncWritingHistory: false,
   sceneHeadingLevel: 1,
   dailyWordGoal: 500,
   weeklyWordGoal: 3500,
@@ -353,6 +356,15 @@ export class InkswellSettingTab extends PluginSettingTab {
         control: { type: "toggle", key: "showWordCounts", defaultValue: true },
       },
       {
+        name: "Sync writing history across devices",
+        desc:
+          "Words are counted on the device where you type them. Turn this on to keep a " +
+          "small log note per device under your base folder's “Writing log” folder and " +
+          "merge them on Track, so streaks and totals include every device. Your vault's " +
+          "own sync (Obsidian Sync, iCloud, …) carries the notes.",
+        control: { type: "toggle", key: "syncWritingHistory", defaultValue: false },
+      },
+      {
         name: "Scene heading level",
         desc: "Heading level (1–6) for the optional 'prepend title' compile step.",
         control: { type: "slider", key: "sceneHeadingLevel", min: 1, max: 6, step: 1 },
@@ -513,6 +525,9 @@ export class InkswellSettingTab extends PluginSettingTab {
       case "showWordCounts":
         s.showWordCounts = !!value;
         break;
+      case "syncWritingHistory":
+        s.syncWritingHistory = !!value;
+        break;
       case "weekStart":
         s.weekStart = value === "sunday" ? "sunday" : "monday";
         break;
@@ -547,6 +562,7 @@ export class InkswellSettingTab extends PluginSettingTab {
     }
     await this.plugin.saveSettings();
     if (key === "showWordCounts" || key === "showHelpHints") this.plugin.refreshExplorer();
+    if (key === "syncWritingHistory") this.plugin.logSync.setEnabled(s.syncWritingHistory);
     if (key === "dailyWordGoal") this.plugin.refreshStatus();
     if (key === "milestoneWords") this.plugin.applyEditorPrefs();
   }

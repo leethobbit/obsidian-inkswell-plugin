@@ -51,6 +51,9 @@ import { WelcomeModal } from "./src/help/welcome-modal";
 import { SprintController } from "./src/sprints/sprint-controller";
 import { SprintModal } from "./src/sprints/sprint-modal";
 import { buildClassifierIndex, classifyPath } from "./src/tracking/classify";
+import { deviceIdentity } from "./src/tracking/device";
+import { LOG_KEY } from "./src/tracking/device-log";
+import { LogSync } from "./src/tracking/log-sync";
 import { WordCategory, WritingLogData, emptyLog } from "./src/tracking/types";
 import { WritingTracker } from "./src/tracking/writing-tracker";
 import { StatusBar } from "./src/views/status-bar";
@@ -75,6 +78,7 @@ export default class InkswellPlugin extends Plugin {
   stats!: ProjectStats;
   tracker!: WritingTracker;
   sprints!: SprintController;
+  logSync!: LogSync;
   private statusBar: StatusBar | null = null;
 
   async onload(): Promise<void> {
@@ -102,6 +106,8 @@ export default class InkswellPlugin extends Plugin {
         file instanceof TFile
           ? this.app.metadataCache.getFileCache(file)?.frontmatter
           : undefined;
+      // A device's writing-log note is machine-written churn — never words.
+      if (typeof fm?.[LOG_KEY] === "string") return null;
       const codexKey: unknown = fm?.["codex"];
       const isCodex = typeof codexKey === "string" && codexKey.trim() !== "";
       return classifyPath(path, classifierIndex, isCodex);
@@ -117,9 +123,20 @@ export default class InkswellPlugin extends Plugin {
     this.sprints = new SprintController(this.tracker, this.writingLog, () =>
       void this.persist()
     );
+    // Cross-device history (opt-in): mirrors this device's log to a vault note
+    // and merges the other devices' notes into the tracker's read view.
+    this.logSync = new LogSync({
+      app: this.app,
+      identity: deviceIdentity(this.app.vault.getName()),
+      log: this.writingLog,
+      tracker: this.tracker,
+      folder: () => joinPath(this.settings.baseFolder, "Writing log"),
+      markSelfWrite: (p) => this.selfWrites.mark(p),
+    });
     this.addChild(this.store);
     this.addChild(this.tracker);
     this.addChild(this.sprints);
+    this.addChild(this.logSync);
 
     // Fires immediately and on every fingerprint change (scene add/rename,
     // project create, planning-pointer / compile-config edits via index mtime).
@@ -182,6 +199,9 @@ export default class InkswellPlugin extends Plugin {
     // One-time welcome, once the workspace is ready (so the modal isn't fighting
     // Obsidian's own startup UI). The modal sets `welcomeSeen` on close.
     this.app.workspace.onLayoutReady(() => {
+      // The metadata cache is populated by now — safe to discover log notes.
+      this.logSync.setEnabled(this.settings.syncWritingHistory);
+
       if (!this.settings.welcomeSeen) new WelcomeModal(this.app, this).open();
 
       // Codex counting includes frontmatter (profile prose). One-time: rebuild
@@ -496,6 +516,8 @@ export default class InkswellPlugin extends Plugin {
    *  state only when it runs, so the last write always carries current state and
    *  two saveData writes never overlap on the file. */
   persist(): Promise<void> {
+    // Every data.json save also (debounced) mirrors this device's log note.
+    this.logSync?.schedule();
     this.persistChain = this.persistChain
       .then(() =>
         this.saveData({
@@ -600,6 +622,7 @@ export default class InkswellPlugin extends Plugin {
     this.tracker.flushPendingSave();
     await Promise.all(flushes);
     await this.persist(); // snapshots final state AND drains the chain
+    await this.logSync.flush(); // …and the device log note mirrors that final state
   }
 
   refreshExplorer(): void {

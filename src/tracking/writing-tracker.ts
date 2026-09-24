@@ -16,6 +16,7 @@
 
 import { App, Component, Debouncer, TAbstractFile, TFile, debounce } from "obsidian";
 import { countWords } from "../lib/wordcount";
+import { DeviceLogSnapshot, MergedLog, mergeLogs } from "./device-log";
 import {
   WordCategory,
   WritingLogData,
@@ -42,6 +43,8 @@ export class WritingTracker extends Component {
   private save: Debouncer<[], void>;
   /** Change listeners fire once typing pauses, not per keystroke (they drive full re-renders). */
   private notifyChange: Debouncer<[], void>;
+  /** Other devices' logs (opt-in cross-device history; empty otherwise). */
+  private remote: DeviceLogSnapshot[] = [];
 
   constructor(
     app: App,
@@ -119,14 +122,29 @@ export class WritingTracker extends Component {
     return () => this.changeListeners.delete(fn);
   }
 
-  /** Net words written today that count toward goals (disabled categories
-   * subtracted; legacy pre-category history counts fully). */
+  /** Net words written today — on every device, when cross-device history is on
+   * — that count toward goals (disabled categories subtracted; legacy
+   * pre-category history counts fully). */
   todayWords(now: Date = new Date()): number {
-    return projectedDayWords(this.log, dateKey(now), this.disabledCategories());
+    return projectedDayWords(this.getMergedLog(), dateKey(now), this.disabledCategories());
   }
 
+  /** THIS device's log — the object that is mutated and persisted. */
   getLog(): WritingLogData {
     return this.log;
+  }
+
+  /** What Track, goals and streaks read: this device's log plus every other
+   *  device's snapshot (see log-sync.ts). Recomputed per call — it's a sum over
+   *  days × devices, and callers render at most a few times per interaction. */
+  getMergedLog(): MergedLog {
+    return mergeLogs(this.log, this.remote);
+  }
+
+  /** Replace the other devices' snapshots (LogSync) and re-render consumers. */
+  setRemoteLogs(remote: DeviceLogSnapshot[]): void {
+    this.remote = remote;
+    for (const fn of this.changeListeners) fn();
   }
 
   /** Optional daily mood (1–10) for a date key, or undefined. */

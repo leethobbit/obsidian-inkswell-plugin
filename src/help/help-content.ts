@@ -76,6 +76,20 @@ export const HINTS: Record<string, HintEntry> = {
       p(el, 'Run “Insert a to-do marker…” for a picker that drops one at the cursor.');
     },
   },
+  "track/sync": {
+    title: "Writing on more than one device?",
+    body: (el) => {
+      p(
+        el,
+        "Words are counted on the device where you type them, so this dashboard only " +
+          "knows about this device. To make streaks and totals include every device, turn " +
+          "on Settings → Inkswell → “Sync writing history across devices”. Inkswell then " +
+          "keeps a small log note per device under your base folder's “Writing log” folder " +
+          "and merges them here — your vault's own sync (Obsidian Sync, iCloud, …) carries " +
+          "the notes."
+      );
+    },
+  },
   "plan/beats": {
     title: "How the beat sheet works",
     body: (el) => {
@@ -491,6 +505,14 @@ export const HELP_SECTIONS: HelpSection[] = [
           "the Write panel. A file that changes outside Obsidian, or that arrives from " +
           "another device via sync, only resets that file's starting point; those words " +
           "are never logged as written on this device."
+      );
+      p(
+        el,
+        "To see every device's history together, turn on “Sync writing history across " +
+          "devices” in Settings. Each device then keeps one small, machine-written log " +
+          "note (an inkswell-log key in its frontmatter) under your base folder's " +
+          "“Writing log” folder, and Track merges them. Rename a device via that note's " +
+          "device property; if a device is gone, delete its note."
       );
       el.createEl("h4", { text: "If something goes wrong" });
       p(

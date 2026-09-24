@@ -201,6 +201,18 @@ Invariants: hiding never touches stored state and hidden items count toward noth
 
 ---
 
+## F. Writing-log note — `inkswell-log` (since 1.18, opt-in)
+
+Written only when **Settings → Sync writing history across devices** is on: one note per device, machine-written, mirroring that device's `data.json` writing log so other devices can merge it (words are counted on the device where they're typed — see gotcha 5). Default location `<baseFolder>/Writing log/<Device> (<id6>).md`; discovery is vault-wide by the frontmatter key (never by folder), so the note may be moved or renamed.
+
+| Key | Type | Notes |
+|-----|------|-------|
+| `inkswell-log` | string | The owning device's id (device-local, `localStorage`). Only that device writes the note. |
+| `device` | string | Display name (default from the platform: "iPad", "Desktop", …). **User-editable** — the owner re-reads it on its next write. |
+| `updated` | string | ISO timestamp of the last mirror. |
+
+Body: one explanatory paragraph, then a fenced ```json block `{"daily": {…}, "dailyBy": {…}, "sprints": […]}` with the same shapes as `data.json`'s `writingLog` (SCHEMA §E), minus `baselines` (device-local by design) and `mood`/`nextUp` (not merged). Readers (`parseDeviceLog`, `src/tracking/device-log.ts`) tolerate bare/quoted scalars and drop malformed entries; the merge (`mergeLogs`) sums days and category buckets and pools sprints de-duplicated on `start + durationSec`. The tracker classifies these notes as `null` (never counted as words). A note whose device id no longer exists anywhere (site data cleared) keeps merging until the user deletes it.
+
 ## Backward-compatibility allowances
 
 - **`revArc`** accepts both the current wikilinked-list form and a legacy plain-name-keyed object; always re-emitted as the wikilinked list.

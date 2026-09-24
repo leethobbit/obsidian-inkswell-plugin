@@ -86,6 +86,7 @@ Everything Inkswell stores is plain text you can inspect, sync, and back up like
 | Plan data — beats, outline structure, goals, revision log, audit checklists, compile & publishing settings | Frontmatter of the **project index note** (the note named after your project) |
 | Codex entries | Ordinary notes with a `codex` frontmatter key |
 | Plugin settings, writing history, sprints, ideas inbox | The plugin's `data.json` (inside `.obsidian/plugins/inkswell/`) |
+| Other devices' writing history (opt-in: *Sync writing history across devices*) | One small machine-written note per device under `<base folder>/Writing log/`, merged on Track |
 
 Recovery options, should anything ever go wrong:
 
