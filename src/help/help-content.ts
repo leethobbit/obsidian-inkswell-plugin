@@ -211,8 +211,11 @@ export const HINTS: Record<string, HintEntry> = {
       p(
         el,
         "Each entry's “Appears in” list updates itself: it shows every scene whose text " +
-          "mentions the entry by name or alias (plus any scene that links it explicitly), " +
-          "for every category — so a new entry finds its scenes with no tagging step."
+          "mentions the entry by name or alias, plus any scene that links it in its " +
+          "metadata (Characters, Location, POV), for every category — so a new entry " +
+          "finds its scenes with no tagging step. Filled chips are linked scenes (the " +
+          "writer put the entry there); outlined chips are text-only mentions (someone " +
+          "talks about them). The per-book line counts both, plus POV scenes."
       );
     },
   },

@@ -492,6 +492,16 @@ body.inkswell-phone .inkswell-codex__portrait {
 .inkswell-codex__refs .inkswell-chip.is-pov {
   box-shadow: inset 2px 0 0 var(--interactive-accent);
 }
+/* Linked (named in scene metadata) = filled; mentioned (text only) = outlined. */
+.inkswell-codex__refs .inkswell-chip.is-mentioned {
+  background-color: transparent;
+  border: 1px dashed var(--background-modifier-border-hover);
+  color: var(--text-muted);
+}
+.inkswell-codex__reflegend {
+  margin-top: var(--size-4-1);
+  font-size: var(--font-ui-smaller);
+}
 .inkswell-codex__povtag {
   font-size: 0.7em;
   font-weight: var(--font-semibold);

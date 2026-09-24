@@ -192,11 +192,17 @@ export async function scenesForEntity(
   return out;
 }
 
-/** One scene an entity appears in, and whether it is that scene's POV character. */
+/** One scene an entity appears in, how it got there, and whether it's the POV character. */
 export interface SceneAppearance {
   file: TFile;
   /** The scene's `pov` names this entity (by name or alias). */
   pov: boolean;
+  /**
+   * True when the scene's metadata names the entity (`characters`, `location`
+   * or `pov`) — the writer put it there. False = the text merely mentions the
+   * name (someone talks about them). Kept apart on purpose (#44).
+   */
+  linked: boolean;
 }
 
 /** An entity's appearances in one book (one representative draft per story). */
@@ -207,6 +213,8 @@ export interface BookAppearances {
   /** Scenes in MANUSCRIPT order. */
   scenes: SceneAppearance[];
   povCount: number;
+  /** How many of `scenes` are linked (metadata), the rest being text mentions. */
+  linkedCount: number;
 }
 
 /** Does this scene's `pov` frontmatter name the entity (name or alias, link or plain)? */
@@ -242,12 +250,18 @@ export async function appearancesForEntity(
       const file = app.vault.getAbstractFileByPath(scene.path);
       if (!(file instanceof TFile)) continue;
       seen.add(scene.path);
-      let appears = referencesByFrontmatter(app, file, entity.name);
-      if (!appears) {
-        const text = await app.vault.cachedRead(file);
-        appears = detectMentions(text, [entity]).length > 0;
+      // "Linked" = the writer said so in the scene's metadata (characters /
+      // location / pov); otherwise a text scan decides whether it's mentioned.
+      // The distinction is kept (#44): a name dropped in dialogue is a mention,
+      // not a presence.
+      const pov = isPovOf(app, file, entity);
+      const linked = pov || referencesByFrontmatter(app, file, entity.name);
+      if (linked) {
+        scenes.push({ file, pov, linked: true });
+        continue;
       }
-      if (appears) scenes.push({ file, pov: isPovOf(app, file, entity) });
+      const text = await app.vault.cachedRead(file);
+      if (detectMentions(text, [entity]).length > 0) scenes.push({ file, pov, linked: false });
     }
     if (scenes.length > 0) {
       out.push({
@@ -255,6 +269,7 @@ export async function appearancesForEntity(
         title: project.draft.title,
         scenes,
         povCount: scenes.filter((s) => s.pov).length,
+        linkedCount: scenes.filter((s) => s.linked).length,
       });
     }
   }
