@@ -10,6 +10,10 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-09-24
+
+The series-and-sync release. Home becomes shelves of book cards with a proper series dialog (and series management), word tracking stops mistaking synced text for your own typing and can — opt-in — follow you across devices, and the codex tells two books apart even when their index notes share a name. Also: several locations per scene, a one-shot chapter sort, linked-vs-mentioned in "Appears in", and an ideas inbox you can act on. Requests and reports from [#38](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/38) and [#44](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/44).
+
 ### Added
 - **Series are now easy to start and manage.** A new **Series** dialog — from a book's ⋯ / right-click menu on Home, or the series line under the title on the focused project's hero card — lets you pick an existing series from a dropdown (no more re-typing the name and accidentally forking a series on a typo) or start a new one, and set the book number, which defaults to the next free slot. The **New project** dialog carries the same fields, so a book can be created straight into *Book 3 of The Lattice Cycle*. A series header on Home now has its own menu: **New book in this series…**, **Add existing project…**, **Rename series…** (every book and every `codex-series` codex entry follow; renaming onto an existing series merges after a confirm), and **Reorder books…** (drag, then Save renumbers 1, 2, 3…). Typing an existing series' name under *New series…* joins it whatever the capitalization (a phone keyboard's autocapitalization used to fork a second series — the likely cause of the "book 1 / another book dropped" report in #44). The header project switcher groups stories by series. Frontmatter is unchanged — `inkswell.series` on each book, no series note. Requested in [#38](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/38) and [#44](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/44).
 
@@ -364,7 +368,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.17.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.18.0...HEAD
+[1.18.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.17.0...1.18.0
 [1.17.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.16.0...1.17.0
 [1.16.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.15.0...1.16.0
 [1.15.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.14.0...1.15.0
