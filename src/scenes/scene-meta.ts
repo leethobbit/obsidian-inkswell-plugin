@@ -41,8 +41,12 @@ export interface SceneMeta {
   inactive?: boolean;
   /** Linked codex characters, as wikilink strings (e.g. "[[Anna]]"). */
   characters?: string[];
-  /** Linked codex location, as a wikilink string. */
-  location?: string;
+  /**
+   * Linked codex locations, as wikilink strings. Frontmatter: ONE location is
+   * written as a plain string (the pre-1.18 form, byte-identical), several as a
+   * YAML list — the same string-or-list rule as `codex-project` (SCHEMA §B).
+   */
+  location?: string[];
   /** Plotlines this scene advances — plain titles matching `inkswell.plotlines`
    *  entries (like `act`/`chapter` strings, NOT wikilinks). */
   plotlines?: string[];
@@ -132,7 +136,11 @@ export function readSceneMeta(app: App, file: TFile): SceneMeta {
       : typeof fm["characters"] === "string"
         ? [fm["characters"]]
         : undefined,
-    location: str(fm["location"]),
+    location: Array.isArray(fm["location"])
+      ? fm["location"].filter((x: unknown): x is string => typeof x === "string")
+      : typeof fm["location"] === "string" && fm["location"]
+        ? [fm["location"]]
+        : undefined,
     plotlines: Array.isArray(fm["plotlines"])
       ? fm["plotlines"].filter((x: unknown): x is string => typeof x === "string")
       : typeof fm["plotlines"] === "string"
@@ -148,18 +156,27 @@ export function readSceneMeta(app: App, file: TFile): SceneMeta {
  * file doesn't already have (and the patch doesn't set) — so a scene template's
  * own frontmatter wins over a default like `status: idea`.
  */
+/** List keys whose ONE-item form is written as a plain string (pre-1.18 readers, byte-identical). */
+const SINGLE_AS_STRING: ReadonlySet<string> = new Set(["location"]);
+
+/** The frontmatter value for a list-typed key: `location` keeps one item as a plain string. */
+function listValue(key: string, list: string[]): unknown {
+  return SINGLE_AS_STRING.has(key) && list.length === 1 ? list[0] : list;
+}
+
 /**
- * Transform one of a scene's link-list keys (`characters` / `plotlines`)
- * against its CURRENT stored value, inside `processFrontMatter`. Chip add /
- * remove ops therefore compose — a chip added elsewhere (Plot-grid drag,
- * another Inspector) since this form rendered is never dropped by the next
- * chip edit. An emptied list deletes the key; a legacy single-string value is
- * folded into a one-element list on read.
+ * Transform one of a scene's link-list keys (`characters` / `location` /
+ * `plotlines`) against its CURRENT stored value, inside `processFrontMatter`.
+ * Chip add / remove ops therefore compose — a chip added elsewhere (Plot-grid
+ * drag, another Inspector) since this form rendered is never dropped by the
+ * next chip edit. An emptied list deletes the key; a legacy single-string value
+ * is folded into a one-element list on read (and `location` writes a single
+ * item back as that string).
  */
 export async function updateSceneList(
   app: App,
   file: TFile,
-  key: "characters" | "plotlines",
+  key: "characters" | "location" | "plotlines",
   transform: (current: string[]) => string[]
 ): Promise<void> {
   await app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
@@ -171,7 +188,7 @@ export async function updateSceneList(
         : [];
     const next = transform(current);
     if (next.length === 0) delete fm[key];
-    else fm[key] = next;
+    else fm[key] = listValue(key, next);
   });
 }
 
@@ -192,7 +209,7 @@ export async function writeSceneMeta(
         value === false ||
         (Array.isArray(value) && value.length === 0);
       if (empty) delete fm[key];
-      else fm[key] = value;
+      else fm[key] = Array.isArray(value) ? listValue(key, value) : value;
     }
     if (defaults) {
       for (const key of FIELD_KEYS) {

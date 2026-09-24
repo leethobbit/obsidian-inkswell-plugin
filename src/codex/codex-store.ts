@@ -146,7 +146,9 @@ export async function updateEntityProjects(
   });
 }
 
-/** Does this scene's `characters`/`location` frontmatter link to `entityName`? */
+/** Does this scene's `characters`/`location` frontmatter link to `entityName`?
+ *  Both keys accept one link or a list (SCHEMA §B); matching is case-insensitive
+ *  like Obsidian's own link resolution. */
 function referencesByFrontmatter(app: App, file: TFile, entityName: string): boolean {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- cast tames Obsidian's `any`-typed frontmatter; without it the reads below trip no-unsafe-assignment
   const fm = app.metadataCache.getFileCache(file)?.frontmatter as
@@ -154,11 +156,13 @@ function referencesByFrontmatter(app: App, file: TFile, entityName: string): boo
     | undefined;
   if (!fm) return false;
   const refs: string[] = [];
-  const chars = fm["characters"];
-  if (Array.isArray(chars)) refs.push(...chars.filter((x): x is string => typeof x === "string"));
-  else if (typeof chars === "string") refs.push(chars);
-  if (typeof fm["location"] === "string") refs.push(fm["location"]);
-  return refs.some((r) => linkTarget(r) === entityName);
+  for (const key of ["characters", "location"]) {
+    const raw = fm[key];
+    if (Array.isArray(raw)) refs.push(...raw.filter((x): x is string => typeof x === "string"));
+    else if (typeof raw === "string") refs.push(raw);
+  }
+  const want = entityName.trim().toLowerCase();
+  return refs.some((r) => linkTarget(r).trim().toLowerCase() === want);
 }
 
 /**

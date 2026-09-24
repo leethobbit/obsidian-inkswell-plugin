@@ -367,6 +367,15 @@ describe("scenesForEntity", () => {
     expect(await appearsIn(app, projects, entity("Anna", "character"))).toEqual(["s1"]);
   });
 
+  it("counts a location link in either form — plain string or list — case-insensitively (#44)", async () => {
+    const app = new FakeApp();
+    app.vault.seed("BookA/s1.md", '---\nlocation: "[[the docks]]"\n---\nFog rolled in.\n');
+    app.vault.seed("BookA/s2.md", '---\nlocation:\n  - "[[Tower]]"\n  - "[[The Docks]]"\n---\nBells.\n');
+    app.vault.seed("BookA/s3.md", '---\nlocation: "[[Tower]]"\n---\nNo docks here.\n');
+    const projects = [makeProject("BookA/BookA.md", ["BookA/s1.md", "BookA/s2.md", "BookA/s3.md"])];
+    expect(await appearsIn(app, projects, entity("The Docks", "location"))).toEqual(["s1", "s2"]);
+  });
+
   it("scopes to visible books: a project-scoped entity ignores other books", async () => {
     const app = new FakeApp();
     app.vault.seed("BookA/s1.md", "The Amulet was here.\n");

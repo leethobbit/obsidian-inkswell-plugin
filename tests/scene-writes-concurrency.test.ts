@@ -19,7 +19,7 @@ import { parseScenes } from "../src/projects/draft-serialization";
 import { rebaseSceneOrder } from "../src/outliner/outline";
 import { setAssignment } from "../src/outliner/beats";
 import type { BeatSheet } from "../src/outliner/beat-templates";
-import { updateSceneList } from "../src/scenes/scene-meta";
+import { updateSceneList, writeSceneMeta } from "../src/scenes/scene-meta";
 import { FakeApp } from "./fakes/fake-app";
 
 const INDEX_PATH = "Books/My Novel/My Novel.md";
@@ -243,5 +243,32 @@ describe("scene link-list ops (updateSceneList)", () => {
     await updateSceneList(app.asApp(), file, "plotlines", () => []);
     cache = app.metadataCache.getFileCache(file as never);
     expect(cache?.frontmatter && "plotlines" in cache.frontmatter).toBe(false);
+  });
+
+  it("location: one link is stored as the plain pre-1.18 string, several as a list (#44)", async () => {
+    const file = app.file(SCENE_PATH);
+    const add = (link: string) =>
+      updateSceneList(app.asApp(), file, "location", (cur) =>
+        cur.includes(link) ? cur : [...cur, link]
+      );
+    await add("[[Docks]]");
+    let cache = app.metadataCache.getFileCache(file as never);
+    expect(cache?.frontmatter?.["location"]).toBe("[[Docks]]"); // byte-identical to 1.17
+
+    await add("[[Tower]]"); // issued from a form rendered before Docks was linked
+    cache = app.metadataCache.getFileCache(file as never);
+    expect(cache?.frontmatter?.["location"]).toEqual(["[[Docks]]", "[[Tower]]"]);
+
+    await updateSceneList(app.asApp(), file, "location", (cur) => cur.filter((l) => l !== "[[Docks]]"));
+    cache = app.metadataCache.getFileCache(file as never);
+    expect(cache?.frontmatter?.["location"]).toBe("[[Tower]]"); // back to the string form
+
+    await writeSceneMeta(app.asApp(), file, { location: ["[[A]]", "[[B]]"] });
+    cache = app.metadataCache.getFileCache(file as never);
+    expect(cache?.frontmatter?.["location"]).toEqual(["[[A]]", "[[B]]"]);
+    await writeSceneMeta(app.asApp(), file, { location: [] });
+    cache = app.metadataCache.getFileCache(file as never);
+    expect(cache?.frontmatter && "location" in cache.frontmatter).toBe(false);
+    expect(app.vault.raw(SCENE_PATH)).toContain("Prose body stays put.");
   });
 });

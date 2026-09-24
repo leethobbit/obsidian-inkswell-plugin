@@ -52,7 +52,7 @@ Flat top-level keys on each scene file. Field names match StoryLine where they o
 | `color` | string | Hex tint, e.g. `#FF6B6B` |
 | `inactive` | boolean | `true` = archived; excluded from compile + stats |
 | `characters` | string[] | Linked codex characters as wikilinks, e.g. `["[[Anna]]"]` |
-| `location` | string | Linked codex location as a wikilink |
+| `location` | wikilink \| wikilink[] | Linked codex location(s). Since 1.18 a scene may link **several** (a YAML list of wikilinks); one location is always written as the plain string (byte-identical to pre-1.18 output). Readers fold a string into a one-element list; pre-1.18 readers treat a list as unset. |
 | `plotlines` | string[] | Plotlines this scene advances — plain titles matching `inkswell.plotlines` entries (like `act`/`chapter` strings, NOT wikilinks) |
 | `targetWords` | number | Per-scene word-count target |
 

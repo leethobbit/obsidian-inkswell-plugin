@@ -33,6 +33,49 @@ export const COLORS = ["#e06c75", "#e5c07b", "#98c379", "#56b6c2", "#61afef", "#
 let povListSeq = 0;
 let structureListSeq = 0;
 
+interface ChipListOptions {
+  /** Stored values (wikilinks or plain titles). */
+  current: string[];
+  /** Chip text for a stored value. */
+  label: (value: string) => string;
+  /** Values offered by the "add" picker (already excluding `current`). */
+  candidates: string[];
+  addLabel: string;
+  /** `tagField` key for the picker (focus survives the rebuild). */
+  tag: string;
+  /** Shown when there is nothing to add or remove; null = nothing. */
+  emptyText: string | null;
+  onAdd(value: string): void;
+  onRemove(value: string): void;
+}
+
+/**
+ * The chips + "add" picker every multi-value scene field uses (Characters,
+ * Location, Plotlines). One markup, one behavior — the callers only decide what
+ * a value is and how it's persisted.
+ */
+function renderChipList(host: HTMLElement, opts: ChipListOptions): void {
+  const chips = host.createDiv({ cls: "inkswell-inspector__chips" });
+  for (const value of opts.current) {
+    const chip = chips.createSpan({ cls: "inkswell-chip", text: opts.label(value) });
+    const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
+    x.setAttribute("aria-label", `Remove ${opts.label(value)}`);
+    x.onclick = () => opts.onRemove(value);
+  }
+  if (opts.candidates.length > 0) {
+    const add = host.createEl("select", { cls: "dropdown" });
+    tagField(add, opts.tag);
+    add.createEl("option", { text: opts.addLabel, value: "" });
+    for (const c of opts.candidates) add.createEl("option", { text: c, value: c });
+    add.value = "";
+    add.onchange = () => {
+      if (add.value) opts.onAdd(add.value);
+    };
+  } else if (opts.emptyText) {
+    host.createSpan({ cls: "inkswell-stats__muted", text: opts.emptyText });
+  }
+}
+
 /** One labelled field row (label optional). */
 function field(parent: HTMLElement, label: string, build: (host: HTMLElement) => void): void {
   const f = parent.createDiv({ cls: "inkswell-inspector__field" });
@@ -77,7 +120,7 @@ export function renderSceneMetaFields(
   // Chip lists persist as list OPS against the file's CURRENT value — a value
   // patch built from this render's `meta` would overwrite links added since.
   const saveList = (
-    key: "characters" | "plotlines",
+    key: "characters" | "location" | "plotlines",
     transform: (current: string[]) => string[]
   ) => {
     markWrite?.(file.path);
@@ -148,50 +191,43 @@ export function renderSceneMetaFields(
     t.onchange = () => save({ pov: t.value });
   });
 
-  // Characters (linked codex entities)
-  field(container, "Characters", (host) => {
-    const current = meta.characters ?? [];
-    const chips = host.createDiv({ cls: "inkswell-inspector__chips" });
-    for (const link of current) {
-      const chip = chips.createSpan({ cls: "inkswell-chip", text: linkTarget(link) });
-      const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
-      x.onclick = () => saveList("characters", (cur) => cur.filter((c) => c !== link));
-    }
-    const chars = entities.filter((e) => e.category === "character");
-    const remaining = chars.filter(
-      (c) => !current.some((link) => linkTarget(link) === c.name)
-    );
-    if (remaining.length > 0) {
-      const add = host.createEl("select", { cls: "dropdown" });
-      tagField(add, "scene:characters-add");
-      add.createEl("option", { text: "+ add character", value: "" });
-      for (const c of remaining) add.createEl("option", { text: c.name, value: c.name });
-      add.value = "";
-      add.onchange = () => {
-        const link = add.value ? toLink(add.value) : "";
-        if (link) {
-          saveList("characters", (cur) => (cur.includes(link) ? cur : [...cur, link]));
-        }
-      };
-    } else if (chars.length === 0) {
-      host.createSpan({ cls: "inkswell-stats__muted", text: "No characters in codex." });
-    }
-  });
+  // Linked codex entities of one category as chips + an "add" picker. The list
+  // op composes against the file's CURRENT value (see saveList).
+  const linkChips = (
+    host: HTMLElement,
+    key: "characters" | "location",
+    category: string,
+    current: string[],
+    addLabel: string,
+    emptyText: string
+  ) => {
+    const pool = entities.filter((e) => e.category === category);
+    renderChipList(host, {
+      current,
+      label: linkTarget,
+      candidates: pool
+        .filter((c) => !current.some((link) => linkTarget(link) === c.name))
+        .map((c) => c.name),
+      addLabel,
+      tag: `scene:${key}-add`,
+      emptyText: pool.length === 0 ? emptyText : null,
+      onAdd: (name) => {
+        const link = toLink(name);
+        saveList(key, (cur) => (cur.includes(link) ? cur : [...cur, link]));
+      },
+      onRemove: (link) => saveList(key, (cur) => cur.filter((c) => c !== link)),
+    });
+  };
 
-  // Location (single linked codex entity)
-  field(container, "Location", (host) => {
-    const locs = entities.filter((e) => e.category === "location");
-    const cur = meta.location ? linkTarget(meta.location) : "";
-    const sel = host.createEl("select", { cls: "dropdown" });
-    tagField(sel, "scene:location");
-    sel.createEl("option", { text: "— none —", value: "" });
-    for (const l of locs) {
-      const o = sel.createEl("option", { text: l.name, value: l.name });
-      if (l.name === cur) o.selected = true;
-    }
-    sel.value = locs.some((l) => l.name === cur) ? cur : "";
-    sel.onchange = () => save({ location: sel.value ? toLink(sel.value) : "" });
-  });
+  // Characters (linked codex entities)
+  field(container, "Characters", (host) =>
+    linkChips(host, "characters", "character", meta.characters ?? [], "+ add character", "No characters in codex.")
+  );
+
+  // Locations (linked codex entities; several allowed since 1.18 — #44)
+  field(container, "Location", (host) =>
+    linkChips(host, "location", "location", meta.location ?? [], "+ add location", "No locations in codex.")
+  );
 
   // Codex mentions are surfaced automatically on each entry's "Appears in" list
   // (scenesForEntity scans scene text) — no manual "detect" step here. The
@@ -230,34 +266,23 @@ export function renderSceneMetaFields(
   // Hidden when the Plot grid feature is off (its data is kept, just not shown).
   if (featureEnabled(disabledFeatures, "plot-grid"))
     field(container, "Plotlines", (host) => {
-    const current = meta.plotlines ?? [];
-    const chips = host.createDiv({ cls: "inkswell-inspector__chips" });
-    for (const title of current) {
-      const chip = chips.createSpan({ cls: "inkswell-chip", text: title });
-      const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
-      x.onclick = () => saveList("plotlines", (cur) => cur.filter((t) => t !== title));
-    }
-    const configured = (project?.inkswell?.plotlines ?? []).map((p) => p.title);
-    const remaining = configured.filter((t) => !current.includes(t));
-    if (remaining.length > 0) {
-      const add = host.createEl("select", { cls: "dropdown" });
-      tagField(add, "scene:plotlines-add");
-      add.createEl("option", { text: "+ add plotline", value: "" });
-      for (const t of remaining) add.createEl("option", { text: t, value: t });
-      add.value = "";
-      add.onchange = () => {
-        const title = add.value;
-        if (title) {
-          saveList("plotlines", (cur) => (cur.includes(title) ? cur : [...cur, title]));
-        }
-      };
-    } else if (configured.length === 0 && current.length === 0) {
-      host.createSpan({
-        cls: "inkswell-stats__muted",
-        text: "No plotlines yet — create them in Plan → Grid.",
+      const current = meta.plotlines ?? [];
+      const configured = (project?.inkswell?.plotlines ?? []).map((p) => p.title);
+      renderChipList(host, {
+        current,
+        label: (t) => t,
+        candidates: configured.filter((t) => !current.includes(t)),
+        addLabel: "+ add plotline",
+        tag: "scene:plotlines-add",
+        emptyText:
+          configured.length === 0 && current.length === 0
+            ? "No plotlines yet — create them in Plan → Grid."
+            : null,
+        onAdd: (title) =>
+          saveList("plotlines", (cur) => (cur.includes(title) ? cur : [...cur, title])),
+        onRemove: (title) => saveList("plotlines", (cur) => cur.filter((t) => t !== title)),
       });
-    }
-  });
+    });
 
   // Target words
   field(container, "Target words", (host) => {
