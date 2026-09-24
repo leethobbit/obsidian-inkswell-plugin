@@ -10,6 +10,9 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Fixed
+- **A series shelf's target percentage no longer runs away when only some books have a target.** The header added up every book's words but only the targeted books' targets, so one book with a 60,000-word target in a 353,000-word series read "588%". Progress now counts only the targeted books' words and says so — *3 books · 353,412 words · 21,040 / 60,000 targeted (35%)*. A shelf where every book has a target reads as before. Reported in [#44](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/44).
+
 ## [1.18.0] - 2026-09-24
 
 The series-and-sync release. Home becomes shelves of book cards with a proper series dialog (and series management), word tracking stops mistaking synced text for your own typing and can — opt-in — follow you across devices, and the codex tells two books apart even when their index notes share a name. Also: several locations per scene, a one-shot chapter sort, linked-vs-mentioned in "Appears in", and an ideas inbox you can act on. Requests and reports from [#38](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/38) and [#44](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/44).

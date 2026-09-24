@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupIntoSeries, projectSeries, readSeriesInfo } from "../src/series/series";
+import { groupIntoSeries, projectSeries, readSeriesInfo, shelfMetaText } from "../src/series/series";
 import { Project, SeriesInfo } from "../src/projects/types";
 
 function project(title: string, series?: Partial<SeriesInfo> | null): Project {
@@ -89,5 +89,34 @@ describe("projectSeries", () => {
       order: 3,
     });
     expect(projectSeries(project("B"))).toBeNull();
+  });
+});
+
+describe("shelfMetaText", () => {
+  it("counts books only when word counts are hidden", () => {
+    expect(shelfMetaText([{ words: 5, target: 10 }], false)).toBe("1 book");
+    expect(shelfMetaText([{ words: 5 }, { words: 6 }], false)).toBe("2 books");
+  });
+
+  it("shows total words with no progress when no book has a target", () => {
+    expect(shelfMetaText([{ words: 1000 }, { words: 2000, target: 0 }], true)).toBe(
+      `2 books · ${(3000).toLocaleString()} words`
+    );
+  });
+
+  it("measures progress over targeted books only when some lack a target (#44 588%)", () => {
+    const text = shelfMetaText(
+      [{ words: 21040, target: 60000 }, { words: 200000 }, { words: 132372 }],
+      true
+    );
+    expect(text).toBe(
+      `3 books · ${(353412).toLocaleString()} words · ${(21040).toLocaleString()} / ${(60000).toLocaleString()} targeted (35%)`
+    );
+  });
+
+  it("uses the plain form when every book has a target", () => {
+    expect(
+      shelfMetaText([{ words: 30000, target: 60000 }, { words: 30000, target: 60000 }], true)
+    ).toBe(`2 books · ${(60000).toLocaleString()} words / ${(120000).toLocaleString()} (50%)`);
   });
 });
