@@ -8,22 +8,11 @@
  */
 
 import { BeatDef, TemplateAct } from "./beat-templates";
+import { numberWord } from "../lib/number-words";
 
-const ONES = [
-  "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
-  "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
-  "Seventeen", "Eighteen", "Nineteen",
-];
-const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
-
-/** English word for 1–99 ("One", "Twenty-Seven"). Out of range → the digits. */
-export function numberWord(n: number): string {
-  if (!Number.isInteger(n) || n < 1 || n > 99) return String(n);
-  if (n < 20) return ONES[n];
-  const t = Math.floor(n / 10);
-  const r = n % 10;
-  return r === 0 ? TENS[t] : `${TENS[t]}-${ONES[r]}`;
-}
+// Chapter titles are spelled out ("Chapter One"); the chapter sort reads them
+// back via wordToNumber in the same module.
+export { numberWord };
 
 export interface ScaffoldPlan {
   /** Acts that received at least one beat, in template order. */

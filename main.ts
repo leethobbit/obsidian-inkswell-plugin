@@ -31,7 +31,8 @@ import { groupIntoStories } from "./src/projects/stories";
 import { ProjectStats } from "./src/projects/project-stats";
 import { ProjectStore } from "./src/projects/project-store";
 import { SelfWriteRegistry } from "./src/lib/self-write";
-import { Project } from "./src/projects/types";
+import { Project, isMultiScene } from "./src/projects/types";
+import { sortProjectByChapter } from "./src/outliner/sort-actions";
 import { RevisionModal } from "./src/revisions/revision-modal";
 import { FeatureId, featureEnabled } from "./src/features";
 import { getCodexEntities } from "./src/codex/codex-store";
@@ -263,6 +264,16 @@ export default class InkswellPlugin extends Plugin {
         const project = resolveActive(this.store.getProjects(), this.activeProject.get());
         if (!project) return false;
         if (!checking) this.renameProject(project);
+        return true;
+      },
+    });
+    this.addCommand({
+      id: "sort-scenes-by-chapter",
+      name: "Sort scenes by chapter number",
+      checkCallback: (checking) => {
+        const project = resolveActive(this.store.getProjects(), this.activeProject.get());
+        if (!project || !isMultiScene(project.draft)) return false;
+        if (!checking) void sortProjectByChapter(this.app, this, project);
         return true;
       },
     });

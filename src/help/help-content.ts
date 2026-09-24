@@ -393,6 +393,15 @@ export const HELP_SECTIONS: HelpSection[] = [
           "outline tree, the Kanban board, and the plot grid behind one Tree | Board | " +
           "Grid switcher — three views of the same scenes. All are detailed below."
       );
+      p(
+        el,
+        "Migrating a numbered manuscript whose scenes landed out of order? Structure → " +
+          "Tree has a “Sort by chapter” button (also on a book's ⋯ menu on Home and as the " +
+          "“Sort scenes by chapter number” command): it reorders the manuscript once by " +
+          "the number in each scene's chapter label — digits or spelled out — and leaves " +
+          "unnumbered scenes in their current order at the end. It's a one-time action, " +
+          "not a mode; drag order stays yours afterwards."
+      );
       el.createEl("h4", { text: HINTS["plan/beats"].title });
       HINTS["plan/beats"].body(el);
       el.createEl("h4", { text: HINTS["plan/outline"].title });

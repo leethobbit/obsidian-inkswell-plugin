@@ -24,6 +24,7 @@ import { readSceneMeta } from "../scenes/scene-meta";
 import { renderEmptyState, renderEmptyStateAction } from "../views/panel-kit";
 import { applyOutline } from "../outliner/apply-outline";
 import { promptNewScene } from "../outliner/create-scene";
+import { sortProjectByChapter } from "../outliner/sort-actions";
 import {
   ActNode,
   ChapterNode,
@@ -85,6 +86,13 @@ export class OutlinePanel {
     const addScene = bar.createEl("button", { text: "Add scene" });
     addScene.setAttribute("aria-label", "Create a new scene without a chapter");
     addScene.onclick = () => this.addScene(null);
+    // One-shot reorder by each scene's chapter number (#44) — not a mode.
+    const sort = bar.createEl("button", { text: "Sort by chapter" });
+    sort.setAttribute(
+      "aria-label",
+      "Reorder the manuscript once by the number in each scene's chapter label"
+    );
+    sort.onclick = () => void sortProjectByChapter(this.app, this.plugin, project);
 
     // Nothing to arrange yet: point at the natural upstream step rather than an
     // empty tree with two lonely buttons.

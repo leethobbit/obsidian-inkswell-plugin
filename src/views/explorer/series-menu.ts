@@ -10,7 +10,7 @@ import { addCoverMenuItems } from "../../projects/cover-actions";
 import { writeSeries } from "../../projects/index-writer";
 import { ProjectStore } from "../../projects/project-store";
 import { baseDraftFor } from "../../projects/stories";
-import { Project, SeriesInfo } from "../../projects/types";
+import { Project, SeriesInfo, isMultiScene } from "../../projects/types";
 import { Series, projectSeries } from "../../series/series";
 import {
   ReorderBooksModal,
@@ -22,6 +22,8 @@ import { nextBookOrder } from "../../series/series-ops";
 
 export interface SeriesMenuCallbacks {
   renameProject(project: Project): void;
+  /** One-shot manuscript reorder by each scene's chapter number (#44). */
+  sortByChapter(project: Project): void;
   /** Open the New project dialog, optionally preset to a series. */
   newProject(preset?: { series?: SeriesInfo | null }): void;
   /** The current Home selection (drives which draft represents each story). */
@@ -46,6 +48,14 @@ export class SeriesMenu {
         .setIcon("text-cursor-input")
         .onClick(() => this.cb.renameProject(row))
     );
+    if (isMultiScene(row.draft)) {
+      menu.addItem((i) =>
+        i
+          .setTitle("Sort scenes by chapter number…")
+          .setIcon("arrow-down-0-1")
+          .onClick(() => this.cb.sortByChapter(row))
+      );
+    }
     menu.addSeparator();
     // Series membership is STORY-level (it describes the book): always read
     // and write the base draft, whichever draft the row currently represents —

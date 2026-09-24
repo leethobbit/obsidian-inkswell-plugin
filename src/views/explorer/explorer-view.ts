@@ -24,6 +24,7 @@ import { Project, isMultiScene } from "../../projects/types";
 import { baseDraftFor, groupIntoStories, representativeDrafts } from "../../projects/stories";
 import { Series, groupIntoSeries, projectSeries } from "../../series/series";
 import { promptNewScene } from "../../outliner/create-scene";
+import { sortProjectByChapter } from "../../outliner/sort-actions";
 import { BookCardContext, renderBookCard, renderCoverThumb } from "./book-card";
 import { HeroCard } from "./hero-card";
 import { renderIdeas } from "./ideas-inbox";
@@ -68,6 +69,7 @@ export class ExplorerPanel {
     this.reconcile = new ReconcileBanner(app, (p) => plugin.selfWrites.mark(p));
     this.seriesMenu = new SeriesMenu(app, store, {
       renameProject: (p) => plugin.renameProject(p),
+      sortByChapter: (p) => void sortProjectByChapter(app, plugin, p),
       newProject: (preset) => plugin.newProject(preset),
       activePath: () => plugin.activeProject.get(),
       markSelfWrite: (p) => plugin.selfWrites.mark(p),
