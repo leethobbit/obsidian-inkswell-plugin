@@ -46,7 +46,10 @@ export function renderSeriesFields(
   ctx: SeriesFieldsContext
 ): SeriesFieldsHandle {
   const initial = ctx.current ?? ctx.preset ?? null;
-  const indexOf = (name: string) => ctx.series.findIndex((s) => s.name === name);
+  // Case-insensitive: a phone keyboard's autocapitalization must not fork
+  // "the lattice cycle" off from "The Lattice Cycle" (#44's "book 1 / dropped").
+  const fold = (s: string) => s.trim().toLowerCase();
+  const indexOf = (name: string) => ctx.series.findIndex((s) => fold(s.name) === fold(name));
   let selected = "";
   if (initial) {
     const i = indexOf(initial.name);
@@ -121,9 +124,13 @@ export function renderSeriesFields(
           nameInput.focus();
           return false;
         }
-        // Typing an existing series' name under "New series…" simply joins it.
+        // Typing an existing series' name under "New series…" (any casing)
+        // simply joins it, adopting the existing spelling.
         const i = indexOf(name);
-        if (i >= 0) books = ctx.series[i].books;
+        if (i >= 0) {
+          books = ctx.series[i].books;
+          name = ctx.series[i].name;
+        }
       } else {
         name = ctx.series[Number(selected)].name;
       }
