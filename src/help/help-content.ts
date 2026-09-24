@@ -485,6 +485,13 @@ export const HELP_SECTIONS: HelpSection[] = [
           "settings, writing history, sprints, and the ideas inbox live in the plugin's " +
           "data.json."
       );
+      p(
+        el,
+        "Writing history counts the words you type in Obsidian — in its editors and in " +
+          "the Write panel. A file that changes outside Obsidian, or that arrives from " +
+          "another device via sync, only resets that file's starting point; those words " +
+          "are never logged as written on this device."
+      );
       el.createEl("h4", { text: "If something goes wrong" });
       p(
         el,
