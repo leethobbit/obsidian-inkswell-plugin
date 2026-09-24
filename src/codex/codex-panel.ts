@@ -31,10 +31,12 @@ import { firstMentionOffset, linkAlias, linkTarget, toLink } from "./codex";
 import { stripFrontmatter } from "../lib/frontmatter";
 import type { SceneHighlight } from "../views/write-panel";
 import {
+  bookMatches,
   defaultScopeForProject,
   describeCreateScope,
   filterToScope,
-  projectName,
+  normKey,
+  projectKey,
   scopeContextForEntity,
   scopeContextForProject,
 } from "./codex-scope";
@@ -776,18 +778,21 @@ export class CodexPanel {
     const seriesList = groupIntoSeries(projects).series;
     const seriesNames = seriesList.map((s) => s.name);
     // One pill per STORY (not per draft): the label is the story title, the value
-    // its base draft's basename — the canonical scope every draft of the story
-    // resolves (a legacy value naming another draft is matched by `titleFor` and
-    // normalizes the next time the user toggles).
+    // its base draft's identity key (basename, or the path form when another
+    // story's index note shares the basename — #44). A stored value is matched
+    // against every draft of the story in either form (`bookMatches`), so legacy
+    // values naming a sibling draft still light the right pill and normalize the
+    // next time the user toggles.
     const stories = groupIntoStories(projects);
     const books = stories
-      .map((s) => ({ label: s.title, value: projectName(baseDraft(s)) }))
+      .map((s) => ({ label: s.title, base: baseDraft(s), drafts: s.drafts, value: projectKey(baseDraft(s), projects) }))
       .sort((a, b) => a.label.localeCompare(b.label));
-    /** Story title for a stored basename — base draft first, then any draft. */
-    const titleFor = (basename: string): string =>
-      books.find((b) => b.value === basename)?.label ??
-      stories.find((s) => s.drafts.some((d) => projectName(d) === basename))?.title ??
-      basename;
+    /** Is a stored value one of this story's drafts (either identity form)? */
+    const namesStory = (value: string, book: (typeof books)[number]): boolean =>
+      book.drafts.some((d) => bookMatches(value, d));
+    /** Story title for a stored value, else the value itself. */
+    const titleFor = (value: string): string =>
+      books.find((b) => namesStory(value, b))?.label ?? value;
     /** Books in a series, counted per story (drafts of one book are one book). */
     const seriesBookCount = (name: string): number => {
       const s = seriesList.find((x) => x.name === name);
@@ -825,7 +830,9 @@ export class CodexPanel {
     // Defaults when the user switches kind: the active story's series/book wins.
     const activeCtx = scopeContextForProject(active, projects);
     const defaultSeries = activeCtx.seriesName ?? seriesNames[0];
-    const defaultBook = active ? projectName(baseDraftFor(projects, active)) : books[0]?.value;
+    const defaultBook = active
+      ? projectKey(baseDraftFor(projects, active), projects)
+      : books[0]?.value;
 
     this.field(host, "Scope", (control) => {
       const wrap = control.createDiv({ cls: "inkswell-scope" });
@@ -886,26 +893,41 @@ export class CodexPanel {
       }
 
       if (kind !== "books") return;
-      const unknown = list.filter((b) => !books.some((k) => k.value === b));
+      const unknown = list.filter((v) => !books.some((k) => namesStory(v, k)));
       // One known story and nothing stale: the segment label already says it all.
       if (books.length <= 1 && unknown.length === 0) return;
       const pills = wrap.createDiv({ cls: "inkswell-scope__pills" });
-      const toggle = (book: string, on: boolean): void => {
-        if (on && list.length <= 1) {
+      /**
+       * Turn a book off: drop every stored value naming it. A legacy ambiguous
+       * value (`[[Index]]` shared by two books) also named OTHER books that were
+       * on — re-pin those with their unambiguous keys so they don't vanish too.
+       */
+      const without = (cur: string[], target: (typeof books)[number]): string[] => {
+        const kept = cur.filter((v) => !namesStory(v, target));
+        for (const other of books) {
+          if (other === target) continue;
+          if (cur.some((v) => namesStory(v, other)) && !kept.some((v) => namesStory(v, other))) {
+            kept.push(other.value);
+          }
+        }
+        return kept;
+      };
+      const apply = (fn: (cur: string[]) => string[]): void => {
+        if (fn(list).length === 0) {
           new Notice("Keep at least one book — switch the scope kind above to widen it.");
           return;
         }
-        updateBooks((cur) => (on ? cur.filter((p) => p !== book) : [...cur, book]));
+        updateBooks(fn);
       };
       for (const b of books) {
-        const on = list.includes(b.value);
+        const on = list.some((v) => namesStory(v, b));
         const pill = this.scopePill(
           pills,
           b.label,
           on,
           on ? `Remove “${b.label}” from this entry's books` : `Add “${b.label}” to this entry's books`
         );
-        pill.onclick = () => toggle(b.value, on);
+        pill.onclick = () => apply((cur) => (on ? without(cur, b) : [...cur, b.value]));
       }
       for (const b of unknown) {
         const pill = this.scopePill(
@@ -915,7 +937,7 @@ export class CodexPanel {
           `“${b}” — no project with this name was found. Tap to remove.`
         );
         pill.addClass("is-unknown");
-        pill.onclick = () => toggle(b, true);
+        pill.onclick = () => apply((cur) => cur.filter((v) => normKey(v) !== normKey(b)));
       }
     });
   }

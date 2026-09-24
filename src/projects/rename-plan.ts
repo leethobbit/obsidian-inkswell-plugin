@@ -160,6 +160,16 @@ export function planProjectRename(
     return patch;
   });
 
+  // Path-form codex keys (`[[Books/B/Index]]`, written when index basenames
+  // clash — see codex-scope.ts) go stale on ANY index move, folder rename
+  // included, not only on a basename change.
+  for (const d of drafts) {
+    const to = afterFiles(d.vaultPath);
+    if (to !== d.vaultPath) {
+      codexRenames.push({ from: d.vaultPath.replace(/\.md$/i, ""), to: to.replace(/\.md$/i, "") });
+    }
+  }
+
   return { oldTitle, newTitle, folderMove, fileMoves, patches, codexRenames, remap: afterFiles };
 }
 

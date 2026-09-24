@@ -10,20 +10,31 @@
  * across a series exactly because every book in it resolves to the same series
  * name. See {@link ../series/series}.
  *
- * New entities are scoped to the story's BASE draft basename (see
+ * Book identity (#44): a `codex-project` value names a book by its index note's
+ * BASENAME (`[[Novel]]`) — or, when another story's index note shares that
+ * basename (Longform's `Index.md` habit), by its vault PATH without `.md`
+ * (`[[Books/B/Index]]`). Readers accept both forms, case-insensitively
+ * ({@link bookMatches}); writers pick the shortest unambiguous one
+ * ({@link projectKey}). Never compare basenames directly.
+ *
+ * New entities are scoped to the story's BASE draft (see
  * {@link ../projects/stories}), so writes stay canonical while reads tolerate
  * legacy values that name any sibling draft.
  */
 
 import { Project } from "../projects/types";
-import { baseDraftFor, groupIntoStories } from "../projects/stories";
+import { baseDraft, baseDraftFor, groupIntoStories } from "../projects/stories";
 import { projectSeries } from "../series/series";
 import { linkTarget } from "./codex";
 import { CodexEntity, EntityScope } from "./types";
 
 /** The vantage point a visibility check is made from. */
 export interface ScopeContext {
-  /** Index-note basenames of ALL drafts of the active story ([] = no project). */
+  /**
+   * Identity keys of ALL drafts of the active story ([] = no project): every
+   * draft's index basename, then every draft's path form. Compared
+   * case-insensitively (see {@link isEntityVisible}).
+   */
   projectNames: string[];
   /** Series name the active story belongs to, if any. */
   seriesName: string | null;
@@ -35,15 +46,50 @@ export function projectName(project: Project): string {
   return base.replace(/\.md$/i, "");
 }
 
+/** Index-note vault path without `.md` — a book's unambiguous identity. */
+export function pathKey(project: Project): string {
+  return project.vaultPath.replace(/\.md$/i, "");
+}
+
+/** Case- and whitespace-insensitive key for comparing stored values. */
+export function normKey(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+/** Does a stored `codex-project` value name `project` (either identity form)? */
+export function bookMatches(value: string, project: Project): boolean {
+  const v = normKey(value);
+  return v === normKey(projectName(project)) || v === normKey(pathKey(project));
+}
+
+/**
+ * The value to WRITE for `project`: its basename, unless another story's base
+ * draft shares that basename — then the path form, so two `Index.md` books stay
+ * two books. Vaults without a collision keep writing the plain basename.
+ */
+export function projectKey(project: Project, allProjects: Project[]): string {
+  const name = normKey(projectName(project));
+  const clash = groupIntoStories(allProjects).some((s) => {
+    if (s.drafts.some((d) => d.vaultPath === project.vaultPath)) return false; // own story
+    return normKey(projectName(baseDraft(s))) === name;
+  });
+  return clash ? pathKey(project) : projectName(project);
+}
+
+/** Both identity forms of every project: basenames first, then path forms. */
+function identityKeys(projects: readonly Project[]): string[] {
+  return dedupe([...projects.map(projectName), ...projects.map(pathKey)]);
+}
+
 /** Order-preserving de-duplication. */
 export function dedupe(values: readonly string[]): string[] {
   return Array.from(new Set(values));
 }
 
 /**
- * The book basenames a `codex-project` frontmatter value names: one wikilink
- * string (the pre-1.17 form) or a YAML list of them. Blank and non-string items
- * are skipped, duplicates collapse, order is kept. Anything else → [] (global).
+ * The book keys a `codex-project` frontmatter value names: one wikilink string
+ * (the pre-1.17 form) or a YAML list of them. Blank and non-string items are
+ * skipped, duplicates collapse, order is kept. Anything else → [] (global).
  */
 export function parseProjectScopeValue(raw: unknown): string[] {
   const items = Array.isArray(raw) ? raw : [raw];
@@ -84,7 +130,7 @@ export function scopeContextForProject(
 ): ScopeContext {
   if (!project) return { projectNames: [], seriesName: null };
   return {
-    projectNames: storyDrafts(project, allProjects).map(projectName),
+    projectNames: identityKeys(storyDrafts(project, allProjects)),
     seriesName: storySeries(project, allProjects),
   };
 }
@@ -100,7 +146,7 @@ export function defaultScopeForProject(
   // Series wins: most entities in a series book are shared across the series.
   const series = storySeries(project, allProjects);
   if (series) return { series };
-  return { projects: [projectName(baseDraftFor(allProjects, project))] };
+  return { projects: [projectKey(baseDraftFor(allProjects, project), allProjects)] };
 }
 
 /** One sentence for the UI: where a newly created entry will be tagged. */
@@ -125,7 +171,9 @@ export function isGlobalScope(scope: EntityScope | undefined): boolean {
 export function isEntityVisible(entity: CodexEntity, ctx: ScopeContext): boolean {
   const scope = entity.scope;
   if (isGlobalScope(scope)) return true;
-  if (scope?.projects?.some((p) => ctx.projectNames.includes(p))) return true;
+  if (scope?.projects?.some((p) => ctx.projectNames.some((n) => normKey(n) === normKey(p)))) {
+    return true;
+  }
   if (scope?.series && ctx.seriesName && scope.series === ctx.seriesName) return true;
   return false;
 }
@@ -140,10 +188,12 @@ export function filterToScope(entities: CodexEntity[], ctx: ScopeContext): Codex
  * candidates to what that entity can actually see (a series-scoped character must
  * not link a character from another series it can't even see). Returns null for a
  * global entity: it has no scope to constrain by, so candidates aren't filtered. A
- * project-scoped entity resolves each listed book's owning STORY from `projects` —
- * matching any draft's basename — so its story- and series-mates stay linkable;
- * the union of those stories is its vantage. A book that no longer exists keeps
- * its recorded name so same-scoped entities stay linkable, but widens nothing.
+ * project-scoped entity resolves each listed book's owning STORY from `projects`
+ * — matching either identity form of any draft — so its story- and series-mates
+ * stay linkable; the union of those stories is its vantage. A legacy value that
+ * several books share (two `Index.md` books) legitimately means all of them. A
+ * book that no longer exists keeps its recorded name so same-scoped entities stay
+ * linkable, but widens nothing.
  */
 export function scopeContextForEntity(
   entity: CodexEntity,
@@ -155,28 +205,33 @@ export function scopeContextForEntity(
   const names: string[] = [];
   let seriesName: string | null = null;
   for (const book of scope?.projects ?? []) {
-    const owner = projects.find((p) => projectName(p) === book);
-    if (!owner) {
+    const owners = projects.filter((p) => bookMatches(book, p));
+    if (owners.length === 0) {
       names.push(book);
       continue;
     }
-    const ctx = scopeContextForProject(owner, projects);
-    names.push(...ctx.projectNames);
-    if (!seriesName && ctx.seriesName) seriesName = ctx.seriesName;
+    for (const owner of owners) {
+      const ctx = scopeContextForProject(owner, projects);
+      names.push(...ctx.projectNames);
+      if (!seriesName && ctx.seriesName) seriesName = ctx.seriesName;
+    }
   }
   return { projectNames: dedupe(names), seriesName };
 }
 
 /**
- * `scope` with every book basename found in `byOld` replaced by its new name
- * (project rename), or null when nothing in it changed. Series scopes are never
- * touched — a series name is not an index basename.
+ * `scope` with every book key found in `byOld` (basename or path form; matched
+ * case-insensitively) replaced by its new key (project rename), or null when
+ * nothing in it changed. Series scopes are never touched — a series name is not
+ * an index basename.
  */
 export function remapScopeProjects(
   scope: EntityScope,
   byOld: ReadonlyMap<string, string>
 ): EntityScope | null {
   const books = scope.projects ?? [];
-  if (scope.series || !books.some((b) => byOld.has(b))) return null;
-  return { ...scope, projects: dedupe(books.map((b) => byOld.get(b) ?? b)) };
+  if (scope.series) return null;
+  const lookup = new Map(Array.from(byOld, ([from, to]) => [normKey(from), to]));
+  if (!books.some((b) => lookup.has(normKey(b)))) return null;
+  return { ...scope, projects: dedupe(books.map((b) => lookup.get(normKey(b)) ?? b)) };
 }
