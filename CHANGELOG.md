@@ -10,6 +10,10 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.18.1] - 2026-09-24
+
+A small fix-up for 1.18.0: series shelves report target progress honestly, generated covers put the title where it belongs, and the store's CSS warnings are cleared.
+
 ### Fixed
 - **A series shelf's target percentage no longer runs away when only some books have a target.** The header added up every book's words but only the targeted books' targets, so one book with a 60,000-word target in a 353,000-word series read "588%". Progress now counts only the targeted books' words and says so — *3 books · 353,412 words · 21,040 / 60,000 targeted (35%)*. A shelf where every book has a target reads as before. Reported in [#44](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/44).
 - **Generated book covers sit their title at the bottom, as designed.** A book card without cover art shows its title on a tinted stand-in; a conflicting style kept the title pinned to the top. It now sits at the bottom of the cover, still clamped to five lines.
@@ -374,7 +378,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.18.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.18.1...HEAD
+[1.18.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.18.0...1.18.1
 [1.18.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.17.0...1.18.0
 [1.17.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.16.0...1.17.0
 [1.16.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.15.0...1.16.0
