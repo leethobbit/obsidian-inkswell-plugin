@@ -69,7 +69,11 @@ describe("planProjectRename — conventional layout", () => {
         cover: "Writing/Final Title/cover.png",
       },
     ]);
-    expect(p.codexRenames).toEqual([{ from: "Working Title", to: "Final Title" }]);
+    expect(p.codexRenames).toEqual([
+      { from: "Working Title", to: "Final Title" },
+      // path form (used when index basenames clash) follows the move too
+      { from: "Writing/Working Title/Working Title", to: "Writing/Final Title/Final Title" },
+    ]);
   });
 
   it("remaps arbitrary paths under the old folder (tracker baselines)", () => {
@@ -96,6 +100,11 @@ describe("planProjectRename — conventional layout", () => {
     expect(p.codexRenames).toEqual([
       { from: "Working Title", to: "Final Title" },
       { from: "Working Title — Second", to: "Final Title — Second" },
+      { from: "Writing/Working Title/Working Title", to: "Writing/Final Title/Final Title" },
+      {
+        from: "Writing/Working Title/Drafts/Second/Working Title — Second",
+        to: "Writing/Final Title/Drafts/Second/Final Title — Second",
+      },
     ]);
   });
 
@@ -118,7 +127,11 @@ describe("planProjectRename — customised layouts are left alone", () => {
   it("does not rename an index whose basename isn't the title", () => {
     const p = plan([project("Writing/Working Title/index.md")], "Final Title");
     expect(p.fileMoves).toEqual([]); // no conventional plan note either
-    expect(p.codexRenames).toEqual([]);
+    // The basename is untouched, but a path-form codex key (`[[…/index]]`)
+    // still has to follow the folder move.
+    expect(p.codexRenames).toEqual([
+      { from: "Writing/Working Title/index", to: "Writing/Final Title/index" },
+    ]);
     expect(p.folderMove).toEqual({ from: "Writing/Working Title", to: "Writing/Final Title" });
     expect(p.patches[0].indexPath).toBe("Writing/Final Title/index.md");
   });

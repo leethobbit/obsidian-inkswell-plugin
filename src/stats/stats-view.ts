@@ -22,6 +22,7 @@ import {
   suggestedDeadlineWeeks,
   weekToDateWords,
 } from "../goals/goals";
+import { renderHint } from "../help/hint";
 import { tallyBy } from "../insight/breakdown";
 import { formatReadTime, heatLevel } from "./format";
 import { resolveActive } from "../projects/active-project";
@@ -79,6 +80,9 @@ export class StatsPanel {
 
     const daily = this.goalDaily();
     const s = this.plugin.settings;
+
+    // Multi-device writers: point at the opt-in history sync until it's on.
+    if (!s.syncWritingHistory) renderHint(container.createDiv(), this.plugin, "track/sync");
 
     this.renderOverview(container);
 
@@ -217,7 +221,7 @@ export class StatsPanel {
    *  excluded categories subtracted (legacy pre-category days count fully). */
   private goalDaily(): Record<string, number> {
     return projectedDaily(
-      this.tracker.getLog(),
+      this.tracker.getMergedLog(),
       new Set(this.plugin.settings.excludedFromGoals)
     );
   }
@@ -254,7 +258,8 @@ export class StatsPanel {
   }
 
   private renderSprints(body: HTMLElement): void {
-    const records = this.plugin.writingLog.sprints;
+    // Every device's sprints when cross-device history is on (own log otherwise).
+    const records = this.tracker.getMergedLog().sprints;
     const st = sprintStats(records);
     if (st.count === 0) {
       body.createDiv({

@@ -76,6 +76,20 @@ export const HINTS: Record<string, HintEntry> = {
       p(el, 'Run “Insert a to-do marker…” for a picker that drops one at the cursor.');
     },
   },
+  "track/sync": {
+    title: "Writing on more than one device?",
+    body: (el) => {
+      p(
+        el,
+        "Words are counted on the device where you type them, so this dashboard only " +
+          "knows about this device. To make streaks and totals include every device, turn " +
+          "on Settings → Inkswell → “Sync writing history across devices”. Inkswell then " +
+          "keeps a small log note per device under your base folder's “Writing log” folder " +
+          "and merges them here — your vault's own sync (Obsidian Sync, iCloud, …) carries " +
+          "the notes."
+      );
+    },
+  },
   "plan/beats": {
     title: "How the beat sheet works",
     body: (el) => {
@@ -191,14 +205,17 @@ export const HINTS: Record<string, HintEntry> = {
       p(el, "Every entry has a scope that controls where it shows up:");
       steps(el, [
         "Global (default) — available in every project.",
-        "Project — set codex-project on the note; only that book sees it. List several books (Scope → “+ add book”) to share an entry between some books of a series without making it series-wide.",
+        "Project — set codex-project on the note; only that book sees it. Pick Books in the Scope field and tap the book pills to share an entry between some books of a series without making it series-wide.",
         "Series — set codex-series; shared across the books in a series.",
       ]);
       p(
         el,
         "Each entry's “Appears in” list updates itself: it shows every scene whose text " +
-          "mentions the entry by name or alias (plus any scene that links it explicitly), " +
-          "for every category — so a new entry finds its scenes with no tagging step."
+          "mentions the entry by name or alias, plus any scene that links it in its " +
+          "metadata (Characters, Location, POV), for every category — so a new entry " +
+          "finds its scenes with no tagging step. Filled chips are linked scenes (the " +
+          "writer put the entry there); outlined chips are text-only mentions (someone " +
+          "talks about them). The per-book line counts both, plus POV scenes."
       );
     },
   },
@@ -324,18 +341,46 @@ export const HELP_SECTIONS: HelpSection[] = [
   {
     phase: "Home",
     icon: "home",
-    summary: "Projects, scenes, and a quick-capture inbox for story ideas.",
+    summary: "Your books on shelves, one book's scene tree, and an inbox for story ideas.",
     body: (el) => {
       p(
         el,
-        "Your hub. Every project and its scene tree lives here; drag scene rows to " +
-          "reorder, or use the ⋯ menu to move, rename, or delete. The Inspector on the " +
-          "right edits the selected scene's metadata."
+        "Your hub. All projects shows your books as cards on shelves — one shelf per " +
+          "series, in book order, plus one for standalone books — each with its cover " +
+          "(or a generated stand-in), book number, scenes and words, progress toward the " +
+          "target, and when you last edited it. Click a card to focus on that book; its " +
+          "⋯ menu (hover on desktop, always on touch) renames it, sets its series, or " +
+          "changes the cover."
       );
       p(
         el,
-        "Capture story ideas in the inbox at the top without leaving the page — press " +
-          "Enter to save, and pin the ones worth keeping at the top."
+        "A focused book shows the hero card (cover, logline, theme, target), a strip of " +
+          "the other covers in its series (click one to switch), and its scene tree; " +
+          "drag scene rows to reorder, or use the ⋯ menu to move, rename, or delete. The " +
+          "Inspector on the right edits the selected scene's metadata."
+      );
+      p(
+        el,
+        "Capture story ideas in the inbox below the shelves without leaving the page — " +
+          "press Enter to save. Click an idea to edit it in place; its ⋯ / right-click " +
+          "menu copies it, saves it as a note under your base folder's Ideas folder " +
+          "(and clears it from the inbox), pins it to the top, or deletes it. Click the " +
+          "Ideas header to collapse the section."
+      );
+      el.createEl("h4", { text: "Series" });
+      p(
+        el,
+        "A series is a set of books sharing a name — no extra note, just a tag on each " +
+          "book. Add a book to one from its ⋯ / right-click menu (Series…) or the series " +
+          "line under the title on its hero card: pick an existing series or start a new " +
+          "one, and set the book number (it defaults to the next free slot). New project " +
+          "has the same fields, so a book can be created straight into a series."
+      );
+      p(
+        el,
+        "The series header's ⋯ / right-click menu manages the whole set: New book in this " +
+          "series, Add existing project, Rename series (every book and every series-scoped " +
+          "codex entry follow), and Reorder books (drag, then Save renumbers 1, 2, 3…)."
       );
     },
   },
@@ -350,6 +395,15 @@ export const HELP_SECTIONS: HelpSection[] = [
           "(synopsis, three-act sketch). Beats is the beat sheet. Structure combines the " +
           "outline tree, the Kanban board, and the plot grid behind one Tree | Board | " +
           "Grid switcher — three views of the same scenes. All are detailed below."
+      );
+      p(
+        el,
+        "Migrating a numbered manuscript whose scenes landed out of order? Structure → " +
+          "Tree has a “Sort by chapter” button (also on a book's ⋯ menu on Home and as the " +
+          "“Sort scenes by chapter number” command): it reorders the manuscript once by " +
+          "the number in each scene's chapter label — digits or spelled out — and leaves " +
+          "unnumbered scenes in their current order at the end. It's a one-time action, " +
+          "not a mode; drag order stays yours afterwards."
       );
       el.createEl("h4", { text: HINTS["plan/beats"].title });
       HINTS["plan/beats"].body(el);
@@ -456,6 +510,21 @@ export const HELP_SECTIONS: HelpSection[] = [
           "to your scenes. Codex entries are ordinary notes with a codex key. Plugin " +
           "settings, writing history, sprints, and the ideas inbox live in the plugin's " +
           "data.json."
+      );
+      p(
+        el,
+        "Writing history counts the words you type in Obsidian — in its editors and in " +
+          "the Write panel. A file that changes outside Obsidian, or that arrives from " +
+          "another device via sync, only resets that file's starting point; those words " +
+          "are never logged as written on this device."
+      );
+      p(
+        el,
+        "To see every device's history together, turn on “Sync writing history across " +
+          "devices” in Settings. Each device then keeps one small, machine-written log " +
+          "note (an inkswell-log key in its frontmatter) under your base folder's " +
+          "“Writing log” folder, and Track merges them. Rename a device via that note's " +
+          "device property; if a device is gone, delete its note."
       );
       el.createEl("h4", { text: "If something goes wrong" });
       p(

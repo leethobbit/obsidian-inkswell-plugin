@@ -1,20 +1,28 @@
 /**
  * Tracks how many words are written over time.
  *
- * On each markdown file modification it recomputes the file's word count and
- * attributes the *net* delta to today's entry in the writing log. Per-file
- * baselines persist across sessions (in data.json) so counting survives
- * restarts. Other features (goals, sprints, stats) read the log or subscribe to
- * deltas; this is the single place word-change is measured.
+ * Words are attributed from TYPING — `editor-change` for Obsidian's own
+ * editors, `noteLiveContent` for the Write panel — as the *net* delta against a
+ * per-file baseline, logged to today's entry. Disk events (`modify`/`create`)
+ * only move the baseline: a `modify` may be Obsidian Sync delivering another
+ * device's words, or an external tool's edit, and neither was written HERE
+ * (#44 — synced text used to be logged as local words, doubling it and
+ * breaking streaks). The trade-off, deliberate: an edit made outside Obsidian
+ * on this device is no longer counted either. Baselines persist across
+ * sessions (in data.json) so counting survives restarts. Other features
+ * (goals, sprints, stats) read the log or subscribe to deltas; this is the
+ * single place word-change is measured.
  */
 
 import { App, Component, Debouncer, TAbstractFile, TFile, debounce } from "obsidian";
 import { countWords } from "../lib/wordcount";
+import { DeviceLogSnapshot, MergedLog, mergeLogs } from "./device-log";
 import {
   WordCategory,
   WritingLogData,
   applyCountToLog,
   dateKey,
+  noteBaseline,
   projectedDayWords,
 } from "./types";
 
@@ -33,6 +41,10 @@ export class WritingTracker extends Component {
   private listeners = new Set<DeltaListener>();
   private changeListeners = new Set<() => void>();
   private save: Debouncer<[], void>;
+  /** Change listeners fire once typing pauses, not per keystroke (they drive full re-renders). */
+  private notifyChange: Debouncer<[], void>;
+  /** Other devices' logs (opt-in cross-device history; empty otherwise). */
+  private remote: DeviceLogSnapshot[] = [];
 
   constructor(
     app: App,
@@ -49,6 +61,13 @@ export class WritingTracker extends Component {
     this.disabledCategories = disabledCategories;
     // Coalesce rapid edits into one save.
     this.save = debounce(() => this.persist(), 2000, false);
+    this.notifyChange = debounce(
+      () => {
+        for (const fn of this.changeListeners) fn();
+      },
+      1000,
+      true
+    );
   }
 
   onunload(): void {
@@ -63,27 +82,29 @@ export class WritingTracker extends Component {
   }
 
   onload(): void {
+    // Disk events only MOVE the baseline (see the header): a `modify` may be
+    // Obsidian Sync landing another device's words, or an external editor —
+    // never attributed here. The Write panel's own save arrives with the count
+    // the live path already recorded, so it's a no-op.
     this.registerEvent(
       this.app.vault.on("modify", (file) => this.handleFile(file))
     );
     // Baseline files the moment they're created (a new scene, a lazily-created
     // planning note). Creation counts as the first sighting, so the user's
-    // FIRST save into the new note attributes normally — without this, that
-    // whole first save was swallowed as the baseline and no toggle could ever
+    // FIRST typing into the new note attributes normally — without this, that
+    // whole first pass was swallowed as the baseline and no toggle could ever
     // recover the words.
     this.registerEvent(
       this.app.vault.on("create", (file) => this.handleFile(file))
     );
-    // Live keystroke counting for Obsidian's own editors (the in-plugin Write
-    // panel reports separately via noteLiveContent). `modify` only fires when the
-    // buffer is flushed to disk — on blur/autosave — so without this a running
-    // sprint wouldn't tick until you click away. Funnels through the same
-    // baseline, so the later disk save is a no-op (no double count).
+    // Typing in Obsidian's own editors (the in-plugin Write panel reports
+    // separately via noteLiveContent) — the ONLY paths that attribute words.
+    // Funnels through the same baseline, so the later disk save is a no-op.
     this.registerEvent(
       this.app.workspace.on("editor-change", (editor, info) => {
         const file = info.file;
         if (file instanceof TFile && file.extension === "md") {
-          this.applyText(file.path, editor.getValue(), true);
+          this.applyText(file.path, editor.getValue());
         }
       })
     );
@@ -101,14 +122,29 @@ export class WritingTracker extends Component {
     return () => this.changeListeners.delete(fn);
   }
 
-  /** Net words written today that count toward goals (disabled categories
-   * subtracted; legacy pre-category history counts fully). */
+  /** Net words written today — on every device, when cross-device history is on
+   * — that count toward goals (disabled categories subtracted; legacy
+   * pre-category history counts fully). */
   todayWords(now: Date = new Date()): number {
-    return projectedDayWords(this.log, dateKey(now), this.disabledCategories());
+    return projectedDayWords(this.getMergedLog(), dateKey(now), this.disabledCategories());
   }
 
+  /** THIS device's log — the object that is mutated and persisted. */
   getLog(): WritingLogData {
     return this.log;
+  }
+
+  /** What Track, goals and streaks read: this device's log plus every other
+   *  device's snapshot (see log-sync.ts). Recomputed per call — it's a sum over
+   *  days × devices, and callers render at most a few times per interaction. */
+  getMergedLog(): MergedLog {
+    return mergeLogs(this.log, this.remote);
+  }
+
+  /** Replace the other devices' snapshots (LogSync) and re-render consumers. */
+  setRemoteLogs(remote: DeviceLogSnapshot[]): void {
+    this.remote = remote;
+    for (const fn of this.changeListeners) fn();
   }
 
   /** Optional daily mood (1–10) for a date key, or undefined. */
@@ -147,13 +183,15 @@ export class WritingTracker extends Component {
    * body) so the category-aware count reconciles with the disk pass.
    */
   noteLiveContent(path: string, text: string): void {
-    this.applyText(path, text, true);
+    this.applyText(path, text);
   }
 
+  /** Disk event: move the file's baseline to its current count, attribute nothing. */
   private async handleFile(file: TAbstractFile): Promise<void> {
     if (!(file instanceof TFile) || file.extension !== "md") return;
     const contents = await this.app.vault.cachedRead(file);
-    this.applyText(file.path, contents, false);
+    const count = this.countFor(contents, this.classify(file.path));
+    if (noteBaseline(this.log, file.path, count)) this.save();
   }
 
   /**
@@ -224,18 +262,17 @@ export class WritingTracker extends Component {
   }
 
   /**
-   * Attribute the net change for `path` to today, given its current word count.
-   * The path's category (scene/planning/codex/other, or null for files outside
-   * every project) decides the bucket; unrelated files only keep their baseline
-   * warm and are never attributed. `live` (per-keystroke) edits notify only the
-   * delta listeners — the sprint tally, which the status bar reflects — and skip
-   * the heavier change listeners that drive full re-renders, so typing in a
-   * background editor can't trigger a host rebuild on every keystroke. The
-   * eventual disk `modify` (live=false) fires the change listeners once.
-   * Delta listeners only hear categories that currently count toward goals, so
-   * sprints honor the same toggles with no filtering of their own.
+   * Attribute the net change typed into `path` to today, given its current word
+   * count. The path's category (scene/planning/codex/other, or null for files
+   * outside every project) decides the bucket; unrelated files only keep their
+   * baseline warm and are never attributed. Delta listeners — the sprint tally,
+   * which the status bar reflects — hear every keystroke (only for categories
+   * that currently count toward goals, so sprints honor the same toggles with
+   * no filtering of their own); the heavier change listeners that drive full
+   * re-renders fire once typing pauses, so a background editor can't trigger a
+   * host rebuild per keystroke.
    */
-  private applyText(path: string, text: string, live: boolean): void {
+  private applyText(path: string, text: string): void {
     const category = this.classify(path);
     const delta = applyCountToLog(this.log, path, this.countFor(text, category), category);
     // null: baseline-only change (first sighting, or an unrelated file) —
@@ -249,7 +286,7 @@ export class WritingTracker extends Component {
     if (category !== null && !this.disabledCategories().has(category)) {
       for (const fn of this.listeners) fn(delta, path);
     }
-    if (!live) for (const fn of this.changeListeners) fn();
+    this.notifyChange();
     this.save();
   }
 }

@@ -492,6 +492,16 @@ body.inkswell-phone .inkswell-codex__portrait {
 .inkswell-codex__refs .inkswell-chip.is-pov {
   box-shadow: inset 2px 0 0 var(--interactive-accent);
 }
+/* Linked (named in scene metadata) = filled; mentioned (text only) = outlined. */
+.inkswell-codex__refs .inkswell-chip.is-mentioned {
+  background-color: transparent;
+  border: 1px dashed var(--background-modifier-border-hover);
+  color: var(--text-muted);
+}
+.inkswell-codex__reflegend {
+  margin-top: var(--size-4-1);
+  font-size: var(--font-ui-smaller);
+}
 .inkswell-codex__povtag {
   font-size: 0.7em;
   font-weight: var(--font-semibold);
@@ -551,22 +561,59 @@ body.inkswell-phone .inkswell-codex__portrait {
   margin-bottom: var(--size-4-3);
 }
 
-/* --- Ideas inbox (Home) --- */
+/* --- Ideas inbox (Home): collapsible section below the shelves --- */
 .inkswell-ideas {
-  margin-bottom: var(--size-4-3);
-  padding-bottom: var(--size-4-2);
-  border-bottom: 1px solid var(--background-modifier-border);
+  margin: var(--size-4-2) 0 var(--size-4-3);
+  padding-top: var(--size-4-2);
+  border-top: 1px solid var(--background-modifier-border);
+}
+.inkswell-ideas__head {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  padding: var(--size-4-1) 0;
+  cursor: pointer;
+  user-select: none;
+  color: var(--text-muted);
+  font-weight: var(--font-semibold);
+  font-size: var(--font-ui-small);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.inkswell-ideas__head:hover,
+.inkswell-ideas__head:focus-visible {
+  color: var(--text-normal);
+  outline: none;
+}
+.inkswell-ideas__chevron {
+  display: inline-flex;
+}
+.inkswell-ideas__chevron .svg-icon {
+  width: 14px;
+  height: 14px;
+}
+.inkswell-ideas__count {
+  padding: 0 6px;
+  border-radius: var(--radius-s);
+  background-color: var(--background-modifier-border);
+  font-weight: normal;
+  font-size: var(--font-ui-smaller);
+  letter-spacing: 0;
 }
 .inkswell-ideas__input {
   width: 100%;
-  margin-bottom: var(--size-4-1);
+  margin: var(--size-4-1) 0;
 }
 .inkswell-idea {
   display: flex;
   align-items: center;
   gap: var(--size-4-2);
   padding: 2px var(--size-4-1);
+  border-radius: var(--radius-s);
   font-size: var(--font-ui-small);
+}
+.inkswell-idea:hover {
+  background-color: var(--background-secondary);
 }
 .inkswell-idea__pin {
   cursor: pointer;
@@ -578,13 +625,30 @@ body.inkswell-phone .inkswell-codex__portrait {
 .inkswell-idea__text {
   flex: 1;
   min-width: 0;
+  cursor: text;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
-.inkswell-idea__del {
-  cursor: pointer;
-  color: var(--text-faint);
+.inkswell-idea__edit {
+  flex: 1;
+  min-width: 0;
 }
-.inkswell-idea__del:hover {
-  color: var(--text-error);
+/* ⋯ per idea: hover-revealed on desktop, always on touch (like the book cards). */
+.inkswell-idea .inkswell-rowmenu {
+  display: inline-flex;
+  min-width: 24px;
+  min-height: 24px;
+  color: var(--text-muted);
+  opacity: 0;
+}
+.inkswell-idea:hover .inkswell-rowmenu,
+.inkswell-idea:focus-within .inkswell-rowmenu,
+body.is-mobile .inkswell-idea .inkswell-rowmenu {
+  opacity: 1;
+}
+body.is-mobile .inkswell-idea .inkswell-rowmenu {
+  min-width: 44px;
+  min-height: 44px;
 }
 
 /* --- Writing prompt (Write topbar button + modal) --- */
@@ -1944,26 +2008,29 @@ body.inkswell-phone .inkswell-write__cm .cm-milestone-gutter {
 }
 
 /* Manuscript typography (Settings → Write editor, off by default). Each .cm-line
-   is one paragraph under soft wrap, so text-indent gives a first-line indent per
-   paragraph. The cm-md-line-* classes come from the syntax scanner (line
-   decorations): headings center, and the first paragraph of a section — after a
-   heading or a scene break, or at the top — stays flush, as in a typeset book. */
-.inkswell-write__cm.is-manuscript .cm-line {
-  /* "css-text-indent" is flagged partial only for the `hanging`/`each-line`
-     keywords, which aren't used here; a plain length is supported everywhere. */
-  /* stylelint-disable-next-line plugin/no-unsupported-browser-features */
-  text-indent: 1.5em;
+   is one paragraph under soft wrap, so a first-line indent per .cm-line is a
+   first-line indent per paragraph. It's an inline-block spacer rather than
+   `text-indent`: the store's CSS lint flags "css-text-indent" as only partially
+   supported on Obsidian 1.7.4 (the `hanging`/`each-line` keywords), and the
+   spacer renders identically — it sits inline at the start of the first line
+   only, outside the text DOM, so the caret and click mapping are unaffected.
+   The cm-md-line-* classes come from the syntax scanner (line decorations):
+   headings center, and the first paragraph of a section — after a heading or a
+   scene break, or at the top — stays flush, as in a typeset book. */
+.inkswell-write__cm.is-manuscript .cm-line::before {
+  content: "";
+  display: inline-block;
+  width: 1.5em;
 }
-.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-heading,
-.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-quote,
-.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-hr,
-.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-first,
-.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-align-left,
-.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-align-right,
-.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-align-center,
-.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-align-justify {
-  /* stylelint-disable-next-line plugin/no-unsupported-browser-features */
-  text-indent: 0;
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-heading::before,
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-quote::before,
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-hr::before,
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-first::before,
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-align-left::before,
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-align-right::before,
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-align-center::before,
+.inkswell-write__cm.is-manuscript .cm-line.cm-md-line-align-justify::before {
+  display: none;
 }
 .inkswell-write__cm.is-manuscript .cm-line.cm-md-line-heading {
   text-align: center;
@@ -2147,6 +2214,23 @@ body.inkswell-phone .inkswell-write__cm .cm-milestone-gutter {
   font-weight: var(--font-bold);
   font-size: var(--font-ui-large);
 }
+/* Series membership line under the hero title — click opens the series dialog. */
+.inkswell-hero__series {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  cursor: pointer;
+  width: fit-content;
+}
+.inkswell-hero__series:hover {
+  color: var(--text-accent);
+}
+.inkswell-hero__series.is-empty {
+  text-decoration: underline dotted;
+}
+/* Book-number input in the series dialog / New project. */
+.inkswell-series__ordernum {
+  width: 8ch;
+}
 .inkswell-hero__field {
   display: flex;
   flex-direction: column;
@@ -2186,32 +2270,242 @@ body.inkswell-phone .inkswell-write__cm .cm-milestone-gutter {
   font-variant-numeric: tabular-nums;
 }
 
-/* Series grouping (Home): header + nested book projects */
-.inkswell-series {
-  margin-bottom: var(--size-4-4);
+/* ---- Home / All projects: shelves of book cards ---- */
+.inkswell-shelf {
+  margin-bottom: var(--size-4-5);
 }
-.inkswell-series__header {
+.inkswell-shelf__header {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
   gap: var(--size-4-2);
   padding-bottom: var(--size-4-1);
-  margin-bottom: var(--size-4-2);
+  margin-bottom: var(--size-4-3);
   border-bottom: 1px solid var(--background-modifier-border);
 }
-.inkswell-series__name {
+.inkswell-shelf__name {
   font-weight: var(--font-bold);
   font-size: var(--font-ui-medium);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.inkswell-series__meta {
+.inkswell-shelf__meta {
+  flex: 1 1 auto;
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
   font-variant-numeric: tabular-nums;
 }
-.inkswell-series .inkswell-project {
-  padding-left: var(--size-4-3);
+/* The series menu button is a first-class control here — visible on desktop
+   too (the global .inkswell-rowmenu rule is touch-only for scene rows). */
+.inkswell-shelf__header .inkswell-rowmenu,
+.inkswell-seriesstrip .inkswell-rowmenu {
+  display: inline-flex;
+  min-width: 28px;
+  min-height: 28px;
+  color: var(--text-muted);
+}
+.inkswell-shelf__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--size-4-3);
+  align-items: stretch;
+}
+
+/* A book card: cover (2:3) over title + stats. Whole card is the click target. */
+.inkswell-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+  padding: var(--size-4-2);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background-color: var(--background-primary);
+  cursor: pointer;
+  user-select: none;
+}
+.inkswell-card:hover,
+.inkswell-card:focus-visible {
+  border-color: var(--interactive-accent);
+  background-color: var(--background-secondary);
+  outline: none;
+}
+.inkswell-card__cover {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-s);
+  overflow: hidden;
+  background-color: var(--background-secondary);
+}
+.inkswell-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* Generated stand-in for a book with no art: the title on its own tint. */
+.inkswell-card__placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  padding: var(--size-4-2);
+  box-sizing: border-box;
+  background: linear-gradient(
+    160deg,
+    hsl(var(--inkswell-card-hue, 220) 38% 40%),
+    hsl(var(--inkswell-card-hue, 220) 45% 22%)
+  );
+  color: #fff;
+  font-weight: var(--font-semibold);
+  font-size: var(--font-ui-small);
+  line-height: 1.25;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+}
+.inkswell-card__badge {
+  position: absolute;
+  top: var(--size-4-1);
+  left: var(--size-4-1);
+  padding: 1px 6px;
+  border-radius: var(--radius-s);
+  background-color: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
+}
+.inkswell-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.inkswell-card__title {
+  font-weight: var(--font-semibold);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.inkswell-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-1) var(--size-4-2);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  font-variant-numeric: tabular-nums;
+}
+.inkswell-card__bar {
+  margin: var(--size-4-1) 0 0;
+}
+.inkswell-card__edited {
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+}
+/* ⋯ on a card: hover-revealed on desktop (the #44 fix — the actions were
+   right-click-only there), always shown on touch. */
+.inkswell-card .inkswell-rowmenu {
+  position: absolute;
+  top: var(--size-4-2);
+  right: var(--size-4-2);
+  display: inline-flex;
+  min-width: 28px;
+  min-height: 28px;
+  border-radius: var(--radius-s);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.inkswell-card:hover .inkswell-rowmenu,
+.inkswell-card:focus-within .inkswell-rowmenu,
+body.is-mobile .inkswell-card .inkswell-rowmenu {
+  opacity: 1;
+}
+body.is-mobile .inkswell-card .inkswell-rowmenu {
+  min-width: 44px;
+  min-height: 44px;
+}
+/* "+ Add book" at the end of a series shelf. */
+.inkswell-card--ghost {
+  align-items: center;
+  justify-content: center;
+  min-height: 140px;
+  border-style: dashed;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+.inkswell-card--ghost:hover {
+  color: var(--text-accent);
+}
+
+/* Focused view: the series' covers in a row; the active book is outlined. */
+.inkswell-seriesstrip {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-1) 0 var(--size-4-3);
+}
+.inkswell-seriesstrip__scroll {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  overflow-x: auto;
+}
+.inkswell-seriesstrip__label {
+  flex: 0 0 auto;
+  margin-right: var(--size-4-1);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.inkswell-seriesstrip__thumb {
+  flex: 0 0 auto;
+  width: 60px;
+  aspect-ratio: 2 / 3;
+  border: 2px solid transparent;
+  border-radius: var(--radius-s);
+  overflow: hidden;
+  cursor: pointer;
+  background-color: var(--background-secondary);
+}
+.inkswell-seriesstrip__thumb:hover,
+.inkswell-seriesstrip__thumb:focus-visible {
+  border-color: var(--text-accent);
+  outline: none;
+}
+.inkswell-seriesstrip__thumb.is-active {
+  border-color: var(--interactive-accent);
+}
+.inkswell-seriesstrip__thumb .inkswell-card__placeholder {
+  padding: 4px;
+  font-size: 9px;
+  -webkit-line-clamp: 4;
+}
+.inkswell-seriesstrip .inkswell-rowmenu {
+  flex: 0 0 auto;
+}
+
+/* Phone layout (our body class — see AGENTS.md gotcha 16): two cards per row,
+   smaller strip thumbs, and the focused book's header wraps instead of
+   pushing its badge / count / "+ scene" / ⋯ cluster past the edge. */
+body.inkswell-phone .inkswell-shelf__grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+body.inkswell-phone .inkswell-seriesstrip__thumb {
+  width: 48px;
+}
+body.inkswell-phone .inkswell-project__header {
+  flex-wrap: wrap;
+}
+body.inkswell-phone .inkswell-project__right {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-left: auto;
 }
 
 .inkswell-project {
@@ -2962,6 +3256,64 @@ body.inkswell-phone .inkswell-write__cm .cm-milestone-gutter {
   font-weight: var(--font-bold);
 }
 
+/* Codex Scope field: a kind switcher (Global / Series / Books) above toggle pills
+   for the set. Pills are real <button>s reset to chip geometry; filled = in scope,
+   outlined = not; `.is-unknown` marks a stored name with no matching project. */
+.inkswell-scope {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+  align-items: flex-start;
+}
+.inkswell-scope__kinds .inkswell-viewswitch__btn {
+  font-size: var(--font-ui-small);
+  padding: 2px var(--size-4-2);
+}
+/* The current kind must read at a glance — the generic switcher's hover-tint is
+   near-invisible on dark themes, so the active segment takes the accent fill. */
+.inkswell-scope__kinds .inkswell-viewswitch__btn.is-active {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+.inkswell-scope__kinds .inkswell-viewswitch__btn.is-active:hover {
+  background-color: var(--interactive-accent-hover);
+}
+.inkswell-scope__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-1);
+}
+.inkswell-scope__caption {
+  padding-left: 2px;
+}
+.inkswell-chip--toggle {
+  cursor: pointer;
+  height: auto;
+  line-height: normal;
+  box-shadow: none;
+  border: 1px solid var(--background-modifier-border);
+  background: transparent;
+  color: var(--text-muted);
+}
+.inkswell-chip--toggle:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+.inkswell-chip--toggle.is-active {
+  background: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+.inkswell-chip--toggle.is-active:hover {
+  background: var(--interactive-accent-hover);
+  border-color: var(--interactive-accent-hover);
+}
+.inkswell-chip--toggle.is-unknown {
+  border-style: dashed;
+  background: transparent;
+  color: var(--text-error);
+}
+
 .inkswell-chip__x:hover {
   color: var(--text-error);
 }
@@ -3168,8 +3520,8 @@ body.inkswell-phone .inkswell-write__cm .cm-milestone-gutter {
   padding-left: var(--size-4-2);
 }
 
-/* Series name + the persistent header label read as accented headings. */
-.inkswell-series__name,
+/* Shelf name + the persistent header label read as accented headings. */
+.inkswell-shelf__name,
 .inkswell-host__headerlabel {
   color: var(--text-accent);
 }

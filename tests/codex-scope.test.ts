@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  bookMatches,
   defaultScopeForProject,
   describeCreateScope,
   filterToScope,
   isEntityVisible,
   isGlobalScope,
   parseProjectScopeValue,
+  projectKey,
   projectName,
   remapScopeProjects,
   scopeContextForEntity,
@@ -49,6 +51,13 @@ function entity(name: string, scope?: EntityScope): CodexEntity {
 const NOVEL_BASE = draft("Novel", "First Draft", "Books/Novel/Novel.md");
 const NOVEL_D2 = draft("Novel", "Second Draft", "Books/Novel/Drafts/Second/Novel — Second.md");
 const TWO_DRAFTS = [NOVEL_BASE, NOVEL_D2];
+/** A story's vantage carries both identity forms of every draft: basenames, then path forms. */
+const NOVEL_KEYS = [
+  "Novel",
+  "Novel — Second",
+  "Books/Novel/Novel",
+  "Books/Novel/Drafts/Second/Novel — Second",
+];
 
 describe("projectName", () => {
   it("is the index-note basename without extension or folders", () => {
@@ -98,9 +107,8 @@ describe("scopeContextForProject", () => {
   });
 
   it("carries EVERY draft of the active story, from either draft's vantage", () => {
-    const names = ["Novel", "Novel — Second"];
-    expect(scopeContextForProject(NOVEL_BASE, TWO_DRAFTS).projectNames).toEqual(names);
-    expect(scopeContextForProject(NOVEL_D2, TWO_DRAFTS).projectNames).toEqual(names);
+    expect(scopeContextForProject(NOVEL_BASE, TWO_DRAFTS).projectNames).toEqual(NOVEL_KEYS);
+    expect(scopeContextForProject(NOVEL_D2, TWO_DRAFTS).projectNames).toEqual(NOVEL_KEYS);
   });
 
   it("resolves series from the base draft when a sibling copy carries a stale one", () => {
@@ -266,17 +274,17 @@ describe("scopeContextForEntity", () => {
 
   it("expands a project-scoped entity to its owning story's drafts", () => {
     const ctx = scopeContextForEntity(entity("Alice", { projects: ["Novel"] }), TWO_DRAFTS);
-    expect(ctx).toEqual({ projectNames: ["Novel", "Novel — Second"], seriesName: null });
+    expect(ctx).toEqual({ projectNames: NOVEL_KEYS, seriesName: null });
     // Even when the entity's recorded scope names the NON-base draft.
     const legacy = scopeContextForEntity(entity("Bob", { projects: ["Novel — Second"] }), TWO_DRAFTS);
-    expect(legacy?.projectNames).toEqual(["Novel", "Novel — Second"]);
+    expect(legacy?.projectNames).toEqual(NOVEL_KEYS);
   });
 
   it("a multi-book entity's vantage is the UNION of its books' stories (+ first series found)", () => {
     const all = [...TWO_DRAFTS, ...projects];
     const ctx = scopeContextForEntity(entity("R", { projects: ["Solo", "Novel", "Book One"] }), all);
     expect(ctx).toEqual({
-      projectNames: ["Solo", "Novel", "Novel — Second", "Book One"],
+      projectNames: ["Solo", ...NOVEL_KEYS, "Book One"],
       seriesName: "Saga",
     });
     // One known book + one ghost: the ghost keeps its name, widens nothing.
@@ -315,5 +323,61 @@ describe("remapScopeProjects (project rename)", () => {
     expect(remapScopeProjects({ projects: ["A"] }, byOld)).toBeNull();
     expect(remapScopeProjects({}, byOld)).toBeNull();
     expect(remapScopeProjects({ series: "Old" }, byOld)).toBeNull();
+  });
+
+  it("matches the old key case-insensitively and remaps the path form too", () => {
+    const moves = new Map([
+      ["Books/Old/Old", "Books/New/New"],
+      ["Old", "New"],
+    ]);
+    expect(remapScopeProjects({ projects: ["old"] }, moves)).toEqual({ projects: ["New"] });
+    expect(remapScopeProjects({ projects: ["Books/Old/Old"] }, moves)).toEqual({
+      projects: ["Books/New/New"],
+    });
+  });
+});
+
+describe("book identity when index notes share a basename (#44)", () => {
+  // Two Longform-style books, both indexed by `Index.md`, plus one with a unique name.
+  const A = project("Alpha Book", null, "Books/Alpha/Index.md");
+  const B = project("Beta Book", null, "Books/Beta/Index.md");
+  const SOLO = project("Solo", null, "Books/Solo/Solo.md");
+  const all = [A, B, SOLO];
+
+  it("projectKey is the basename when unique, the path form when shared", () => {
+    expect(projectKey(SOLO, all)).toBe("Solo");
+    expect(projectKey(A, all)).toBe("Books/Alpha/Index");
+    expect(projectKey(B, all)).toBe("Books/Beta/Index");
+  });
+
+  it("bookMatches accepts either form, case-insensitively", () => {
+    expect(bookMatches("Index", A)).toBe(true);
+    expect(bookMatches("books/alpha/index", A)).toBe(true);
+    expect(bookMatches("Books/Beta/Index", A)).toBe(false);
+    expect(bookMatches(" solo ", SOLO)).toBe(true);
+  });
+
+  it("path-form scopes keep the two books apart", () => {
+    const forA = entity("Ada", { projects: ["Books/Alpha/Index"] });
+    expect(isEntityVisible(forA, scopeContextForProject(A, all))).toBe(true);
+    expect(isEntityVisible(forA, scopeContextForProject(B, all))).toBe(false);
+    expect(isEntityVisible(forA, scopeContextForProject(SOLO, all))).toBe(false);
+  });
+
+  it("a legacy ambiguous basename stays visible from every book that shares it", () => {
+    const legacy = entity("Bea", { projects: ["Index"] });
+    expect(isEntityVisible(legacy, scopeContextForProject(A, all))).toBe(true);
+    expect(isEntityVisible(legacy, scopeContextForProject(B, all))).toBe(true);
+    expect(isEntityVisible(legacy, scopeContextForProject(SOLO, all))).toBe(false);
+    // …and its own vantage is the union of both stories.
+    const ctx = scopeContextForEntity(legacy, all);
+    expect(ctx?.projectNames).toEqual(
+      expect.arrayContaining(["Index", "Books/Alpha/Index", "Books/Beta/Index"])
+    );
+  });
+
+  it("new entries default to the unambiguous key", () => {
+    expect(defaultScopeForProject(A, all)).toEqual({ projects: ["Books/Alpha/Index"] });
+    expect(defaultScopeForProject(SOLO, all)).toEqual({ projects: ["Solo"] });
   });
 });

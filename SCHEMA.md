@@ -52,7 +52,7 @@ Flat top-level keys on each scene file. Field names match StoryLine where they o
 | `color` | string | Hex tint, e.g. `#FF6B6B` |
 | `inactive` | boolean | `true` = archived; excluded from compile + stats |
 | `characters` | string[] | Linked codex characters as wikilinks, e.g. `["[[Anna]]"]` |
-| `location` | string | Linked codex location as a wikilink |
+| `location` | wikilink \| wikilink[] | Linked codex location(s). Since 1.18 a scene may link **several** (a YAML list of wikilinks); one location is always written as the plain string (byte-identical to pre-1.18 output). Readers fold a string into a one-element list; pre-1.18 readers treat a list as unset. |
 | `plotlines` | string[] | Plotlines this scene advances — plain titles matching `inkswell.plotlines` entries (like `act`/`chapter` strings, NOT wikilinks) |
 | `targetWords` | number | Per-scene word-count target |
 
@@ -94,7 +94,7 @@ Short, single-line planning fields: `logline` · `theme` · `genre` · `audience
 ISO 8601 string, stamped when a draft is created via **New draft** (a draft's own file ctime is unreliable). Absent on drafts that predate this field or were imported — treat absence as "unknown", not "day zero". Used for the draft-age column in the Track → Drafts comparison.
 
 ### `inkswell.series` — series membership
-`name` (string; books sharing a name form one series) · `order` (number, 1-based).
+`name` (string; books sharing a name form one series) · `order` (number, 1-based). A series is implicit — there is no series note. **Rename series** (`src/series/series-ops.ts`) rewrites `name` on every draft carrying the old name (sibling drafts byte-copy the tag) and every codex note's `codex-series`; **Reorder books** rewrites `order` as 1..n across the series; a book joining a series defaults to `max(order) + 1`.
 
 ### `inkswell.beats` — beat sheet
 `template` (a built-in id: `save-the-cat` · `three-act` · `heros-journey` · `seven-point` · `story-circle` · `romancing-the-beat` · `twenty-seven-chapter` · `ten-point` — **or** a user-defined custom-template slug, see below) · `assignments` (map of `beatId → {scenes?: string[], note?: string, done?: boolean}`).
@@ -150,7 +150,7 @@ Source: `src/codex/codex-store.ts`, `src/codex/profile-schema.ts`, `src/codex/co
 | `parent` | wikilink | Parent entity (nested locations → world, etc.) |
 | `image` | string | Vault path to an image shown as the entry's portrait in the Codex panel (since 1.15). Written as a plain path; `[[img.png]]`, `![[img.png]]`, and `![alt](img.png)` are also accepted on read and resolve relative to the entry like any Obsidian link. Uploads land where Obsidian's "Default location for new attachments" points; removing only clears the key, never the file. |
 | `codex-series` | string | Scope: visible only to books whose `inkswell.series.name` matches. Wins over `codex-project`. |
-| `codex-project` | wikilink \| wikilink[] | Scope: visible to the whole STORY whose index-note basename this links to — the link may name any draft of the story (new writes always name the base draft). Since 1.17 it may also be a **list** of such links: the entity is visible to every listed story (a character in books 2 and 3 of a series, but not the rest). One book is always written as the plain link (byte-identical to 1.16 output); two or more as a YAML list. Pre-1.17 readers treat a list as global. |
+| `codex-project` | wikilink \| wikilink[] | Scope: visible to the whole STORY whose index note this links to — the link may name any draft of the story (new writes always name the base draft). A book is named by its index-note **basename** (`[[Novel]]`); since 1.18, when another story's index note shares that basename (Longform's `Index.md` habit), new writes use the index **path without `.md`** (`[[Books/B/Index]]`) so the books stay distinct. Readers accept both forms, case-insensitively; a legacy bare basename shared by several books keeps matching all of them (`bookMatches` / `projectKey`, `src/codex/codex-scope.ts`). Since 1.17 it may also be a **list** of such links: the entity is visible to every listed story (a character in books 2 and 3 of a series, but not the rest). One book is always written as the plain link (byte-identical to 1.16 output); two or more as a YAML list. Pre-1.17 readers treat a list as global. |
 
 **Scope** (`codex-series` / `codex-project`): at most one is set. Neither = **global** (shared across every project — the default and back-compatible state). An entity is visible from a book when it is global, its `codex-project` names **any draft of that book's story** (for any of its listed books) (the codex describes the story, not one draft), or its `codex-series` is that book's series. New entries inherit the active project's scope (its series if any, else the story's **base draft**); a legacy value naming a non-base draft keeps working and is normalized the next time the user re-picks the scope in the dropdown. Note the story rule's blast radius: two unrelated projects sharing one `longform.title` are one story everywhere (cover, goals, publishing) — the codex now follows the same rule. Resolution + visibility logic: `src/codex/codex-scope.ts`.
 
@@ -200,6 +200,18 @@ One optional entry per overridable list id, each a `ListOverride`: `{ hidden?: i
 Invariants: hiding never touches stored state and hidden items count toward nothing; renames keep the id; custom ids are minted (`newListItemId`), never derived from labels; stale ids in frontmatter are preserved and ignored; reset = delete the list's key. Frontmatter keys above accept custom ids additively — no existing key changes meaning.
 
 ---
+
+## F. Writing-log note — `inkswell-log` (since 1.18, opt-in)
+
+Written only when **Settings → Sync writing history across devices** is on: one note per device, machine-written, mirroring that device's `data.json` writing log so other devices can merge it (words are counted on the device where they're typed — see gotcha 5). Default location `<baseFolder>/Writing log/<Device> (<id6>).md`; discovery is vault-wide by the frontmatter key (never by folder), so the note may be moved or renamed.
+
+| Key | Type | Notes |
+|-----|------|-------|
+| `inkswell-log` | string | The owning device's id (device-local, `localStorage`). Only that device writes the note. |
+| `device` | string | Display name (default from the platform: "iPad", "Desktop", …). **User-editable** — the owner re-reads it on its next write. |
+| `updated` | string | ISO timestamp of the last mirror. |
+
+Body: one explanatory paragraph, then a fenced ```json block `{"daily": {…}, "dailyBy": {…}, "sprints": […]}` with the same shapes as `data.json`'s `writingLog` (SCHEMA §E), minus `baselines` (device-local by design) and `mood`/`nextUp` (not merged). Readers (`parseDeviceLog`, `src/tracking/device-log.ts`) tolerate bare/quoted scalars and drop malformed entries; the merge (`mergeLogs`) sums days and category buckets and pools sprints de-duplicated on `start + durationSec`. The tracker classifies these notes as `null` (never counted as words). A note whose device id no longer exists anywhere (site data cleared) keeps merging until the user deletes it.
 
 ## Backward-compatibility allowances
 

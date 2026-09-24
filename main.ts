@@ -9,7 +9,7 @@
  * (compile, goals, revisions) lives in the project index's `inkswell` frontmatter.
  */
 
-import { Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import { Notice, Plugin, TFile, WorkspaceLeaf, normalizePath } from "obsidian";
 import { runCompile } from "./src/compile/engine";
 import { resolveCompileConfig } from "./src/compile/config";
 import { TargetModal } from "./src/goals/target-modal";
@@ -19,16 +19,20 @@ import { backupPluginData } from "./src/lib/data-backup";
 import { MarkKind } from "./src/lib/inline-format";
 import { PHONE_BODY_CLASS, isPhone, setForceTabletLayout } from "./src/lib/platform";
 import { countWords } from "./src/lib/wordcount";
-import { promptText } from "./src/scenes/scene-actions";
+import { openScene, promptText } from "./src/scenes/scene-actions";
+import { tryFileOp } from "./src/lib/notify";
+import { joinPath, sanitizeSegment } from "./src/settings/folders";
 import { ActiveProject, resolveActive } from "./src/projects/active-project";
-import { NewProjectModal } from "./src/projects/new-project-modal";
+import { NewProjectModal, NewProjectPreset } from "./src/projects/new-project-modal";
+import { seriesForPicker } from "./src/series/series-modal";
 import { executeProjectRename } from "./src/projects/rename-project";
 import { RenameProjectModal } from "./src/views/rename-project-modal";
 import { groupIntoStories } from "./src/projects/stories";
 import { ProjectStats } from "./src/projects/project-stats";
 import { ProjectStore } from "./src/projects/project-store";
 import { SelfWriteRegistry } from "./src/lib/self-write";
-import { Project } from "./src/projects/types";
+import { Project, isMultiScene } from "./src/projects/types";
+import { sortProjectByChapter } from "./src/outliner/sort-actions";
 import { RevisionModal } from "./src/revisions/revision-modal";
 import { FeatureId, featureEnabled } from "./src/features";
 import { getCodexEntities } from "./src/codex/codex-store";
@@ -48,6 +52,9 @@ import { WelcomeModal } from "./src/help/welcome-modal";
 import { SprintController } from "./src/sprints/sprint-controller";
 import { SprintModal } from "./src/sprints/sprint-modal";
 import { buildClassifierIndex, classifyPath } from "./src/tracking/classify";
+import { deviceIdentity } from "./src/tracking/device";
+import { LOG_KEY } from "./src/tracking/device-log";
+import { LogSync } from "./src/tracking/log-sync";
 import { WordCategory, WritingLogData, emptyLog } from "./src/tracking/types";
 import { WritingTracker } from "./src/tracking/writing-tracker";
 import { StatusBar } from "./src/views/status-bar";
@@ -72,6 +79,7 @@ export default class InkswellPlugin extends Plugin {
   stats!: ProjectStats;
   tracker!: WritingTracker;
   sprints!: SprintController;
+  logSync!: LogSync;
   private statusBar: StatusBar | null = null;
 
   async onload(): Promise<void> {
@@ -99,6 +107,8 @@ export default class InkswellPlugin extends Plugin {
         file instanceof TFile
           ? this.app.metadataCache.getFileCache(file)?.frontmatter
           : undefined;
+      // A device's writing-log note is machine-written churn — never words.
+      if (typeof fm?.[LOG_KEY] === "string") return null;
       const codexKey: unknown = fm?.["codex"];
       const isCodex = typeof codexKey === "string" && codexKey.trim() !== "";
       return classifyPath(path, classifierIndex, isCodex);
@@ -114,9 +124,20 @@ export default class InkswellPlugin extends Plugin {
     this.sprints = new SprintController(this.tracker, this.writingLog, () =>
       void this.persist()
     );
+    // Cross-device history (opt-in): mirrors this device's log to a vault note
+    // and merges the other devices' notes into the tracker's read view.
+    this.logSync = new LogSync({
+      app: this.app,
+      identity: deviceIdentity(this.app.vault.getName()),
+      log: this.writingLog,
+      tracker: this.tracker,
+      folder: () => joinPath(this.settings.baseFolder, "Writing log"),
+      markSelfWrite: (p) => this.selfWrites.mark(p),
+    });
     this.addChild(this.store);
     this.addChild(this.tracker);
     this.addChild(this.sprints);
+    this.addChild(this.logSync);
 
     // Fires immediately and on every fingerprint change (scene add/rename,
     // project create, planning-pointer / compile-config edits via index mtime).
@@ -179,6 +200,9 @@ export default class InkswellPlugin extends Plugin {
     // One-time welcome, once the workspace is ready (so the modal isn't fighting
     // Obsidian's own startup UI). The modal sets `welcomeSeen` on close.
     this.app.workspace.onLayoutReady(() => {
+      // The metadata cache is populated by now — safe to discover log notes.
+      this.logSync.setEnabled(this.settings.syncWritingHistory);
+
       if (!this.settings.welcomeSeen) new WelcomeModal(this.app, this).open();
 
       // Codex counting includes frontmatter (profile prose). One-time: rebuild
@@ -240,6 +264,16 @@ export default class InkswellPlugin extends Plugin {
         const project = resolveActive(this.store.getProjects(), this.activeProject.get());
         if (!project) return false;
         if (!checking) this.renameProject(project);
+        return true;
+      },
+    });
+    this.addCommand({
+      id: "sort-scenes-by-chapter",
+      name: "Sort scenes by chapter number",
+      checkCallback: (checking) => {
+        const project = resolveActive(this.store.getProjects(), this.activeProject.get());
+        if (!project || !isMultiScene(project.draft)) return false;
+        if (!checking) void sortProjectByChapter(this.app, this, project);
         return true;
       },
     });
@@ -493,6 +527,8 @@ export default class InkswellPlugin extends Plugin {
    *  state only when it runs, so the last write always carries current state and
    *  two saveData writes never overlap on the file. */
   persist(): Promise<void> {
+    // Every data.json save also (debounced) mirrors this device's log note.
+    this.logSync?.schedule();
     this.persistChain = this.persistChain
       .then(() =>
         this.saveData({
@@ -543,6 +579,38 @@ export default class InkswellPlugin extends Plugin {
     this.refreshExplorer();
   }
 
+  updateIdea(id: string, text: string): void {
+    const t = text.trim();
+    if (!t) return;
+    this.ideas = this.ideas.map((i) => (i.id === id ? { ...i, text: t } : i));
+    void this.persist();
+    this.refreshExplorer();
+  }
+
+  /**
+   * Promote an idea to a vault note under `<baseFolder>/Ideas/` (named after its
+   * first line, numbered on collision), open it, and drop it from the inbox —
+   * the note is now the idea's home.
+   */
+  async saveIdeaAsNote(idea: Idea): Promise<void> {
+    const folder = normalizePath(joinPath(this.settings.baseFolder, "Ideas"));
+    const firstLine = (idea.text.split(/\r?\n/)[0] ?? "").trim().slice(0, 60);
+    const name = sanitizeSegment(firstLine) || "Idea";
+    const file = await tryFileOp(async () => {
+      if (!this.app.vault.getAbstractFileByPath(folder)) await this.app.vault.createFolder(folder);
+      let path = normalizePath(joinPath(folder, `${name}.md`));
+      for (let n = 2; this.app.vault.getAbstractFileByPath(path); n++) {
+        path = normalizePath(joinPath(folder, `${name} ${n}.md`));
+      }
+      const body = `---\ncreated: ${idea.created}\n---\n\n${idea.text}\n`;
+      return this.app.vault.create(path, body);
+    }, "Couldn't save the idea as a note.");
+    if (!file) return;
+    this.removeIdea(idea.id);
+    new Notice(`Saved to ${file.path}`);
+    openScene(this.app, file);
+  }
+
   /** Back-compat alias used by the settings tab. */
   async saveSettings(): Promise<void> {
     await this.persist();
@@ -565,6 +633,7 @@ export default class InkswellPlugin extends Plugin {
     this.tracker.flushPendingSave();
     await Promise.all(flushes);
     await this.persist(); // snapshots final state AND drains the chain
+    await this.logSync.flush(); // …and the device log note mirrors that final state
   }
 
   refreshExplorer(): void {
@@ -747,9 +816,11 @@ export default class InkswellPlugin extends Plugin {
     ).open();
   }
 
-  /** Create a new project, make it active, and land on Plan to start outlining. */
-  newProject(): void {
-    new NewProjectModal(this.app, this.settings, (file) => {
+  /** Create a new project (optionally preset into a series), make it active, and
+   *  land on Plan to start outlining. */
+  newProject(preset?: NewProjectPreset): void {
+    const series = seriesForPicker(this.store.getProjects(), this.activeProject.get());
+    new NewProjectModal(this.app, { folders: this.settings, series, preset }, (file) => {
       this.activeProject.set(file.path);
       this.refreshExplorer();
       void this.openInkswell("plan");

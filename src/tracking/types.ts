@@ -104,6 +104,20 @@ export function applyCountToLog(
 }
 
 /**
+ * Move a file's baseline to `count` WITHOUT attributing anything (pure). This is
+ * what a disk event does since 1.18: a `modify` may be Obsidian Sync delivering
+ * another device's words, or an external tool — neither is writing done here,
+ * so the words are never logged; only the baseline follows, so the next real
+ * edit on this device measures from the current text. Returns whether the
+ * stored baseline changed (i.e. whether the log needs persisting).
+ */
+export function noteBaseline(log: WritingLogData, path: string, count: number): boolean {
+  if (log.baselines[path] === count) return false;
+  log.baselines[path] = count;
+  return true;
+}
+
+/**
  * One day's words counting toward goals: the stored total minus the disabled
  * categories' buckets. Legacy days (no `dailyBy` entry) subtract nothing and
  * count fully. Deliberately unclamped — a negative disabled bucket must add

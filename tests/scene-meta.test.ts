@@ -47,3 +47,26 @@ describe("readSceneMeta plotlines coercion", () => {
     expect(read("status: draft").plotlines).toBeUndefined();
   });
 });
+
+describe("readSceneMeta location (string or list — #44)", () => {
+  const read = (yaml: string) => {
+    const app = new FakeApp({ "Scenes/S.md": `---\n${yaml}\n---\nBody.\n` });
+    return readSceneMeta(app.asApp(), app.file("Scenes/S.md"));
+  };
+
+  it("folds the pre-1.18 single string into a one-element list", () => {
+    expect(read('location: "[[The Lattice]]"').location).toEqual(["[[The Lattice]]"]);
+  });
+
+  it("reads a list, dropping non-string entries", () => {
+    expect(read('location:\n  - "[[Docks]]"\n  - "[[Tower]]"\n  - 3').location).toEqual([
+      "[[Docks]]",
+      "[[Tower]]",
+    ]);
+  });
+
+  it("is undefined when absent or blank", () => {
+    expect(read("status: draft").location).toBeUndefined();
+    expect(read('location: ""').location).toBeUndefined();
+  });
+});

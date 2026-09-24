@@ -17,7 +17,7 @@ Five pipeline phases — **Home · Plan · Write · Revise · Publish** — plus
 
 | Surface | What it's for |
 |---------|---------------|
-| **Home** | Projects, a nestable scene tree, a cover-art hero card (logline / theme / word-target progress), multiple drafts per story, ideas inbox + quick capture, and series grouping for multi-book worlds. |
+| **Home** | Your books as cover cards on shelves (one per series), a cover-art hero card (logline / theme / word-target progress), a nestable scene tree, multiple drafts per story, ideas inbox + quick capture, and a series dialog for multi-book worlds. |
 | **Plan** | Overview fields, beat sheets (7 templates incl. Save the Cat!), and **Structure** — the outline tree, a Kanban board, and a plotline × chapter grid, behind one Tree / Board / Grid switcher. |
 | **Write** | A distraction-light Live-Preview editor, writing prompts, fast-drafting inline markers, and timed sprints. |
 | **Revise** | An Audit toolkit, a unified To-dos worklist (draft markers left in prose + logged revision decisions), and manuscript Analysis. |
@@ -27,7 +27,7 @@ Five pipeline phases — **Home · Plan · Write · Revise · Publish** — plus
 
 ### Home — organize the whole world
 
-Projects and a nestable scene tree, an ideas inbox with quick capture, and series grouping for multi-book worlds, all behind a global project switcher. Select a project to open a **hero card** — attach cover art and see the logline, theme, and a progress bar tracking words toward the target. A story can hold **multiple drafts** (a first draft, an editor pass…), switchable from the header, each a full independent copy of the manuscript and its planning.
+All projects is a set of **shelves** — one per series, in book order, plus your standalone books — of cover cards showing the book number, scenes and words, progress toward the target, and when you last wrote. Start a book straight into a series from **New project**, or pick a series (or start one) from any book's menu; a shelf's menu renames the series, reorders its books, or adds another. Click a card to focus on that book: a **hero card** with cover art, logline, theme, and a progress bar, a strip of the series' other covers, and the nestable scene tree. An ideas inbox with quick capture sits below the shelves — click an idea to edit it, or promote it to a note in your `Ideas/` folder from its menu. A story can hold **multiple drafts** (a first draft, an editor pass…), switchable from the header, each a full independent copy of the manuscript and its planning.
 
 ![Home: project list, nestable scene tree, and project switcher](assets/home.png)
 
@@ -86,6 +86,7 @@ Everything Inkswell stores is plain text you can inspect, sync, and back up like
 | Plan data — beats, outline structure, goals, revision log, audit checklists, compile & publishing settings | Frontmatter of the **project index note** (the note named after your project) |
 | Codex entries | Ordinary notes with a `codex` frontmatter key |
 | Plugin settings, writing history, sprints, ideas inbox | The plugin's `data.json` (inside `.obsidian/plugins/inkswell/`) |
+| Other devices' writing history (opt-in: *Sync writing history across devices*) | One small machine-written note per device under `<base folder>/Writing log/`, merged on Track |
 
 Recovery options, should anything ever go wrong:
 

@@ -367,6 +367,15 @@ describe("scenesForEntity", () => {
     expect(await appearsIn(app, projects, entity("Anna", "character"))).toEqual(["s1"]);
   });
 
+  it("counts a location link in either form — plain string or list — case-insensitively (#44)", async () => {
+    const app = new FakeApp();
+    app.vault.seed("BookA/s1.md", '---\nlocation: "[[the docks]]"\n---\nFog rolled in.\n');
+    app.vault.seed("BookA/s2.md", '---\nlocation:\n  - "[[Tower]]"\n  - "[[The Docks]]"\n---\nBells.\n');
+    app.vault.seed("BookA/s3.md", '---\nlocation: "[[Tower]]"\n---\nNo docks here.\n');
+    const projects = [makeProject("BookA/BookA.md", ["BookA/s1.md", "BookA/s2.md", "BookA/s3.md"])];
+    expect(await appearsIn(app, projects, entity("The Docks", "location"))).toEqual(["s1", "s2"]);
+  });
+
   it("scopes to visible books: a project-scoped entity ignores other books", async () => {
     const app = new FakeApp();
     app.vault.seed("BookA/s1.md", "The Amulet was here.\n");
@@ -394,11 +403,13 @@ describe("appearancesForEntity (per book, POV flagged — #40)", () => {
     app.vault.seed("BookA/s1.md", "---\npov: \"[[Anna]]\"\n---\nAnna ran.\n");
     app.vault.seed("BookA/s2.md", "---\npov: Ben\ncharacters:\n  - \"[[Anna]]\"\n---\nHe waited.\n");
     app.vault.seed("BookA/s3.md", "No one here.\n");
+    app.vault.seed("BookA/s4.md", "“Anna would hate this,” Ben said.\n"); // text-only mention
     app.vault.seed("BookB/s1.md", "---\npov: annie\n---\nAnnie again.\n");
+    app.vault.seed("BookB/s2.md", "---\npov: \"[[Anna]]\"\n---\nShe never gives her name.\n"); // POV-only
     app.vault.seed("BookC/s1.md", "Someone else entirely.\n");
     const projects = [
-      makeProject("BookA/BookA.md", ["BookA/s1.md", "BookA/s2.md", "BookA/s3.md"]),
-      makeProject("BookB/BookB.md", ["BookB/s1.md"]),
+      makeProject("BookA/BookA.md", ["BookA/s1.md", "BookA/s2.md", "BookA/s3.md", "BookA/s4.md"]),
+      makeProject("BookB/BookB.md", ["BookB/s1.md", "BookB/s2.md"]),
       makeProject("BookC/BookC.md", ["BookC/s1.md"]),
     ];
     const books = await appearancesForEntity(
@@ -407,16 +418,29 @@ describe("appearancesForEntity (per book, POV flagged — #40)", () => {
       entity("Anna", "character", { aliases: ["Annie"] })
     );
     expect(books.map((b) => b.title)).toEqual(["BookA/BookA.md", "BookB/BookB.md"]);
-    expect(books[0].scenes.map((s) => [s.file.basename, s.pov])).toEqual([
-      ["s1", true],
-      ["s2", false],
+    // [basename, pov, linked] — linked = named in metadata; s4 is a text mention only (#44).
+    expect(books[0].scenes.map((s) => [s.file.basename, s.pov, s.linked])).toEqual([
+      ["s1", true, true],
+      ["s2", false, true],
+      ["s4", false, false],
     ]);
     expect(books[0].povCount).toBe(1);
-    // Alias match on pov, case-insensitive, plain (unlinked) value.
-    expect(books[1].scenes.map((s) => [s.file.basename, s.pov])).toEqual([["s1", true]]);
+    expect(books[0].linkedCount).toBe(2);
+    // Alias match on pov, case-insensitive, plain (unlinked) value; and a scene
+    // that names the entity ONLY as POV is still listed (it used to be dropped).
+    expect(books[1].scenes.map((s) => [s.file.basename, s.pov, s.linked])).toEqual([
+      ["s1", true, true],
+      ["s2", true, true],
+    ]);
     // The flat wrapper still returns every file, sorted by basename.
     const flat = await scenesForEntity(app.asApp(), projects, entity("Anna", "character", { aliases: ["Annie"] }));
-    expect(flat.map((f) => f.path).sort()).toEqual(["BookA/s1.md", "BookA/s2.md", "BookB/s1.md"]);
+    expect(flat.map((f) => f.path).sort()).toEqual([
+      "BookA/s1.md",
+      "BookA/s2.md",
+      "BookA/s4.md",
+      "BookB/s1.md",
+      "BookB/s2.md",
+    ]);
   });
 });
 
