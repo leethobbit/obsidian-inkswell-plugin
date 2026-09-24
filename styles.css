@@ -2224,8 +2224,11 @@ body.inkswell-phone .inkswell-write__cm .cm-milestone-gutter {
 .inkswell-hero__series:hover {
   color: var(--text-accent);
 }
+/* Dotted border, not `text-decoration: underline dotted` — the store CSS lint
+   flags text-decoration styles as partial on the 1.7.4 floor. fit-content
+   keeps the border to the text's width. */
 .inkswell-hero__series.is-empty {
-  text-decoration: underline dotted;
+  border-bottom: 1px dotted currentColor;
 }
 /* Book-number input in the series dialog / New project. */
 .inkswell-series__ordernum {
@@ -2361,6 +2364,11 @@ body.inkswell-phone .inkswell-write__cm .cm-milestone-gutter {
   line-height: 1.25;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
   overflow: hidden;
+}
+/* The clamp lives on the inner span: `display: -webkit-box` on the container
+   would override its flex and drop the bottom alignment. */
+.inkswell-card__placeholder-title {
+  overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 5;
   -webkit-box-orient: vertical;
@@ -2484,6 +2492,8 @@ body.is-mobile .inkswell-card .inkswell-rowmenu {
 .inkswell-seriesstrip__thumb .inkswell-card__placeholder {
   padding: 4px;
   font-size: 9px;
+}
+.inkswell-seriesstrip__thumb .inkswell-card__placeholder-title {
   -webkit-line-clamp: 4;
 }
 .inkswell-seriesstrip .inkswell-rowmenu {

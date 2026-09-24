@@ -22,7 +22,7 @@ import { ProjectStats } from "../../projects/project-stats";
 import { ProjectStore } from "../../projects/project-store";
 import { Project, isMultiScene } from "../../projects/types";
 import { baseDraftFor, groupIntoStories, representativeDrafts } from "../../projects/stories";
-import { Series, groupIntoSeries, projectSeries } from "../../series/series";
+import { Series, ShelfBook, groupIntoSeries, projectSeries, shelfMetaText } from "../../series/series";
 import { promptNewScene } from "../../outliner/create-scene";
 import { sortProjectByChapter } from "../../outliner/sort-actions";
 import { BookCardContext, renderBookCard, renderCoverThumb } from "./book-card";
@@ -207,25 +207,19 @@ export class ExplorerPanel {
     };
   }
 
-  /** "N books · X words / target (P%)" for a shelf (targets are story-level → base drafts). */
+  /** Shelf header counts + target progress (targets are story-level → base drafts). */
   private async renderShelfMeta(el: HTMLElement, books: Project[]): Promise<void> {
-    const n = books.length;
-    let text = `${n} book${n === 1 ? "" : "s"}`;
-    el.setText(text);
+    el.setText(shelfMetaText(books.map(() => ({ words: 0 })), false));
     if (!this.plugin.settings.showWordCounts) return;
-    let words = 0;
-    let target = 0;
     const all = this.store.getProjects();
+    const rows: ShelfBook[] = [];
     for (const book of books) {
-      words += await this.stats.projectWords(book);
-      const t = baseDraftFor(all, book).inkswell?.goals?.target;
-      if (typeof t === "number" && t > 0) target += t;
+      rows.push({
+        words: await this.stats.projectWords(book),
+        target: baseDraftFor(all, book).inkswell?.goals?.target,
+      });
     }
-    text += ` · ${words.toLocaleString()} words`;
-    if (target > 0) {
-      text += ` / ${target.toLocaleString()} (${Math.round((words / target) * 100)}%)`;
-    }
-    el.setText(text);
+    el.setText(shelfMetaText(rows, true));
   }
 
   /** Focused view: the series' covers in order; click one to switch books. */

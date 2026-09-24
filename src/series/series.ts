@@ -67,3 +67,41 @@ export function groupIntoSeries(projects: Project[]): {
 
   return { series, standalone };
 }
+
+/** One book's contribution to a shelf header: its words and (story-level) target, if any. */
+export interface ShelfBook {
+  words: number;
+  target?: number;
+}
+
+/**
+ * The shelf header line: "N books · X words", plus progress toward the targets.
+ * Progress counts ONLY the words of books that have a target — summing every
+ * book's words over a partial target set inflated it (one 60k target on a 353k
+ * series read "588%", #44). When only some books are targeted the progress is
+ * labelled "targeted" so the two numbers aren't mistaken for one.
+ */
+export function shelfMetaText(books: ShelfBook[], showWords: boolean): string {
+  const n = books.length;
+  let text = `${n} book${n === 1 ? "" : "s"}`;
+  if (!showWords) return text;
+
+  let words = 0;
+  let targetedWords = 0;
+  let target = 0;
+  let targeted = 0;
+  for (const b of books) {
+    words += b.words;
+    if (typeof b.target === "number" && b.target > 0) {
+      target += b.target;
+      targetedWords += b.words;
+      targeted++;
+    }
+  }
+  text += ` · ${words.toLocaleString()} words`;
+  if (target === 0) return text;
+
+  const pct = Math.round((targetedWords / target) * 100);
+  if (targeted === n) return `${text} / ${target.toLocaleString()} (${pct}%)`;
+  return `${text} · ${targetedWords.toLocaleString()} / ${target.toLocaleString()} targeted (${pct}%)`;
+}
