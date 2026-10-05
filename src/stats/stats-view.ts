@@ -18,6 +18,7 @@ import {
   monthToDateWords,
   nextMilestone,
   projectFinish,
+  perWritingDay,
   recentDailyAverage,
   suggestedDeadlineWeeks,
   weekToDateWords,
@@ -551,13 +552,21 @@ export class StatsPanel {
 
         // Deadline pace (B3): required rate + verdict, or a suggestion to set one.
         if (goals.deadline) {
-          const pace = computePace(words, target, goals.deadline, goals.daysPerWeek ?? 7, rate);
+          // `rate` is per calendar day; the required rate is per writing day.
+          const daysPerWeek = goals.daysPerWeek ?? 7;
+          const pace = computePace(
+            words,
+            target,
+            goals.deadline,
+            daysPerWeek,
+            perWritingDay(rate, daysPerWeek)
+          );
           if (pace.status !== "met" && pace.status !== "no-deadline") {
             const badge = row.createDiv({ cls: `inkswell-pace inkswell-pace--${pace.status}` });
             const label =
               pace.status === "ahead" ? "Ahead" : pace.status === "on-track" ? "On track" : "Behind";
             badge.setText(
-              `${label} · need ~${pace.requiredRate.toLocaleString()}/writing-day · ${pace.calendarDays} days left (avg ${Math.round(rate)}/day)`
+              `${label} · need ~${pace.requiredRate.toLocaleString()}/writing-day · ${pace.calendarDays} days left (avg ${Math.round(rate)}/day over ${PROJECTION_WINDOW} days)`
             );
           }
         } else if (!p.done) {

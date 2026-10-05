@@ -85,26 +85,40 @@ export function projectFinish(
 }
 
 /**
- * Average words per day over the last `windowDays` calendar days ending today,
- * counting only days that have a record. Returns 0 if there are none.
+ * Average words per CALENDAR day over the last `windowDays` days ending today.
+ * Days with no record count as 0 — a day you didn't write is a zero, not a
+ * skipped sample (dropping them made 2,000 words on 3 of 14 days read as
+ * 2,000/day). The window is clipped to start no earlier than the first-ever
+ * record, so a brand-new writer isn't averaged over days before they started.
+ * Negative days count. Returns 0 with no records.
  */
 export function recentDailyAverage(
   daily: Record<string, number>,
   windowDays: number,
   today: Date = new Date()
 ): number {
+  let earliest: string | null = null;
+  for (const k of Object.keys(daily)) if (earliest === null || k < earliest) earliest = k;
+  if (earliest === null) return 0;
   let sum = 0;
-  let count = 0;
+  let days = 0;
   const cursor = new Date(today);
   for (let i = 0; i < windowDays; i++) {
     const key = dateKey(cursor);
-    if (key in daily) {
-      sum += daily[key];
-      count += 1;
-    }
+    if (key < earliest) break;
+    sum += daily[key] ?? 0;
+    days += 1;
     cursor.setDate(cursor.getDate() - 1);
   }
-  return count === 0 ? 0 : sum / count;
+  return sum / Math.max(1, days);
+}
+
+/** Calendar-day rate → per-writing-day rate for someone writing `daysPerWeek`
+ *  days a week (clamped to 1–7), so it compares with `computePace`'s
+ *  `requiredRate`, which is per writing day. */
+export function perWritingDay(calendarRate: number, daysPerWeek: number): number {
+  const perWeek = Math.min(7, Math.max(1, daysPerWeek || 1));
+  return (calendarRate * 7) / perWeek;
 }
 
 /** Words written from the start of the current week through today. */
