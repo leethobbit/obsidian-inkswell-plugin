@@ -10,6 +10,9 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Added
+- **Today's progress in Write on phones and tablets.** Mobile Obsidian has no status bar, so the daily word goal was only visible under Track. When a daily goal is set, the Write toolbar's word count now also reads *today 340/500*. Desktop is unchanged; the status bar still shows it there. Suggested in [#47](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/47).
+
 ### Fixed
 - **Pages no longer jump to the top after you edit a field.** Finishing an edit low on a long page (a codex entry, the Plan overview, the scene inspector, checklists) saved the field and then threw you back to the top. The page now stays where you were. The Write panel's scene list and right column keep their place too. Reported in [#48](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/48).
 - **iPhone/iPad: picking a character or location no longer reopens the menu.** After a pick, the list could pop open again and refuse every tap until you dismissed it. Reported in [#47](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/47).

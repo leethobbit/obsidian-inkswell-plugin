@@ -23,6 +23,7 @@ import {
   HoverPopover,
   Menu,
   Notice,
+  Platform,
   Scope,
   TFile,
   setIcon,
@@ -1184,17 +1185,29 @@ export class WritePanel implements HoverParent {
   }
 
   private updateCount(): void {
-    if (this.countEl) {
-      this.countEl.setText(this.editor ? `${countWords(this.editor.state.doc.toString())} words` : "");
+    if (!this.countEl) return;
+    const parts: string[] = [];
+    if (this.editor) parts.push(`${countWords(this.editor.state.doc.toString())} words`);
+    // Mobile layouts have no status bar, so today's progress toward the daily
+    // goal would otherwise only be visible in Track (#47).
+    const goal = this.plugin.settings.dailyWordGoal;
+    if (
+      Platform.isMobile &&
+      goal > 0 &&
+      featureEnabled(this.plugin.settings.disabledFeatures, "tracking")
+    ) {
+      parts.push(`today ${this.plugin.tracker.todayWords()}/${goal}`);
     }
+    this.countEl.setText(parts.join(" · "));
   }
 
   /** A live document edit: refresh the visible count, feed the live word count
    *  to the tracker, and (re)arm the session's autosave — typed text reaches
    *  disk within ~2s even if the editor is never blurred again. */
   private onEditorChange(): void {
-    this.updateCount();
+    // Report first so the count's "today" figure includes this edit.
     this.reportLiveCount();
+    this.updateCount();
     this.session?.noteChange();
   }
 
