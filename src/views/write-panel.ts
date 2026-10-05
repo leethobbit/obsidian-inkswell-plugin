@@ -53,6 +53,7 @@ import { attachHideMenu } from "../lib/hide-menu";
 import { nearestIndexOf } from "../lib/text-locate";
 import { attachRowMenu } from "../lib/row-menu";
 import { addSceneMenuItems } from "../scenes/scene-actions";
+import { promptNewScene } from "../outliner/create-scene";
 import { PromptModal } from "../ideation/prompt-modal";
 import { writingPrompts } from "../ideation/prompts";
 import { RevisionModal } from "../revisions/revision-modal";
@@ -80,7 +81,7 @@ import { resolveActive } from "../projects/active-project";
 import { updateNextUp } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
-import { readSceneMeta } from "../scenes/scene-meta";
+import { SceneMeta, readSceneMeta } from "../scenes/scene-meta";
 import { SceneInspector } from "../scenes/scene-inspector";
 import { RightPanel } from "./right-panel";
 import { RevisionSidebar } from "../revisions/revision-sidebar";
@@ -866,6 +867,34 @@ export class WritePanel implements HoverParent {
       if (run.chapter && this.navCollapsed.has(run.chapter)) continue;
       for (const { scene, file } of run.rows) this.navSceneRow(nav, project, scene, file);
     }
+
+    // Start the next scene without leaving Write (#47): appended at the end of
+    // the manuscript; a row's menu offers "New scene after this" for elsewhere.
+    const add = nav.createEl("button", { cls: "inkswell-write__addscene", text: "+ New scene" });
+    add.setAttribute("aria-label", "Create a new scene at the end of this project");
+    add.onclick = () => this.newSceneFromWrite(project);
+  }
+
+  /** Create a scene (optionally after `after`, inheriting its act/chapter) and open it here. */
+  private newSceneFromWrite(project: Project, after?: { title: string; file: TFile }): void {
+    // Keep the chapter run intact: a scene inserted mid-chapter belongs to it.
+    // Only set keys are passed — an undefined key in the patch would clear a
+    // value the scene template provides.
+    const seed: Partial<SceneMeta> = {};
+    if (after) {
+      const { act, chapter } = readSceneMeta(this.app, after.file);
+      if (act) seed.act = act;
+      if (chapter) seed.chapter = chapter;
+    }
+    promptNewScene(this.app, this.store, this.plugin.settings, project, {
+      afterTitle: after?.title,
+      meta: seed,
+      onCreated: (file) => {
+        this.selectedScene = file.path;
+        this.container?.removeClass("nav-open");
+        this.rerender();
+      },
+    });
   }
 
   /** Collapsible chapter header in the navigator. */
@@ -917,6 +946,13 @@ export class WritePanel implements HoverParent {
       // "⋯" on touch. Appended last so the menu button sits after the status.
       attachRowMenu(row, row, () => {
         const menu = new Menu();
+        menu.addItem((i) =>
+          i
+            .setTitle("New scene after this")
+            .setIcon("file-plus")
+            .onClick(() => this.newSceneFromWrite(project, { title: scene.title, file }))
+        );
+        menu.addSeparator();
         addSceneMenuItems(menu, this.app, project, scene.title, file, {
           includeOpen: true,
           plugin: this.plugin,

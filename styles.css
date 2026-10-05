@@ -1777,6 +1777,21 @@ body.is-mobile .inkswell-idea .inkswell-rowmenu {
   border-radius: var(--radius-s);
   cursor: pointer;
 }
+/* "+ New scene" at the foot of the Write navigator — quiet until hovered. */
+.inkswell-write__addscene {
+  display: block;
+  width: 100%;
+  margin-top: var(--size-4-2);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  background: transparent;
+  box-shadow: none;
+  border: 1px dashed var(--background-modifier-border);
+}
+.inkswell-write__addscene:hover {
+  color: var(--text-normal);
+  border-color: var(--interactive-accent);
+}
 .inkswell-write__scene:hover {
   background-color: var(--background-modifier-hover);
 }

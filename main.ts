@@ -32,6 +32,7 @@ import { ProjectStats } from "./src/projects/project-stats";
 import { ProjectStore } from "./src/projects/project-store";
 import { SelfWriteRegistry } from "./src/lib/self-write";
 import { Project, isMultiScene } from "./src/projects/types";
+import { promptNewScene } from "./src/outliner/create-scene";
 import { sortProjectByChapter } from "./src/outliner/sort-actions";
 import { RevisionModal } from "./src/revisions/revision-modal";
 import { FeatureId, featureEnabled } from "./src/features";
@@ -264,6 +265,20 @@ export default class InkswellPlugin extends Plugin {
         const project = resolveActive(this.store.getProjects(), this.activeProject.get());
         if (!project) return false;
         if (!checking) this.renameProject(project);
+        return true;
+      },
+    });
+    this.addCommand({
+      id: "new-scene",
+      name: "New scene",
+      checkCallback: (checking) => {
+        const project = resolveActive(this.store.getProjects(), this.activeProject.get());
+        if (!project || !isMultiScene(project.draft)) return false;
+        if (!checking) {
+          promptNewScene(this.app, this.store, this.settings, project, {
+            onCreated: (file) => this.openSceneInWrite(file.path),
+          });
+        }
         return true;
       },
     });
