@@ -1226,7 +1226,7 @@ export class WritePanel implements HoverParent {
     if (this.editor) parts.push(`${countWords(this.editor.state.doc.toString())} words`);
     // Mobile layouts have no status bar, so today's progress toward the daily
     // goal would otherwise only be visible in Track (#47).
-    const goal = this.plugin.settings.dailyWordGoal;
+    const goal = this.plugin.todayTarget();
     if (
       Platform.isMobile &&
       goal > 0 &&

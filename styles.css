@@ -1122,6 +1122,68 @@ body.is-mobile .inkswell-idea .inkswell-rowmenu {
 .inkswell-pace--behind {
   background: hsla(0, 80%, 55%, 0.2);
 }
+/* Writing challenge card (Track) */
+.inkswell-challenge__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--size-4-2);
+  flex-wrap: wrap;
+}
+.inkswell-challenge__name {
+  font-weight: var(--font-semibold);
+}
+.inkswell-challenge__bar {
+  position: relative;
+  height: 10px;
+  overflow: visible;
+}
+.inkswell-challenge__bar .inkswell-progress__fill {
+  border-radius: var(--radius-s);
+}
+/* Par marker: where you'd be by the end of today on an even pace. */
+.inkswell-challenge__par {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  background-color: var(--text-normal);
+}
+.inkswell-challenge__total {
+  font-weight: var(--font-semibold);
+  font-variant-numeric: tabular-nums;
+  padding: 0 var(--size-4-1);
+  height: auto;
+  background: transparent;
+  box-shadow: none;
+  cursor: copy;
+}
+.inkswell-challenge__total:hover {
+  background-color: var(--background-modifier-hover);
+}
+.inkswell-challenge__status {
+  border-radius: 3px;
+  padding: 1px var(--size-4-1);
+}
+.inkswell-challenge__status.is-ahead,
+.inkswell-challenge__status.is-met {
+  background: hsla(150, 60%, 45%, 0.2);
+}
+.inkswell-challenge__status.is-behind {
+  background: hsla(0, 80%, 55%, 0.2);
+}
+.inkswell-challenge__device {
+  margin-top: var(--size-4-1);
+}
+.inkswell-challenge__edit {
+  margin-top: var(--size-4-2);
+}
+.inkswell-stats__link {
+  display: inline-block;
+  margin: var(--size-4-1) 0;
+  font-size: var(--font-ui-smaller);
+}
 .inkswell-stats__zone {
   font-style: italic;
 }

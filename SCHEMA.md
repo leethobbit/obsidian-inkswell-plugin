@@ -186,7 +186,7 @@ Types: `text` (default) · `textarea` · `number` (a bare YAML number — the pa
 
 ## E. Plugin-local data (not in any vault note)
 
-For completeness: writing history & baselines, daily word counts, streaks, sprint records, ideas inbox, active project, daily mood, and the "next up" breadcrumb live in the plugin's local `data.json`, **not** in vault frontmatter. They are intentionally outside this compatibility contract (machine-local, not synced as note content).
+For completeness: writing history & baselines, daily word counts, streaks, sprint records, ideas inbox, active project, daily mood, and the writing challenge (`settings.challenge`: `{name, start, end, target}`, dates YYYY-MM-DD inclusive, normalized on load by `normalizeChallenge` in `src/goals/challenge.ts`) live in the plugin's local `data.json`, **not** in vault frontmatter. They are intentionally outside this compatibility contract (machine-local, not synced as note content).
 
 ### E.1 List overrides — `settings.listOverrides` (Customize)
 

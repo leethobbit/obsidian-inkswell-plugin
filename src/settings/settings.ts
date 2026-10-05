@@ -11,6 +11,7 @@ import type { SettingDefinition, SettingDefinitionItem } from "obsidian";
 import type InkswellPlugin from "../../main";
 import { OutputFormat } from "../compile/types";
 import { WeekStart } from "../goals/goals";
+import type { WritingChallenge } from "../goals/challenge";
 import { WORD_CATEGORIES, WordCategory } from "../tracking/types";
 import { CategoryDef, CategoryOverrides } from "../codex/types";
 import { BeatTemplateDef } from "../outliner/custom-templates";
@@ -53,6 +54,9 @@ export interface InkswellSettings {
    * restores every word written since category tracking shipped.
    */
   excludedFromGoals: WordCategory[];
+  /** The one running writing challenge (a date window + word target), or null.
+   *  Edited from Track, never from this tab. */
+  challenge: WritingChallenge | null;
   /** The one-time "goals now count project words by category" notice was shown. */
   categoryNoticeSeen: boolean;
   /**
@@ -154,6 +158,7 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   defaultSprintWordGoal: 0,
   streakThreshold: 1,
   excludedFromGoals: ["planning", "codex", "other"],
+  challenge: null,
   categoryNoticeSeen: false,
   codexCountMigrated: false,
   cjkCountMigrated: false,

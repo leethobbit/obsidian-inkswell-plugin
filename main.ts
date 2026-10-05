@@ -49,6 +49,14 @@ import {
   InkswellSettingTab,
 } from "./src/settings/settings";
 import { normalizeListOverrides } from "./src/settings/overridable-lists";
+import { ChallengeModal } from "./src/goals/challenge-modal";
+import {
+  ChallengeProgress,
+  challengeProgress,
+  normalizeChallenge,
+  todayTarget,
+  windowKeys,
+} from "./src/goals/challenge";
 import { WelcomeModal } from "./src/help/welcome-modal";
 import { SprintController } from "./src/sprints/sprint-controller";
 import { SprintModal } from "./src/sprints/sprint-modal";
@@ -56,7 +64,13 @@ import { buildClassifierIndex, classifyPath } from "./src/tracking/classify";
 import { deviceIdentity } from "./src/tracking/device";
 import { LOG_KEY } from "./src/tracking/device-log";
 import { LogSync } from "./src/tracking/log-sync";
-import { WordCategory, WritingLogData, emptyLog } from "./src/tracking/types";
+import {
+  WordCategory,
+  WritingLogData,
+  dateKey,
+  emptyLog,
+  projectedDayWords,
+} from "./src/tracking/types";
 import { WritingTracker } from "./src/tracking/writing-tracker";
 import { StatusBar } from "./src/views/status-bar";
 import {
@@ -81,6 +95,7 @@ function readSettings(stored: Partial<InkswellSettings> | undefined): InkswellSe
   );
   settings.customBeatTemplates = normalizeCustomBeatTemplates(settings.customBeatTemplates);
   settings.listOverrides = normalizeListOverrides(settings.listOverrides);
+  settings.challenge = normalizeChallenge(settings.challenge);
   return settings;
 }
 
@@ -210,7 +225,8 @@ export default class InkswellPlugin extends Plugin {
       this.sprints,
       () => this.settings.dailyWordGoal,
       () => void this.openStats(),
-      () => featureEnabled(this.settings.disabledFeatures, "tracking")
+      () => featureEnabled(this.settings.disabledFeatures, "tracking"),
+      () => this.challengeProgress()
     );
     this.register(() => this.statusBar?.destroy());
 
@@ -286,6 +302,12 @@ export default class InkswellPlugin extends Plugin {
         if (!checking) this.renameProject(project);
         return true;
       },
+    });
+    this.addCommand({
+      id: "set-up-writing-challenge",
+      name: "Set up writing challenge",
+      checkCallback: (checking) =>
+        this.featureCommand(checking, "tracking", () => this.openChallengeModal()),
     });
     this.addCommand({
       id: "new-scene",
@@ -559,8 +581,51 @@ export default class InkswellPlugin extends Plugin {
     Object.assign(this.settings, incoming);
     this.applyFormFactor();
     this.applyEditorPrefs();
+    this.logSync.setEnabled(this.settings.syncWritingHistory);
     this.statusBar?.render();
     this.refreshView();
+  }
+
+  /**
+   * The running writing challenge's progress, or null (none set, or tracking
+   * hidden). Sums only the window's days from the merged, goal-counted log, so
+   * it's cheap enough for the per-keystroke status bar.
+   */
+  challengeProgress(now: Date = new Date()): ChallengeProgress | null {
+    const ch = this.settings.challenge;
+    if (!ch || !featureEnabled(this.settings.disabledFeatures, "tracking")) return null;
+    const log = this.tracker.getMergedLog();
+    const excluded = new Set(this.settings.excludedFromGoals);
+    const todayKey = dateKey(now);
+    const daily: Record<string, number> = {};
+    for (const key of windowKeys(ch.start, ch.end)) {
+      if (key > todayKey) break;
+      daily[key] = projectedDayWords(log, key, excluded);
+    }
+    return challengeProgress(daily, ch, now);
+  }
+
+  /** Turn cross-device writing history on/off (the Settings toggle's effect, for in-app links). */
+  async setSyncWritingHistory(on: boolean): Promise<void> {
+    this.settings.syncWritingHistory = on;
+    await this.saveSettings();
+    this.logSync.setEnabled(on);
+    this.refreshView();
+  }
+
+  /** Set up / edit / clear the writing challenge. */
+  openChallengeModal(): void {
+    new ChallengeModal(this.app, this.settings.challenge, async (next) => {
+      this.settings.challenge = next;
+      await this.saveSettings();
+      this.statusBar?.render();
+      this.refreshView();
+    }).open();
+  }
+
+  /** Today's word target everywhere it's shown: a running challenge's need, else the daily goal. */
+  todayTarget(): number {
+    return todayTarget(this.settings.dailyWordGoal, this.challengeProgress());
   }
 
   /** Serializes data.json writes so overlapping persist() calls can't interleave. */

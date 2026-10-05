@@ -6,7 +6,7 @@
  * lives on Revise → Analysis, not here.
  */
 
-import { App, TFile, setIcon } from "obsidian";
+import { App, Notice, TFile, setIcon } from "obsidian";
 import {
   computePace,
   computeStreaks,
@@ -23,6 +23,7 @@ import {
   suggestedDeadlineWeeks,
   weekToDateWords,
 } from "../goals/goals";
+import { ChallengeProgress, WritingChallenge, showEndedResult } from "../goals/challenge";
 import { renderHint } from "../help/hint";
 import { tallyBy } from "../insight/breakdown";
 import { formatReadTime, heatLevel } from "./format";
@@ -117,11 +118,21 @@ export class StatsPanel {
     // With no wide item in this grid, auto-fit collapses empty tracks so the four
     // cards stretch to fill the full width and reflow as the window resizes.
     const grid = container.createDiv({ cls: "inkswell-stats__grid" });
+    // The writing challenge leads while it's upcoming, running, or just ended.
+    const challenge = s.challenge;
+    const progress = this.plugin.challengeProgress();
+    const showChallenge =
+      !!challenge && !!progress && (progress.phase !== "ended" || showEndedResult(challenge));
+    if (challenge && progress && showChallenge) {
+      this.section(grid, "challenge", "Challenge", (body) =>
+        this.renderChallenge(body, challenge, progress)
+      );
+    }
     this.section(grid, "targets", "Project targets", (body) => this.renderTargets(body, daily));
 
     this.section(grid, "goals", "Goals", (body) => {
       const rings = body.createDiv({ cls: "inkswell-rings" });
-      this.ring(rings, this.tracker.todayWords(), s.dailyWordGoal, "Today");
+      this.ring(rings, this.tracker.todayWords(), this.plugin.todayTarget(), "Today");
       this.ring(rings, weekToDateWords(daily, new Date(), s.weekStart), s.weeklyWordGoal, "Week");
       this.ring(rings, monthToDateWords(daily), s.monthlyWordGoal, "Month");
 
@@ -147,6 +158,17 @@ export class StatsPanel {
       for (let i = 1; i <= 10; i++) moodSel.createEl("option", { text: `${i}`, value: `${i}` });
       moodSel.value = `${this.tracker.getMood(todayKey) ?? ""}`;
       moodSel.onchange = () => this.tracker.setMood(todayKey, Number(moodSel.value) || 0);
+      if (!showChallenge) {
+        const link = body.createEl("a", {
+          cls: "inkswell-stats__link",
+          text: "Set up a writing challenge…",
+          href: "#",
+        });
+        link.onclick = (e) => {
+          e.preventDefault();
+          this.plugin.openChallengeModal();
+        };
+      }
       body.createDiv({
         cls: "inkswell-stats__muted",
         text:
@@ -159,6 +181,89 @@ export class StatsPanel {
 
     this.section(grid, "sprints", "Sprints", (body) => this.renderSprints(body));
     this.section(grid, "structure", "Structure", (body) => this.renderStructure(body));
+  }
+
+  /** The challenge card: par-ticked progress, ahead/behind, today's need,
+   *  click-to-copy total (for typing into an event site), Edit. */
+  private renderChallenge(body: HTMLElement, ch: WritingChallenge, p: ChallengeProgress): void {
+    const n = (v: number) => v.toLocaleString();
+    const head = body.createDiv({ cls: "inkswell-challenge__head" });
+    head.createSpan({ cls: "inkswell-challenge__name", text: ch.name });
+    head.createSpan({
+      cls: "inkswell-stats__muted",
+      text:
+        p.phase === "upcoming"
+          ? `Starts in ${p.startsIn} day${p.startsIn === 1 ? "" : "s"}`
+          : p.phase === "active"
+            ? `Day ${p.dayIndex} of ${p.totalDays} · ${p.daysLeft} day${p.daysLeft === 1 ? "" : "s"} left`
+            : "Finished",
+    });
+
+    if (p.phase === "upcoming") {
+      body.createDiv({
+        cls: "inkswell-stats__row",
+        text: `Target ${n(ch.target)} words · ≈${n(Math.ceil(ch.target / p.totalDays))}/day over ${p.totalDays} days`,
+      });
+    } else {
+      const bar = body.createDiv({ cls: "inkswell-progress inkswell-challenge__bar" });
+      const pct = (v: number) => `${Math.max(0, Math.min(100, (v / ch.target) * 100))}%`;
+      bar.createDiv({ cls: "inkswell-progress__fill" }).setCssProps({ width: pct(p.written) });
+      if (p.phase === "active") {
+        const tick = bar.createDiv({ cls: "inkswell-challenge__par" });
+        tick.setCssProps({ left: pct(p.par) });
+        tick.setAttribute("aria-label", `Par today: ${n(p.par)}`);
+      }
+
+      const nums = body.createDiv({ cls: "inkswell-stats__row" });
+      // Click the total to copy it — event sites (e.g. ProWritingAid's) have no
+      // Obsidian integration, so the count gets typed in by hand every day.
+      const total = nums.createEl("button", { cls: "inkswell-challenge__total", text: n(p.written) });
+      total.setAttribute("aria-label", "Copy total");
+      total.onclick = () => {
+        void navigator.clipboard.writeText(String(p.written)).then(
+          () => new Notice(`Copied ${n(p.written)}`),
+          () => new Notice("Couldn't copy to the clipboard.")
+        );
+      };
+      nums.createSpan({
+        text: ` / ${n(ch.target)}` + (p.phase === "active" ? ` (par ${n(p.par)})` : ""),
+      });
+
+      const status = body.createDiv({ cls: `inkswell-stats__row inkswell-challenge__status is-${p.status}` });
+      if (p.phase === "active") {
+        const pace =
+          p.status === "met"
+            ? "Target met 🎉"
+            : p.status === "ahead"
+              ? `Ahead by ${n(p.written - p.par)}`
+              : `Behind by ${n(p.par - p.written)}`;
+        status.setText(
+          p.status === "met" ? pace : `${pace} · Today ${n(p.today)} / ${n(p.neededToday)} needed`
+        );
+      } else {
+        status.setText(
+          (p.status === "met" ? "Target met 🎉" : `${n(ch.target - p.written)} short`) +
+            (p.bestDay ? ` · best day ${n(p.bestDay.words)} (${p.bestDay.date})` : "")
+        );
+      }
+    }
+
+    // Without history sync each device counts only its own typing — the total
+    // (and what gets copied) would be short for a two-device writer.
+    if (!this.plugin.settings.syncWritingHistory) {
+      const warn = body.createDiv({ cls: "inkswell-stats__muted inkswell-challenge__device" });
+      warn.createSpan({
+        text: "Counting this device only — turn on Sync writing history to include your other devices. ",
+      });
+      const on = warn.createEl("a", { text: "Turn it on", href: "#" });
+      on.onclick = (e) => {
+        e.preventDefault();
+        void this.plugin.setSyncWritingHistory(true);
+      };
+    }
+
+    const edit = body.createEl("button", { cls: "inkswell-challenge__edit", text: "Edit" });
+    edit.onclick = () => this.plugin.openChallengeModal();
   }
 
   // --- Layout helpers ------------------------------------------------------
