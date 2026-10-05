@@ -76,6 +76,7 @@ import { PlaceholderKind, scanPlaceholders } from "../lib/placeholders";
 import { PromptCategory, PromptPhase } from "../ideation/prompts";
 import { countWords } from "../lib/wordcount";
 import { resolveActive } from "../projects/active-project";
+import { updateNextUp } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
 import { readSceneMeta } from "../scenes/scene-meta";
@@ -617,7 +618,7 @@ export class WritePanel implements HoverParent {
       this.lastProject = project.vaultPath;
     }
 
-    this.renderNextUp(container);
+    this.renderNextUp(container, project);
 
     const main = container.createDiv({ cls: "inkswell-write__main" });
     // Tap-to-dismiss backdrop for the phone navigator drawer (CSS-hidden until
@@ -1255,17 +1256,31 @@ export class WritePanel implements HoverParent {
   }
 
   /**
-   * "Tell tomorrow-you what's next": a single rolling breadcrumb (data.json), shown
-   * at the top of Write so re-entry is fast. Light-touch — empty by default.
+   * "Tell tomorrow-you what's next": a single rolling breadcrumb, shown at the top
+   * of Write so re-entry is fast. Light-touch — empty by default. Stored in the
+   * draft's index note (`inkswell.nextUp`) so it follows the vault between
+   * devices (#47); a pre-1.19 device-local value shows until the first save.
    */
-  private renderNextUp(container: HTMLElement): void {
+  private renderNextUp(container: HTMLElement, project: Project): void {
     const card = container.createDiv({ cls: "inkswell-write__nextup" });
     card.createSpan({ cls: "inkswell-stats__muted", text: "Next up:" });
     const input = card.createEl("input", { type: "text", cls: "inkswell-write__nextupinput" });
     tagField(input, "write:next-up");
-    input.value = this.plugin.tracker.getNextUp();
+    input.value = project.inkswell?.nextUp ?? this.plugin.tracker.getNextUp();
     input.placeholder = "Leave yourself a note for next session…";
-    input.onchange = () => this.plugin.tracker.setNextUp(input.value);
+    input.onchange = () => void this.saveNextUp(project, input.value);
+  }
+
+  private async saveNextUp(project: Project, text: string): Promise<void> {
+    const index = this.app.vault.getAbstractFileByPath(project.vaultPath);
+    if (!(index instanceof TFile)) return;
+    this.plugin.selfWrites.mark(index.path);
+    const result = await tryFileOp(
+      () => updateNextUp(this.app, index, text),
+      "Couldn't save the next-up note."
+    );
+    // Migrated: retire the legacy device-local copy.
+    if (result !== null && this.plugin.tracker.getNextUp()) this.plugin.tracker.setNextUp("");
   }
 
   /** Open the revision-issue modal anchored to the scene currently being written. */

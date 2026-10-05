@@ -136,6 +136,8 @@ export interface InkswellProjectData {
   overview?: ProjectOverview;
   /** ISO 8601 timestamp stamped when this draft was created (own ctime is unreliable). Absent = pre-existing/unknown. */
   draftCreated?: string;
+  /** Write panel "Next up" breadcrumb — a note to the next session. Per draft; lives here (not data.json) so it syncs between devices. */
+  nextUp?: string;
 }
 
 export function isMultiScene(draft: Draft): draft is MultipleSceneDraft {

@@ -265,6 +265,12 @@ export async function updateCompile(
   });
 }
 
+/** Set or clear the Write panel's "Next up" breadcrumb (a scalar leaf). */
+export async function updateNextUp(app: App, indexFile: TFile, text: string): Promise<void> {
+  const next = text.trim();
+  await updateInkswellKey(app, indexFile, "nextUp", () => next || undefined);
+}
+
 /** Stamp the draft's creation time (a scalar leaf — always safe to set). */
 export async function persistDraftCreated(
   app: App,

@@ -93,6 +93,9 @@ Short, single-line planning fields: `logline` · `theme` · `genre` · `audience
 ### `inkswell.draftCreated` — draft creation timestamp
 ISO 8601 string, stamped when a draft is created via **New draft** (a draft's own file ctime is unreliable). Absent on drafts that predate this field or were imported — treat absence as "unknown", not "day zero". Used for the draft-age column in the Track → Drafts comparison.
 
+### `inkswell.nextUp` — Write's "Next up" breadcrumb
+Optional string: the note-to-next-session shown at the top of Write. Per draft (byte-copied into a new draft). Absent/empty = no note. Before 1.19 it lived device-locally in data.json (`writingLog.nextUp`); that value is still shown as a fallback until the first save, which moves it here. Source: `src/views/write-panel.ts`, writer `updateNextUp`.
+
 ### `inkswell.series` — series membership
 `name` (string; books sharing a name form one series) · `order` (number, 1-based). A series is implicit — there is no series note. **Rename series** (`src/series/series-ops.ts`) rewrites `name` on every draft carrying the old name (sibling drafts byte-copy the tag) and every codex note's `codex-series`; **Reorder books** rewrites `order` as 1..n across the series; a book joining a series defaults to `max(order) + 1`.
 

@@ -43,7 +43,8 @@ export interface WritingLogData {
   sprints: SprintRecord[];
   /** Optional daily mood (1–10), keyed by local date. Light-touch coaching. */
   mood?: Record<string, number>;
-  /** A single rolling "what to write next" breadcrumb for the next session. */
+  /** LEGACY (pre-1.19) device-local "Next up" breadcrumb — now `inkswell.nextUp`
+   *  in the index note. Read only as a fallback; cleared on the first save. */
   nextUp?: string;
 }
 

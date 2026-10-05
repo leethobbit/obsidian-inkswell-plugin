@@ -14,6 +14,7 @@ time the version bump renames that section to the new version and date.
 - **Pages no longer jump to the top after you edit a field.** Finishing an edit low on a long page (a codex entry, the Plan overview, the scene inspector, checklists) saved the field and then threw you back to the top. The page now stays where you were. The Write panel's scene list and right column keep their place too. Reported in [#48](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/48).
 - **iPhone/iPad: picking a character or location no longer reopens the menu.** After a pick, the list could pop open again and refuse every tap until you dismissed it. Reported in [#47](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/47).
 - **iPhone/iPad: the Act and Chapter fields take typing again.** Their suggestion list showed as a picker that fought every attempt to type a chapter. On iOS they are now plain text boxes; desktop and Android still suggest existing labels. Reported in [#47](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/47).
+- **"Next up" now follows you between devices.** The note you leave yourself at the top of Write was saved only on the device you typed it on. It now lives in the project's index note, so it syncs with the rest of your vault, and each project keeps its own. An existing note still shows until you next edit it, then moves over. Reported in [#47](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/47).
 
 ## [1.18.1] - 2026-09-24
 
