@@ -56,7 +56,8 @@ import { PromptModal } from "../ideation/prompt-modal";
 import { writingPrompts } from "../ideation/prompts";
 import { RevisionModal } from "../revisions/revision-modal";
 import { renderEmptyState } from "./panel-kit";
-import { preserveFocus, tagField } from "../lib/focus-preserve";
+import { tagField } from "../lib/focus-preserve";
+import { preserveUi, tagScroller } from "../lib/scroll-preserve";
 import { SceneSession } from "./scene-session";
 import {
   EDITOR_SHORTCUTS,
@@ -655,8 +656,9 @@ export class WritePanel implements HoverParent {
     // editor is focused (an Inspector field's own save triggers the notify that
     // lands here), so the rebuilt columns are wrapped in preserveFocus — the
     // Inspector's tagged fields keep caret + uncommitted text across the
-    // rebuild instead of being recreated from (older) frontmatter.
-    preserveFocus(this.container, () => {
+    // rebuild instead of being recreated from (older) frontmatter. The nav and
+    // right-column scrollers keep their position too (#48).
+    preserveUi(this.container, () => {
       this.renderTopbar();
       if (this.navEl) {
         this.navEl.empty();
@@ -696,6 +698,8 @@ export class WritePanel implements HoverParent {
     const content = col.createDiv({ cls: "inkswell-write__inspcontent" });
     const panel =
       this.rightPanels.find((p) => p.id === this.activeRightPanel) ?? this.rightPanels[0];
+    // Keyed by panel + scene: switching either starts at the top.
+    tagScroller(content, `write-right:${panel.id}:${this.currentFile?.path ?? ""}`);
     panel.render(content, this.currentFile);
   }
 
@@ -817,6 +821,7 @@ export class WritePanel implements HoverParent {
 
   private renderNavigator(parent: HTMLElement, project: Project): void {
     this.navEl = parent.createDiv({ cls: "inkswell-write__nav" });
+    tagScroller(this.navEl, "write-nav");
     this.renderNavRows(this.navEl, project);
   }
 

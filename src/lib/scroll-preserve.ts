@@ -54,6 +54,15 @@ export function preserveScroll(scope: HTMLElement, rebuild: () => void): void {
     if (!el) continue;
     el.scrollTop = s.top;
     el.scrollLeft = s.left;
+    // Content that finishes sizing after the rebuild (autosized textareas,
+    // async sections) clamps the restore short; re-apply once it has grown.
+    if (el.scrollTop < s.top || el.scrollLeft < s.left) {
+      window.requestAnimationFrame(() => {
+        if (!el.isConnected) return;
+        if (el.scrollTop < s.top) el.scrollTop = s.top;
+        if (el.scrollLeft < s.left) el.scrollLeft = s.left;
+      });
+    }
   }
 }
 

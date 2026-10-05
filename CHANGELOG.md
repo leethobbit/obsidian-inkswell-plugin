@@ -10,6 +10,9 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Fixed
+- **Pages no longer jump to the top after you edit a field.** Finishing an edit low on a long page (a codex entry, the Plan overview, the scene inspector, checklists) saved the field and then threw you back to the top. The page now stays where you were. The Write panel's scene list and right column keep their place too. Reported in [#48](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/48).
+
 ## [1.18.1] - 2026-09-24
 
 A small fix-up for 1.18.0: series shelves report target progress honestly, generated covers put the title where it belongs, and the store's CSS warnings are cleared.
