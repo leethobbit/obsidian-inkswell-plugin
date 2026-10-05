@@ -10,6 +10,10 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-10-05
+
+Writing challenges, honest pace, and a round of fixes and requests from #47–#49. Set a word target for a date range (50,000 in November, say) and Track keeps score. The deadline pace badge stops counting only the days you wrote. "Next up" and your settings now carry between devices, and the scene inspector bends to your process with a Notes field and hide/rename/reorder.
+
 ### Added
 - **Writing challenges.** Set a date range and a word target (say, 50,000 words in November) from Track or the **Set up writing challenge** command. A **Challenge** card leads Track. It shows a progress bar with a marker for where you should be by today, how far ahead or behind you are, and what you need to write today. Click the total to copy it, handy for typing your count into an event's website. It counts every goal-counted word you write in the range, in any project. While a challenge runs, the status bar shows *today/needed · total/target*, and the Today ring and the mobile Write count use today's need instead of your daily goal. If you write on more than one device, the card prompts you to turn on history sync, so the total includes all of them.
 - **Today's progress in Write on phones and tablets.** Mobile Obsidian has no status bar, so the daily word goal was only visible under Track. When a daily goal is set, the Write toolbar's word count now also reads *today 340/500*. Desktop is unchanged; the status bar still shows it there. Suggested in [#47](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/47).
@@ -396,7 +400,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.18.1...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.19.0...HEAD
+[1.19.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.18.1...1.19.0
 [1.18.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.18.0...1.18.1
 [1.18.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.17.0...1.18.0
 [1.17.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.16.0...1.17.0
