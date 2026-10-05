@@ -455,6 +455,15 @@ export const HELP_SECTIONS: HelpSection[] = [
         "Start a timed sprint from the rail (or the “Start a writing sprint” command) to " +
           "write against a clock and a word goal."
       );
+      p(
+        el,
+        "A writing challenge (“Set up writing challenge”, or the link in the Goals card) is a " +
+          "date range and a word target — say 50,000 words in November. It counts every " +
+          "goal-counted word you write in that range, in any project, and shows where you " +
+          "should be by today, how far ahead or behind you are, and what you need to write " +
+          "today. Click the total to copy it for an event's website. Writing on more than " +
+          "one device? Turn on history sync so the count includes all of them."
+      );
     },
   },
   {

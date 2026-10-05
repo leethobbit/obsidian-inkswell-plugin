@@ -32,6 +32,7 @@ import { ProjectStats } from "./src/projects/project-stats";
 import { ProjectStore } from "./src/projects/project-store";
 import { SelfWriteRegistry } from "./src/lib/self-write";
 import { Project, isMultiScene } from "./src/projects/types";
+import { promptNewScene } from "./src/outliner/create-scene";
 import { sortProjectByChapter } from "./src/outliner/sort-actions";
 import { RevisionModal } from "./src/revisions/revision-modal";
 import { FeatureId, featureEnabled } from "./src/features";
@@ -48,6 +49,14 @@ import {
   InkswellSettingTab,
 } from "./src/settings/settings";
 import { normalizeListOverrides } from "./src/settings/overridable-lists";
+import { ChallengeModal } from "./src/goals/challenge-modal";
+import {
+  ChallengeProgress,
+  challengeProgress,
+  normalizeChallenge,
+  todayTarget,
+  windowKeys,
+} from "./src/goals/challenge";
 import { WelcomeModal } from "./src/help/welcome-modal";
 import { SprintController } from "./src/sprints/sprint-controller";
 import { SprintModal } from "./src/sprints/sprint-modal";
@@ -55,7 +64,13 @@ import { buildClassifierIndex, classifyPath } from "./src/tracking/classify";
 import { deviceIdentity } from "./src/tracking/device";
 import { LOG_KEY } from "./src/tracking/device-log";
 import { LogSync } from "./src/tracking/log-sync";
-import { WordCategory, WritingLogData, emptyLog } from "./src/tracking/types";
+import {
+  WordCategory,
+  WritingLogData,
+  dateKey,
+  emptyLog,
+  projectedDayWords,
+} from "./src/tracking/types";
 import { WritingTracker } from "./src/tracking/writing-tracker";
 import { StatusBar } from "./src/views/status-bar";
 import {
@@ -63,6 +78,26 @@ import {
   InkswellView,
   VIEW_TYPE_INKSWELL,
 } from "./src/views/inkswell-view";
+
+/** Settings that describe this device, not the vault — kept on external sync. */
+const DEVICE_LOCAL_SETTINGS = ["forceTabletLayout", "codexCountMigrated", "cjkCountMigrated"] as const;
+
+/** Defaults merged with stored settings, shapes validated. data.json is
+ *  hand-editable and synced, so nothing in it is trusted as-is. */
+function readSettings(stored: Partial<InkswellSettings> | undefined): InkswellSettings {
+  const settings: InkswellSettings = Object.assign({}, DEFAULT_SETTINGS, stored ?? {});
+  // Drop malformed/colliding custom codex types and beat templates before
+  // anything renders them.
+  settings.categoryOverrides = normalizeCategoryOverrides(settings.categoryOverrides);
+  settings.customCategories = normalizeCustomCategories(
+    settings.customCategories,
+    builtinCategories(settings.categoryOverrides)
+  );
+  settings.customBeatTemplates = normalizeCustomBeatTemplates(settings.customBeatTemplates);
+  settings.listOverrides = normalizeListOverrides(settings.listOverrides);
+  settings.challenge = normalizeChallenge(settings.challenge);
+  return settings;
+}
 
 export default class InkswellPlugin extends Plugin {
   settings: InkswellSettings = DEFAULT_SETTINGS;
@@ -190,7 +225,8 @@ export default class InkswellPlugin extends Plugin {
       this.sprints,
       () => this.settings.dailyWordGoal,
       () => void this.openStats(),
-      () => featureEnabled(this.settings.disabledFeatures, "tracking")
+      () => featureEnabled(this.settings.disabledFeatures, "tracking"),
+      () => this.challengeProgress()
     );
     this.register(() => this.statusBar?.destroy());
 
@@ -264,6 +300,26 @@ export default class InkswellPlugin extends Plugin {
         const project = resolveActive(this.store.getProjects(), this.activeProject.get());
         if (!project) return false;
         if (!checking) this.renameProject(project);
+        return true;
+      },
+    });
+    this.addCommand({
+      id: "set-up-writing-challenge",
+      name: "Set up writing challenge",
+      checkCallback: (checking) =>
+        this.featureCommand(checking, "tracking", () => this.openChallengeModal()),
+    });
+    this.addCommand({
+      id: "new-scene",
+      name: "New scene",
+      checkCallback: (checking) => {
+        const project = resolveActive(this.store.getProjects(), this.activeProject.get());
+        if (!project || !isMultiScene(project.draft)) return false;
+        if (!checking) {
+          promptNewScene(this.app, this.store, this.settings, project, {
+            onCreated: (file) => this.openSceneInWrite(file.path),
+          });
+        }
         return true;
       },
     });
@@ -499,24 +555,77 @@ export default class InkswellPlugin extends Plugin {
       ideas?: Idea[];
       activeProject?: string;
     };
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, stored.settings ?? {});
-    // data.json is hand-editable and the merge above doesn't validate shapes —
-    // drop malformed/colliding custom codex types and beat templates before
-    // anything renders them.
-    this.settings.categoryOverrides = normalizeCategoryOverrides(this.settings.categoryOverrides);
-    this.settings.customCategories = normalizeCustomCategories(
-      this.settings.customCategories,
-      builtinCategories(this.settings.categoryOverrides)
-    );
-    this.settings.customBeatTemplates = normalizeCustomBeatTemplates(
-      this.settings.customBeatTemplates
-    );
-    this.settings.listOverrides = normalizeListOverrides(this.settings.listOverrides);
+    this.settings = readSettings(stored.settings);
     this.writingLog = Object.assign({}, emptyLog(), stored.writingLog ?? {});
     this.ideas = Array.isArray(stored.ideas) ? stored.ideas : [];
     this.activeProject = new ActiveProject(
       typeof stored.activeProject === "string" ? stored.activeProject : null
     );
+  }
+
+  /**
+   * data.json was changed by something else — in practice Obsidian Sync
+   * delivering another device's copy. Adopt its SETTINGS (a challenge, Customize
+   * overrides, preferences set elsewhere); without this, this device's next save
+   * writes its stale in-memory settings back over them. The writing log, ideas
+   * and active project stay this device's own (see gotcha 19).
+   */
+  async onExternalSettingsChange(): Promise<void> {
+    const stored = ((await this.loadData()) ?? {}) as { settings?: Partial<InkswellSettings> };
+    const incoming = readSettings(stored.settings);
+    // Keys describing THIS device (its layout override, migrations already run
+    // against its own baselines) never follow another device's copy.
+    for (const key of DEVICE_LOCAL_SETTINGS) {
+      (incoming as unknown as Record<string, unknown>)[key] = this.settings[key];
+    }
+    Object.assign(this.settings, incoming);
+    this.applyFormFactor();
+    this.applyEditorPrefs();
+    this.logSync.setEnabled(this.settings.syncWritingHistory);
+    this.statusBar?.render();
+    this.refreshView();
+  }
+
+  /**
+   * The running writing challenge's progress, or null (none set, or tracking
+   * hidden). Sums only the window's days from the merged, goal-counted log, so
+   * it's cheap enough for the per-keystroke status bar.
+   */
+  challengeProgress(now: Date = new Date()): ChallengeProgress | null {
+    const ch = this.settings.challenge;
+    if (!ch || !featureEnabled(this.settings.disabledFeatures, "tracking")) return null;
+    const log = this.tracker.getMergedLog();
+    const excluded = new Set(this.settings.excludedFromGoals);
+    const todayKey = dateKey(now);
+    const daily: Record<string, number> = {};
+    for (const key of windowKeys(ch.start, ch.end)) {
+      if (key > todayKey) break;
+      daily[key] = projectedDayWords(log, key, excluded);
+    }
+    return challengeProgress(daily, ch, now);
+  }
+
+  /** Turn cross-device writing history on/off (the Settings toggle's effect, for in-app links). */
+  async setSyncWritingHistory(on: boolean): Promise<void> {
+    this.settings.syncWritingHistory = on;
+    await this.saveSettings();
+    this.logSync.setEnabled(on);
+    this.refreshView();
+  }
+
+  /** Set up / edit / clear the writing challenge. */
+  openChallengeModal(): void {
+    new ChallengeModal(this.app, this.settings.challenge, async (next) => {
+      this.settings.challenge = next;
+      await this.saveSettings();
+      this.statusBar?.render();
+      this.refreshView();
+    }).open();
+  }
+
+  /** Today's word target everywhere it's shown: a running challenge's need, else the daily goal. */
+  todayTarget(): number {
+    return todayTarget(this.settings.dailyWordGoal, this.challengeProgress());
   }
 
   /** Serializes data.json writes so overlapping persist() calls can't interleave. */

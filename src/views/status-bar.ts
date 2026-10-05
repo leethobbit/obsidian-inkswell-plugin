@@ -5,6 +5,7 @@
 
 import { WritingTracker } from "../tracking/writing-tracker";
 import { SprintController } from "../sprints/sprint-controller";
+import type { ChallengeProgress } from "../goals/challenge";
 
 export class StatusBar {
   private el: HTMLElement;
@@ -21,7 +22,9 @@ export class StatusBar {
     getGoal: () => number,
     onClick: () => void,
     /** The "tracking" feature toggle — hidden means the item disappears entirely. */
-    private isEnabled: () => boolean = () => true
+    private isEnabled: () => boolean = () => true,
+    /** The running challenge's progress, or null. Called per keystroke — keep it cheap. */
+    private getChallenge: () => ChallengeProgress | null = () => null
   ) {
     this.el = el;
     this.tracker = tracker;
@@ -56,6 +59,19 @@ export class StatusBar {
       );
       return;
     }
+    const challenge = this.getChallenge();
+    if (challenge?.phase === "active") {
+      // Needed-today replaces the static daily goal while a challenge runs.
+      this.el.setText(
+        `✍ ${challenge.today}/${challenge.neededToday} · ${compact(challenge.written)}/${compact(challenge.target)}`
+      );
+      this.el.setAttribute(
+        "aria-label",
+        `Challenge: ${challenge.today} of ${challenge.neededToday} words needed today; ` +
+          `${challenge.written} of ${challenge.target} total (click for stats)`
+      );
+      return;
+    }
     const today = this.tracker.todayWords();
     const goal = this.getGoal();
     this.el.setText(goal > 0 ? `✍ ${today}/${goal}` : `✍ ${today}`);
@@ -66,6 +82,11 @@ export class StatusBar {
     this.unsubs.forEach((u) => u());
     this.unsubs = [];
   }
+}
+
+/** 21340 → "21.3k"; under 1,000 as-is. */
+function compact(n: number): string {
+  return Math.abs(n) >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(n);
 }
 
 function formatClock(totalSec: number): string {

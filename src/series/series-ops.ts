@@ -18,8 +18,9 @@ export interface SeriesWrite {
 
 /**
  * The number a book joining `books` should get: one past the highest existing
- * number (1 for an empty or wholly unnumbered series). Gaps are not filled — a
- * missing "3" usually means the author is still writing it.
+ * whole number (1 for an empty or wholly unnumbered series) — a "1.5" novella
+ * is followed by 2. Gaps are not filled — a missing "3" usually means the
+ * author is still writing it.
  */
 export function nextBookOrder(books: readonly Project[]): number {
   let max = 0;
@@ -27,7 +28,7 @@ export function nextBookOrder(books: readonly Project[]): number {
     const o = projectSeries(b)?.order;
     if (o != null && o > max) max = o;
   }
-  return max + 1;
+  return Math.floor(max) + 1;
 }
 
 /** A codex note and its `codex-series` value (undefined = not series-scoped). */

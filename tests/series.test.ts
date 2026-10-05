@@ -19,15 +19,21 @@ function project(title: string, series?: Partial<SeriesInfo> | null): Project {
 }
 
 describe("readSeriesInfo", () => {
-  it("accepts a named series, optional positive integer order", () => {
+  it("accepts a named series, optional order", () => {
     expect(readSeriesInfo({ name: "Saga", order: 2 })).toEqual({ name: "Saga", order: 2 });
     expect(readSeriesInfo({ name: "Saga" })).toEqual({ name: "Saga" });
   });
 
+  it("keeps 0 and fractional orders as written (prequels, novellas — #47)", () => {
+    expect(readSeriesInfo({ name: "Saga", order: 0 })).toEqual({ name: "Saga", order: 0 });
+    expect(readSeriesInfo({ name: "Saga", order: 0.5 })).toEqual({ name: "Saga", order: 0.5 });
+    expect(readSeriesInfo({ name: "Saga", order: 1.5 })).toEqual({ name: "Saga", order: 1.5 });
+  });
+
   it("trims the name and drops invalid orders", () => {
-    expect(readSeriesInfo({ name: "  Saga  ", order: 0 })).toEqual({ name: "Saga" });
+    expect(readSeriesInfo({ name: "  Saga  ", order: 2 })).toEqual({ name: "Saga", order: 2 });
     expect(readSeriesInfo({ name: "Saga", order: -1 })).toEqual({ name: "Saga" });
-    expect(readSeriesInfo({ name: "Saga", order: 1.7 })).toEqual({ name: "Saga", order: 1 });
+    expect(readSeriesInfo({ name: "Saga", order: Infinity })).toEqual({ name: "Saga" });
     expect(readSeriesInfo({ name: "Saga", order: "x" })).toEqual({ name: "Saga" });
   });
 

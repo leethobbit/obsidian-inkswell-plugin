@@ -66,6 +66,8 @@ export class CodexPanel {
   private selectedPath: string | null = null;
   /** When false, the list is filtered to the active project's scope (default). */
   private showAll = false;
+  /** Category id the list is narrowed to ("" = all types). Also the type **New** creates. */
+  private categoryFilter = "";
   /** Bumped per detail render so a slow "Appears in" scan can't fill a stale pane. */
   private appearsToken = 0;
   /** Category to preselect in the rebuilt dropdown after "New type…" adds one. */
@@ -161,27 +163,36 @@ export class CodexPanel {
       this.renderList();
     };
 
+    // Type filter (#47): narrows the list to one category, and that category is
+    // what **New** creates. "All types" shows everything; New then asks which.
     const NEW_TYPE = "__new__"; // sentinel — can't collide with slug-shaped ids
     const cats = this.categories();
-    const catSel = bar.createEl("select", { cls: "dropdown" });
-    for (const c of cats) {
-      catSel.createEl("option", { text: c.label, value: c.id });
-    }
-    catSel.createEl("option", { text: "New type…", value: NEW_TYPE });
     if (this.pendingCategoryId && cats.some((c) => c.id === this.pendingCategoryId)) {
-      catSel.value = this.pendingCategoryId;
+      this.categoryFilter = this.pendingCategoryId;
     }
     this.pendingCategoryId = null;
+    // A filtered type that was since deleted falls back to all types.
+    if (this.categoryFilter && !cats.some((c) => c.id === this.categoryFilter)) {
+      this.categoryFilter = "";
+    }
+    const catSel = bar.createEl("select", { cls: "dropdown" });
+    catSel.setAttribute("aria-label", "Show one type");
+    catSel.createEl("option", { text: "All types", value: "" });
+    for (const c of cats) {
+      catSel.createEl("option", { text: c.plural, value: c.id });
+    }
+    catSel.createEl("option", { text: "New type…", value: NEW_TYPE });
+    catSel.value = this.categoryFilter;
     // Picking "New type…" opens the add dialog instead of being a selection; the
-    // select snaps back so cancel leaves the previous category active.
-    let prevCat = catSel.value;
+    // select snaps back so cancel leaves the current filter active.
     catSel.onchange = () => {
-      if (catSel.value !== NEW_TYPE) {
-        prevCat = catSel.value;
+      if (catSel.value === NEW_TYPE) {
+        catSel.value = this.categoryFilter;
+        this.openNewTypeModal();
         return;
       }
-      catSel.value = prevCat;
-      this.openNewTypeModal();
+      this.categoryFilter = catSel.value;
+      this.renderList();
     };
     const newBtn = bar.createEl("button", { cls: "mod-cta", text: "New" });
     // New entries inherit the active project's scope: its series if it belongs to
@@ -189,9 +200,7 @@ export class CodexPanel {
     const projects = this.plugin.store.getProjects();
     const createScope = defaultScopeForProject(active, projects);
     newBtn.setAttribute("aria-label", describeCreateScope(createScope));
-    newBtn.onclick = async () => {
-      const def = this.categories().find((c) => c.id === catSel.value);
-      if (!def) return;
+    const create = async (def: CategoryDef) => {
       const name = await promptText(this.app, {
         title: `New ${def.label}`,
         value: "",
@@ -209,6 +218,18 @@ export class CodexPanel {
         this.selectedPath = file.path;
         this.refreshPanes();
       }
+    };
+    newBtn.onclick = (e) => {
+      const filtered = this.categories().find((c) => c.id === this.categoryFilter);
+      if (filtered) {
+        void create(filtered);
+        return;
+      }
+      const menu = new Menu();
+      for (const c of this.categories()) {
+        menu.addItem((i) => i.setTitle(c.label).setIcon(c.icon).onClick(() => void create(c)));
+      }
+      menu.showAtMouseEvent(e);
     };
 
     const body = container.createDiv({ cls: "inkswell-codex__body" });
@@ -240,8 +261,21 @@ export class CodexPanel {
           e.aliases.some((a) => a.toLowerCase().includes(q))
     );
 
-    if (all.length === 0) {
+    const cats = this.categories();
+    const filterDef = cats.find((c) => c.id === this.categoryFilter);
+    const shown = filterDef ? all.filter((e) => e.category === filterDef.id) : all;
+
+    if (shown.length === 0) {
       const inScope = !this.showAll && !!active;
+      if (filterDef && !q) {
+        list.createDiv({
+          cls: "inkswell-stats__muted",
+          text: inScope
+            ? `No ${filterDef.plural.toLowerCase()} in scope. Create one, or switch to “All projects”.`
+            : `No ${filterDef.plural.toLowerCase()} yet. Create one above.`,
+        });
+        return;
+      }
       list.createDiv({
         cls: "inkswell-stats__muted",
         text: q
@@ -253,9 +287,8 @@ export class CodexPanel {
       return;
     }
 
-    const cats = this.categories();
     for (const cat of cats) {
-      const entries = all.filter((e) => e.category === cat.id);
+      const entries = shown.filter((e) => e.category === cat.id);
       if (entries.length === 0) continue;
       list.createEl("h4", { text: `${cat.plural} (${entries.length})` });
       for (const e of entries) this.renderRow(list, cat.icon, e);
@@ -264,7 +297,7 @@ export class CodexPanel {
     // Orphan safety: entries whose category no longer exists (a deleted custom
     // type, or a hand-edited `codex:` value) stay visible and editable here.
     const known = new Set(cats.map((c) => c.id));
-    const orphans = all.filter((e) => !known.has(e.category));
+    const orphans = shown.filter((e) => !known.has(e.category));
     if (orphans.length > 0) {
       list.createEl("h4", { text: `Uncategorized (${orphans.length})` });
       for (const e of orphans) this.renderRow(list, "circle-help", e);

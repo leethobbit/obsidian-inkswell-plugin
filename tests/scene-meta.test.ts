@@ -70,3 +70,19 @@ describe("readSceneMeta location (string or list — #44)", () => {
     expect(read('location: ""').location).toBeUndefined();
   });
 });
+
+describe("readSceneMeta notes", () => {
+  const read = (yaml: string) => {
+    const app = new FakeApp({ "Scenes/S.md": `---\n${yaml}\n---\nBody.\n` });
+    return readSceneMeta(app.asApp(), app.file("Scenes/S.md"));
+  };
+
+  it("reads a multiline string", () => {
+    expect(read("notes: |-\n  Beat one\n  Beat two").notes).toBe("Beat one\nBeat two");
+  });
+
+  it("ignores non-text values so they're never stringified and written back", () => {
+    expect(read("notes:\n  - a\n  - b").notes).toBeUndefined();
+    expect(read("notes: 42").notes).toBeUndefined();
+  });
+});

@@ -85,11 +85,12 @@ export function renderSeriesFields(
   let orderInput!: HTMLInputElement;
   const orderRow = new Setting(container)
     .setName("Book number")
-    .setDesc("Position in the series. Blank = unnumbered (sorts last).")
+    .setDesc("Position in the series. Use 0 or 0.5 for a prequel or novella. Blank = unnumbered (sorts last).")
     .addText((t) => {
       orderInput = t.inputEl;
       orderInput.type = "number";
-      orderInput.min = "1";
+      orderInput.min = "0";
+      orderInput.step = "any";
       orderInput.placeholder = "e.g. 2";
       orderInput.addClass("inkswell-series__ordernum");
       orderInput.oninput = () => (orderTouched = true);
@@ -135,8 +136,8 @@ export function renderSeriesFields(
         name = ctx.series[Number(selected)].name;
       }
       const raw = orderInput.value.trim();
-      const n = Math.floor(Number(raw));
-      let order = raw && Number.isFinite(n) && n > 0 ? n : undefined;
+      const n = Number(raw);
+      let order = raw && Number.isFinite(n) && n >= 0 ? n : undefined;
       if (books && !orderTouched) order = nextBookOrder(books);
       return { name, order };
     },

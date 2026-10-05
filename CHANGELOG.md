@@ -10,6 +10,28 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-10-05
+
+Writing challenges, honest pace, and a round of fixes and requests from #47–#49. Set a word target for a date range (50,000 in November, say) and Track keeps score. The deadline pace badge stops counting only the days you wrote. "Next up" and your settings now carry between devices, and the scene inspector bends to your process with a Notes field and hide/rename/reorder.
+
+### Added
+- **Writing challenges.** Set a date range and a word target (say, 50,000 words in November) from Track or the **Set up writing challenge** command. A **Challenge** card leads Track. It shows a progress bar with a marker for where you should be by today, how far ahead or behind you are, and what you need to write today. Click the total to copy it, handy for typing your count into an event's website. It counts every goal-counted word you write in the range, in any project. While a challenge runs, the status bar shows *today/needed · total/target*, and the Today ring and the mobile Write count use today's need instead of your daily goal. If you write on more than one device, the card prompts you to turn on history sync, so the total includes all of them.
+- **Today's progress in Write on phones and tablets.** Mobile Obsidian has no status bar, so the daily word goal was only visible under Track. When a daily goal is set, the Write toolbar's word count now also reads *today 340/500*. Desktop is unchanged; the status bar still shows it there. Suggested in [#47](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/47).
+- **Book 0 and fractional book numbers.** A prequel can be *Book 0* and a novella between books *Book 1.5*. Both sort where you'd expect on the series shelf. Previously 0 and 0.5 were silently dropped to "unnumbered" and 1.5 became 1. The next book to join still gets the next whole number. Suggested in [#47](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/47).
+- **Scene notes.** The scene inspector has a new **Notes** field: a roomy text box for an outline to draft against, reminders, or anything you want beside the prose while you write. It's separate from the synopsis, which still feeds Board cards and the Outline. Stored as the scene's `notes` property. Requested in [#49](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/49).
+- **Customize → Scene inspector fields.** Hide the inspector fields you don't use (Subtitle, Target words…), rename them, and set their order. Hiding is display-only: scenes keep their stored values, and unhiding brings them straight back. Suggested in [#47](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/47).
+- **Start a new scene from Write.** The Write scene list ends with a **New scene** button, and each scene's menu has **New scene after this**, which inserts it right there in the same act and chapter. The new scene opens in the editor straight away. There's also a **New scene** command for the active project. Suggested in [#47](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/47).
+- **Filter the codex by type.** The type dropdown in the codex toolbar now narrows the list: pick *Locations* to see only locations, or *All types* for everything. **New** creates the type you're viewing; under *All types* it asks which. (Before, that dropdown only chose what **New** would create.) Suggested in [#47](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/47).
+- **POV balance in Track.** The structure breakdown adds a **By POV** chart: how many scenes each viewpoint character carries, most-used first. It only appears once at least one scene has a POV set. Suggested in [#47](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/47).
+
+### Fixed
+- **Settings changed on another device are no longer overwritten.** When Obsidian Sync delivered settings from another device, Inkswell kept its own copy in memory and wrote it back on its next save. It now picks up the synced settings: goals, Customize changes, preferences. Device-specific settings, like the phone/tablet layout override, stay per device.
+- **The deadline pace badge no longer skips days you didn't write.** Its average divided only by days that had any writing, so 2,000 words spread over 3 of the last 14 days read as "2,000/day — Ahead". Days off now count as zero, and the comparison accounts for how many days a week you write, so "Ahead" really means ahead. The badge now says what it averages: *avg 143/day over 14 days*.
+- **Pages no longer jump to the top after you edit a field.** Finishing an edit low on a long page (a codex entry, the Plan overview, the scene inspector, checklists) saved the field and then threw you back to the top. The page now stays where you were. The Write panel's scene list and right column keep their place too. Reported in [#48](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/48).
+- **iPhone/iPad: picking a character or location no longer reopens the menu.** After a pick, the list could pop open again and refuse every tap until you dismissed it. Reported in [#47](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/47).
+- **iPhone/iPad: the Act and Chapter fields take typing again.** Their suggestion list showed as a picker that fought every attempt to type a chapter. On iOS they are now plain text boxes; desktop and Android still suggest existing labels. Reported in [#47](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/47).
+- **"Next up" now follows you between devices.** The note you leave yourself at the top of Write was saved only on the device you typed it on. It now lives in the project's index note, so it syncs with the rest of your vault, and each project keeps its own. An existing note still shows until you next edit it, then moves over. Reported in [#47](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/47).
+
 ## [1.18.1] - 2026-09-24
 
 A small fix-up for 1.18.0: series shelves report target progress honestly, generated covers put the title where it belongs, and the store's CSS warnings are cleared.
@@ -378,7 +400,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.18.1...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.19.0...HEAD
+[1.19.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.18.1...1.19.0
 [1.18.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.18.0...1.18.1
 [1.18.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.17.0...1.18.0
 [1.17.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.16.0...1.17.0

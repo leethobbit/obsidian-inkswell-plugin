@@ -52,6 +52,8 @@ export interface SceneMeta {
   plotlines?: string[];
   /** Per-scene word-count target. */
   targetWords?: number;
+  /** Free-form working notes (an outline to draft against, reminders). Multiline string. */
+  notes?: string;
 }
 
 const FIELD_KEYS: (keyof SceneMeta)[] = [
@@ -67,6 +69,7 @@ const FIELD_KEYS: (keyof SceneMeta)[] = [
   "location",
   "plotlines",
   "targetWords",
+  "notes",
 ];
 
 /** Coerce an arbitrary frontmatter value to a known status, or undefined. */
@@ -147,7 +150,58 @@ export function readSceneMeta(app: App, file: TFile): SceneMeta {
         ? [fm["plotlines"]]
         : undefined,
     targetWords: typeof fm["targetWords"] === "number" ? fm["targetWords"] : undefined,
+    // Strings only: a non-text `notes` from another tool must never be
+    // stringified into the editor and written back over the original.
+    notes: typeof fm["notes"] === "string" ? fm["notes"] : undefined,
   };
+}
+
+// --- Inspector field layout (shipped order + the writer's Customize overrides) --
+// Which metadata rows the Scene Inspector / Edit-scene dialog show, in what
+// order, under what label — `settings.listOverrides["scene.fields"]`. Display
+// only: hiding a field never touches the values scenes already store.
+
+export type InspectorFieldId =
+  | "status"
+  | "subtitle"
+  | "synopsis"
+  | "pov"
+  | "characters"
+  | "location"
+  | "structure"
+  | "plotlines"
+  | "targetWords"
+  | "color"
+  | "notes"
+  | "inactive";
+
+export const INSPECTOR_FIELDS: readonly { id: InspectorFieldId; label: string }[] = [
+  { id: "status", label: "Status" },
+  { id: "subtitle", label: "Subtitle" },
+  { id: "synopsis", label: "Synopsis" },
+  { id: "pov", label: "POV" },
+  { id: "characters", label: "Characters" },
+  { id: "location", label: "Location" },
+  { id: "structure", label: "Act / Chapter" },
+  { id: "plotlines", label: "Plotlines" },
+  { id: "targetWords", label: "Target words" },
+  { id: "color", label: "Color" },
+  { id: "notes", label: "Notes" },
+  { id: "inactive", label: "Archived" },
+];
+
+export interface InspectorFieldDef {
+  id: InspectorFieldId;
+  label: string;
+  hidden: boolean;
+}
+
+/** Every inspector field in effective order, hidden ones flagged. */
+export function inspectorFields(override?: ListOverride): InspectorFieldDef[] {
+  const known = new Set<string>(INSPECTOR_FIELDS.map((f) => f.id));
+  return applyOverride(INSPECTOR_FIELDS, override)
+    .filter((i) => known.has(i.id))
+    .map((i) => ({ id: i.id as InspectorFieldId, label: i.label, hidden: i.hidden }));
 }
 
 /**

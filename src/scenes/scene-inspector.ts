@@ -11,7 +11,7 @@ import { ProjectStore } from "../projects/project-store";
 import { RightPanel } from "../views/right-panel";
 import { openScene } from "./scene-actions";
 import { renderSceneAuditFields, renderSceneMetaFields } from "./scene-meta-form";
-import { sceneStatuses } from "./scene-meta";
+import { inspectorFields, sceneStatuses } from "./scene-meta";
 import { sceneCheckpoints } from "../revisions/audit";
 import type InkswellPlugin from "../../main";
 
@@ -65,7 +65,8 @@ export class SceneInspector implements RightPanel {
       disabled,
       markWrite,
       this.plugin.store.getProjects(),
-      sceneStatuses(this.plugin.settings.listOverrides["scene.status"])
+      sceneStatuses(this.plugin.settings.listOverrides["scene.status"]),
+      inspectorFields(this.plugin.settings.listOverrides["scene.fields"])
     );
 
     // Revision audit — collapsed by default so it doesn't crowd the drafting

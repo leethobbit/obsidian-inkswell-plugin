@@ -5,6 +5,7 @@ import {
   dailySeries,
   draftMilestone,
   projectFinish,
+  perWritingDay,
   recentDailyAverage,
   suggestedDeadlineWeeks,
 } from "../src/goals/goals";
@@ -143,11 +144,48 @@ describe("projectFinish", () => {
 });
 
 describe("recentDailyAverage", () => {
-  it("averages only recorded days in the window", () => {
-    const daily = { "2026-06-18": 100, "2026-06-17": 200, "2026-06-16": 0 };
-    expect(recentDailyAverage(daily, 3, TODAY)).toBe(100);
+  // A long-standing record keeps the window from being clipped.
+  const OLD = { "2026-01-01": 0 };
+
+  it("counts days with no record as zero", () => {
+    const daily = { ...OLD, "2026-06-18": 1000, "2026-06-12": 500, "2026-06-06": 500 };
+    expect(recentDailyAverage(daily, 14, TODAY)).toBeCloseTo(2000 / 14);
+  });
+  it("clips the window to the first-ever record", () => {
+    // First record 3 days ago → 4 days (3 days ago through today).
+    expect(recentDailyAverage({ "2026-06-15": 400, "2026-06-18": 400 }, 14, TODAY)).toBe(200);
+  });
+  it("treats an explicit 0 like a missing day", () => {
+    const withZero = { ...OLD, "2026-06-18": 300, "2026-06-17": 0 };
+    const without = { ...OLD, "2026-06-18": 300 };
+    expect(recentDailyAverage(withZero, 7, TODAY)).toBe(recentDailyAverage(without, 7, TODAY));
+  });
+  it("lets a negative day lower the average", () => {
+    expect(recentDailyAverage({ ...OLD, "2026-06-18": 700, "2026-06-17": -700 }, 7, TODAY)).toBe(0);
   });
   it("returns 0 with no records", () => {
     expect(recentDailyAverage({}, 7, TODAY)).toBe(0);
+  });
+});
+
+describe("perWritingDay", () => {
+  it("converts a calendar-day rate to a writing-day rate", () => {
+    expect(perWritingDay(700, 5)).toBe(980);
+    expect(perWritingDay(700, 7)).toBe(700);
+  });
+  it("clamps days per week to 1–7", () => {
+    expect(perWritingDay(100, 0)).toBe(700);
+    expect(perWritingDay(100, 9)).toBe(100);
+  });
+  it("makes 2,000 words on 3 of 14 days read as behind, not ahead", () => {
+    // 7,000 left over 14 writing days → need 500/writing-day. Averaging only the
+    // recorded days said 667/day ("ahead"); counted honestly it's ~143/calendar
+    // day ≈ 200/writing-day.
+    const daily = { "2026-01-01": 0, "2026-06-18": 1000, "2026-06-12": 500, "2026-06-06": 500 };
+    const rate = recentDailyAverage(daily, 14, TODAY);
+    const pace = computePace(73000, 80000, "2026-07-08", 5, perWritingDay(rate, 5), TODAY);
+    expect(pace.requiredRate).toBe(500);
+    expect(computePace(73000, 80000, "2026-07-08", 5, 2000 / 3, TODAY).status).toBe("ahead");
+    expect(pace.status).toBe("behind");
   });
 });

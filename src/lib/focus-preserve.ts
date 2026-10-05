@@ -82,6 +82,11 @@ function restore(scope: HTMLElement, saved: SavedField): void {
     // briefly shadowing an external edit.
     if (text.value !== saved.value) text.value = saved.value;
   }
+  // On touch devices focusing a <select> opens its native picker — refocusing
+  // the rebuilt one after a pick reopened the menu, bound to the select the
+  // rebuild just removed, so it couldn't be used (#47). Desktop keeps focus
+  // for keyboard flow; focusing a select there opens nothing.
+  if (el.tagName === "SELECT" && scope.doc.body.classList.contains("is-mobile")) return;
   el.focus({ preventScroll: true });
   if (saved.mode === "text" && text) {
     const end = saved.value.length;

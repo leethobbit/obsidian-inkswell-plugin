@@ -55,6 +55,7 @@ Flat top-level keys on each scene file. Field names match StoryLine where they o
 | `location` | wikilink \| wikilink[] | Linked codex location(s). Since 1.18 a scene may link **several** (a YAML list of wikilinks); one location is always written as the plain string (byte-identical to pre-1.18 output). Readers fold a string into a one-element list; pre-1.18 readers treat a list as unset. |
 | `plotlines` | string[] | Plotlines this scene advances — plain titles matching `inkswell.plotlines` entries (like `act`/`chapter` strings, NOT wikilinks) |
 | `targetWords` | number | Per-scene word-count target |
+| `notes` | string (multiline) | Free-form working notes shown in the Scene Inspector (since 1.19) — e.g. an outline to draft against. Only a string is read or written; a non-text `notes` value from another tool is left untouched and the field is shown disabled. |
 
 ### Scene note — `rev*` revision-audit keys
 
@@ -93,8 +94,11 @@ Short, single-line planning fields: `logline` · `theme` · `genre` · `audience
 ### `inkswell.draftCreated` — draft creation timestamp
 ISO 8601 string, stamped when a draft is created via **New draft** (a draft's own file ctime is unreliable). Absent on drafts that predate this field or were imported — treat absence as "unknown", not "day zero". Used for the draft-age column in the Track → Drafts comparison.
 
+### `inkswell.nextUp` — Write's "Next up" breadcrumb
+Optional string: the note-to-next-session shown at the top of Write. Per draft (byte-copied into a new draft). Absent/empty = no note. Before 1.19 it lived device-locally in data.json (`writingLog.nextUp`); that value is still shown as a fallback until the first save, which moves it here. Source: `src/views/write-panel.ts`, writer `updateNextUp`.
+
 ### `inkswell.series` — series membership
-`name` (string; books sharing a name form one series) · `order` (number, 1-based). A series is implicit — there is no series note. **Rename series** (`src/series/series-ops.ts`) rewrites `name` on every draft carrying the old name (sibling drafts byte-copy the tag) and every codex note's `codex-series`; **Reorder books** rewrites `order` as 1..n across the series; a book joining a series defaults to `max(order) + 1`.
+`name` (string; books sharing a name form one series) · `order` (number ≥ 0; may be fractional, e.g. `0` for a prequel or `1.5` for a novella — sorted numerically). A series is implicit — there is no series note. **Rename series** (`src/series/series-ops.ts`) rewrites `name` on every draft carrying the old name (sibling drafts byte-copy the tag) and every codex note's `codex-series`; **Reorder books** rewrites `order` as 1..n across the series; a book joining a series defaults to `floor(max(order)) + 1`.
 
 ### `inkswell.beats` — beat sheet
 `template` (a built-in id: `save-the-cat` · `three-act` · `heros-journey` · `seven-point` · `story-circle` · `romancing-the-beat` · `twenty-seven-chapter` · `ten-point` — **or** a user-defined custom-template slug, see below) · `assignments` (map of `beatId → {scenes?: string[], note?: string, done?: boolean}`).
@@ -182,7 +186,7 @@ Types: `text` (default) · `textarea` · `number` (a bare YAML number — the pa
 
 ## E. Plugin-local data (not in any vault note)
 
-For completeness: writing history & baselines, daily word counts, streaks, sprint records, ideas inbox, active project, daily mood, and the "next up" breadcrumb live in the plugin's local `data.json`, **not** in vault frontmatter. They are intentionally outside this compatibility contract (machine-local, not synced as note content).
+For completeness: writing history & baselines, daily word counts, streaks, sprint records, ideas inbox, active project, daily mood, and the writing challenge (`settings.challenge`: `{name, start, end, target}`, dates YYYY-MM-DD inclusive, normalized on load by `normalizeChallenge` in `src/goals/challenge.ts`) live in the plugin's local `data.json`, **not** in vault frontmatter. They are intentionally outside this compatibility contract (machine-local, not synced as note content).
 
 ### E.1 List overrides — `settings.listOverrides` (Customize)
 
@@ -196,6 +200,7 @@ One optional entry per overridable list id, each a `ListOverride`: `{ hidden?: i
 | `publishing` | the publishing checklist (`inkswell.publishing.checklist`) | `pt` (phases `pg`) | yes (`optional?` extra) | yes |
 | `prompts` | writing prompts (ids = `p` + FNV-1a of `phase\|category\|text`) | `wp` | yes (`phase`, `category`) | — |
 | `scene.status` | the six statuses | — | **no** | — |
+| `scene.fields` | the Scene Inspector rows (`status` · `subtitle` · `synopsis` · `pov` · `characters` · `location` · `structure` · `plotlines` · `targetWords` · `color` · `notes` · `inactive`) — display only, scene keys are untouched | — | **no** | — |
 
 Invariants: hiding never touches stored state and hidden items count toward nothing; renames keep the id; custom ids are minted (`newListItemId`), never derived from labels; stale ids in frontmatter are preserved and ignored; reset = delete the list's key. Frontmatter keys above accept custom ids additively — no existing key changes meaning.
 

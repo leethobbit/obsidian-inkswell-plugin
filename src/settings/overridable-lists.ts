@@ -18,7 +18,7 @@ import { PROMPT_CATEGORIES, PromptCategory, PromptExtra, PromptPhase, WRITING_PR
 import { ListItem, ListOverride, ListSpec, normalizeListOverride } from "../lib/list-override";
 import { PUBLISHING_CHECKLIST, PublishingExtra } from "../publishing/checklist-def";
 import { PAGE_GROUPS, SCENE_CHECKPOINTS, STORY_CHECKPOINTS } from "../revisions/audit";
-import { SCENE_STATUSES, statusLabel } from "../scenes/scene-meta";
+import { INSPECTOR_FIELDS, SCENE_STATUSES, statusLabel } from "../scenes/scene-meta";
 
 export type OverridableListId =
   | "audit.scene"
@@ -26,7 +26,8 @@ export type OverridableListId =
   | "audit.page"
   | "publishing"
   | "prompts"
-  | "scene.status";
+  | "scene.status"
+  | "scene.fields";
 
 /** The stored shape — one optional override per list. */
 export interface ListOverrides {
@@ -36,6 +37,7 @@ export interface ListOverrides {
   publishing?: ListOverride<PublishingExtra>;
   prompts?: ListOverride<PromptExtra>;
   "scene.status"?: ListOverride;
+  "scene.fields"?: ListOverride;
 }
 
 /** The settings subset resolvers need (like CodexSettings / FolderSettings). */
@@ -61,6 +63,7 @@ export const LIST_META: Record<OverridableListId, ListMeta> = {
   publishing: { label: "Publishing checklist", idPrefix: "pt", groupPrefix: "pg" },
   prompts: { label: "Writing prompts", idPrefix: "wp" },
   "scene.status": { label: "Scene statuses", idPrefix: "ss" },
+  "scene.fields": { label: "Scene inspector fields", idPrefix: "sf" },
 };
 
 const PHASES: PromptPhase[] = ["draft", "revise"];
@@ -122,6 +125,14 @@ export const SPEC_SCENE_STATUS: ListSpec = {
   uniqueLabels: true,
 };
 
+/** Inspector fields: rename / hide / reorder — each is wired to a fixed scene key. */
+export const SPEC_SCENE_FIELDS: ListSpec = {
+  shipped: INSPECTOR_FIELDS,
+  allowAdded: false,
+  allowGroups: false,
+  allowOrder: true,
+};
+
 /** Sanitize the stored map on load (unknown list ids dropped, each override normalized). */
 export function normalizeListOverrides(raw: unknown): ListOverrides {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
@@ -139,5 +150,7 @@ export function normalizeListOverrides(raw: unknown): ListOverrides {
   if (prompts) out.prompts = prompts;
   const status = normalizeListOverride(rec["scene.status"], SPEC_SCENE_STATUS);
   if (status) out["scene.status"] = status;
+  const fields = normalizeListOverride(rec["scene.fields"], SPEC_SCENE_FIELDS);
+  if (fields) out["scene.fields"] = fields;
   return out;
 }

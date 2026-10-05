@@ -12,6 +12,7 @@ import {
   updateArcTracked,
   updateBeats,
   updateDecisions,
+  updateNextUp,
   updateStyleEntries,
 } from "../src/projects/index-writer";
 import { setAssignment } from "../src/outliner/beats";
@@ -55,6 +56,20 @@ describe("inkswell delta writers (stale-snapshot regression)", () => {
 
   beforeEach(() => {
     app = new FakeApp({ [INDEX_PATH]: INDEX, [SCENE_PATH]: SCENE });
+  });
+
+  it("nextUp: sets, trims, and clears without touching sibling keys", async () => {
+    const file = app.file(INDEX_PATH);
+    await updateBeats(app.asApp(), file, (cur) =>
+      setAssignment(cur, "catalyst", { note: "Keep me." })
+    );
+    await updateNextUp(app.asApp(), file, "  Finish the bridge scene  ");
+    expect(inkswellOf(app)["nextUp"]).toBe("Finish the bridge scene");
+    expect((inkswellOf(app)["beats"] as BeatSheet).assignments["catalyst"]?.note).toBe("Keep me.");
+
+    await updateNextUp(app.asApp(), file, "   ");
+    expect(inkswellOf(app)).not.toHaveProperty("nextUp");
+    expect((inkswellOf(app)["beats"] as BeatSheet).assignments["catalyst"]?.note).toBe("Keep me.");
   });
 
   it("beats: notes written box-after-box from the same pre-state both survive", async () => {

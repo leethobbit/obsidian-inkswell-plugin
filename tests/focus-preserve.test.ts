@@ -163,6 +163,28 @@ describe("preserveFocus", () => {
     expect(rebuilt.value).toBe("a");
   });
 
+  it("never refocuses a rebuilt select on mobile (focus would reopen its picker, #47)", () => {
+    document.body.classList.add("is-mobile");
+    try {
+      const host = scope();
+      const sel = document.createElement("select");
+      tagField(sel, "panel:pick");
+      host.appendChild(sel);
+      sel.focus();
+
+      preserveFocus(host, () => {
+        host.innerHTML = "";
+        const next = document.createElement("select");
+        tagField(next, "panel:pick");
+        host.appendChild(next);
+      });
+
+      expect(document.activeElement).not.toBe(host.querySelector("select"));
+    } finally {
+      document.body.classList.remove("is-mobile");
+    }
+  });
+
   it("number inputs restore value without a setSelectionRange throw", () => {
     const host = scope();
     const num = document.createElement("input");

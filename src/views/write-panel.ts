@@ -23,6 +23,7 @@ import {
   HoverPopover,
   Menu,
   Notice,
+  Platform,
   Scope,
   TFile,
   setIcon,
@@ -52,11 +53,13 @@ import { attachHideMenu } from "../lib/hide-menu";
 import { nearestIndexOf } from "../lib/text-locate";
 import { attachRowMenu } from "../lib/row-menu";
 import { addSceneMenuItems } from "../scenes/scene-actions";
+import { promptNewScene } from "../outliner/create-scene";
 import { PromptModal } from "../ideation/prompt-modal";
 import { writingPrompts } from "../ideation/prompts";
 import { RevisionModal } from "../revisions/revision-modal";
 import { renderEmptyState } from "./panel-kit";
-import { preserveFocus, tagField } from "../lib/focus-preserve";
+import { tagField } from "../lib/focus-preserve";
+import { preserveUi, tagScroller } from "../lib/scroll-preserve";
 import { SceneSession } from "./scene-session";
 import {
   EDITOR_SHORTCUTS,
@@ -75,9 +78,10 @@ import { PlaceholderKind, scanPlaceholders } from "../lib/placeholders";
 import { PromptCategory, PromptPhase } from "../ideation/prompts";
 import { countWords } from "../lib/wordcount";
 import { resolveActive } from "../projects/active-project";
+import { updateNextUp } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
-import { readSceneMeta } from "../scenes/scene-meta";
+import { SceneMeta, readSceneMeta } from "../scenes/scene-meta";
 import { SceneInspector } from "../scenes/scene-inspector";
 import { RightPanel } from "./right-panel";
 import { RevisionSidebar } from "../revisions/revision-sidebar";
@@ -616,7 +620,7 @@ export class WritePanel implements HoverParent {
       this.lastProject = project.vaultPath;
     }
 
-    this.renderNextUp(container);
+    this.renderNextUp(container, project);
 
     const main = container.createDiv({ cls: "inkswell-write__main" });
     // Tap-to-dismiss backdrop for the phone navigator drawer (CSS-hidden until
@@ -655,8 +659,9 @@ export class WritePanel implements HoverParent {
     // editor is focused (an Inspector field's own save triggers the notify that
     // lands here), so the rebuilt columns are wrapped in preserveFocus — the
     // Inspector's tagged fields keep caret + uncommitted text across the
-    // rebuild instead of being recreated from (older) frontmatter.
-    preserveFocus(this.container, () => {
+    // rebuild instead of being recreated from (older) frontmatter. The nav and
+    // right-column scrollers keep their position too (#48).
+    preserveUi(this.container, () => {
       this.renderTopbar();
       if (this.navEl) {
         this.navEl.empty();
@@ -696,6 +701,8 @@ export class WritePanel implements HoverParent {
     const content = col.createDiv({ cls: "inkswell-write__inspcontent" });
     const panel =
       this.rightPanels.find((p) => p.id === this.activeRightPanel) ?? this.rightPanels[0];
+    // Keyed by panel + scene: switching either starts at the top.
+    tagScroller(content, `write-right:${panel.id}:${this.currentFile?.path ?? ""}`);
     panel.render(content, this.currentFile);
   }
 
@@ -817,6 +824,7 @@ export class WritePanel implements HoverParent {
 
   private renderNavigator(parent: HTMLElement, project: Project): void {
     this.navEl = parent.createDiv({ cls: "inkswell-write__nav" });
+    tagScroller(this.navEl, "write-nav");
     this.renderNavRows(this.navEl, project);
   }
 
@@ -859,6 +867,34 @@ export class WritePanel implements HoverParent {
       if (run.chapter && this.navCollapsed.has(run.chapter)) continue;
       for (const { scene, file } of run.rows) this.navSceneRow(nav, project, scene, file);
     }
+
+    // Start the next scene without leaving Write (#47): appended at the end of
+    // the manuscript; a row's menu offers "New scene after this" for elsewhere.
+    const add = nav.createEl("button", { cls: "inkswell-write__addscene", text: "New scene" });
+    add.setAttribute("aria-label", "Create a new scene at the end of this project");
+    add.onclick = () => this.newSceneFromWrite(project);
+  }
+
+  /** Create a scene (optionally after `after`, inheriting its act/chapter) and open it here. */
+  private newSceneFromWrite(project: Project, after?: { title: string; file: TFile }): void {
+    // Keep the chapter run intact: a scene inserted mid-chapter belongs to it.
+    // Only set keys are passed — an undefined key in the patch would clear a
+    // value the scene template provides.
+    const seed: Partial<SceneMeta> = {};
+    if (after) {
+      const { act, chapter } = readSceneMeta(this.app, after.file);
+      if (act) seed.act = act;
+      if (chapter) seed.chapter = chapter;
+    }
+    promptNewScene(this.app, this.store, this.plugin.settings, project, {
+      afterTitle: after?.title,
+      meta: seed,
+      onCreated: (file) => {
+        this.selectedScene = file.path;
+        this.container?.removeClass("nav-open");
+        this.rerender();
+      },
+    });
   }
 
   /** Collapsible chapter header in the navigator. */
@@ -910,6 +946,13 @@ export class WritePanel implements HoverParent {
       // "⋯" on touch. Appended last so the menu button sits after the status.
       attachRowMenu(row, row, () => {
         const menu = new Menu();
+        menu.addItem((i) =>
+          i
+            .setTitle("New scene after this")
+            .setIcon("file-plus")
+            .onClick(() => this.newSceneFromWrite(project, { title: scene.title, file }))
+        );
+        menu.addSeparator();
         addSceneMenuItems(menu, this.app, project, scene.title, file, {
           includeOpen: true,
           plugin: this.plugin,
@@ -1178,17 +1221,29 @@ export class WritePanel implements HoverParent {
   }
 
   private updateCount(): void {
-    if (this.countEl) {
-      this.countEl.setText(this.editor ? `${countWords(this.editor.state.doc.toString())} words` : "");
+    if (!this.countEl) return;
+    const parts: string[] = [];
+    if (this.editor) parts.push(`${countWords(this.editor.state.doc.toString())} words`);
+    // Mobile layouts have no status bar, so today's progress toward the daily
+    // goal would otherwise only be visible in Track (#47).
+    const goal = this.plugin.todayTarget();
+    if (
+      Platform.isMobile &&
+      goal > 0 &&
+      featureEnabled(this.plugin.settings.disabledFeatures, "tracking")
+    ) {
+      parts.push(`today ${this.plugin.tracker.todayWords()}/${goal}`);
     }
+    this.countEl.setText(parts.join(" · "));
   }
 
   /** A live document edit: refresh the visible count, feed the live word count
    *  to the tracker, and (re)arm the session's autosave — typed text reaches
    *  disk within ~2s even if the editor is never blurred again. */
   private onEditorChange(): void {
-    this.updateCount();
+    // Report first so the count's "today" figure includes this edit.
     this.reportLiveCount();
+    this.updateCount();
     this.session?.noteChange();
   }
 
@@ -1250,17 +1305,31 @@ export class WritePanel implements HoverParent {
   }
 
   /**
-   * "Tell tomorrow-you what's next": a single rolling breadcrumb (data.json), shown
-   * at the top of Write so re-entry is fast. Light-touch — empty by default.
+   * "Tell tomorrow-you what's next": a single rolling breadcrumb, shown at the top
+   * of Write so re-entry is fast. Light-touch — empty by default. Stored in the
+   * draft's index note (`inkswell.nextUp`) so it follows the vault between
+   * devices (#47); a pre-1.19 device-local value shows until the first save.
    */
-  private renderNextUp(container: HTMLElement): void {
+  private renderNextUp(container: HTMLElement, project: Project): void {
     const card = container.createDiv({ cls: "inkswell-write__nextup" });
     card.createSpan({ cls: "inkswell-stats__muted", text: "Next up:" });
     const input = card.createEl("input", { type: "text", cls: "inkswell-write__nextupinput" });
     tagField(input, "write:next-up");
-    input.value = this.plugin.tracker.getNextUp();
+    input.value = project.inkswell?.nextUp ?? this.plugin.tracker.getNextUp();
     input.placeholder = "Leave yourself a note for next session…";
-    input.onchange = () => this.plugin.tracker.setNextUp(input.value);
+    input.onchange = () => void this.saveNextUp(project, input.value);
+  }
+
+  private async saveNextUp(project: Project, text: string): Promise<void> {
+    const index = this.app.vault.getAbstractFileByPath(project.vaultPath);
+    if (!(index instanceof TFile)) return;
+    this.plugin.selfWrites.mark(index.path);
+    const result = await tryFileOp(
+      () => updateNextUp(this.app, index, text),
+      "Couldn't save the next-up note."
+    );
+    // Migrated: retire the legacy device-local copy.
+    if (result !== null && this.plugin.tracker.getNextUp()) this.plugin.tracker.setNextUp("");
   }
 
   /** Open the revision-issue modal anchored to the scene currently being written. */

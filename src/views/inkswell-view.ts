@@ -12,6 +12,7 @@
 import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 import { isMobileApp, isPhone, renderPhoneRedirect } from "../lib/platform";
 import { preserveFocus } from "../lib/focus-preserve";
+import { preserveScroll, preserveUi, tagScroller } from "../lib/scroll-preserve";
 import { MarkKind } from "../lib/inline-format";
 import { KeyboardWatcher } from "./phone/keyboard-watch";
 import { createDraft, deleteDraft, renameDraft } from "../projects/draft-actions";
@@ -626,8 +627,12 @@ export class InkswellView extends ItemView {
     // triggered it and its editor DOM must be left alone — rebuild it and the
     // focused field is destroyed mid-keystroke (caret to 0; on mobile that
     // reads as text entering backwards). Refresh only what the panel needs.
-    if (changed && this.plugin.selfWrites.coveredBy(changed) && this.softRefreshActive()) {
-      return;
+    // The soft refresh rebuilds panes inside the page scroller; wrap it so a
+    // field near the bottom doesn't snap the page to the top (#48).
+    if (changed && this.plugin.selfWrites.coveredBy(changed)) {
+      let handled = false;
+      preserveScroll(this.body, () => (handled = this.softRefreshActive()));
+      if (handled) return;
     }
 
     // Don't rebuild the body while the user is typing inside it — that would
@@ -688,7 +693,10 @@ export class InkswellView extends ItemView {
     // Safety net for a rebuild that fires while a field is somehow still
     // focused (the guard above depends on activeElement, which mobile webviews
     // report unreliably): carry focus, caret, and un-committed text across.
-    preserveFocus(this.body, () => {
+    // The page scroller is restored too, but only when the rebuild shows the
+    // same screen (its tag names mode + sub-tab + drill-down) — navigating
+    // elsewhere still lands at the top.
+    preserveUi(this.body, () => {
       this.renderedMode = this.mode;
       this.body.empty();
       this.inspectorEl = null;
@@ -712,15 +720,23 @@ export class InkswellView extends ItemView {
       // Main row: content + optional Scene Inspector (Home & Write).
       const main = this.body.createDiv({ cls: "inkswell-main" });
       const content = main.createDiv({ cls: "inkswell-content" });
+      tagScroller(content, this.contentScrollKey());
       this.renderContent(content);
 
       // Home shows the host's active-file Inspector as a second column — wide
       // screens only. On phones the inspector is a drill-down screen (renderContent).
       if (this.mode === "home" && !isPhone()) {
         this.inspectorEl = main.createDiv({ cls: "inkswell-inspector-col" });
+        tagScroller(this.inspectorEl, `home-inspector:${this.activeFile?.path ?? ""}`);
         this.updateInspector();
       }
     });
+  }
+
+  /** Identity of the screen the page scroller shows, so a rebuild restores
+   *  its position only when it re-renders that same screen. */
+  private contentScrollKey(): string {
+    return `content:${this.mode}:${this.effectiveSubtab(this.mode) ?? ""}:${this.detail[this.mode] ?? ""}`;
   }
 
   /** True while an editable field inside the body has focus. */
