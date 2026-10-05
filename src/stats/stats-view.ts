@@ -335,6 +335,19 @@ export class StatsPanel {
     this.tallyBars(body, tallyBy(metas.map((m) => m.status), statusOrder), (k) =>
       SCENE_STATUSES.includes(k as never) ? statusLabel(k as never, statusOverride) : k
     );
+    // POV balance for multi-POV books (#47) — most-used first; skipped entirely
+    // when no scene names a POV, so single-POV drafts see no noise.
+    const povs = metas.map((m) => m.pov?.trim() || undefined);
+    if (povs.some((p) => p)) {
+      body.createDiv({ cls: "inkswell-stats__muted", text: "By POV" });
+      const povTally = tallyBy(povs);
+      const povOrder = povTally
+        .filter((t) => t.key !== "None")
+        .sort((a, b) => b.count - a.count)
+        .map((t) => t.key);
+      this.tallyBars(body, tallyBy(povs, povOrder));
+    }
+
     body.createDiv({ cls: "inkswell-stats__muted", text: "By act" });
     // Order acts by first appearance in manuscript order (metas is in scene
     // order), matching the Board and the compile group-by-chapter step — not
