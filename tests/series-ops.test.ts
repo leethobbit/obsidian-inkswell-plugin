@@ -32,6 +32,13 @@ describe("nextBookOrder", () => {
     ];
     expect(nextBookOrder(books)).toBe(5);
   });
+
+  it("follows a fractional or zero number with the next whole number", () => {
+    expect(nextBookOrder([project("P", { name: "S", order: 0 })])).toBe(1);
+    expect(
+      nextBookOrder([project("A", { name: "S", order: 1 }), project("N", { name: "S", order: 1.5 })])
+    ).toBe(2);
+  });
 });
 
 describe("planSeriesRename", () => {

@@ -97,7 +97,7 @@ ISO 8601 string, stamped when a draft is created via **New draft** (a draft's ow
 Optional string: the note-to-next-session shown at the top of Write. Per draft (byte-copied into a new draft). Absent/empty = no note. Before 1.19 it lived device-locally in data.json (`writingLog.nextUp`); that value is still shown as a fallback until the first save, which moves it here. Source: `src/views/write-panel.ts`, writer `updateNextUp`.
 
 ### `inkswell.series` — series membership
-`name` (string; books sharing a name form one series) · `order` (number, 1-based). A series is implicit — there is no series note. **Rename series** (`src/series/series-ops.ts`) rewrites `name` on every draft carrying the old name (sibling drafts byte-copy the tag) and every codex note's `codex-series`; **Reorder books** rewrites `order` as 1..n across the series; a book joining a series defaults to `max(order) + 1`.
+`name` (string; books sharing a name form one series) · `order` (number ≥ 0; may be fractional, e.g. `0` for a prequel or `1.5` for a novella — sorted numerically). A series is implicit — there is no series note. **Rename series** (`src/series/series-ops.ts`) rewrites `name` on every draft carrying the old name (sibling drafts byte-copy the tag) and every codex note's `codex-series`; **Reorder books** rewrites `order` as 1..n across the series; a book joining a series defaults to `floor(max(order)) + 1`.
 
 ### `inkswell.beats` — beat sheet
 `template` (a built-in id: `save-the-cat` · `three-act` · `heros-journey` · `seven-point` · `story-circle` · `romancing-the-beat` · `twenty-seven-chapter` · `ten-point` — **or** a user-defined custom-template slug, see below) · `assignments` (map of `beatId → {scenes?: string[], note?: string, done?: boolean}`).

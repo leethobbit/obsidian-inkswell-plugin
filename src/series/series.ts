@@ -19,9 +19,11 @@ export function readSeriesInfo(raw: unknown): SeriesInfo | null {
   const r = raw as Record<string, unknown>;
   const name = typeof r.name === "string" ? r.name.trim() : "";
   if (!name) return null;
+  // 0 and fractions are real series conventions (a "Book 0" prequel, a
+  // "Book 1.5" novella), so any finite number ≥ 0 is kept as written.
   const order =
-    typeof r.order === "number" && Number.isFinite(r.order) && r.order > 0
-      ? Math.floor(r.order)
+    typeof r.order === "number" && Number.isFinite(r.order) && r.order >= 0
+      ? r.order
       : undefined;
   return { name, order };
 }

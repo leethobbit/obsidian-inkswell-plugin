@@ -151,7 +151,7 @@ export class ReorderBooksModal extends FormModal {
     contentEl.createEl("h3", { text: `Reorder books — ${this.series.name}` });
     contentEl.createEl("p", {
       cls: "inkswell-stats__muted",
-      text: "Drag to reorder, or use a row's ⋯ menu. Books are renumbered 1, 2, 3… on save.",
+      text: "Drag to reorder, or use a row's ⋯ menu. Books are renumbered 1, 2, 3… on save, replacing any 0 or 0.5 numbers.",
     });
     this.list = contentEl.createDiv();
     this.renderList();
