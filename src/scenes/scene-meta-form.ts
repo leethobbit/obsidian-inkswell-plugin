@@ -331,7 +331,7 @@ export function renderSceneMetaFields(
     if (meta.notes === undefined && app.metadataCache.getFileCache(file)?.frontmatter?.["notes"] != null) {
       // Another tool stored non-text under `notes` — don't offer to overwrite it.
       ta.disabled = true;
-      ta.placeholder = "This scene's notes property isn't plain text — edit it in Properties.";
+      ta.placeholder = "This scene's notes property isn't plain text, so it's read-only here.";
       return;
     }
     ta.value = meta.notes ?? "";

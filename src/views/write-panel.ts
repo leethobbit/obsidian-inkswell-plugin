@@ -870,7 +870,7 @@ export class WritePanel implements HoverParent {
 
     // Start the next scene without leaving Write (#47): appended at the end of
     // the manuscript; a row's menu offers "New scene after this" for elsewhere.
-    const add = nav.createEl("button", { cls: "inkswell-write__addscene", text: "+ New scene" });
+    const add = nav.createEl("button", { cls: "inkswell-write__addscene", text: "New scene" });
     add.setAttribute("aria-label", "Create a new scene at the end of this project");
     add.onclick = () => this.newSceneFromWrite(project);
   }
