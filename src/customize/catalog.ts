@@ -47,6 +47,7 @@ export const CUSTOMIZE_CATALOG: CustomizeEntry[] = [
   { id: "beat-templates", label: "Beat templates", icon: "list-ordered", group: "plan", feature: "beats" },
   { id: "scene-template", label: "Scene template", icon: "file-plus", group: "write" },
   { id: "scene-statuses", label: "Scene statuses", icon: "tag", group: "write" },
+  { id: "scene-fields", label: "Scene inspector fields", icon: "panel-right", group: "write" },
   { id: "writing-prompts", label: "Writing prompts", icon: "lightbulb", group: "write", feature: "prompts" },
   { id: "revision-checklists", label: "Revision checklists", icon: "list-checks", group: "revise", feature: "audit" },
   { id: "publishing-checklist", label: "Publishing checklist", icon: "clipboard-check", group: "publish", feature: "checklist" },

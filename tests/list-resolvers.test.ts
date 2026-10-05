@@ -22,8 +22,10 @@ import { PUBLISHING_CHECKLIST, publishingChecklist } from "../src/publishing/che
 import { overallProgress, phaseProgress } from "../src/publishing/publishing-data";
 import { WRITING_PROMPTS, pickPrompt, promptId, writingPrompts } from "../src/ideation/prompts";
 import {
+  INSPECTOR_FIELDS,
   SCENE_STATUSES,
   defaultNewSceneStatus,
+  inspectorFields,
   sceneStatuses,
   statusLabel,
   visibleStatuses,
@@ -152,6 +154,33 @@ describe("scene statuses (rename / hide / reorder only)", () => {
     expect(cols.map((c) => c.key)).toEqual(["draft", "written", "revised", "final", "idea", ""]);
     expect(cols.find((c) => c.key === "idea")?.label).toBe("Idea (hidden)");
     expect(cols.some((c) => c.key === "outlined")).toBe(false);
+  });
+});
+
+describe("scene inspector fields (rename / hide / reorder only)", () => {
+  it("defaults to the shipped layout, nothing hidden", () => {
+    const fields = inspectorFields();
+    expect(fields.map((f) => f.id)).toEqual(INSPECTOR_FIELDS.map((f) => f.id));
+    expect(fields.every((f) => !f.hidden)).toBe(true);
+  });
+
+  it("applies hide, rename, and order; ignores stale ids", () => {
+    const fields = inspectorFields({
+      hidden: ["subtitle", "gone"],
+      labels: { notes: "Outline" },
+      order: ["notes", "status"],
+    });
+    expect(fields[0]).toEqual({ id: "notes", label: "Outline", hidden: false });
+    expect(fields[1].id).toBe("status");
+    expect(fields.find((f) => f.id === "subtitle")?.hidden).toBe(true);
+    expect(fields).toHaveLength(INSPECTOR_FIELDS.length);
+  });
+
+  it("normalizes: no added fields survive (each row is wired to a fixed key)", () => {
+    const out = normalizeListOverrides({
+      "scene.fields": { hidden: ["subtitle"], added: [{ id: "sf-1", label: "Mood" }] },
+    });
+    expect(out["scene.fields"]).toEqual({ hidden: ["subtitle"] });
   });
 });
 

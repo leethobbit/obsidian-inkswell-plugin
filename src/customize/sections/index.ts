@@ -11,6 +11,7 @@ import { codexTypesSection } from "./codex-types";
 import { featuresSection } from "./features";
 import { publishingChecklistSection } from "./publishing-checklist";
 import { revisionChecklistsSection } from "./revision-checklists";
+import { sceneFieldsSection } from "./scene-fields";
 import { sceneStatusesSection } from "./scene-statuses";
 import { sceneTemplateSection } from "./scene-template";
 import { writingPromptsSection } from "./writing-prompts";
@@ -20,6 +21,7 @@ export const SECTIONS: Record<string, CustomizeSection> = {
   [beatTemplatesSection.id]: beatTemplatesSection,
   [sceneTemplateSection.id]: sceneTemplateSection,
   [sceneStatusesSection.id]: sceneStatusesSection,
+  [sceneFieldsSection.id]: sceneFieldsSection,
   [writingPromptsSection.id]: writingPromptsSection,
   [revisionChecklistsSection.id]: revisionChecklistsSection,
   [publishingChecklistSection.id]: publishingChecklistSection,

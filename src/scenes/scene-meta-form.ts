@@ -18,8 +18,11 @@ import { readSceneAudit, writeSceneAudit } from "../revisions/audit-meta";
 import { OPENING_LABEL, OPENING_TYPES, OpeningType } from "../revisions/openings";
 import { distinctInOrder } from "../outliner/structure";
 import {
+  InspectorFieldDef,
+  InspectorFieldId,
   SceneMeta,
   StatusDef,
+  inspectorFields,
   readSceneMeta,
   sceneStatuses,
   updateSceneList,
@@ -110,7 +113,9 @@ export function renderSceneMetaFields(
   /** Full project list — needed to widen the scope vantage to the whole story. */
   allProjects: Project[] = project ? [project] : [],
   /** Effective statuses (`sceneStatuses(override)`); shipped by default. */
-  statuses: readonly StatusDef[] = sceneStatuses()
+  statuses: readonly StatusDef[] = sceneStatuses(),
+  /** Effective field layout (`inspectorFields(override)`); shipped by default. */
+  fields: readonly InspectorFieldDef[] = inspectorFields()
 ): void {
   const meta = readSceneMeta(app, file);
   const save = (patch: Partial<SceneMeta>) => {
@@ -134,8 +139,14 @@ export function renderSceneMetaFields(
     scopeContextForProject(project, allProjects)
   );
 
-  // Status
-  field(container, "Status", (host) => {
+  // One renderer per field; the writer's Customize layout picks which run,
+  // in what order, under what label (hidden fields keep their stored values).
+  const render: Record<InspectorFieldId, (label: string) => void> = {} as Record<
+    InspectorFieldId,
+    (label: string) => void
+  >;
+
+  render.status = (label) => field(container, label, (host) => {
     const sel = host.createEl("select", { cls: "dropdown" });
     tagField(sel, "scene:status");
     sel.createEl("option", { text: "— none —", value: "" });
@@ -153,8 +164,7 @@ export function renderSceneMetaFields(
     sel.onchange = () => save({ status: (sel.value || undefined) as SceneMeta["status"] });
   });
 
-  // Subtitle
-  field(container, "Subtitle", (host) => {
+  render.subtitle = (label) => field(container, label, (host) => {
     const t = host.createEl("input", { type: "text" });
     tagField(t, "scene:subtitle");
     t.value = meta.subtitle ?? "";
@@ -162,8 +172,7 @@ export function renderSceneMetaFields(
     t.onchange = () => save({ subtitle: t.value });
   });
 
-  // Synopsis
-  field(container, "Synopsis", (host) => {
+  render.synopsis = (label) => field(container, label, (host) => {
     const ta = host.createEl("textarea", { cls: "inkswell-inspector__textarea" });
     tagField(ta, "scene:synopsis");
     ta.rows = 3;
@@ -175,7 +184,7 @@ export function renderSceneMetaFields(
 
   // POV — suggests codex characters (typo-free, discoverable) but stays free
   // text, since POV can also be a narrative mode ("Omniscient", "First person").
-  field(container, "POV", (host) => {
+  render.pov = (label) => field(container, label, (host) => {
     const t = host.createEl("input", { type: "text" });
     tagField(t, "scene:pov");
     t.value = meta.pov ?? "";
@@ -220,12 +229,12 @@ export function renderSceneMetaFields(
   };
 
   // Characters (linked codex entities)
-  field(container, "Characters", (host) =>
+  render.characters = (label) => field(container, label, (host) =>
     linkChips(host, "characters", "character", meta.characters ?? [], "+ add character", "No characters in codex.")
   );
 
   // Locations (linked codex entities; several allowed since 1.18 — #44)
-  field(container, "Location", (host) =>
+  render.location = (label) => field(container, label, (host) =>
     linkChips(host, "location", "location", meta.location ?? [], "+ add location", "No locations in codex.")
   );
 
@@ -236,7 +245,7 @@ export function renderSceneMetaFields(
 
   // Act + Chapter — free text, but suggest existing labels (and planned groups)
   // so users reuse chapters/acts instead of creating typo'd phantom ones.
-  field(container, "Act / Chapter", (host) => {
+  render.structure = (label) => field(container, label, (host) => {
     const row = host.createDiv({ cls: "inkswell-inspector__pair" });
     const suggest = (input: HTMLInputElement, kind: "act" | "chapter") => {
       // iOS WebKit turns a datalist into a picker that fights typing a new
@@ -267,8 +276,9 @@ export function renderSceneMetaFields(
   // Plotlines — plain titles from the project's plotline list (Plan → Grid).
   // Same chips pattern as Characters, but titles are strings, not wikilinks.
   // Hidden when the Plot grid feature is off (its data is kept, just not shown).
-  if (featureEnabled(disabledFeatures, "plot-grid"))
-    field(container, "Plotlines", (host) => {
+  render.plotlines = (label) => {
+    if (!featureEnabled(disabledFeatures, "plot-grid")) return;
+    field(container, label, (host) => {
       const current = meta.plotlines ?? [];
       const configured = (project?.inkswell?.plotlines ?? []).map((p) => p.title);
       renderChipList(host, {
@@ -286,9 +296,9 @@ export function renderSceneMetaFields(
         onRemove: (title) => saveList("plotlines", (cur) => cur.filter((t) => t !== title)),
       });
     });
+  };
 
-  // Target words
-  field(container, "Target words", (host) => {
+  render.targetWords = (label) => field(container, label, (host) => {
     const t = host.createEl("input", { type: "number" });
     tagField(t, "scene:target-words");
     t.value = meta.targetWords ? String(meta.targetWords) : "";
@@ -299,8 +309,7 @@ export function renderSceneMetaFields(
     };
   });
 
-  // Color
-  field(container, "Color", (host) => {
+  render.color = (label) => field(container, label, (host) => {
     const row = host.createDiv({ cls: "inkswell-inspector__swatches" });
     for (const c of COLORS) {
       const sw = row.createDiv({ cls: "inkswell-swatch" });
@@ -313,14 +322,39 @@ export function renderSceneMetaFields(
     clear.onclick = () => save({ color: undefined });
   });
 
-  // Inactive
-  field(container, "", (host) => {
-    const label = host.createEl("label", { cls: "inkswell-inspector__toggle" });
-    const cb = label.createEl("input", { type: "checkbox" });
+  // Working notes — an outline to draft against (#49). Its own field, not the
+  // synopsis: the synopsis feeds Board cards and the Outline.
+  render.notes = (label) => field(container, label, (host) => {
+    const ta = host.createEl("textarea", { cls: "inkswell-inspector__textarea" });
+    tagField(ta, "scene:notes");
+    ta.rows = 4;
+    if (meta.notes === undefined && app.metadataCache.getFileCache(file)?.frontmatter?.["notes"] != null) {
+      // Another tool stored non-text under `notes` — don't offer to overwrite it.
+      ta.disabled = true;
+      ta.placeholder = "This scene's notes property isn't plain text — edit it in Properties.";
+      return;
+    }
+    ta.value = meta.notes ?? "";
+    ta.placeholder = "Outline, reminders, anything to keep beside the draft…";
+    ta.onchange = () => save({ notes: ta.value });
+    autosizeTextarea(ta);
+  });
+
+  // Archived — a checkbox row; the label reads as its caption.
+  render.inactive = (label) => field(container, "", (host) => {
+    const row = host.createEl("label", { cls: "inkswell-inspector__toggle" });
+    const cb = row.createEl("input", { type: "checkbox" });
     cb.checked = !!meta.inactive;
     cb.onchange = () => save({ inactive: cb.checked });
-    label.createSpan({ text: "Archived / inactive (excluded from compile & stats)" });
+    row.createSpan({
+      text:
+        label === "Archived"
+          ? "Archived / inactive (excluded from compile & stats)"
+          : `${label} (excluded from compile & stats)`,
+    });
   });
+
+  for (const f of fields) if (!f.hidden) render[f.id](f.label);
 }
 
 /**

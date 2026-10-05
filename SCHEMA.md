@@ -55,6 +55,7 @@ Flat top-level keys on each scene file. Field names match StoryLine where they o
 | `location` | wikilink \| wikilink[] | Linked codex location(s). Since 1.18 a scene may link **several** (a YAML list of wikilinks); one location is always written as the plain string (byte-identical to pre-1.18 output). Readers fold a string into a one-element list; pre-1.18 readers treat a list as unset. |
 | `plotlines` | string[] | Plotlines this scene advances — plain titles matching `inkswell.plotlines` entries (like `act`/`chapter` strings, NOT wikilinks) |
 | `targetWords` | number | Per-scene word-count target |
+| `notes` | string (multiline) | Free-form working notes shown in the Scene Inspector (since 1.19) — e.g. an outline to draft against. Only a string is read or written; a non-text `notes` value from another tool is left untouched and the field is shown disabled. |
 
 ### Scene note — `rev*` revision-audit keys
 
@@ -199,6 +200,7 @@ One optional entry per overridable list id, each a `ListOverride`: `{ hidden?: i
 | `publishing` | the publishing checklist (`inkswell.publishing.checklist`) | `pt` (phases `pg`) | yes (`optional?` extra) | yes |
 | `prompts` | writing prompts (ids = `p` + FNV-1a of `phase\|category\|text`) | `wp` | yes (`phase`, `category`) | — |
 | `scene.status` | the six statuses | — | **no** | — |
+| `scene.fields` | the Scene Inspector rows (`status` · `subtitle` · `synopsis` · `pov` · `characters` · `location` · `structure` · `plotlines` · `targetWords` · `color` · `notes` · `inactive`) — display only, scene keys are untouched | — | **no** | — |
 
 Invariants: hiding never touches stored state and hidden items count toward nothing; renames keep the id; custom ids are minted (`newListItemId`), never derived from labels; stale ids in frontmatter are preserved and ignored; reset = delete the list's key. Frontmatter keys above accept custom ids additively — no existing key changes meaning.
 
