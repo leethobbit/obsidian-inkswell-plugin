@@ -4,7 +4,7 @@
  * Inspector (side column) and the "Edit scene" modal, so the two stay in sync.
  */
 
-import { App, TFile } from "obsidian";
+import { App, Platform, TFile } from "obsidian";
 import { tryFileOp } from "../lib/notify";
 import { tagField } from "../lib/focus-preserve";
 import { autosizeTextarea } from "../lib/form-fields";
@@ -239,6 +239,9 @@ export function renderSceneMetaFields(
   field(container, "Act / Chapter", (host) => {
     const row = host.createDiv({ cls: "inkswell-inspector__pair" });
     const suggest = (input: HTMLInputElement, kind: "act" | "chapter") => {
+      // iOS WebKit turns a datalist into a picker that fights typing a new
+      // label (#47); there the field is plain free text.
+      if (Platform.isIosApp) return;
       const labels = structureLabels(app, project, kind);
       if (labels.length === 0) return;
       const listId = `inkswell-${kind}-${structureListSeq++}`;
