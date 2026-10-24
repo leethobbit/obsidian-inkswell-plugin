@@ -145,7 +145,6 @@ describe("buildWorkChips", () => {
 
   it("labels and orders marker chips from the writer's set — hidden ones still count", () => {
     const set = markerSet({
-      labels: { research: "Fact check" },
       hidden: ["research"],
       order: ["mk-1"],
       added: [{ id: "mk-1", label: "Check", keyword: "CHECK" }],
@@ -155,7 +154,7 @@ describe("buildWorkChips", () => {
       [],
       set
     );
-    expect(chips.map((c) => c.label)).toEqual(["All", "Check", "TODO", "Fact check"]);
+    expect(chips.map((c) => c.label)).toEqual(["All", "Check", "TODO", "Research"]);
   });
 });
 

@@ -185,6 +185,10 @@ export interface ListSpec<X = object> {
   allowAdded: boolean;
   allowGroups: boolean;
   allowOrder: boolean;
+  /** Shipped items may be renamed (default true). False drops stored `labels`
+   *  — for lists whose shipped label must match what the item inserts (to-do
+   *  markers: a "Fact check" button that types `[RESEARCH: ]` misleads). */
+  allowRename?: boolean;
   /** Effective labels must be unique (case-insensitive), e.g. board columns. */
   uniqueLabels?: boolean;
   /** Validate/parse an added item's list-specific fields; null rejects the item. */
@@ -238,7 +242,8 @@ export function normalizeListOverride<X = object>(
 
   const takenLabels = new Set<string>();
   const labels: Record<string, string> = {};
-  if (rec["labels"] && typeof rec["labels"] === "object" && !Array.isArray(rec["labels"])) {
+  const renamable = spec.allowRename !== false;
+  if (renamable && rec["labels"] && typeof rec["labels"] === "object" && !Array.isArray(rec["labels"])) {
     for (const [id, v] of Object.entries(rec["labels"] as Record<string, unknown>)) {
       const label = str(v);
       if (!label || !shippedIds.has(id) || shippedLabels.get(id) === label) continue;

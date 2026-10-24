@@ -138,17 +138,20 @@ export const SPEC_SCENE_FIELDS: ListSpec = {
 };
 
 /**
- * To-do markers: rename / hide / reorder the shipped five, add your own. The
- * keyword lives in prose, so it's validated here and never editable after the
- * marker exists; a shipped marker's keyword is fixed (`markerSet` ignores any
- * stored `extras.keyword`). Keyword uniqueness across items is enforced by
- * `markerSet` (first claim wins) and at creation in Customize.
+ * To-do markers: hide / reorder the shipped five, add your own. The keyword
+ * lives in prose, so it's validated here and never editable after the marker
+ * exists; a shipped marker's keyword is fixed (`markerSet` ignores any stored
+ * `extras.keyword`). Shipped markers can't be renamed either: the button must
+ * say what it types — a writer who wants another word adds their own marker.
+ * Keyword uniqueness across items is enforced by `markerSet` (first claim wins)
+ * and at creation in Customize.
  */
 export const SPEC_MARKERS: ListSpec<MarkerExtra> = {
   shipped: SHIPPED_MARKERS,
   allowAdded: true,
   allowGroups: false,
   allowOrder: true,
+  allowRename: false,
   // No uniqueLabels: the keyword is the identity, and a clashing label would be
   // dropped silently at save (the add flow can't see the label it validates).
   parseExtra: (rec) => {

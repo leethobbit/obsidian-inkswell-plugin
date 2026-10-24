@@ -77,7 +77,7 @@ export const HINTS: Record<string, HintEntry> = {
       p(
         el,
         "Want your own word, like [CHECK: ] or [TK: ]? Add it under Customize → To-do markers, " +
-          "where you can also rename or hide the built-in ones."
+          "where you can also hide the built-in ones."
       );
     },
   },

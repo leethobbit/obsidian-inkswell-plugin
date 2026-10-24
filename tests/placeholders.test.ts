@@ -175,14 +175,15 @@ describe("markerSet — the writer's override", () => {
     expect(kinds("[LATER]", set)).toEqual([]);
   });
 
-  it("renames are display-only; order follows the override", () => {
-    const set = markerSet({
-      labels: { research: "Fact check" },
-      order: ["mk-1", "todo"],
-      added: [custom("mk-1", "TK", "TK")],
-    });
-    expect(set.byId.get("research")).toMatchObject({ label: "Fact check", keyword: "RESEARCH" });
+  it("shipped markers keep their shipped names — a stray stored label is ignored", () => {
+    const set = markerSet({ labels: { research: "Fact check" } });
+    expect(set.byId.get("research")).toMatchObject({ label: "Research", keyword: "RESEARCH" });
+  });
+
+  it("order follows the override; a custom marker keeps its own label", () => {
+    const set = markerSet({ order: ["mk-1", "todo"], added: [custom("mk-1", "To come", "TK")] });
     expect(set.defs.map((d) => d.id).slice(0, 3)).toEqual(["mk-1", "todo", "research"]);
+    expect(set.byId.get("mk-1")?.label).toBe("To come");
   });
 
   it("builds a valid matcher for hyphenated keywords (no `\\-` under the u flag)", () => {

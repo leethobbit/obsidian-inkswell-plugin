@@ -1,12 +1,14 @@
 /**
- * Customize → To-do markers: rename how the shipped markers are labeled, hide
- * the ones you never use, and add your own (`[CHECK: …]`, `[TK: …]`).
+ * Customize → To-do markers: hide or reorder the shipped markers, and add your
+ * own (`[CHECK: …]`, `[TK: …]`).
  *
  * The keyword is the contract — it's what the writer typed into their prose —
- * so it's shown read-only: a shipped marker's keyword never changes, and a
- * custom one is fixed at creation. Hiding only takes a marker out of the insert
- * UI; it's still found in To-dos and still stripped by compile. Removing a
- * custom marker is the one lossy act, so it confirms first.
+ * so it's shown read-only: a shipped marker's keyword (and name) never
+ * changes, and a custom one's keyword is fixed at creation. Shipped markers
+ * can't be renamed because a button must say what it types; another word means
+ * your own marker. Hiding only takes a marker out of the insert UI; it's still
+ * found in To-dos and still stripped by compile. Removing a custom marker is
+ * the one lossy act, so it confirms first.
  */
 
 import { Notice } from "obsidian";
@@ -44,10 +46,10 @@ export const todoMarkersSection: CustomizeSection = {
       noun: "marker",
       intro:
         "Markers you drop into your prose to come back to later — [TODO: …], [RESEARCH: …] and the " +
-        "rest — then find in Revise → To-dos. Compiling removes them all. Renaming a marker changes " +
-        "its name in menus and To-dos; the word you type in your scenes stays the same. To type a " +
-        "different word, add your own marker. Hiding a marker only takes it out of the Insert menu: " +
-        "markers already in your scenes are still found and still removed when you compile.",
+        "rest — then find in Revise → To-dos. Compiling removes them all. To use a different word, " +
+        "add your own marker (and hide the built-in one if you like). Hiding a marker only takes it " +
+        "out of the Insert menu: markers already in your scenes are still found and still removed " +
+        "when you compile.",
       newItemExtra: async () => {
         const raw = await promptText(ctx.app, {
           title: "Word to type in your scenes (e.g. CHECK)",

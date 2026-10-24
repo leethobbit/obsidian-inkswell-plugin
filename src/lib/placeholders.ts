@@ -19,9 +19,10 @@
  *
  * The KEYWORD is the contract: it lives in the writer's prose, so a keyword that
  * stops being recognized leaks its markers into the compiled manuscript. Hence:
- * the shipped five are recognized forever, a hidden marker is still matched
- * (and stripped) — hiding only takes it out of the insert UI — and a custom
- * marker's keyword never changes after it's created (its label may).
+ * the shipped five are recognized forever (and keep their names — no renames),
+ * a hidden marker is still matched (and stripped) — hiding only takes it out of
+ * the insert UI — and a custom marker's keyword never changes after it's
+ * created (its label may).
  *
  * Tokens are single-line by design: the content matches any text EXCEPT a closing
  * bracket or newline. This keeps highlighting to a clean single-line mark and
@@ -159,7 +160,9 @@ export function markerSet(override: ListOverride<MarkerExtra> | undefined): Mark
     (it): MarkerDef => ({
       id: it.id,
       keyword: it.custom ? it.extra.keyword : shippedKeyword.get(it.id) ?? "",
-      label: it.label,
+      // Shipped markers keep their shipped name (no renames — SPEC_MARKERS):
+      // a stray stored label must never make a button lie about what it types.
+      label: it.custom ? it.label : it.shippedLabel ?? it.label,
       custom: it.custom,
       hidden: it.hidden,
     })

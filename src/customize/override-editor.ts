@@ -1,10 +1,11 @@
 /**
  * The generic editor for one overridable list (Customize → Scene statuses,
- * Writing prompts, Revision checklists, Publishing checklist). Renders the
- * EFFECTIVE list — shipped + the writer's override — as a reorderable list
- * editor: rename inline, hide/show and remove from the row menu, add customs,
- * reset. Grouped lists render one list per group with group rename/hide and
- * custom groups.
+ * Writing prompts, Revision checklists, Publishing checklist, To-do markers).
+ * Renders the EFFECTIVE list — shipped + the writer's override — as a
+ * reorderable list editor: rename inline (shipped items only when the spec
+ * allows it), hide/show and remove from the row menu, add customs, reset.
+ * Grouped lists render one list per group with group rename/hide and custom
+ * groups.
  *
  * Persistence: every edit → override op → normalize against the list's spec →
  * `settings.listOverrides[id]` → saveSettings → ctx.rerender(). Consumers read
@@ -191,11 +192,18 @@ function renderItems<X extends object>(
     rowClass: (it) => `${it.hidden ? "is-hidden" : ""} ${it.custom ? "is-custom" : ""}`.trim() || undefined,
     locked: (it) => !it.custom,
     renderRow(el, it) {
-      const label = taggedInput(el, `${prefix}:label:${it.id}`, { type: "text" });
-      label.value = it.label;
-      label.setAttribute("aria-label", `${opts.noun} label`);
-      label.onchange = () => save(ops.setItemLabel(o, it.id, label.value, it.shippedLabel));
-      if (it.shippedLabel && it.shippedLabel !== it.label) {
+      // A list that forbids renaming shipped items shows their SHIPPED name as
+      // text (a stray stored label is ignored here, as in the resolver).
+      const fixed = spec.allowRename === false && !it.custom;
+      if (fixed) {
+        el.createSpan({ cls: "inkswell-customize__fixedlabel", text: it.shippedLabel ?? it.label });
+      } else {
+        const label = taggedInput(el, `${prefix}:label:${it.id}`, { type: "text" });
+        label.value = it.label;
+        label.setAttribute("aria-label", `${opts.noun} label`);
+        label.onchange = () => save(ops.setItemLabel(o, it.id, label.value, it.shippedLabel));
+      }
+      if (!fixed && it.shippedLabel && it.shippedLabel !== it.label) {
         el.createSpan({ cls: "inkswell-stats__muted inkswell-customize__was", text: `was “${it.shippedLabel}”` });
       }
       if (it.custom) el.createSpan({ cls: "inkswell-customize__badge", text: "yours" });
@@ -209,7 +217,7 @@ function renderItems<X extends object>(
           .setIcon(it.hidden ? "eye" : "eye-off")
           .onClick(() => save(ops.setItemHidden(o, it.id, !it.hidden)))
       );
-      if (it.shippedLabel && it.shippedLabel !== it.label) {
+      if (spec.allowRename !== false && it.shippedLabel && it.shippedLabel !== it.label) {
         menu.addItem((i) =>
           i
             .setTitle("Restore shipped name")
