@@ -205,6 +205,34 @@ describe("partitionArchived (Home shelves, archive = out of sight)", () => {
     expect(out.archivedSeries[0].books).toHaveLength(2);
   });
 
+  it("hideInSeries: a partially archived series splits — live books stay, archived ones move under its name", () => {
+    const full = groupIntoSeries([
+      project("Novel One", { name: "World", order: 1 }),
+      archivedBook("Short A", { name: "World", order: 1.1 }),
+      project("Novel Two", { name: "World", order: 2 }),
+      archivedBook("Short B", { name: "World", order: 2.1 }),
+    ]);
+    const out = partitionArchived(full, isArchived, true);
+    expect(out.series.map((s) => [s.name, s.books.map((b) => b.draft.title)])).toEqual([
+      ["World", ["Novel One", "Novel Two"]],
+    ]);
+    expect(out.archivedSeries.map((s) => [s.name, s.books.map((b) => b.draft.title)])).toEqual([
+      ["World", ["Short A", "Short B"]],
+    ]);
+    // Display lists only: the grouping's full series is untouched (numbering/reorder use it).
+    expect(full.series[0].books).toHaveLength(4);
+  });
+
+  it("hideInSeries: a fully archived series still moves once, whole (no empty live shelf)", () => {
+    const out = partitionArchived(
+      groupIntoSeries([archivedBook("One", { name: "Done", order: 1 }), archivedBook("Two", { name: "Done", order: 2 })]),
+      isArchived,
+      true
+    );
+    expect(out.series).toEqual([]);
+    expect(out.archivedSeries.map((s) => s.books.length)).toEqual([2]);
+  });
+
   it("archived standalone books leave the Standalone shelf", () => {
     const out = partitionArchived(groupIntoSeries([project("Live"), archivedBook("Trunk")]), isArchived);
     expect(out.standalone.map((p) => p.draft.title)).toEqual(["Live"]);

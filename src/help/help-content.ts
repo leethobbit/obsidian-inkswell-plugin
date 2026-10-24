@@ -369,7 +369,9 @@ export const HELP_SECTIONS: HelpSection[] = [
         "Archiving a finished or shelved book only puts it out of sight: it leaves the " +
           "shelves and the project list and waits in the Archived section at the bottom " +
           "of Home. Its words still count toward your goals, and it compiles and keeps " +
-          "its codex as before. Unarchive it from its ⋯ menu."
+          "its codex as before. Unarchive it from its ⋯ menu. In a series, an archived " +
+          "book stays on the shelf, dimmed — or turn on “Hide archived books from their " +
+          "series” in Settings to take it off the series shelf entirely."
       );
       p(
         el,

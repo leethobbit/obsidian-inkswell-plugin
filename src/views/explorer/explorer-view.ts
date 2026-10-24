@@ -184,7 +184,15 @@ export class ExplorerPanel {
     // Partitioned AFTER grouping: a partially archived series keeps its shelf
     // (archived books dimmed in place); only a fully archived one moves.
     const archived = archivedStoryTitles(projects);
-    const shelves = partitionArchived({ series, standalone }, (p) => archived.has(p.draft.title));
+    const shelves = partitionArchived(
+      { series, standalone },
+      (p) => archived.has(p.draft.title),
+      this.plugin.settings.hideArchivedInSeries
+    );
+    // Shelves render the partition's DISPLAY lists; their menus ("+ Add book"
+    // numbering, reorder, rename, archive) act on the FULL series.
+    const full = new Map(series.map((s) => [s.name, s] as const));
+    const fullOf = (s: Series): Series => full.get(s.name) ?? s;
     if (shelves.series.length === 0 && shelves.standalone.length === 0 && archived.size > 0) {
       container.createDiv({
         cls: "inkswell-explorer__empty",
@@ -194,20 +202,26 @@ export class ExplorerPanel {
     if (shelves.series.length === 0) {
       this.renderGrid(container, shelves.standalone, null);
     } else {
-      for (const s of shelves.series) this.renderShelf(container, s.name, s.books, s);
+      for (const s of shelves.series) this.renderShelf(container, s.name, s.books, fullOf(s));
       if (shelves.standalone.length > 0) this.renderShelf(container, "Standalone", shelves.standalone, null);
     }
     renderIdeas(container, this.plugin);
-    this.renderArchived(container, shelves.archivedSeries, shelves.archivedStandalone);
+    this.renderArchived(container, shelves.archivedSeries, shelves.archivedStandalone, fullOf);
   }
 
   /**
    * Home's Archived section — out of sight, one click away. Collapsed by
-   * default (`settings.homeArchivedOpen`); holds fully archived series as their
-   * own shelves and archived standalone books, with no "+ Add book" cards.
-   * Cards keep their menus, so Unarchive is where you'd look for it.
+   * default (`settings.homeArchivedOpen`); holds archived series shelves (whole
+   * series, or a live series' archived books under its name) and archived
+   * standalone books, with no "+ Add book" cards. Cards keep their menus, so
+   * Unarchive is where you'd look for it.
    */
-  private renderArchived(parent: HTMLElement, series: Series[], standalone: Project[]): void {
+  private renderArchived(
+    parent: HTMLElement,
+    series: Series[],
+    standalone: Project[],
+    fullOf: (s: Series) => Series
+  ): void {
     const count = series.reduce((n, s) => n + s.books.length, 0) + standalone.length;
     if (count === 0) return;
     const open = this.plugin.settings.homeArchivedOpen;
@@ -233,14 +247,15 @@ export class ExplorerPanel {
       }
     };
     if (!open) return;
-    for (const s of series) this.renderShelf(sec, s.name, s.books, s, false);
+    for (const s of series) this.renderShelf(sec, s.name, s.books, fullOf(s), false);
     if (standalone.length > 0) {
       if (series.length > 0) this.renderShelf(sec, "Standalone", standalone, null, false);
       else this.renderGrid(sec, standalone, null, false);
     }
   }
 
-  /** A shelf: header (name, aggregate progress, series menu) + a grid of book cards. */
+  /** A shelf: header (name, aggregate progress, series menu) + a grid of book
+   *  cards. `books` is what to show; `series` (the FULL series) drives the menus. */
   private renderShelf(
     parent: HTMLElement,
     name: string,
@@ -328,14 +343,20 @@ export class ExplorerPanel {
     el.setText(shelfMetaText(rows, true));
   }
 
-  /** Focused view: the series' covers in order; click one to switch books. */
+  /** Focused view: the series' covers in order; click one to switch books. With
+   *  "Hide archived books from their series" on, archived books drop out of the
+   *  strip — except the focused one, which always shows where it sits. */
   private renderSeriesStrip(parent: HTMLElement, series: Series, focused: Project): void {
     const strip = parent.createDiv({ cls: "inkswell-seriesstrip" });
     // Label + thumbs scroll sideways on narrow screens; the ⋯ stays put outside.
     const scroll = strip.createDiv({ cls: "inkswell-seriesstrip__scroll" });
     scroll.createSpan({ cls: "inkswell-seriesstrip__label", text: series.name });
     const projects = this.store.getProjects();
-    for (const book of series.books) {
+    const archived = this.plugin.settings.hideArchivedInSeries ? archivedStoryTitles(projects) : new Set<string>();
+    const shown = series.books.filter(
+      (b) => !archived.has(b.draft.title) || b.draft.title === focused.draft.title
+    );
+    for (const book of shown) {
       renderCoverThumb(scroll, this.app, projects, book, book.vaultPath === focused.vaultPath, (b) =>
         this.plugin.activeProject.set(b.vaultPath)
       );
