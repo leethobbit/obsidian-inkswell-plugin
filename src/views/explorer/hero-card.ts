@@ -16,7 +16,7 @@ import { featureEnabled } from "../../features";
 import { ProjectStats } from "../../projects/project-stats";
 import { ProjectStore } from "../../projects/project-store";
 import { Project } from "../../projects/types";
-import { baseDraftFor } from "../../projects/stories";
+import { baseDraftFor, storyArchived } from "../../projects/stories";
 import { projectSeries } from "../../series/series";
 import { SeriesModal } from "../../series/series-modal";
 import type InkswellPlugin from "../../../main";
@@ -87,6 +87,14 @@ export class HeroCard {
     seriesLine.setAttribute("aria-label", "Edit series membership");
     seriesLine.onclick = () =>
       new SeriesModal(this.app, this.store.getProjects(), base, this.plugin.activeProject.get()).open();
+
+    // An archived book still opens normally; say so, with the way back.
+    if (storyArchived(this.store.getProjects(), focused)) {
+      const line = meta.createDiv({ cls: "inkswell-hero__archived" });
+      line.createSpan({ text: "Archived — hidden from Home and the project list. " });
+      const undo = line.createEl("button", { cls: "inkswell-hero__unarchive", text: "Unarchive" });
+      undo.onclick = () => void this.plugin.archiveProject(focused, false);
+    }
 
     const field =(label: string, value: string | undefined, placeholder: string, save: (v: string) => void) => {
       const row = meta.createDiv({ cls: "inkswell-hero__field" });

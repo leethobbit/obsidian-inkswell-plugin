@@ -35,6 +35,8 @@ import {
   defaultScopeForProject,
   describeCreateScope,
   filterToScope,
+  isEntityVisible,
+  onlyArchivedScope,
   projectKey,
   scopeBooks,
   scopeContextForEntity,
@@ -59,7 +61,7 @@ import {
 import { openCategoryEditor } from "./category-actions";
 import { Project } from "../projects/types";
 import { groupIntoSeries, orderSeries } from "../series/series";
-import { baseDraftFor } from "../projects/stories";
+import { archivedStoryTitles, baseDraftFor } from "../projects/stories";
 import type InkswellPlugin from "../../main";
 
 export class CodexPanel {
@@ -71,6 +73,8 @@ export class CodexPanel {
   private selectedPath: string | null = null;
   /** When false, the list is filtered to the active project's scope (default). */
   private showAll = false;
+  /** With `showAll`: also list entries scoped only to archived books (out of sight by default). */
+  private includeArchived = false;
   /** Category id the list is narrowed to ("" = all types). Also the type **New** creates. */
   private categoryFilter = "";
   /** Bumped per detail render so a slow "Appears in" scan can't fill a stale pane. */
@@ -155,16 +159,19 @@ export class CodexPanel {
     };
 
     // Scope filter: by default show only entries in the active project's scope
-    // (its own + its series + globals). "All projects" reveals everything. With no
-    // active project there is nothing to scope by, so the control is moot.
+    // (its own + its series + globals). "All projects" reveals everything except
+    // entries scoped only to archived books (out of sight with them); "Include
+    // archived" shows those too. With no active project, "In scope" is moot.
     const active = this.activeProject();
     const scopeSel = bar.createEl("select", { cls: "dropdown" });
-    scopeSel.createEl("option", { text: "In scope", value: "scope" });
+    const inScope = scopeSel.createEl("option", { text: "In scope", value: "scope" });
+    inScope.disabled = !active;
     scopeSel.createEl("option", { text: "All projects", value: "all" });
-    scopeSel.value = this.showAll || !active ? "all" : "scope";
-    scopeSel.disabled = !active;
+    scopeSel.createEl("option", { text: "Include archived", value: "archived" });
+    scopeSel.value = this.showAll || !active ? (this.includeArchived ? "archived" : "all") : "scope";
     scopeSel.onchange = () => {
-      this.showAll = scopeSel.value === "all";
+      this.showAll = scopeSel.value !== "scope";
+      this.includeArchived = scopeSel.value === "archived";
       this.renderList();
     };
 
@@ -244,6 +251,26 @@ export class CodexPanel {
     this.renderDetail();
   }
 
+  /**
+   * The unscoped list ("All projects", or no book open): every entry, minus
+   * those scoped ONLY to archived books unless "Include archived" is picked.
+   * An entry visible from the open book is never hidden — with an archived
+   * book open, its own entries still list.
+   */
+  private unscopedEntities(active: Project | null): CodexEntity[] {
+    const entities = getCodexEntities(this.app);
+    if (this.includeArchived) return entities;
+    const projects = this.plugin.store.getProjects();
+    const archived = archivedStoryTitles(projects);
+    if (archived.size === 0) return entities;
+    const activeCtx = active ? scopeContextForProject(active, projects) : null;
+    return entities.filter(
+      (e) =>
+        (activeCtx !== null && isEntityVisible(e, activeCtx)) ||
+        !onlyArchivedScope(e, projects, (p) => archived.has(p.draft.title))
+    );
+  }
+
   private renderList(): void {
     const list = this.listEl;
     if (!list) return;
@@ -252,7 +279,7 @@ export class CodexPanel {
     const active = this.activeProject();
     const scoped =
       this.showAll || !active
-        ? getCodexEntities(this.app)
+        ? this.unscopedEntities(active)
         : filterToScope(
             getCodexEntities(this.app),
             scopeContextForProject(active, this.plugin.store.getProjects())
@@ -272,12 +299,17 @@ export class CodexPanel {
 
     if (shown.length === 0) {
       const inScope = !this.showAll && !!active;
+      // Unscoped and nothing shows, but entries exist: they're all scoped to
+      // archived books — say so instead of claiming the codex is empty.
+      const hiddenByArchive = !inScope && !this.includeArchived && getCodexEntities(this.app).length > scoped.length;
       if (filterDef && !q) {
         list.createDiv({
           cls: "inkswell-stats__muted",
           text: inScope
             ? `No ${filterDef.plural.toLowerCase()} in scope. Create one, or switch to “All projects”.`
-            : `No ${filterDef.plural.toLowerCase()} yet. Create one above.`,
+            : hiddenByArchive
+              ? `No ${filterDef.plural.toLowerCase()} outside archived books. Pick “Include archived” to see theirs.`
+              : `No ${filterDef.plural.toLowerCase()} yet. Create one above.`,
         });
         return;
       }
@@ -287,7 +319,9 @@ export class CodexPanel {
           ? "No matching codex entries."
           : inScope
             ? "No codex entries in scope. Create one, or switch to “All projects”."
-            : "No codex entries yet. Create one above.",
+            : hiddenByArchive
+              ? "Every codex entry belongs to an archived book. Pick “Include archived” to see them."
+              : "No codex entries yet. Create one above.",
       });
       return;
     }

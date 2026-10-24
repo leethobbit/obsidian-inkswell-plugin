@@ -23,6 +23,7 @@ import {
   resolveCompileConfig,
 } from "../compile/config";
 import { countWords } from "../lib/wordcount";
+import { MarkerSet, markerSet } from "../lib/placeholders";
 import { confirmDestructive, openScene } from "../scenes/scene-actions";
 import { CompileConfig, OutputFormat } from "../compile/types";
 import { resolveActive } from "../projects/active-project";
@@ -300,7 +301,7 @@ export class CompilePanel {
         else missing.push(s.title);
       }
 
-      const findings = preflight(scenes);
+      const findings = preflight(scenes, this.markers());
       results.empty();
       if (findings.length === 0 && missing.length === 0) {
         results.createDiv({ cls: "inkswell-stats__muted", text: "No issues found. Ready to export." });
@@ -377,6 +378,11 @@ export class CompilePanel {
     return resolveCompileConfig(project, this.plugin.settings.defaultCompileFormat);
   }
 
+  /** The vault's effective to-do markers — what compile strips and preflight counts. */
+  private markers(): MarkerSet {
+    return markerSet(this.plugin.settings.listOverrides.markers);
+  }
+
   /**
    * Run the compile. When the output path holds a file Inkswell didn't produce
    * (no compile marker — e.g. a hand-written note sharing the configured name),
@@ -386,7 +392,9 @@ export class CompilePanel {
    */
   private async compile(project: Project): Promise<void> {
     try {
-      const result = await runCompile(this.app, project, this.configFor(project));
+      const result = await runCompile(this.app, project, this.configFor(project), {
+        markers: this.markers(),
+      });
       const words = countWords(result.wordCountSource);
       new Notice(`Compiled ${words.toLocaleString()} words to ${result.outputPath}`);
     } catch (e) {
@@ -418,6 +426,7 @@ export class CompilePanel {
       }
       const result = await runCompile(this.app, project, this.configFor(project), {
         allowOverwrite: true,
+        markers: this.markers(),
       });
       const words = countWords(result.wordCountSource);
       new Notice(`Compiled ${words.toLocaleString()} words to ${result.outputPath}`);

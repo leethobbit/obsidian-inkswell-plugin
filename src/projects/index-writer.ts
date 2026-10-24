@@ -310,6 +310,11 @@ export async function updateNextUp(app: App, indexFile: TFile, text: string): Pr
   await updateInkswellKey(app, indexFile, "nextUp", () => next || undefined);
 }
 
+/** Archive (hide from Home) or unarchive ONE index — unarchiving deletes the key. */
+export async function writeArchived(app: App, indexFile: TFile, archived: boolean): Promise<void> {
+  await updateInkswellKey(app, indexFile, "archived", () => (archived ? true : undefined));
+}
+
 /** Stamp the draft's creation time (a scalar leaf — always safe to set). */
 export async function persistDraftCreated(
   app: App,

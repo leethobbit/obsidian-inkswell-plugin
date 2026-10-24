@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  archivedStoryTitles,
   baseDraft,
   baseDraftFor,
   draftLabel,
   groupIntoStories,
+  projectArchived,
   representativeDrafts,
+  storyArchived,
+  storyDrafts,
   storyOf,
 } from "../src/projects/stories";
 import { Project } from "../src/projects/types";
@@ -135,5 +139,37 @@ describe("representativeDrafts", () => {
 
   it("an ungrouped project represents itself", () => {
     expect(representativeDrafts([other], null)).toEqual([other]);
+  });
+});
+
+describe("archive state (story-level, base-draft-wins)", () => {
+  const withArchived = (p: Project, archived: boolean): Project => ({
+    ...p,
+    inkswell: archived ? { archived: true } : null,
+  });
+  const base = project("Books/A/A.md", "Novel A", "First");
+  const copy = project("Books/A/Drafts/Second/A — Second.md", "Novel A", "Second");
+  const other = project("Books/B/B.md", "Novel B");
+
+  it("reads the base draft, never a byte-copied sibling", () => {
+    expect(storyArchived([withArchived(base, true), copy, other], copy)).toBe(true);
+    // A stale sibling flag doesn't archive the story.
+    expect(storyArchived([base, withArchived(copy, true), other], base)).toBe(false);
+    expect(storyArchived([base, copy, other], other)).toBe(false);
+  });
+
+  it("only a strict `true` counts", () => {
+    const odd: Project = { ...base, inkswell: { archived: "yes" as unknown as boolean } };
+    expect(projectArchived(odd)).toBe(false);
+  });
+
+  it("archivedStoryTitles lists every archived story once", () => {
+    const projects = [withArchived(base, true), withArchived(copy, true), other];
+    expect([...archivedStoryTitles(projects)]).toEqual(["Novel A"]);
+  });
+
+  it("storyDrafts returns every draft of the story (or the project alone)", () => {
+    expect(storyDrafts(copy, [base, copy, other]).map((d) => d.vaultPath)).toEqual([base.vaultPath, copy.vaultPath]);
+    expect(storyDrafts(other, [base, copy])).toEqual([other]);
   });
 });

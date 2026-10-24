@@ -48,13 +48,22 @@ import {
 } from "../lib/link-complete";
 import { Sel, buildSyntaxIntents } from "../lib/markdown-syntax";
 import { formatMilestone, milestoneOffsets } from "../lib/milestones";
-import { PlaceholderKind, PLACEHOLDER_TEMPLATES } from "../lib/placeholders";
+import {
+  DEFAULT_MARKERS,
+  MarkerDef,
+  MarkerSet,
+  ShippedMarkerId,
+  markerTemplate,
+} from "../lib/placeholders";
 import { TypographyRules, smartTypography } from "../lib/smart-typography";
 import { wikilinkAt } from "../lib/wikilinks";
 
-function buildDecorations(view: EditorView): { all: DecorationSet; hidden: DecorationSet } {
+function buildDecorations(
+  view: EditorView,
+  markers: MarkerSet
+): { all: DecorationSet; hidden: DecorationSet } {
   const sels: Sel[] = view.state.selection.ranges.map((r) => ({ from: r.from, to: r.to }));
-  const intents = buildSyntaxIntents(view.state.doc.toString(), sels);
+  const intents = buildSyntaxIntents(view.state.doc.toString(), sels, markers);
 
   const all = [];
   const hidden = [];
@@ -76,32 +85,51 @@ function buildDecorations(view: EditorView): { all: DecorationSet; hidden: Decor
   return { all: Decoration.set(all, true), hidden: Decoration.set(hidden, true) };
 }
 
-const markdownHighlighter = ViewPlugin.fromClass(
-  class {
-    all: DecorationSet;
-    hidden: DecorationSet;
-    constructor(view: EditorView) {
-      const d = buildDecorations(view);
-      this.all = d.all;
-      this.hidden = d.hidden;
-    }
-    update(u: ViewUpdate): void {
-      // Selection changes drive marker hide/reveal, so rebuild on both.
-      if (u.docChanged || u.selectionSet) {
-        const d = buildDecorations(u.view);
+/** Re-decorate after the to-do marker set changed (Customize, a synced settings file). */
+const markerRefresh = StateEffect.define<null>();
+
+function hasMarkerRefresh(u: ViewUpdate): boolean {
+  return u.transactions.some((tr) => tr.effects.some((e) => e.is(markerRefresh)));
+}
+
+/**
+ * The Live-Preview highlighter plus the atomic ranges it hides. `getMarkers` is
+ * read on every rebuild (the set is memoized per override, so this is cheap),
+ * so a changed marker list applies on the next keystroke or {@link refreshMarkers}.
+ */
+function markdownHighlighting(getMarkers: () => MarkerSet) {
+  const highlighter = ViewPlugin.fromClass(
+    class {
+      all: DecorationSet;
+      hidden: DecorationSet;
+      constructor(view: EditorView) {
+        const d = buildDecorations(view, getMarkers());
         this.all = d.all;
         this.hidden = d.hidden;
       }
-    }
-  },
-  { decorations: (v) => v.all }
-);
+      update(u: ViewUpdate): void {
+        // Selection changes drive marker hide/reveal, so rebuild on both.
+        if (u.docChanged || u.selectionSet || hasMarkerRefresh(u)) {
+          const d = buildDecorations(u.view, getMarkers());
+          this.all = d.all;
+          this.hidden = d.hidden;
+        }
+      }
+    },
+    { decorations: (v) => v.all }
+  );
+  // Make the currently-hidden markers atomic so cursor motion skips over the
+  // collapsed ranges in one step instead of landing in a zero-width gap.
+  const atomic = EditorView.atomicRanges.of(
+    (view) => view.plugin(highlighter)?.hidden ?? Decoration.none
+  );
+  return [highlighter, atomic];
+}
 
-// Make the currently-hidden markers atomic so cursor motion skips over the
-// collapsed ranges in one step instead of landing in a zero-width gap.
-const atomicMarkers = EditorView.atomicRanges.of(
-  (view) => view.plugin(markdownHighlighter)?.hidden ?? Decoration.none
-);
+/** Re-scan to-do markers now (after the marker list changed). */
+export function refreshMarkers(view: EditorView): void {
+  view.dispatch({ effects: markerRefresh.of(null) });
+}
 
 // Transient "flash" highlight used when navigating to a to-do from the Todos
 // panel: a single mark over the token that auto-clears (see `flashRange`).
@@ -331,8 +359,8 @@ export function flashRange(view: EditorView, from: number, to: number): void {
  * content — `[KIND: <selection>]` — so you can tag existing text in place.
  * Refocuses the editor so a toolbar-button insertion doesn't strand focus.
  */
-export function insertPlaceholder(view: EditorView, kind: PlaceholderKind): void {
-  const tpl = PLACEHOLDER_TEMPLATES[kind];
+export function insertPlaceholder(view: EditorView, marker: Pick<MarkerDef, "keyword">): void {
+  const tpl = markerTemplate(marker);
   const { from, to } = view.state.selection.main;
   const selected = view.state.sliceDoc(from, to);
   if (selected) {
@@ -361,6 +389,14 @@ export interface EditorShortcutHooks {
   onOpenLink?: (linktext: string) => void;
   /** The pointer entered a rendered wikilink (drives Obsidian's Page Preview). */
   onHoverLink?: (e: MouseEvent, el: HTMLElement, linktext: string) => void;
+  /** The live to-do marker set (shortcuts skip a hidden marker). Default: shipped. */
+  getMarkers?: () => MarkerSet;
+}
+
+/** A shipped marker's shortcut: inserts it unless the writer hid it. */
+function insertShipped(view: EditorView, hooks: EditorShortcutHooks, id: ShippedMarkerId): void {
+  const def = (hooks.getMarkers?.() ?? DEFAULT_MARKERS).byId.get(id);
+  if (def && !def.hidden) insertPlaceholder(view, def);
 }
 
 /** The `.cm-md-link` element under an event target, if any. */
@@ -401,11 +437,11 @@ export interface EditorShortcut {
 export const EDITOR_SHORTCUTS: EditorShortcut[] = [
   { modifiers: ["Mod"], key: "b", run: (v) => formatSelection(v, "bold") },
   { modifiers: ["Mod"], key: "i", run: (v) => formatSelection(v, "italic") },
-  { modifiers: ["Mod", "Shift"], key: "t", run: (v) => insertPlaceholder(v, "todo") },
-  { modifiers: ["Mod", "Shift"], key: "r", run: (v) => insertPlaceholder(v, "research") },
-  { modifiers: ["Mod", "Shift"], key: "d", run: (v) => insertPlaceholder(v, "dialogue") },
-  { modifiers: ["Mod", "Shift"], key: "s", run: (v) => insertPlaceholder(v, "scene") },
-  { modifiers: ["Mod", "Shift"], key: "n", run: (v) => insertPlaceholder(v, "note") },
+  { modifiers: ["Mod", "Shift"], key: "t", run: (v, hooks) => insertShipped(v, hooks, "todo") },
+  { modifiers: ["Mod", "Shift"], key: "r", run: (v, hooks) => insertShipped(v, hooks, "research") },
+  { modifiers: ["Mod", "Shift"], key: "d", run: (v, hooks) => insertShipped(v, hooks, "dialogue") },
+  { modifiers: ["Mod", "Shift"], key: "s", run: (v, hooks) => insertShipped(v, hooks, "scene") },
+  { modifiers: ["Mod", "Shift"], key: "n", run: (v, hooks) => insertShipped(v, hooks, "note") },
   { modifiers: ["Mod", "Shift"], key: "l", run: (_v, hooks) => hooks.onLogIssue?.() },
   { modifiers: ["Mod", "Shift"], key: "c", run: (_v, hooks) => hooks.onQuickCodex?.() },
 ];
@@ -490,6 +526,8 @@ export interface SceneEditorOptions {
   getPrefs?: () => EditorPrefs;
   /** Candidates for `[[` completion, read when the popup opens (omit to disable). */
   getLinkCandidates?: () => LinkCandidate[];
+  /** The live to-do marker set, read on every re-decoration (default: shipped). */
+  getMarkers?: () => MarkerSet;
 }
 
 /** Create a manuscript editor bound to `parent`, seeded with `doc`. */
@@ -518,8 +556,7 @@ export function createSceneEditor(opts: SceneEditorOptions): EditorView {
         ...milestoneGutter(() => opts.getPrefs?.().milestoneWords ?? 0),
         ...(opts.getLinkCandidates ? linkCompletion(opts.getLinkCandidates) : []),
         EditorView.lineWrapping,
-        markdownHighlighter,
-        atomicMarkers,
+        ...markdownHighlighting(opts.getMarkers ?? (() => DEFAULT_MARKERS)),
         flashField,
         EditorView.updateListener.of((u) => {
           if (u.docChanged) opts.onChange();

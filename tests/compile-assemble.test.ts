@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { assembleManuscript } from "../src/compile/assemble";
 import { BUILTIN_STEPS, STEP_REGISTRY } from "../src/compile/steps";
 import { CompileConfig, CompileScene } from "../src/compile/types";
+import { markerSet } from "../src/lib/placeholders";
 
 const scenes: CompileScene[] = [
   { title: "Opening", indent: 0, contents: "---\nx: 1\n---\nThe storm broke. %% fix later %%" },
@@ -104,6 +105,35 @@ describe("assembleManuscript", () => {
     expect(out).not.toMatch(/\[(TODO|NOTE|SCENE)/);
     expect(out).toContain("He paused");
     expect(out).toContain("then left.");
+  });
+
+  it("never leaks a marker: shipped, the writer's own, and hidden ones are all stripped", () => {
+    const set = markerSet({
+      hidden: ["dialogue", "mk-2"], // a hidden shipped AND a hidden custom marker
+      added: [
+        { id: "mk-1", label: "Check", keyword: "CHECK" },
+        { id: "mk-2", label: "TK", keyword: "TK" },
+      ],
+    });
+    const prose =
+      "A [TODO: x] B [RESEARCH: y] C [NOTE] D [DIALOGUE: z] E [SCENE: w] " +
+      "F [CHECK: date] G [check] H [TK] I [tk: later] J";
+    const out = assembleManuscript(
+      [{ title: "A", indent: 0, contents: prose }],
+      config({ sceneSteps: [{ id: "remove-todos", options: {} }], manuscriptSteps: [] }),
+      STEP_REGISTRY,
+      set
+    );
+    expect(out).not.toMatch(/\[(TODO|RESEARCH|NOTE|DIALOGUE|SCENE|CHECK|TK)/i);
+    expect(out.replace(/\s+/g, " ")).toBe("A B C D E F G H I J");
+  });
+
+  it("without a marker set, custom keywords are not stripped (the default is the shipped five)", () => {
+    const out = assembleManuscript(
+      [{ title: "A", indent: 0, contents: "x [CHECK: y] z" }],
+      config({ sceneSteps: [{ id: "remove-todos", options: {} }], manuscriptSteps: [] })
+    );
+    expect(out).toBe("x [CHECK: y] z");
   });
 
   it("throws on an unknown step id", () => {

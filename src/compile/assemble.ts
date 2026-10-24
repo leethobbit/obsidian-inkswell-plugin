@@ -7,6 +7,7 @@
  * MANUSCRIPT steps → string.
  */
 
+import { DEFAULT_MARKERS, MarkerSet } from "../lib/placeholders";
 import { STEP_REGISTRY } from "./steps";
 import {
   CompileConfig,
@@ -20,13 +21,15 @@ import {
 export function assembleManuscript(
   scenes: CompileScene[],
   config: CompileConfig,
-  registry: Map<string, CompileStep> = STEP_REGISTRY
+  registry: Map<string, CompileStep> = STEP_REGISTRY,
+  markers: MarkerSet = DEFAULT_MARKERS
 ): string {
   let working = scenes.map((s) => ({ ...s }));
   // Every step sees the same output target (a step may adapt to it or skip).
   const ctx: StepContext = {
     format: config.format,
     ...(config.pandoc ? { target: config.pandoc.to } : {}),
+    markers,
   };
 
   for (const cfg of config.sceneSteps) {

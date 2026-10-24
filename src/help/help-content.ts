@@ -74,6 +74,11 @@ export const HINTS: Record<string, HintEntry> = {
       );
       examples(el, ["[TODO: ]", "[RESEARCH: ]", "[NOTE: ]", "[DIALOGUE: ]", "[SCENE: ]"]);
       p(el, 'Run “Insert a to-do marker…” for a picker that drops one at the cursor.');
+      p(
+        el,
+        "Want your own word, like [CHECK: ] or [TK: ]? Add it under Customize → To-do markers, " +
+          "where you can also hide the built-in ones."
+      );
     },
   },
   "track/sync": {
@@ -301,7 +306,7 @@ export const HINTS: Record<string, HintEntry> = {
       );
       p(
         el,
-        "The pipeline runs in steps you can toggle: per-scene steps (strip to-do markers, " +
+        "The pipeline runs in steps you can toggle: per-scene steps (strip to-do markers, your own included, " +
           "filter metadata) and manuscript-level steps (headings, page breaks, tidy blank " +
           "lines). Your choices are remembered per project."
       );
@@ -356,8 +361,17 @@ export const HELP_SECTIONS: HelpSection[] = [
           "series, in book order, plus one for standalone books — each with its cover " +
           "(or a generated stand-in), book number, scenes and words, progress toward the " +
           "target, and when you last edited it. Click a card to focus on that book; its " +
-          "⋯ menu (hover on desktop, always on touch) renames it, sets its series, or " +
-          "changes the cover."
+          "⋯ menu (hover on desktop, always on touch) renames it, sets its series, " +
+          "changes the cover, or archives it."
+      );
+      p(
+        el,
+        "Archiving a finished or shelved book only puts it out of sight: it leaves the " +
+          "shelves and the project list and waits in the Archived section at the bottom " +
+          "of Home. Its words still count toward your goals, and it compiles and keeps " +
+          "its codex as before. Unarchive it from its ⋯ menu. In a series, an archived " +
+          "book stays on the shelf, dimmed — or turn on “Hide archived books from their " +
+          "series” in Settings to take it off the series shelf entirely."
       );
       p(
         el,

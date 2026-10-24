@@ -1,10 +1,11 @@
 /**
  * The generic editor for one overridable list (Customize → Scene statuses,
- * Writing prompts, Revision checklists, Publishing checklist). Renders the
- * EFFECTIVE list — shipped + the writer's override — as a reorderable list
- * editor: rename inline, hide/show and remove from the row menu, add customs,
- * reset. Grouped lists render one list per group with group rename/hide and
- * custom groups.
+ * Writing prompts, Revision checklists, Publishing checklist, To-do markers).
+ * Renders the EFFECTIVE list — shipped + the writer's override — as a
+ * reorderable list editor: rename inline (shipped items only when the spec
+ * allows it), hide/show and remove from the row menu, add customs, reset.
+ * Grouped lists render one list per group with group rename/hide and custom
+ * groups.
  *
  * Persistence: every edit → override op → normalize against the list's spec →
  * `settings.listOverrides[id]` → saveSettings → ctx.rerender(). Consumers read
@@ -49,6 +50,12 @@ export interface OverrideEditorOptions<X> {
   /** Noun for buttons/prompts, e.g. "checkpoint", "prompt", "task". */
   noun: string;
   intro?: string;
+  /** Ask before removing a custom item (default: remove at once). */
+  confirmRemove?(item: EffectiveItem<X>): Promise<boolean>;
+  /** The Notice shown after a custom item is removed (default: checklist wording). */
+  removeNotice?(item: EffectiveItem<X>): string;
+  /** After every save — e.g. push a changed list to live editors (never refreshView). */
+  onSaved?: () => void;
 }
 
 /** Read the current stored override for a list (typed loosely — the spec re-narrows on write). */
@@ -60,7 +67,8 @@ async function persist<X>(
   ctx: SectionCtx,
   id: OverridableListId,
   next: ListOverride<X> | undefined,
-  spec: ListSpec<X>
+  spec: ListSpec<X>,
+  onSaved?: () => void
 ): Promise<void> {
   const normalized = next ? normalizeListOverride(next, spec) : undefined;
   const all = ctx.plugin.settings.listOverrides as Record<string, unknown>;
@@ -68,6 +76,7 @@ async function persist<X>(
   else delete all[id];
   ctx.plugin.settings.listOverrides = all;
   await ctx.plugin.saveSettings();
+  onSaved?.();
   ctx.rerender();
 }
 
@@ -79,7 +88,7 @@ export function renderOverrideEditor<X extends object>(
   const { listId, spec } = opts;
   const meta = LIST_META[listId];
   const o = current<X>(ctx, listId);
-  const save = (next: ListOverride<X>) => void persist(ctx, listId, next, spec);
+  const save = (next: ListOverride<X>) => void persist(ctx, listId, next, spec, opts.onSaved);
 
   if (opts.intro) host.createEl("p", { cls: "inkswell-stats__muted", text: opts.intro });
 
@@ -183,11 +192,18 @@ function renderItems<X extends object>(
     rowClass: (it) => `${it.hidden ? "is-hidden" : ""} ${it.custom ? "is-custom" : ""}`.trim() || undefined,
     locked: (it) => !it.custom,
     renderRow(el, it) {
-      const label = taggedInput(el, `${prefix}:label:${it.id}`, { type: "text" });
-      label.value = it.label;
-      label.setAttribute("aria-label", `${opts.noun} label`);
-      label.onchange = () => save(ops.setItemLabel(o, it.id, label.value, it.shippedLabel));
-      if (it.shippedLabel && it.shippedLabel !== it.label) {
+      // A list that forbids renaming shipped items shows their SHIPPED name as
+      // text (a stray stored label is ignored here, as in the resolver).
+      const fixed = spec.allowRename === false && !it.custom;
+      if (fixed) {
+        el.createSpan({ cls: "inkswell-customize__fixedlabel", text: it.shippedLabel ?? it.label });
+      } else {
+        const label = taggedInput(el, `${prefix}:label:${it.id}`, { type: "text" });
+        label.value = it.label;
+        label.setAttribute("aria-label", `${opts.noun} label`);
+        label.onchange = () => save(ops.setItemLabel(o, it.id, label.value, it.shippedLabel));
+      }
+      if (!fixed && it.shippedLabel && it.shippedLabel !== it.label) {
         el.createSpan({ cls: "inkswell-stats__muted inkswell-customize__was", text: `was “${it.shippedLabel}”` });
       }
       if (it.custom) el.createSpan({ cls: "inkswell-customize__badge", text: "yours" });
@@ -201,7 +217,7 @@ function renderItems<X extends object>(
           .setIcon(it.hidden ? "eye" : "eye-off")
           .onClick(() => save(ops.setItemHidden(o, it.id, !it.hidden)))
       );
-      if (it.shippedLabel && it.shippedLabel !== it.label) {
+      if (spec.allowRename !== false && it.shippedLabel && it.shippedLabel !== it.label) {
         menu.addItem((i) =>
           i
             .setTitle("Restore shipped name")
@@ -213,8 +229,14 @@ function renderItems<X extends object>(
     onReorder: (next) => reorder(next.map((i) => i.id)),
     onRemove: (it) => {
       if (!it.custom) return;
-      save(ops.removeItem(o, it.id));
-      new Notice(`Removed "${it.label}". Anything already ticked under it stays in your notes.`);
+      void (async () => {
+        if (opts.confirmRemove && !(await opts.confirmRemove(it))) return;
+        save(ops.removeItem(o, it.id));
+        new Notice(
+          opts.removeNotice?.(it) ??
+            `Removed "${it.label}". Anything already ticked under it stays in your notes.`
+        );
+      })();
     },
     add: opts.allowAdd
       ? {
@@ -239,7 +261,7 @@ function renderItems<X extends object>(
           },
         }
       : undefined,
-    reset: !groupId ? resetOption(ctx, listId, spec, o) : undefined,
+    reset: !groupId ? resetOption(ctx, listId, spec, o, opts.onSaved) : undefined,
   });
 }
 
@@ -247,12 +269,13 @@ function resetOption<X>(
   ctx: SectionCtx,
   listId: OverridableListId,
   spec: ListSpec<X>,
-  o: ListOverride<X> | undefined
+  o: ListOverride<X> | undefined,
+  onSaved?: () => void
 ): { label: string; action(): void } | undefined {
   if (!o) return undefined;
   return {
     label: "Reset to Inkswell's defaults",
-    action: () => void persist(ctx, listId, undefined, spec),
+    action: () => void persist(ctx, listId, undefined, spec, onSaved),
   };
 }
 

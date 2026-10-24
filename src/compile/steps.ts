@@ -89,15 +89,16 @@ const removeComments: SceneStep = {
 
 /**
  * Remove drafting to-do markers ([TODO:], [NOTE:], [RESEARCH:], [DIALOGUE:],
- * [SCENE:]) from each scene. These are "defer everything" placeholders, never
- * part of the finished manuscript — without this step they ship verbatim.
+ * [SCENE:], and the writer's own from Customize — hidden ones included) from
+ * each scene. These are "defer everything" placeholders, never part of the
+ * finished manuscript — without this step they ship verbatim.
  */
 const removeTodos: SceneStep = {
   id: "remove-todos",
-  description: "Remove drafting markers ([TODO], [NOTE], [SCENE]…) — unfinished spots",
+  description: "Remove to-do markers ([TODO], [NOTE], your own…) — unfinished spots",
   kind: "scene",
-  run: (scenes) =>
-    scenes.map((s) => ({ ...s, contents: stripPlaceholders(s.contents) })),
+  run: (scenes, _options, ctx) =>
+    scenes.map((s) => ({ ...s, contents: stripPlaceholders(s.contents, ctx.markers) })),
 };
 
 /**

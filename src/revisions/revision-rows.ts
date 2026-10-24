@@ -12,7 +12,7 @@
 
 import { App, Menu } from "obsidian";
 import { attachRowMenu } from "../lib/row-menu";
-import { GapHit, PLACEHOLDER_LABEL } from "../lib/placeholders";
+import { DEFAULT_MARKERS, GapHit, MarkerSet, markerLabel } from "../lib/placeholders";
 import { Project } from "../projects/types";
 import { decisionType, removeDecision, setDecisionStatus } from "./decisions";
 import { RevisionModal } from "./revision-modal";
@@ -35,6 +35,8 @@ export interface DecisionRowContext {
   ) => void;
   /** Threaded into the modal so its saves get the same follow-up. */
   markWrite?: (path: string) => void;
+  /** The effective to-do markers, resolved at render time (badge labels). */
+  markers?: MarkerSet;
 }
 
 /** One inline to-do marker: kind badge + line + excerpt; click jumps to it. */
@@ -42,12 +44,15 @@ export function renderMarkerRow(
   parent: HTMLElement,
   path: string,
   t: GapHit,
-  onJump: MarkerJump
+  onJump: MarkerJump,
+  markers: MarkerSet = DEFAULT_MARKERS
 ): void {
   const row = parent.createDiv({ cls: "inkswell-todos__row" });
+  // Custom markers share one badge style; shipped ones keep their own hue.
+  const custom = markers.byId.get(t.kind)?.custom ?? !markers.byId.has(t.kind);
   row.createSpan({
-    cls: `inkswell-todos__kind inkswell-todos__kind--${t.kind}`,
-    text: PLACEHOLDER_LABEL[t.kind],
+    cls: `inkswell-todos__kind inkswell-todos__kind--${custom ? "custom" : t.kind}`,
+    text: markerLabel(markers, t.kind),
   });
   row.createSpan({ cls: "inkswell-todos__line", text: `L${t.line}` });
   row.createSpan({ cls: "inkswell-todos__text", text: t.excerpt });
@@ -117,5 +122,5 @@ export function renderRevisionGroupItems(
   onJump: MarkerJump
 ): void {
   for (const d of g.decisions) renderDecisionRow(box, project, d, ctx);
-  if (g.path) for (const t of g.todos) renderMarkerRow(box, g.path, t, onJump);
+  if (g.path) for (const t of g.todos) renderMarkerRow(box, g.path, t, onJump, ctx.markers);
 }

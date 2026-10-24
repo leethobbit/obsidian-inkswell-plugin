@@ -1,15 +1,16 @@
 /**
  * Shared to-do scan: read each scene's body and collect its inline markers
- * (`[TODO:]`, `[RESEARCH:]`, `[NOTE:]`, `[DIALOGUE:]`, `[SCENE:]`) via the pure
- * `findGaps` scanner. Frontmatter is stripped first so token offsets/line numbers
- * match the Write editor's document (its doc is the body sans frontmatter).
+ * (`[TODO:]`, `[RESEARCH:]`, … and the writer's own, per the effective
+ * `markers` set) via the pure `findGaps` scanner. Frontmatter is stripped first
+ * so token offsets/line numbers match the Write editor's document (its doc is
+ * the body sans frontmatter).
  *
  * Used by both Revise → To-dos and the Write → Revision sidebar, so the
  * project-wide scan lives in one place.
  */
 
 import { App, TFile } from "obsidian";
-import { GapHit, findGaps } from "../lib/placeholders";
+import { DEFAULT_MARKERS, GapHit, MarkerSet, findGaps } from "../lib/placeholders";
 import { stripFrontmatter } from "../lib/frontmatter";
 
 export interface SceneTodos {
@@ -21,7 +22,8 @@ export interface SceneTodos {
 /** Scan the given scenes for inline markers, returning only scenes that have any. */
 export async function scanProjectTodos(
   app: App,
-  scenes: { title: string; path: string | null }[]
+  scenes: { title: string; path: string | null }[],
+  markers: MarkerSet = DEFAULT_MARKERS
 ): Promise<SceneTodos[]> {
   const groups: SceneTodos[] = [];
   for (const scene of scenes) {
@@ -29,7 +31,7 @@ export async function scanProjectTodos(
     const file = app.vault.getAbstractFileByPath(scene.path);
     if (!(file instanceof TFile)) continue;
     const body = stripFrontmatter(await app.vault.cachedRead(file));
-    const todos = findGaps(body);
+    const todos = findGaps(body, markers);
     if (todos.length) groups.push({ title: scene.title, path: scene.path, todos });
   }
   return groups;

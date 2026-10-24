@@ -28,6 +28,14 @@ export interface InkswellSettings {
   showWordCounts: boolean;
   /** Home: whether the ideas inbox section is expanded (UI state, not a Settings row). */
   homeIdeasOpen: boolean;
+  /** Home: whether the Archived section is expanded (UI state; collapsed by default). */
+  homeArchivedOpen: boolean;
+  /**
+   * Archived books leave their series shelf and the focused view's series strip
+   * too (they wait under their series name in Home's Archived section). Off =
+   * they stay on the shelf, dimmed. A display preference — no note changes.
+   */
+  hideArchivedInSeries: boolean;
   /** Mirror this device's writing history to a vault note and merge other devices' (#44). */
   syncWritingHistory: boolean;
   /** Heading level used by the "prepend title" compile step. */
@@ -158,6 +166,8 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   defaultCompileFormat: "md",
   showWordCounts: true,
   homeIdeasOpen: true,
+  homeArchivedOpen: false,
+  hideArchivedInSeries: false,
   syncWritingHistory: false,
   sceneHeadingLevel: 1,
   dailyWordGoal: 500,
@@ -208,6 +218,15 @@ const CUSTOMIZE_ROW = {
   desc:
     "Codex types and fields, starter templates, beat structures, scene statuses, writing " +
     "prompts, checklists, and which features are shown — all edited inside Inkswell.",
+};
+
+/** One row, both render paths (gotcha 12). */
+const HIDE_ARCHIVED_ROW = {
+  name: "Hide archived books from their series",
+  desc:
+    "An archived book leaves its series shelf and the series covers on Home, and waits " +
+    "under its series name in the Archived section — handy for short stories you archive " +
+    "once they're out. When off, archived books stay on the series shelf, dimmed.",
 };
 
 /** Copy for the one platform-conditional row (shared by both renderers). */
@@ -373,6 +392,11 @@ export class InkswellSettingTab extends PluginSettingTab {
         name: "Show word counts",
         desc: "Display per-scene and per-project word counts in the explorer.",
         control: { type: "toggle", key: "showWordCounts", defaultValue: true },
+      },
+      {
+        name: HIDE_ARCHIVED_ROW.name,
+        desc: HIDE_ARCHIVED_ROW.desc,
+        control: { type: "toggle", key: "hideArchivedInSeries", defaultValue: false },
       },
       {
         name: "Sync writing history across devices",
@@ -544,6 +568,9 @@ export class InkswellSettingTab extends PluginSettingTab {
       case "showWordCounts":
         s.showWordCounts = !!value;
         break;
+      case "hideArchivedInSeries":
+        s.hideArchivedInSeries = !!value;
+        break;
       case "syncWritingHistory":
         s.syncWritingHistory = !!value;
         break;
@@ -580,7 +607,9 @@ export class InkswellSettingTab extends PluginSettingTab {
       }
     }
     await this.plugin.saveSettings();
-    if (key === "showWordCounts" || key === "showHelpHints") this.plugin.refreshExplorer();
+    if (key === "showWordCounts" || key === "showHelpHints" || key === "hideArchivedInSeries") {
+      this.plugin.refreshExplorer();
+    }
     if (key === "syncWritingHistory") this.plugin.logSync.setEnabled(s.syncWritingHistory);
     if (key === "dailyWordGoal") this.plugin.refreshStatus();
     if (key === "milestoneWords") this.plugin.applyEditorPrefs();
@@ -668,6 +697,17 @@ export class InkswellSettingTab extends PluginSettingTab {
       .addToggle((t) =>
         t.setValue(this.plugin.settings.showWordCounts).onChange(async (v) => {
           this.plugin.settings.showWordCounts = v;
+          await this.plugin.saveSettings();
+          this.plugin.refreshExplorer();
+        })
+      );
+
+    new Setting(containerEl)
+      .setName(HIDE_ARCHIVED_ROW.name)
+      .setDesc(HIDE_ARCHIVED_ROW.desc)
+      .addToggle((t) =>
+        t.setValue(this.plugin.settings.hideArchivedInSeries).onChange(async (v) => {
+          this.plugin.settings.hideArchivedInSeries = v;
           await this.plugin.saveSettings();
           this.plugin.refreshExplorer();
         })

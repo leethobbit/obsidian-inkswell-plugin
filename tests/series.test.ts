@@ -3,6 +3,7 @@ import {
   groupIntoSeries,
   normalizeSeriesOrder,
   orderSeries,
+  partitionArchived,
   projectSeries,
   readSeriesInfo,
   renameInOrder,
@@ -162,5 +163,79 @@ describe("series shelf order (#57)", () => {
     expect(renameInOrder(["A", "B", "C"], "B", "c")).toEqual(["A", "C"]);
     expect(renameInOrder(["A", "B"], "B", "b")).toEqual(["A", "b"]); // case-only rename
     expect(renameInOrder(["A"], "Z", "Y")).toBeNull();
+  });
+});
+
+describe("partitionArchived (Home shelves, archive = out of sight)", () => {
+  const archivedBook = (title: string, series?: Partial<SeriesInfo> | null): Project => {
+    const p = project(title, series);
+    return { ...p, inkswell: { ...(p.inkswell ?? {}), archived: true } };
+  };
+  const isArchived = (p: Project) => p.inkswell?.archived === true;
+
+  it("with nothing archived, every shelf stays live", () => {
+    const grouped = groupIntoSeries([project("A", { name: "S", order: 1 }), project("Solo")]);
+    const out = partitionArchived(grouped, isArchived);
+    expect(out.series.map((s) => s.name)).toEqual(["S"]);
+    expect(out.standalone.map((p) => p.draft.title)).toEqual(["Solo"]);
+    expect(out.archivedSeries).toEqual([]);
+    expect(out.archivedStandalone).toEqual([]);
+  });
+
+  it("a partially archived series keeps its shelf, with every book (order + totals stay truthful)", () => {
+    const grouped = groupIntoSeries([
+      project("One", { name: "S", order: 1 }),
+      archivedBook("Two", { name: "S", order: 2 }),
+      project("Three", { name: "S", order: 3 }),
+    ]);
+    const out = partitionArchived(grouped, isArchived);
+    expect(out.series[0].books.map((b) => b.draft.title)).toEqual(["One", "Two", "Three"]);
+    expect(out.archivedSeries).toEqual([]);
+  });
+
+  it("a fully archived series moves to the archived side whole", () => {
+    const grouped = groupIntoSeries([
+      archivedBook("One", { name: "Done", order: 1 }),
+      archivedBook("Two", { name: "Done", order: 2 }),
+      project("Live", { name: "Ongoing", order: 1 }),
+    ]);
+    const out = partitionArchived(grouped, isArchived);
+    expect(out.series.map((s) => s.name)).toEqual(["Ongoing"]);
+    expect(out.archivedSeries.map((s) => s.name)).toEqual(["Done"]);
+    expect(out.archivedSeries[0].books).toHaveLength(2);
+  });
+
+  it("hideInSeries: a partially archived series splits — live books stay, archived ones move under its name", () => {
+    const full = groupIntoSeries([
+      project("Novel One", { name: "World", order: 1 }),
+      archivedBook("Short A", { name: "World", order: 1.1 }),
+      project("Novel Two", { name: "World", order: 2 }),
+      archivedBook("Short B", { name: "World", order: 2.1 }),
+    ]);
+    const out = partitionArchived(full, isArchived, true);
+    expect(out.series.map((s) => [s.name, s.books.map((b) => b.draft.title)])).toEqual([
+      ["World", ["Novel One", "Novel Two"]],
+    ]);
+    expect(out.archivedSeries.map((s) => [s.name, s.books.map((b) => b.draft.title)])).toEqual([
+      ["World", ["Short A", "Short B"]],
+    ]);
+    // Display lists only: the grouping's full series is untouched (numbering/reorder use it).
+    expect(full.series[0].books).toHaveLength(4);
+  });
+
+  it("hideInSeries: a fully archived series still moves once, whole (no empty live shelf)", () => {
+    const out = partitionArchived(
+      groupIntoSeries([archivedBook("One", { name: "Done", order: 1 }), archivedBook("Two", { name: "Done", order: 2 })]),
+      isArchived,
+      true
+    );
+    expect(out.series).toEqual([]);
+    expect(out.archivedSeries.map((s) => s.books.length)).toEqual([2]);
+  });
+
+  it("archived standalone books leave the Standalone shelf", () => {
+    const out = partitionArchived(groupIntoSeries([project("Live"), archivedBook("Trunk")]), isArchived);
+    expect(out.standalone.map((p) => p.draft.title)).toEqual(["Live"]);
+    expect(out.archivedStandalone.map((p) => p.draft.title)).toEqual(["Trunk"]);
   });
 });

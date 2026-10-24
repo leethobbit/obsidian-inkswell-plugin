@@ -215,4 +215,26 @@ describe("normalizeListOverrides", () => {
     });
     expect(out.publishing).toEqual({ added: [{ id: "pt-1", label: "ok", group: "editing", optional: true }] });
   });
+
+  it("to-do markers: a custom needs a valid keyword (stored uppercase); built-ins can't be renamed", () => {
+    const out = normalizeListOverrides({
+      markers: {
+        added: [
+          { id: "mk-1", label: "Check", keyword: "check" },
+          { id: "mk-2", label: "No word" },
+          { id: "mk-3", label: "Bad word", keyword: "two words" },
+        ],
+        labels: { research: "Fact check" },
+        hidden: ["dialogue", "mk-2"],
+      },
+    });
+    expect(out.markers).toEqual({
+      added: [{ id: "mk-1", label: "Check", keyword: "CHECK" }],
+      hidden: ["dialogue"],
+    });
+  });
+
+  it("a list that renames nothing normalizes to nothing when only labels were stored", () => {
+    expect(normalizeListOverrides({ markers: { labels: { todo: "Fix" } } }).markers).toBeUndefined();
+  });
 });

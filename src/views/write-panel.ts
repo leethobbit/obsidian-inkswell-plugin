@@ -75,11 +75,19 @@ import {
   formatSelection,
   insertPlaceholder,
   linkAtCursor,
+  refreshMarkers,
   refreshMilestones,
   setTypewriter,
 } from "./scene-editor";
 import { MarkKind } from "../lib/inline-format";
-import { PlaceholderKind, scanPlaceholders } from "../lib/placeholders";
+import {
+  MarkerDef,
+  MarkerSet,
+  ShippedMarkerId,
+  insertableMarkers,
+  markerSet,
+  scanPlaceholders,
+} from "../lib/placeholders";
 import { PromptCategory, PromptPhase } from "../ideation/prompts";
 import { countWords } from "../lib/wordcount";
 import { resolveActive } from "../projects/active-project";
@@ -107,21 +115,19 @@ export interface SceneHighlight {
 }
 
 
-/** The five to-do marker types, for the insert picker. */
-interface TodoType {
-  kind: PlaceholderKind;
-  label: string;
-  desc: string;
-  /** Lucide icon, used in the collapsed Insert dropdown menu. */
-  icon: string;
+/** Picker description + menu icon per shipped marker; custom markers share a fallback. */
+const SHIPPED_MARKER_UI: Record<ShippedMarkerId, { desc: string; icon: string }> = {
+  todo: { desc: "A generic to-do", icon: "list-todo" },
+  research: { desc: "A fact or detail to look up / verify", icon: "search" },
+  note: { desc: "A note or reminder to yourself", icon: "sticky-note" },
+  dialogue: { desc: "Dialogue to write later", icon: "message-square" },
+  scene: { desc: "A scene to write or expand", icon: "clapperboard" },
+};
+const CUSTOM_MARKER_UI = { desc: "Your marker", icon: "bookmark" };
+
+function markerUi(def: MarkerDef): { desc: string; icon: string } {
+  return def.custom ? CUSTOM_MARKER_UI : SHIPPED_MARKER_UI[def.id as ShippedMarkerId] ?? CUSTOM_MARKER_UI;
 }
-const TODO_TYPES: TodoType[] = [
-  { kind: "todo", label: "TODO", desc: "A generic to-do", icon: "list-todo" },
-  { kind: "research", label: "Research", desc: "A fact or detail to look up / verify", icon: "search" },
-  { kind: "note", label: "Note", desc: "A note or reminder to yourself", icon: "sticky-note" },
-  { kind: "dialogue", label: "Dialogue", desc: "Dialogue to write later", icon: "message-square" },
-  { kind: "scene", label: "Scene", desc: "A scene to write or expand", icon: "clapperboard" },
-];
 
 /** Inline formatting toggles offered in the collapsed Insert menu (phones have
  *  no Mod key and Obsidian's mobile toolbar doesn't attach to this editor). */
@@ -132,19 +138,23 @@ const FORMAT_ACTIONS: { kind: MarkKind; label: string; icon: string }[] = [
 ];
 
 /** Quick picker for "Insert a to-do marker…" (command palette + toolbar). */
-class TodoPickerModal extends FuzzySuggestModal<TodoType> {
-  constructor(app: App, private onPick: (kind: PlaceholderKind) => void) {
+class TodoPickerModal extends FuzzySuggestModal<MarkerDef> {
+  constructor(
+    app: App,
+    private markers: MarkerDef[],
+    private onPick: (marker: MarkerDef) => void
+  ) {
     super(app);
     this.setPlaceholder("Insert a to-do marker…");
   }
-  getItems(): TodoType[] {
-    return TODO_TYPES;
+  getItems(): MarkerDef[] {
+    return this.markers;
   }
-  getItemText(t: TodoType): string {
-    return `${t.label} — ${t.desc}`;
+  getItemText(m: MarkerDef): string {
+    return `${m.label} — ${markerUi(m).desc}`;
   }
-  onChooseItem(t: TodoType): void {
-    this.onPick(t.kind);
+  onChooseItem(m: MarkerDef): void {
+    this.onPick(m);
   }
 }
 
@@ -221,8 +231,12 @@ export class WritePanel implements HoverParent {
     this.store = store;
     this.sprints = sprints;
     this.inspector = new SceneInspector(this.app, this.plugin, store);
-    const revision = new RevisionSidebar(this.app, store, plugin.activeProject, (path, from, to) =>
-      this.jumpToRevision(path, from, to)
+    const revision = new RevisionSidebar(
+      this.app,
+      store,
+      plugin.activeProject,
+      (path, from, to) => this.jumpToRevision(path, from, to),
+      () => this.markers()
     );
     this.rightPanels = [this.inspector, revision];
     // External-change detection for the open scene: every modify of its file is
@@ -329,13 +343,13 @@ export class WritePanel implements HoverParent {
   private openInsertMenu(e: MouseEvent): void {
     if (!this.editor) return;
     const menu = new Menu();
-    for (const { kind, label, icon } of TODO_TYPES) {
+    for (const marker of insertableMarkers(this.markers())) {
       menu.addItem((item) =>
         item
-          .setTitle(`Insert ${label}`)
-          .setIcon(icon)
+          .setTitle(`Insert ${marker.label}`)
+          .setIcon(markerUi(marker).icon)
           .onClick(() => {
-            if (this.editor) insertPlaceholder(this.editor, kind);
+            if (this.editor) insertPlaceholder(this.editor, marker);
           })
       );
     }
@@ -396,9 +410,14 @@ export class WritePanel implements HoverParent {
   /** Open the to-do picker and insert the chosen marker into the live editor. */
   promptInsertTodo(): void {
     if (!this.editor) return;
-    new TodoPickerModal(this.app, (kind) => {
-      if (this.editor) insertPlaceholder(this.editor, kind);
+    new TodoPickerModal(this.app, insertableMarkers(this.markers()), (marker) => {
+      if (this.editor) insertPlaceholder(this.editor, marker);
     }).open();
+  }
+
+  /** The effective to-do markers — resolved per call, never cached (gotcha 17). */
+  private markers(): MarkerSet {
+    return markerSet(this.plugin.settings.listOverrides.markers);
   }
 
   /** Toggle bold / italic / strikethrough on the live editor's selection
@@ -431,6 +450,7 @@ export class WritePanel implements HoverParent {
       onQuickCodex: () => this.quickCodex(),
       onOpenLink: (linktext) => this.openLink(linktext),
       onHoverLink: (e, el, linktext) => this.hoverLink(e, el, linktext),
+      getMarkers: () => this.markers(),
     };
   }
 
@@ -873,7 +893,7 @@ export class WritePanel implements HoverParent {
     }
 
     // To-do-insert controls — only useful with a scene open. Lets you drop a
-    // [TODO:…]/[RESEARCH:…]/[NOTE:…]/[DIALOGUE:…]/[SCENE:…] marker and keep drafting.
+    // [TODO:…]/[RESEARCH:…]/… marker (or one of the writer's own) and keep drafting.
     // Two presentations, toggled purely by CSS container-query on the topbar width:
     // a full inline button row when there's room, and a single "Insert" dropdown
     // once the bar gets too narrow for the row (tablet/phone, or a narrow pane).
@@ -882,8 +902,8 @@ export class WritePanel implements HoverParent {
         cls: "inkswell-write__group inkswell-write__group--insert",
       });
       insertGroup.createSpan({ cls: "inkswell-stats__muted", text: "Insert:" });
-      for (const { kind, label } of TODO_TYPES) {
-        const btn = insertGroup.createEl("button", { text: label });
+      for (const marker of insertableMarkers(this.markers())) {
+        const btn = insertGroup.createEl("button", { text: marker.label });
         // Insert WITHOUT stealing focus from the editor. If the button took focus,
         // the editor would blur → blur-save → store refresh → the host rebuilds the
         // Write panel, destroying the live editor mid-insert (cursor resets to 0,
@@ -891,7 +911,7 @@ export class WritePanel implements HoverParent {
         // the editor so every click inserts where the cursor actually is.
         btn.onmousedown = (e) => e.preventDefault();
         btn.onclick = () => {
-          if (this.editor) insertPlaceholder(this.editor, kind);
+          if (this.editor) insertPlaceholder(this.editor, marker);
         };
       }
       const gaps = insertGroup.createEl("button", { text: "Find to-dos" });
@@ -1255,7 +1275,7 @@ export class WritePanel implements HoverParent {
       }
     } else {
       // Placeholder/Todos target: re-scan to confirm the exact token by offset.
-      const match = scanPlaceholders(body).find((m) => m.from === hl.from);
+      const match = scanPlaceholders(body, this.markers()).find((m) => m.from === hl.from);
       if (match) {
         from = match.from;
         to = match.to;
@@ -1326,6 +1346,7 @@ export class WritePanel implements HoverParent {
     if (this.editor) {
       setTypewriter(this.editor, prefs.typewriter);
       refreshMilestones(this.editor);
+      refreshMarkers(this.editor);
     }
   }
 

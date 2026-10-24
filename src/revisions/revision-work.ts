@@ -9,12 +9,7 @@
  * has outstanding work, in manuscript order. No Obsidian imports → unit-testable.
  */
 
-import {
-  GapHit,
-  PLACEHOLDER_LABEL,
-  PLACEHOLDER_ORDER,
-  PlaceholderKind,
-} from "../lib/placeholders";
+import { DEFAULT_MARKERS, GapHit, MarkerSet, markerLabel } from "../lib/placeholders";
 import { decisionType } from "./decisions";
 import { REVISION_TYPES, RevisionDecision, RevisionType } from "./types";
 import { SceneTodos } from "./todos-scan";
@@ -109,7 +104,7 @@ export function buildRevisionGroups(
 
 export type WorkFilter =
   | { facet: "all" }
-  | { facet: "marker"; kind: PlaceholderKind }
+  | { facet: "marker"; kind: string }
   | { facet: "decision"; type: RevisionType };
 
 export interface WorkChip {
@@ -121,16 +116,18 @@ export interface WorkChip {
 }
 
 /**
- * Chip row for the current work set: `All (n)`, marker kinds in canonical
- * order, then decision types in declaration order. Zero-count chips are
- * omitted — including the legacy Research / New scene decision types, which
- * only appear when such decisions still exist.
+ * Chip row for the current work set: `All (n)`, marker kinds in the effective
+ * marker order (a hidden marker still gets a chip while prose carries it),
+ * then decision types in declaration order. Zero-count chips are omitted —
+ * including the legacy Research / New scene decision types, which only appear
+ * when such decisions still exist.
  */
 export function buildWorkChips(
   todos: SceneTodos[],
-  decisions: RevisionDecision[]
+  decisions: RevisionDecision[],
+  markers: MarkerSet = DEFAULT_MARKERS
 ): WorkChip[] {
-  const markerCounts = new Map<PlaceholderKind, number>();
+  const markerCounts = new Map<string, number>();
   let markerTotal = 0;
   for (const g of todos) {
     for (const t of g.todos) {
@@ -152,11 +149,17 @@ export function buildWorkChips(
       decision: false,
     },
   ];
-  for (const kind of PLACEHOLDER_ORDER) {
+  // The set's order first; any kind it doesn't know (todos scanned with an
+  // older set) still gets a chip rather than vanishing from the count.
+  const kinds = [
+    ...markers.defs.map((d) => d.id),
+    ...[...markerCounts.keys()].filter((k) => !markers.byId.has(k)),
+  ];
+  for (const kind of kinds) {
     const count = markerCounts.get(kind) ?? 0;
     if (!count) continue;
     chips.push({
-      label: PLACEHOLDER_LABEL[kind],
+      label: markerLabel(markers, kind),
       filter: { facet: "marker", kind },
       count,
       decision: false,

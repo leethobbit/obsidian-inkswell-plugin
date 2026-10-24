@@ -23,7 +23,7 @@
  */
 
 import { Project } from "../projects/types";
-import { baseDraft, baseDraftFor, groupIntoStories } from "../projects/stories";
+import { baseDraft, baseDraftFor, groupIntoStories, storyDrafts } from "../projects/stories";
 import { projectSeries } from "../series/series";
 import { linkTarget } from "./codex";
 import { CodexEntity, EntityScope } from "./types";
@@ -100,14 +100,6 @@ export function parseProjectScopeValue(raw: unknown): string[] {
     if (name) names.push(name);
   }
   return dedupe(names);
-}
-
-/** All drafts of the story containing `project` (or just `project` if ungrouped). */
-function storyDrafts(project: Project, allProjects: Project[]): Project[] {
-  const story = groupIntoStories(allProjects).find((s) =>
-    s.drafts.some((d) => d.vaultPath === project.vaultPath)
-  );
-  return story ? story.drafts : [project];
 }
 
 /** The story's series: the base draft's wins (a byte-copied sibling can carry a
@@ -217,6 +209,37 @@ export function scopeContextForEntity(
     }
   }
   return { projectNames: dedupe(names), seriesName };
+}
+
+/**
+ * Is `entity` scoped ONLY to archived books — so the Codex "All projects" list
+ * can keep it out of sight with them? True only when EVERY target is archived:
+ * a series scope (which wins over books, as in {@link isEntityVisible}) counts
+ * when all of the series' books are; each `codex-project` key must resolve and
+ * every story it names must be archived. False for a global entity, any live
+ * target, and any key that resolves to no book — a deleted or renamed book is
+ * not "archived", so its entries stay visible. A legacy shared basename (two
+ * `Index.md` books) matching one live book keeps the entity visible.
+ */
+export function onlyArchivedScope(
+  entity: CodexEntity,
+  projects: Project[],
+  isStoryArchived: (project: Project) => boolean
+): boolean {
+  const scope = entity.scope;
+  if (isGlobalScope(scope)) return false;
+  if (scope?.series) {
+    const books = groupIntoStories(projects)
+      .map(baseDraft)
+      .filter((b) => projectSeries(b)?.name === scope.series);
+    return books.length > 0 && books.every(isStoryArchived);
+  }
+  const keys = scope?.projects ?? [];
+  for (const key of keys) {
+    const owners = projects.filter((p) => bookMatches(key, p));
+    if (owners.length === 0 || owners.some((o) => !isStoryArchived(o))) return false;
+  }
+  return keys.length > 0;
 }
 
 /**

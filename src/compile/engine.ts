@@ -15,6 +15,7 @@ import {
   TFile,
   normalizePath,
 } from "obsidian";
+import type { MarkerSet } from "../lib/placeholders";
 import { Project, isMultiScene } from "../projects/types";
 import { chapterRuns } from "../outliner/outline";
 import { readSceneMeta } from "../scenes/scene-meta";
@@ -53,6 +54,9 @@ export interface CompileOptions {
   /** Replace even a marker-less existing file (the user confirmed; the caller
    *  is responsible for backing the displaced note up first). */
   allowOverwrite?: boolean;
+  /** The vault's effective to-do markers (`markerSet(settings.listOverrides.markers)`);
+   *  the shipped five when omitted. */
+  markers?: MarkerSet;
 }
 
 /** Load scene contents, assemble, render, and write. Returns the output path. */
@@ -66,7 +70,7 @@ export async function runCompile(
   if (scenes.length === 0) {
     throw new Error("No scenes with content to compile.");
   }
-  const manuscript = assembleManuscript(scenes, config);
+  const manuscript = assembleManuscript(scenes, config, undefined, opts.markers);
 
   // Defense in depth: the panel sanitizes on input, but the config is
   // hand-editable frontmatter — a name containing "/" would resolve the output

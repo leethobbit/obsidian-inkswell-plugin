@@ -12,6 +12,7 @@
 
 import { App, TFile } from "obsidian";
 import { tryFileOp } from "../lib/notify";
+import { DEFAULT_MARKERS, MarkerSet } from "../lib/placeholders";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
 import { Project, isMultiScene } from "../projects/types";
@@ -41,7 +42,9 @@ export class RevisionSidebar implements RightPanel {
     private app: App,
     private store: ProjectStore,
     private active: ActiveProject,
-    private onJump: RevisionJump
+    private onJump: RevisionJump,
+    /** The effective to-do markers, read at render time (gotcha 17). */
+    private getMarkers: () => MarkerSet = () => DEFAULT_MARKERS
   ) {}
 
   render(host: HTMLElement, file: TFile | null): void {
@@ -91,7 +94,7 @@ export class RevisionSidebar implements RightPanel {
   // --- Data ------------------------------------------------------------------
 
   private async build(project: Project): Promise<RevisionGroup[]> {
-    const todos = await scanProjectTodos(this.app, project.scenes);
+    const todos = await scanProjectTodos(this.app, project.scenes, this.getMarkers());
     const all = decisionsOf(project);
     const decisions = this.showApplied ? all : filterDecisions(all, { status: "pending" });
     return buildRevisionGroups(project.scenes, todos, decisions, this.file?.path ?? null);
@@ -130,6 +133,7 @@ export class RevisionSidebar implements RightPanel {
     return {
       app: this.app,
       persist: (project, transform) => this.persist(project, transform),
+      markers: this.getMarkers(),
     };
   }
 

@@ -4,7 +4,8 @@
  *
  * Two states, driven by the shared `activeProject`:
  *   - All projects: shelves of book cards — one shelf per series (in book
- *     order), one for standalone books — plus the ideas inbox. Cards navigate.
+ *     order), one for standalone books — plus the ideas inbox, then a collapsed
+ *     Archived section for archived stories (out of sight). Cards navigate.
  *   - Focused: the hero card (cover / logline / theme / target), a strip of the
  *     series' other covers when the book belongs to one, and THIS book's scene
  *     tree. Scenes can be opened (click), reordered (drag), re-nested (menu).
@@ -16,17 +17,23 @@
  * reconcile-banner.ts, scene-rows.ts, series-menu.ts.
  */
 
-import { App, TFile } from "obsidian";
+import { App, TFile, setIcon } from "obsidian";
 import { attachRowMenu } from "../../lib/row-menu";
 import { ProjectStats } from "../../projects/project-stats";
 import { ProjectStore } from "../../projects/project-store";
 import { Project, isMultiScene } from "../../projects/types";
-import { baseDraftFor, groupIntoStories, representativeDrafts } from "../../projects/stories";
+import {
+  archivedStoryTitles,
+  baseDraftFor,
+  groupIntoStories,
+  representativeDrafts,
+} from "../../projects/stories";
 import {
   Series,
   ShelfBook,
   groupIntoSeries,
   orderSeries,
+  partitionArchived,
   projectSeries,
   renameInOrder,
   shelfMetaText,
@@ -89,6 +96,8 @@ export class ExplorerPanel {
         plugin.settings.seriesOrder = next;
         void plugin.saveSettings();
       },
+      archiveProject: (p, archived) => void plugin.archiveProject(p, archived),
+      archiveSeries: (s, archived) => void plugin.archiveSeries(s, archived),
     });
     this.sceneRows = new SceneRows(app, plugin, stats, onSelectScene);
   }
@@ -171,18 +180,89 @@ export class ExplorerPanel {
 
     // Unfocused = the global "all projects" dashboard: shelves of cards, then
     // the idea inbox (a store of cross-project story seeds — it lives here, not
-    // inside a focused project's view).
-    if (series.length === 0) {
-      this.renderGrid(container, standalone, null);
+    // inside a focused project's view), then the collapsed Archived section.
+    // Partitioned AFTER grouping: a partially archived series keeps its shelf
+    // (archived books dimmed in place); only a fully archived one moves.
+    const archived = archivedStoryTitles(projects);
+    const shelves = partitionArchived(
+      { series, standalone },
+      (p) => archived.has(p.draft.title),
+      this.plugin.settings.hideArchivedInSeries
+    );
+    // Shelves render the partition's DISPLAY lists; their menus ("+ Add book"
+    // numbering, reorder, rename, archive) act on the FULL series.
+    const full = new Map(series.map((s) => [s.name, s] as const));
+    const fullOf = (s: Series): Series => full.get(s.name) ?? s;
+    if (shelves.series.length === 0 && shelves.standalone.length === 0 && archived.size > 0) {
+      container.createDiv({
+        cls: "inkswell-explorer__empty",
+        text: "Every project is archived. Open Archived below to bring one back.",
+      });
+    }
+    if (shelves.series.length === 0) {
+      this.renderGrid(container, shelves.standalone, null);
     } else {
-      for (const s of series) this.renderShelf(container, s.name, s.books, s);
-      if (standalone.length > 0) this.renderShelf(container, "Standalone", standalone, null);
+      for (const s of shelves.series) this.renderShelf(container, s.name, s.books, fullOf(s));
+      if (shelves.standalone.length > 0) this.renderShelf(container, "Standalone", shelves.standalone, null);
     }
     renderIdeas(container, this.plugin);
+    this.renderArchived(container, shelves.archivedSeries, shelves.archivedStandalone, fullOf);
   }
 
-  /** A shelf: header (name, aggregate progress, series menu) + a grid of book cards. */
-  private renderShelf(parent: HTMLElement, name: string, books: Project[], series: Series | null): void {
+  /**
+   * Home's Archived section — out of sight, one click away. Collapsed by
+   * default (`settings.homeArchivedOpen`); holds archived series shelves (whole
+   * series, or a live series' archived books under its name) and archived
+   * standalone books, with no "+ Add book" cards. Cards keep their menus, so
+   * Unarchive is where you'd look for it.
+   */
+  private renderArchived(
+    parent: HTMLElement,
+    series: Series[],
+    standalone: Project[],
+    fullOf: (s: Series) => Series
+  ): void {
+    const count = series.reduce((n, s) => n + s.books.length, 0) + standalone.length;
+    if (count === 0) return;
+    const open = this.plugin.settings.homeArchivedOpen;
+    const sec = parent.createDiv({ cls: "inkswell-archived" });
+    sec.toggleClass("is-collapsed", !open);
+    const head = sec.createDiv({ cls: "inkswell-archived__head" });
+    head.setAttribute("role", "button");
+    head.tabIndex = 0;
+    head.setAttribute("aria-expanded", String(open));
+    setIcon(head.createSpan({ cls: "inkswell-archived__chevron" }), open ? "chevron-down" : "chevron-right");
+    head.createSpan({ text: "Archived" });
+    head.createSpan({ cls: "inkswell-archived__count", text: String(count) });
+    const toggle = () => {
+      this.plugin.settings.homeArchivedOpen = !open;
+      void this.plugin.persist();
+      this.plugin.refreshExplorer();
+    };
+    head.onclick = toggle;
+    head.onkeydown = (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggle();
+      }
+    };
+    if (!open) return;
+    for (const s of series) this.renderShelf(sec, s.name, s.books, fullOf(s), false);
+    if (standalone.length > 0) {
+      if (series.length > 0) this.renderShelf(sec, "Standalone", standalone, null, false);
+      else this.renderGrid(sec, standalone, null, false);
+    }
+  }
+
+  /** A shelf: header (name, aggregate progress, series menu) + a grid of book
+   *  cards. `books` is what to show; `series` (the FULL series) drives the menus. */
+  private renderShelf(
+    parent: HTMLElement,
+    name: string,
+    books: Project[],
+    series: Series | null,
+    addGhost = true
+  ): void {
     const sec = parent.createDiv({ cls: "inkswell-shelf" });
     const header = sec.createDiv({ cls: "inkswell-shelf__header" });
     header.createSpan({ cls: "inkswell-shelf__name", text: name });
@@ -190,18 +270,20 @@ export class ExplorerPanel {
     void this.renderShelfMeta(meta, books);
     // Right-click / ⋯ → series menu (new book, add existing, rename, reorder).
     if (series) attachRowMenu(header, header, () => this.seriesMenu.seriesMenu(series));
-    this.renderGrid(sec, books, series);
+    this.renderGrid(sec, books, series, addGhost);
   }
 
   /**
    * The card grid, ending with a "+ Add book" ghost card: on a series shelf it
    * offers a new book in the series or an existing project; on Standalone (or
-   * the plain grid when there are no series) it opens New project (#57).
+   * the plain grid when there are no series) it opens New project (#57). The
+   * Archived section passes `addGhost: false` — you don't start books there.
    */
-  private renderGrid(parent: HTMLElement, books: Project[], series: Series | null): void {
+  private renderGrid(parent: HTMLElement, books: Project[], series: Series | null, addGhost = true): void {
     const grid = parent.createDiv({ cls: "inkswell-shelf__grid" });
     const ctx = this.cardContext();
     for (const book of books) renderBookCard(grid, book, ctx);
+    if (!addGhost) return;
     const ghost = grid.createDiv({ cls: "inkswell-card inkswell-card--ghost", text: "+ Add book" });
     ghost.setAttribute("role", "button");
     ghost.tabIndex = 0;
@@ -232,11 +314,14 @@ export class ExplorerPanel {
   }
 
   private cardContext(): BookCardContext {
+    const projects = this.store.getProjects();
+    const archived = archivedStoryTitles(projects);
     return {
       app: this.app,
       stats: this.stats,
-      projects: this.store.getProjects(),
+      projects,
       showWordCounts: this.plugin.settings.showWordCounts,
+      isArchived: (p) => archived.has(p.draft.title),
       draftCount: (title) => this.storyCounts.get(title) ?? 1,
       menu: (p) => this.seriesMenu.projectMenu(p),
       onOpen: (p) => this.plugin.activeProject.set(p.vaultPath),
@@ -258,14 +343,20 @@ export class ExplorerPanel {
     el.setText(shelfMetaText(rows, true));
   }
 
-  /** Focused view: the series' covers in order; click one to switch books. */
+  /** Focused view: the series' covers in order; click one to switch books. With
+   *  "Hide archived books from their series" on, archived books drop out of the
+   *  strip — except the focused one, which always shows where it sits. */
   private renderSeriesStrip(parent: HTMLElement, series: Series, focused: Project): void {
     const strip = parent.createDiv({ cls: "inkswell-seriesstrip" });
     // Label + thumbs scroll sideways on narrow screens; the ⋯ stays put outside.
     const scroll = strip.createDiv({ cls: "inkswell-seriesstrip__scroll" });
     scroll.createSpan({ cls: "inkswell-seriesstrip__label", text: series.name });
     const projects = this.store.getProjects();
-    for (const book of series.books) {
+    const archived = this.plugin.settings.hideArchivedInSeries ? archivedStoryTitles(projects) : new Set<string>();
+    const shown = series.books.filter(
+      (b) => !archived.has(b.draft.title) || b.draft.title === focused.draft.title
+    );
+    for (const book of shown) {
       renderCoverThumb(scroll, this.app, projects, book, book.vaultPath === focused.vaultPath, (b) =>
         this.plugin.activeProject.set(b.vaultPath)
       );

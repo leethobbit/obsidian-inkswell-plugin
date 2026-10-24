@@ -70,6 +70,51 @@ export function groupIntoSeries(projects: Project[]): {
   return { series, standalone };
 }
 
+/** Home's shelves split by archive state (see {@link partitionArchived}). */
+export interface ArchivePartition {
+  /** Live series shelves — the books to SHOW (see `hideInSeries`). */
+  series: Series[];
+  standalone: Project[];
+  /** Archived series shelves: a fully archived series whole, or (with
+   *  `hideInSeries`) a live series' archived books under its name. */
+  archivedSeries: Series[];
+  archivedStandalone: Project[];
+}
+
+/**
+ * Split grouped shelves by archive state, AFTER grouping (so series order and
+ * book numbering still see every book). A fully archived series moves to the
+ * archived side whole. A partially archived one either keeps its archived
+ * books in place (Home dims them — order and shelf totals stay truthful) or,
+ * with `hideInSeries` (the "Hide archived books from their series" setting —
+ * short stories archived once they're out), splits: its live books stay on the
+ * shelf and its archived books move to the archived side under the series
+ * name. The returned Series objects are DISPLAY lists — callers that act on
+ * the whole series (new book numbering, reorder, rename) must use the full
+ * series from the grouping, never these. Pure.
+ */
+export function partitionArchived(
+  grouped: { series: Series[]; standalone: Project[] },
+  isArchived: (p: Project) => boolean,
+  hideInSeries = false
+): ArchivePartition {
+  const out: ArchivePartition = { series: [], standalone: [], archivedSeries: [], archivedStandalone: [] };
+  for (const s of grouped.series) {
+    const archived = s.books.filter(isArchived);
+    if (archived.length === 0) out.series.push(s);
+    else if (archived.length === s.books.length) out.archivedSeries.push(s);
+    else if (!hideInSeries) out.series.push(s);
+    else {
+      out.series.push({ name: s.name, books: s.books.filter((b) => !isArchived(b)) });
+      out.archivedSeries.push({ name: s.name, books: archived });
+    }
+  }
+  for (const p of grouped.standalone) {
+    (isArchived(p) ? out.archivedStandalone : out.standalone).push(p);
+  }
+  return out;
+}
+
 /** A series name as series match it: trimmed, case-insensitive. */
 const seriesKey = (name: string): string => name.trim().toLowerCase();
 
