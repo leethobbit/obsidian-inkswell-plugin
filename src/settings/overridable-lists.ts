@@ -16,6 +16,7 @@
 
 import { PROMPT_CATEGORIES, PromptCategory, PromptExtra, PromptPhase, WRITING_PROMPTS } from "../ideation/prompts";
 import { ListItem, ListOverride, ListSpec, normalizeListOverride } from "../lib/list-override";
+import { MarkerExtra, SHIPPED_MARKERS, isValidKeyword, normalizeKeyword } from "../lib/placeholders";
 import { PUBLISHING_CHECKLIST, PublishingExtra } from "../publishing/checklist-def";
 import { PAGE_GROUPS, SCENE_CHECKPOINTS, STORY_CHECKPOINTS } from "../revisions/audit";
 import { INSPECTOR_FIELDS, SCENE_STATUSES, statusLabel } from "../scenes/scene-meta";
@@ -27,7 +28,8 @@ export type OverridableListId =
   | "publishing"
   | "prompts"
   | "scene.status"
-  | "scene.fields";
+  | "scene.fields"
+  | "markers";
 
 /** The stored shape — one optional override per list. */
 export interface ListOverrides {
@@ -38,6 +40,7 @@ export interface ListOverrides {
   prompts?: ListOverride<PromptExtra>;
   "scene.status"?: ListOverride;
   "scene.fields"?: ListOverride;
+  markers?: ListOverride<MarkerExtra>;
 }
 
 /** The settings subset resolvers need (like CodexSettings / FolderSettings). */
@@ -64,6 +67,7 @@ export const LIST_META: Record<OverridableListId, ListMeta> = {
   prompts: { label: "Writing prompts", idPrefix: "wp" },
   "scene.status": { label: "Scene statuses", idPrefix: "ss" },
   "scene.fields": { label: "Scene inspector fields", idPrefix: "sf" },
+  markers: { label: "To-do markers", idPrefix: "mk" },
 };
 
 const PHASES: PromptPhase[] = ["draft", "revise"];
@@ -133,6 +137,27 @@ export const SPEC_SCENE_FIELDS: ListSpec = {
   allowOrder: true,
 };
 
+/**
+ * To-do markers: rename / hide / reorder the shipped five, add your own. The
+ * keyword lives in prose, so it's validated here and never editable after the
+ * marker exists; a shipped marker's keyword is fixed (`markerSet` ignores any
+ * stored `extras.keyword`). Keyword uniqueness across items is enforced by
+ * `markerSet` (first claim wins) and at creation in Customize.
+ */
+export const SPEC_MARKERS: ListSpec<MarkerExtra> = {
+  shipped: SHIPPED_MARKERS,
+  allowAdded: true,
+  allowGroups: false,
+  allowOrder: true,
+  // No uniqueLabels: the keyword is the identity, and a clashing label would be
+  // dropped silently at save (the add flow can't see the label it validates).
+  parseExtra: (rec) => {
+    const raw = rec["keyword"];
+    if (typeof raw !== "string" || !isValidKeyword(raw)) return null;
+    return { keyword: normalizeKeyword(raw) };
+  },
+};
+
 /** Sanitize the stored map on load (unknown list ids dropped, each override normalized). */
 export function normalizeListOverrides(raw: unknown): ListOverrides {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
@@ -152,5 +177,7 @@ export function normalizeListOverrides(raw: unknown): ListOverrides {
   if (status) out["scene.status"] = status;
   const fields = normalizeListOverride(rec["scene.fields"], SPEC_SCENE_FIELDS);
   if (fields) out["scene.fields"] = fields;
+  const markers = normalizeListOverride(rec["markers"], SPEC_MARKERS);
+  if (markers) out.markers = markers;
   return out;
 }

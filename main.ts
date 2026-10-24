@@ -22,6 +22,7 @@ import { RestoreSettingsModal } from "./src/settings/restore-settings-modal";
 import { MarkKind } from "./src/lib/inline-format";
 import { PHONE_BODY_CLASS, isPhone, setForceTabletLayout } from "./src/lib/platform";
 import { countWords } from "./src/lib/wordcount";
+import { markerSet } from "./src/lib/placeholders";
 import { openScene, promptText } from "./src/scenes/scene-actions";
 import { tryFileOp } from "./src/lib/notify";
 import { joinPath, sanitizeSegment } from "./src/settings/folders";
@@ -990,7 +991,9 @@ export default class InkswellPlugin extends Plugin {
     }
     try {
       const config = resolveCompileConfig(project, this.settings.defaultCompileFormat);
-      const result = await runCompile(this.app, project, config);
+      const result = await runCompile(this.app, project, config, {
+        markers: markerSet(this.settings.listOverrides.markers),
+      });
       const words = countWords(result.wordCountSource);
       new Notice(`Compiled ${words.toLocaleString()} words to ${result.outputPath}`);
     } catch (e) {

@@ -39,7 +39,7 @@ A three-step flow: *Overview* (novel-level fields and long-form prose), *Beats* 
 
 ### Write — draft fast, fix later
 
-A distraction-light, Live-Preview manuscript editor with writing prompts and timed **sprints**. Five fast-drafting **inline markers** — for to-dos, research questions, dialogue gaps, missing scenes, and notes — highlight as you type (e.g. `[RESEARCH: what did 1920s lamplighters earn?]`), so you can mark a gap and keep moving forward. Find them all later in Revise → To-dos.
+A distraction-light, Live-Preview manuscript editor with writing prompts and timed **sprints**. Five fast-drafting **inline markers** — for to-dos, research questions, dialogue gaps, missing scenes, and notes — highlight as you type (e.g. `[RESEARCH: what did 1920s lamplighters earn?]`), so you can mark a gap and keep moving forward. Add your own marker words (`[CHECK: …]`, `[TK: …]`) under Customize → To-do markers. Find them all later in Revise → To-dos.
 
 ![Write: Live-Preview editor with highlighted draft markers and a running sprint timer](assets/write.png)
 

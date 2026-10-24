@@ -816,6 +816,10 @@ body.is-mobile .inkswell-idea .inkswell-rowmenu {
 .inkswell-todos__kind--scene {
   background: hsla(265, 70%, 60%, 0.2);
 }
+/* The writer's own markers (Customize → To-do markers) share one teal. */
+.inkswell-todos__kind--custom {
+  background: hsla(185, 65%, 42%, 0.22);
+}
 .inkswell-todos__line {
   color: var(--text-faint);
   font-family: var(--font-monospace);
@@ -2158,7 +2162,8 @@ body.inkswell-phone .inkswell-write__cm .cm-milestone-gutter {
 .cm-ph-research,
 .cm-ph-note,
 .cm-ph-dialogue,
-.cm-ph-scene {
+.cm-ph-scene,
+.cm-ph-custom {
   border-radius: 3px;
   padding: 0 2px;
   font-size: 0.92em;
@@ -2182,6 +2187,10 @@ body.inkswell-phone .inkswell-write__cm .cm-milestone-gutter {
 }
 .cm-ph-scene {
   background: hsla(265, 70%, 60%, 0.16);
+  color: var(--text-normal);
+}
+.cm-ph-custom {
+  background: hsla(185, 65%, 42%, 0.18);
   color: var(--text-normal);
 }
 
@@ -4266,6 +4275,12 @@ body.inkswell-phone .inkswell-codex__toolbar input[type="search"] {
 }
 .inkswell-customize__was {
   font-size: var(--font-ui-smaller);
+  white-space: nowrap;
+}
+/* To-do markers: the prose keyword, read-only (it can't change once used). */
+.inkswell-customize__keyword {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
   white-space: nowrap;
 }
 .inkswell-customize__groupsum {

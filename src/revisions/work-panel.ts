@@ -14,6 +14,7 @@
 
 import { App, setIcon } from "obsidian";
 import { preserveFocus } from "../lib/focus-preserve";
+import { MarkerSet, markerSet } from "../lib/placeholders";
 import { tryFileOp } from "../lib/notify";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
@@ -111,7 +112,7 @@ export class RevisionWorkPanel {
     this.listEl.createDiv({ cls: "inkswell-stats__muted", text: "Scanning scenes…" });
 
     const token = ++this.token;
-    void scanProjectTodos(this.app, project.scenes).then((todos) => {
+    void scanProjectTodos(this.app, project.scenes, this.markers()).then((todos) => {
       if (token !== this.token) return; // stale: re-rendered since
       this.todosCache = todos;
       this.renderChips();
@@ -150,6 +151,11 @@ export class RevisionWorkPanel {
     this.plugin.selfWrites.mark(path);
   };
 
+  /** The effective to-do markers — resolved per call, never cached (gotcha 17). */
+  private markers(): MarkerSet {
+    return markerSet(this.plugin.settings.listOverrides.markers);
+  }
+
   private rowContext(): DecisionRowContext {
     return {
       app: this.app,
@@ -163,6 +169,7 @@ export class RevisionWorkPanel {
         );
       },
       markWrite: this.markWrite,
+      markers: this.markers(),
     };
   }
 
@@ -175,7 +182,7 @@ export class RevisionWorkPanel {
     const project = this.project();
     if (!project) return;
 
-    const chips = buildWorkChips(this.todosCache, this.visibleDecisions(project));
+    const chips = buildWorkChips(this.todosCache, this.visibleDecisions(project), this.markers());
     // Only "All" (count may be 0) → no work at all; the list shows the empty state.
     if (chips.length === 1 && chips[0].count === 0) return;
 

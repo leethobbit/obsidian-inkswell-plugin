@@ -10,6 +10,10 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Added
+- **Your own to-do markers.** Customize → **To-do markers** lets you add the words you use to mark unfinished spots, like `[CHECK: …]` or `[TK: …]`. They work like the built-in five: highlighted in Write, in the Insert menu and the to-do picker, listed (and filterable) in Revise → To-dos, and removed when you compile. You can also rename how a built-in marker is labeled ("Research" → "Fact check"), reorder them, or hide the ones you never use. Hiding only takes a marker out of the Insert menu; markers already in your scenes are still found and still removed when you compile.
+- **Compile check catches stray markers.** Publish → Compile → **Check manuscript** now warns about anything that looks like a to-do marker Inkswell doesn't recognize (a typo like `[CHEKC: …]`, or a marker you removed), since those would otherwise stay in your manuscript.
+
 ## [1.21.1] - 2026-10-17
 
 A safety fix. If Inkswell's data file was briefly unreadable, for example while a sync service was still writing it, your settings could reset to their defaults. That can no longer happen, and a new command brings your settings back from Inkswell's daily backups.

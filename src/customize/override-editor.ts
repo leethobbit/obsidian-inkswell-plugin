@@ -49,6 +49,12 @@ export interface OverrideEditorOptions<X> {
   /** Noun for buttons/prompts, e.g. "checkpoint", "prompt", "task". */
   noun: string;
   intro?: string;
+  /** Ask before removing a custom item (default: remove at once). */
+  confirmRemove?(item: EffectiveItem<X>): Promise<boolean>;
+  /** The Notice shown after a custom item is removed (default: checklist wording). */
+  removeNotice?(item: EffectiveItem<X>): string;
+  /** After every save — e.g. push a changed list to live editors (never refreshView). */
+  onSaved?: () => void;
 }
 
 /** Read the current stored override for a list (typed loosely — the spec re-narrows on write). */
@@ -60,7 +66,8 @@ async function persist<X>(
   ctx: SectionCtx,
   id: OverridableListId,
   next: ListOverride<X> | undefined,
-  spec: ListSpec<X>
+  spec: ListSpec<X>,
+  onSaved?: () => void
 ): Promise<void> {
   const normalized = next ? normalizeListOverride(next, spec) : undefined;
   const all = ctx.plugin.settings.listOverrides as Record<string, unknown>;
@@ -68,6 +75,7 @@ async function persist<X>(
   else delete all[id];
   ctx.plugin.settings.listOverrides = all;
   await ctx.plugin.saveSettings();
+  onSaved?.();
   ctx.rerender();
 }
 
@@ -79,7 +87,7 @@ export function renderOverrideEditor<X extends object>(
   const { listId, spec } = opts;
   const meta = LIST_META[listId];
   const o = current<X>(ctx, listId);
-  const save = (next: ListOverride<X>) => void persist(ctx, listId, next, spec);
+  const save = (next: ListOverride<X>) => void persist(ctx, listId, next, spec, opts.onSaved);
 
   if (opts.intro) host.createEl("p", { cls: "inkswell-stats__muted", text: opts.intro });
 
@@ -213,8 +221,14 @@ function renderItems<X extends object>(
     onReorder: (next) => reorder(next.map((i) => i.id)),
     onRemove: (it) => {
       if (!it.custom) return;
-      save(ops.removeItem(o, it.id));
-      new Notice(`Removed "${it.label}". Anything already ticked under it stays in your notes.`);
+      void (async () => {
+        if (opts.confirmRemove && !(await opts.confirmRemove(it))) return;
+        save(ops.removeItem(o, it.id));
+        new Notice(
+          opts.removeNotice?.(it) ??
+            `Removed "${it.label}". Anything already ticked under it stays in your notes.`
+        );
+      })();
     },
     add: opts.allowAdd
       ? {
@@ -239,7 +253,7 @@ function renderItems<X extends object>(
           },
         }
       : undefined,
-    reset: !groupId ? resetOption(ctx, listId, spec, o) : undefined,
+    reset: !groupId ? resetOption(ctx, listId, spec, o, opts.onSaved) : undefined,
   });
 }
 
@@ -247,12 +261,13 @@ function resetOption<X>(
   ctx: SectionCtx,
   listId: OverridableListId,
   spec: ListSpec<X>,
-  o: ListOverride<X> | undefined
+  o: ListOverride<X> | undefined,
+  onSaved?: () => void
 ): { label: string; action(): void } | undefined {
   if (!o) return undefined;
   return {
     label: "Reset to Inkswell's defaults",
-    action: () => void persist(ctx, listId, undefined, spec),
+    action: () => void persist(ctx, listId, undefined, spec, onSaved),
   };
 }
 

@@ -7,7 +7,8 @@ import {
 } from "../src/revisions/revision-work";
 import type { SceneTodos } from "../src/revisions/todos-scan";
 import type { RevisionDecision, RevisionType } from "../src/revisions/types";
-import type { GapHit, PlaceholderKind } from "../src/lib/placeholders";
+import { markerSet } from "../src/lib/placeholders";
+import type { GapHit } from "../src/lib/placeholders";
 
 const scenes = [
   { title: "One", path: "Book/1.md" },
@@ -106,7 +107,7 @@ describe("buildRevisionGroups", () => {
   });
 });
 
-const kindGap = (kind: PlaceholderKind, from = 0): GapHit => ({
+const kindGap = (kind: string, from = 0): GapHit => ({
   from,
   to: from + 6,
   kind,
@@ -140,6 +141,21 @@ describe("buildWorkChips", () => {
   it("buckets untyped decisions as Continuity", () => {
     const chips = buildWorkChips([], [typed("a"), typed("b")]);
     expect(chips.find((c) => c.label === "Continuity")?.count).toBe(2);
+  });
+
+  it("labels and orders marker chips from the writer's set — hidden ones still count", () => {
+    const set = markerSet({
+      labels: { research: "Fact check" },
+      hidden: ["research"],
+      order: ["mk-1"],
+      added: [{ id: "mk-1", label: "Check", keyword: "CHECK" }],
+    });
+    const chips = buildWorkChips(
+      [todos("Book/1.md", kindGap("todo"), kindGap("research", 20), kindGap("mk-1", 40))],
+      [],
+      set
+    );
+    expect(chips.map((c) => c.label)).toEqual(["All", "Check", "TODO", "Fact check"]);
   });
 });
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { preflight } from "../src/compile/preflight";
+import { markerSet } from "../src/lib/placeholders";
 
 const ruleIds = (s: { text: string; title: string }[]) =>
   preflight(s).map((f) => f.rule);
@@ -67,6 +68,23 @@ describe("preflight", () => {
     ]).find((x) => x.rule === "todos")!;
     expect(f.count).toBe(3);
     expect(f.scenes).toEqual(["A", "B"]);
+  });
+
+  it("counts the writer's own markers with the vault's marker set", () => {
+    const set = markerSet({ added: [{ id: "mk-1", label: "Check", keyword: "CHECK" }] });
+    const findings = preflight([{ title: "A", text: "Ship [CHECK: date] soon." }], set);
+    expect(findings.find((x) => x.rule === "todos")?.count).toBe(1);
+    expect(findings.some((x) => x.rule === "unknown-markers")).toBe(false);
+  });
+
+  it("warns about marker-shaped tokens nothing recognizes (they'd ship verbatim)", () => {
+    const f = preflight([
+      { title: "A", text: "Typo [CHEKC: date] here, and [CHECK: x]." },
+      { title: "B", text: "Fine [TODO: x] and [REDACTED] prose." },
+    ]).find((x) => x.rule === "unknown-markers")!;
+    expect(f.count).toBe(2);
+    expect(f.scenes).toEqual(["A"]);
+    expect(f.detail).toBe("[CHEKC: …]  ·  [CHECK: …]");
   });
 
   it("aggregates counts and affected scene titles", () => {

@@ -7,7 +7,7 @@
  */
 
 import { htmlTagRe } from "../lib/html-tags";
-import { scanPlaceholders } from "../lib/placeholders";
+import { DEFAULT_MARKERS, MarkerSet, findUnknownMarkers, scanPlaceholders } from "../lib/placeholders";
 import { stripFrontmatter } from "../lib/frontmatter";
 import { isImageEmbedTarget } from "./steps";
 
@@ -67,12 +67,14 @@ const PAGEBREAK_RE = /\f|<!--\s*page\s*break\s*-->|\\newpage|\\pagebreak/gi;
 const DOUBLE_SPACE_RE = /\S {2,}/g; // a non-space then 2+ spaces (e.g. double space after a period)
 
 /** Run all checks. Returns one finding per triggered rule (empty = clean). */
-export function preflight(scenes: SceneText[]): PreflightFinding[] {
+export function preflight(scenes: SceneText[], markers: MarkerSet = DEFAULT_MARKERS): PreflightFinding[] {
   const tabs = new Map<string, number>();
   const doubleSpace = new Map<string, number>();
   const html = new Map<string, number>();
   const pagebreak = new Map<string, number>();
   const todos = new Map<string, number>();
+  const unknownMarkers = new Map<string, number>();
+  const unknownKeywords = new Set<string>();
   const embeds = new Map<string, number>();
   const empty: string[] = [];
   const styles = new Set<string>();
@@ -90,7 +92,12 @@ export function preflight(scenes: SceneText[]): PreflightFinding[] {
     if ((n = count(DOUBLE_SPACE_RE, text))) doubleSpace.set(s.title, n);
     if ((n = count(RAW_HTML_RE, text))) html.set(s.title, n);
     if ((n = count(PAGEBREAK_RE, text))) pagebreak.set(s.title, n);
-    if ((n = scanPlaceholders(text).length)) todos.set(s.title, n);
+    if ((n = scanPlaceholders(text, markers).length)) todos.set(s.title, n);
+    const unknown = findUnknownMarkers(text, markers);
+    if (unknown.length) {
+      unknownMarkers.set(s.title, unknown.length);
+      for (const k of unknown) unknownKeywords.add(k);
+    }
     if ((n = countNoteEmbeds(text))) embeds.set(s.title, n);
     for (const line of text.split("\n")) {
       const style = breakStyle(line);
@@ -116,9 +123,16 @@ export function preflight(scenes: SceneText[]): PreflightFinding[] {
   fromMap("page-break", "Manual page breaks — let the chapter style handle breaks", pagebreak);
   fromMap(
     "todos",
-    "Unresolved drafting markers ([TODO]/[NOTE]/[SCENE]…) — resolve them or the 'remove-todos' step will drop them",
+    "Unresolved to-do markers ([TODO], [NOTE], your own…) — resolve them or the 'remove-todos' step will drop them",
     todos
   );
+  fromMap(
+    "unknown-markers",
+    "Possible to-do markers Inkswell doesn't recognize — they'd stay in the manuscript. Fix the spelling, or add the word under Customize → To-do markers",
+    unknownMarkers
+  );
+  const unknownFinding = findings.find((f) => f.rule === "unknown-markers");
+  if (unknownFinding) unknownFinding.detail = [...unknownKeywords].map((k) => `[${k}: …]`).join("  ·  ");
   fromMap(
     "embeds",
     "Embedded notes (![[…]]) — the 'flatten-links' step drops them; paste the text in if it belongs in the manuscript",

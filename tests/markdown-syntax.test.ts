@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SyntaxIntent, buildSyntaxIntents } from "../src/lib/markdown-syntax";
+import { markerSet } from "../src/lib/placeholders";
 
 /** Style intents matching a class (e.g. all italic spans). */
 const styles = (out: SyntaxIntent[], cls: string) =>
@@ -103,6 +104,14 @@ describe("buildSyntaxIntents — placeholder tokens", () => {
     expect(styles(buildSyntaxIntents("[SCENE: x]", []), "cm-ph-scene")).toHaveLength(1);
     expect(styles(buildSyntaxIntents("[NOTE: x]", []), "cm-ph-note")).toHaveLength(1);
     expect(styles(buildSyntaxIntents("[RESEARCH: x]", []), "cm-ph-research")).toHaveLength(1);
+  });
+
+  it("styles the writer's own markers with the shared custom class", () => {
+    const set = markerSet({ added: [{ id: "mk-1", label: "Check", keyword: "CHECK" }] });
+    const out = buildSyntaxIntents("a [CHECK: *date*] b", [], set);
+    expect(out).toContainEqual({ from: 2, to: 17, type: "style", cls: "cm-ph-custom" });
+    expect(styles(out, "cm-md-em")).toHaveLength(0); // protected like a shipped token
+    expect(styles(buildSyntaxIntents("a [CHECK: x] b", []), "cm-ph-custom")).toHaveLength(0);
   });
 
   it("does not style emphasis inside a placeholder", () => {

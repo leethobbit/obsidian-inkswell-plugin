@@ -74,6 +74,11 @@ export const HINTS: Record<string, HintEntry> = {
       );
       examples(el, ["[TODO: ]", "[RESEARCH: ]", "[NOTE: ]", "[DIALOGUE: ]", "[SCENE: ]"]);
       p(el, 'Run “Insert a to-do marker…” for a picker that drops one at the cursor.');
+      p(
+        el,
+        "Want your own word, like [CHECK: ] or [TK: ]? Add it under Customize → To-do markers, " +
+          "where you can also rename or hide the built-in ones."
+      );
     },
   },
   "track/sync": {
@@ -301,7 +306,7 @@ export const HINTS: Record<string, HintEntry> = {
       );
       p(
         el,
-        "The pipeline runs in steps you can toggle: per-scene steps (strip to-do markers, " +
+        "The pipeline runs in steps you can toggle: per-scene steps (strip to-do markers, your own included, " +
           "filter metadata) and manuscript-level steps (headings, page breaks, tidy blank " +
           "lines). Your choices are remembered per project."
       );

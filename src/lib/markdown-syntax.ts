@@ -32,7 +32,7 @@
  */
 
 import { Align, htmlTagRe, isBlockHtmlTag, tagAlignment } from "./html-tags";
-import { PLACEHOLDER_CLASS, scanPlaceholders } from "./placeholders";
+import { DEFAULT_MARKERS, MarkerSet, markerClass, scanPlaceholders } from "./placeholders";
 import { scanWikilinks } from "./wikilinks";
 
 export interface Sel {
@@ -278,14 +278,18 @@ function scanLine(
  * Scan `text` and produce decoration intents in absolute doc offsets, sorted by
  * start. `selections` drives marker hide/reveal (pass [] for "no cursor").
  */
-export function buildSyntaxIntents(text: string, selections: Sel[]): SyntaxIntent[] {
+export function buildSyntaxIntents(
+  text: string,
+  selections: Sel[],
+  markers: MarkerSet = DEFAULT_MARKERS
+): SyntaxIntent[] {
   const out: SyntaxIntent[] = [];
 
   // Placeholder tokens: whole-token styled marks (never hidden/atomic). Tokens are
   // single-line, so each falls entirely within one line for protection purposes.
-  const placeholders = scanPlaceholders(text);
+  const placeholders = scanPlaceholders(text, markers);
   for (const p of placeholders) {
-    out.push({ from: p.from, to: p.to, type: "style", cls: PLACEHOLDER_CLASS[p.kind] });
+    out.push({ from: p.from, to: p.to, type: "style", cls: markerClass(markers.byId.get(p.kind)) });
   }
 
   let base = 0;

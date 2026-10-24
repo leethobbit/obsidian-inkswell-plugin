@@ -14,6 +14,7 @@ import { revisionChecklistsSection } from "./revision-checklists";
 import { sceneFieldsSection } from "./scene-fields";
 import { sceneStatusesSection } from "./scene-statuses";
 import { sceneTemplateSection } from "./scene-template";
+import { todoMarkersSection } from "./todo-markers";
 import { writingPromptsSection } from "./writing-prompts";
 
 export const SECTIONS: Record<string, CustomizeSection> = {
@@ -23,6 +24,7 @@ export const SECTIONS: Record<string, CustomizeSection> = {
   [sceneStatusesSection.id]: sceneStatusesSection,
   [sceneFieldsSection.id]: sceneFieldsSection,
   [writingPromptsSection.id]: writingPromptsSection,
+  [todoMarkersSection.id]: todoMarkersSection,
   [revisionChecklistsSection.id]: revisionChecklistsSection,
   [publishingChecklistSection.id]: publishingChecklistSection,
   [featuresSection.id]: featuresSection,

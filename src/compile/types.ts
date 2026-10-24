@@ -8,6 +8,8 @@
  * in engine.ts so they can be tested without Obsidian.
  */
 
+import type { MarkerSet } from "../lib/placeholders";
+
 /** A scene as it flows through the pipeline. */
 export interface CompileScene {
   title: string;
@@ -32,6 +34,9 @@ export interface StepContext {
   format: OutputFormat;
   /** pandoc `--to` value (docx / pdf / epub) when `format` is "pandoc". */
   target?: string;
+  /** The vault's effective to-do markers (shipped + the writer's own), for
+   *  `remove-todos`. Vault-wide settings, not per-project step options. */
+  markers?: MarkerSet;
 }
 
 export interface SceneStep {
