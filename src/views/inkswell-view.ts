@@ -16,7 +16,16 @@ import { preserveScroll, preserveUi, tagScroller } from "../lib/scroll-preserve"
 import { MarkKind } from "../lib/inline-format";
 import { KeyboardWatcher } from "./phone/keyboard-watch";
 import { createDraft, deleteDraft, renameDraft } from "../projects/draft-actions";
-import { baseDraft, baseDraftFor, draftLabel, groupIntoStories, Story, storyOf } from "../projects/stories";
+import {
+  archivedStoryTitles,
+  baseDraft,
+  baseDraftFor,
+  draftLabel,
+  groupIntoStories,
+  Story,
+  storyArchived,
+  storyOf,
+} from "../projects/stories";
 import { groupIntoSeries, orderSeries } from "../series/series";
 import { promptText } from "../scenes/scene-actions";
 import { Project } from "../projects/types";
@@ -342,11 +351,14 @@ export class InkswellView extends ItemView {
     const addStory = (parent: HTMLElement, story: Story) =>
       parent.createEl("option", { text: story.title, value: story.title });
     const storyFor = (p: Project) => stories.find((s) => s.title === p.draft.title);
-    const grouped = groupIntoSeries(stories.map(baseDraft));
+    // Archived stories are out of sight — except the active one, which keeps an
+    // option (an "Archived" group) so the picker never shows a wrong selection.
+    const archived = archivedStoryTitles(projects);
+    const grouped = groupIntoSeries(stories.map(baseDraft).filter((p) => !archived.has(p.draft.title)));
     const series = orderSeries(grouped.series, this.plugin.settings.seriesOrder);
     const standalone = grouped.standalone;
     if (series.length === 0) {
-      for (const s of stories) addStory(sel, s);
+      for (const s of stories) if (!archived.has(s.title)) addStory(sel, s);
     } else {
       for (const grp of series) {
         const og = sel.createEl("optgroup");
@@ -364,6 +376,11 @@ export class InkswellView extends ItemView {
           if (story) addStory(og, story);
         }
       }
+    }
+    if (activeStory && archived.has(activeStory.title)) {
+      const og = sel.createEl("optgroup");
+      og.label = "Archived";
+      addStory(og, activeStory);
     }
     sel.value = activeStory?.title ?? "";
     sel.onchange = () => {
@@ -411,6 +428,13 @@ export class InkswellView extends ItemView {
         .setTitle("Export story bible…")
         .setIcon("file-output")
         .onClick(() => this.plugin.openStoryBible(active))
+    );
+    const archived = storyArchived(this.plugin.store.getProjects(), active);
+    menu.addItem((i) =>
+      i
+        .setTitle(archived ? "Unarchive project" : "Archive project")
+        .setIcon(archived ? "archive-restore" : "archive")
+        .onClick(() => void this.plugin.archiveProject(active, !archived))
     );
     menu.addSeparator();
     menu.addItem((i) =>

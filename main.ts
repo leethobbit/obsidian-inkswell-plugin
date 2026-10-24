@@ -11,7 +11,8 @@
 
 import { Notice, Plugin, TFile, WorkspaceLeaf, normalizePath } from "obsidian";
 import { runCompile } from "./src/compile/engine";
-import { normalizeSeriesOrder } from "./src/series/series";
+import { Series, normalizeSeriesOrder } from "./src/series/series";
+import { setSeriesArchived, setStoryArchived } from "./src/projects/archive-actions";
 import { resolveCompileConfig } from "./src/compile/config";
 import { TargetModal } from "./src/goals/target-modal";
 import { Idea, newIdeaId } from "./src/ideation/types";
@@ -31,7 +32,7 @@ import { NewProjectModal, NewProjectPreset } from "./src/projects/new-project-mo
 import { seriesForPicker } from "./src/series/series-modal";
 import { executeProjectRename } from "./src/projects/rename-project";
 import { RenameProjectModal } from "./src/views/rename-project-modal";
-import { groupIntoStories } from "./src/projects/stories";
+import { groupIntoStories, storyArchived, storyDrafts } from "./src/projects/stories";
 import { ProjectStats } from "./src/projects/project-stats";
 import { ProjectStore } from "./src/projects/project-store";
 import { SelfWriteRegistry } from "./src/lib/self-write";
@@ -321,6 +322,29 @@ export default class InkswellPlugin extends Plugin {
         const project = resolveActive(this.store.getProjects(), this.activeProject.get());
         if (!project) return false;
         if (!checking) this.renameProject(project);
+        return true;
+      },
+    });
+    // Two commands, not one toggle: a command's name can't change, so each says
+    // exactly what it does. Both act on the EXPLICIT selection only — never the
+    // resolveActive fallback, which would archive whatever happens to be first.
+    this.addCommand({
+      id: "archive-project",
+      name: "Archive current project",
+      checkCallback: (checking) => {
+        const project = this.store.getProject(this.activeProject.get() ?? "");
+        if (!project || storyArchived(this.store.getProjects(), project)) return false;
+        if (!checking) void this.archiveProject(project, true);
+        return true;
+      },
+    });
+    this.addCommand({
+      id: "unarchive-project",
+      name: "Unarchive current project",
+      checkCallback: (checking) => {
+        const project = this.store.getProject(this.activeProject.get() ?? "");
+        if (!project || !storyArchived(this.store.getProjects(), project)) return false;
+        if (!checking) void this.archiveProject(project, false);
         return true;
       },
     });
@@ -1085,6 +1109,41 @@ export default class InkswellPlugin extends Plugin {
         }).then(() => this.store.refresh());
       }
     ).open();
+  }
+
+  /**
+   * Archive (or unarchive) the story `project` belongs to — every draft. Out of
+   * sight only: it leaves Home and the project picker; nothing else changes.
+   * Archiving the story in focus returns to All projects, where it now sits
+   * under Archived.
+   */
+  async archiveProject(project: Project, archived: boolean): Promise<void> {
+    const projects = this.store.getProjects();
+    const drafts = storyDrafts(project, projects);
+    const ok = await setStoryArchived(this.app, projects, project, archived, (p) => this.selfWrites.mark(p));
+    if (!ok) return;
+    const active = this.activeProject.get();
+    if (archived && active && drafts.some((d) => d.vaultPath === active)) this.activeProject.set(null);
+    new Notice(
+      archived
+        ? `Archived "${project.draft.title}". It's under Archived on Home.`
+        : `"${project.draft.title}" is back on Home.`
+    );
+  }
+
+  /** Archive (or unarchive) every book of a series — see {@link archiveProject}. */
+  async archiveSeries(series: Series, archived: boolean): Promise<void> {
+    const projects = this.store.getProjects();
+    const ok = await setSeriesArchived(this.app, projects, series, archived, (p) => this.selfWrites.mark(p));
+    if (!ok) return;
+    const active = this.activeProject.get();
+    const inSeries = series.books.some((b) => storyDrafts(b, projects).some((d) => d.vaultPath === active));
+    if (archived && active && inSeries) this.activeProject.set(null);
+    new Notice(
+      archived
+        ? `Archived the "${series.name}" series. It's under Archived on Home.`
+        : `The "${series.name}" series is back on Home.`
+    );
   }
 
   /**

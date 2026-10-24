@@ -595,12 +595,14 @@ body.inkswell-phone .inkswell-codex__portrait {
 }
 
 /* --- Ideas inbox (Home): collapsible section below the shelves --- */
-.inkswell-ideas {
+.inkswell-ideas,
+.inkswell-archived {
   margin: var(--size-4-2) 0 var(--size-4-3);
   padding-top: var(--size-4-2);
   border-top: 1px solid var(--background-modifier-border);
 }
-.inkswell-ideas__head {
+.inkswell-ideas__head,
+.inkswell-archived__head {
   display: flex;
   align-items: center;
   gap: var(--size-4-1);
@@ -614,18 +616,23 @@ body.inkswell-phone .inkswell-codex__portrait {
   letter-spacing: 0.04em;
 }
 .inkswell-ideas__head:hover,
-.inkswell-ideas__head:focus-visible {
+.inkswell-ideas__head:focus-visible,
+.inkswell-archived__head:hover,
+.inkswell-archived__head:focus-visible {
   color: var(--text-normal);
   outline: none;
 }
-.inkswell-ideas__chevron {
+.inkswell-ideas__chevron,
+.inkswell-archived__chevron {
   display: inline-flex;
 }
-.inkswell-ideas__chevron .svg-icon {
+.inkswell-ideas__chevron .svg-icon,
+.inkswell-archived__chevron .svg-icon {
   width: 14px;
   height: 14px;
 }
-.inkswell-ideas__count {
+.inkswell-ideas__count,
+.inkswell-archived__count {
   padding: 0 6px;
   border-radius: var(--radius-s);
   background-color: var(--background-modifier-border);
@@ -2349,6 +2356,15 @@ body.inkswell-phone .inkswell-write__cm .cm-milestone-gutter {
 .inkswell-hero__series.is-empty {
   border-bottom: 1px dotted currentColor;
 }
+/* Focused archived book: a quiet note with the way back. */
+.inkswell-hero__archived {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-1);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
 /* Book-number input in the series dialog / New project. */
 .inkswell-series__ordernum {
   width: 8ch;
@@ -2565,6 +2581,19 @@ body.is-mobile .inkswell-card .inkswell-rowmenu {
 }
 .inkswell-card--ghost:hover {
   color: var(--text-accent);
+}
+/* Archived books (out of sight): dimmed in place on a partially archived
+   series shelf, and on Home's Archived shelf. Full strength on hover/focus. */
+.inkswell-card.is-archived {
+  opacity: 0.6;
+}
+.inkswell-card.is-archived:hover,
+.inkswell-card.is-archived:focus-visible {
+  opacity: 1;
+}
+.inkswell-card__badge--archived {
+  left: auto;
+  right: var(--size-4-1);
 }
 
 /* Focused view: the series' covers in a row; the active book is outlined. */

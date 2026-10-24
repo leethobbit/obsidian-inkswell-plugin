@@ -361,8 +361,15 @@ export const HELP_SECTIONS: HelpSection[] = [
           "series, in book order, plus one for standalone books — each with its cover " +
           "(or a generated stand-in), book number, scenes and words, progress toward the " +
           "target, and when you last edited it. Click a card to focus on that book; its " +
-          "⋯ menu (hover on desktop, always on touch) renames it, sets its series, or " +
-          "changes the cover."
+          "⋯ menu (hover on desktop, always on touch) renames it, sets its series, " +
+          "changes the cover, or archives it."
+      );
+      p(
+        el,
+        "Archiving a finished or shelved book only puts it out of sight: it leaves the " +
+          "shelves and the project list and waits in the Archived section at the bottom " +
+          "of Home. Its words still count toward your goals, and it compiles and keeps " +
+          "its codex as before. Unarchive it from its ⋯ menu."
       );
       p(
         el,

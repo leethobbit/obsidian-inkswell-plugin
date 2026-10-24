@@ -61,4 +61,14 @@ describe("resolveActive", () => {
   it("returns null for an empty list", () => {
     expect(resolveActive([], "a.md")).toBeNull();
   });
+
+  it("the fallback skips an archived project; an explicit match still wins", () => {
+    const archived: Project = { ...project("a.md"), inkswell: { archived: true } };
+    const list = [archived, project("b.md")];
+    expect(resolveActive(list, null)?.vaultPath).toBe("b.md");
+    expect(resolveActive(list, "gone.md")?.vaultPath).toBe("b.md");
+    expect(resolveActive(list, "a.md")?.vaultPath).toBe("a.md");
+    // Everything archived: still resolves (panels keep working).
+    expect(resolveActive([archived], null)?.vaultPath).toBe("a.md");
+  });
 });

@@ -1,7 +1,7 @@
 /**
  * Home's project and series menus: the per-book menu (rename, series
- * membership) and the per-series menu (new book, add an existing project,
- * rename, reorder). Extracted from explorer-view.ts.
+ * membership, archive) and the per-series menu (new book, add an existing
+ * project, rename, reorder, archive). Extracted from explorer-view.ts.
  */
 
 import { App, Menu, TFile } from "obsidian";
@@ -9,7 +9,7 @@ import { tryFileOp } from "../../lib/notify";
 import { addCoverMenuItems } from "../../projects/cover-actions";
 import { writeSeries } from "../../projects/index-writer";
 import { ProjectStore } from "../../projects/project-store";
-import { baseDraftFor } from "../../projects/stories";
+import { baseDraftFor, storyArchived } from "../../projects/stories";
 import { Project, SeriesInfo, isMultiScene } from "../../projects/types";
 import { Series, groupIntoSeries, projectSeries } from "../../series/series";
 import {
@@ -34,6 +34,10 @@ export interface SeriesMenuCallbacks {
   reorderSeries(): void;
   /** A series was renamed (keeps its shelf's place in the saved order). */
   seriesRenamed(from: string, to: string): void;
+  /** Archive / unarchive a story (all drafts) — out of sight only. */
+  archiveProject(project: Project, archived: boolean): void;
+  /** Archive / unarchive every book of a series. */
+  archiveSeries(series: Series, archived: boolean): void;
 }
 
 export class SeriesMenu {
@@ -90,6 +94,14 @@ export class SeriesMenu {
           })
       );
     }
+    // Archive is story-level (every draft; read off the base draft).
+    const archived = storyArchived(projects, row);
+    menu.addItem((i) =>
+      i
+        .setTitle(archived ? "Unarchive project" : "Archive project")
+        .setIcon(archived ? "archive-restore" : "archive")
+        .onClick(() => this.cb.archiveProject(row, !archived))
+    );
     // Cover art is story-level too — same base draft.
     menu.addSeparator();
     addCoverMenuItems(menu, this.app, project, (p) => this.cb.markSelfWrite(p));
@@ -120,6 +132,25 @@ export class SeriesMenu {
           .setTitle("Reorder series…")
           .setIcon("arrow-up-down")
           .onClick(() => this.cb.reorderSeries())
+      );
+    }
+    // A partially archived series offers both: archive the rest, or bring all back.
+    const archived = series.books.filter((b) => storyArchived(projects, b)).length;
+    menu.addSeparator();
+    if (archived < series.books.length) {
+      menu.addItem((i) =>
+        i
+          .setTitle("Archive series")
+          .setIcon("archive")
+          .onClick(() => this.cb.archiveSeries(series, true))
+      );
+    }
+    if (archived > 0) {
+      menu.addItem((i) =>
+        i
+          .setTitle("Unarchive series")
+          .setIcon("archive-restore")
+          .onClick(() => this.cb.archiveSeries(series, false))
       );
     }
     return menu;

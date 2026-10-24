@@ -31,7 +31,7 @@ import { formatReadTime, heatLevel } from "./format";
 import { resolveActive } from "../projects/active-project";
 import { ProjectStats } from "../projects/project-stats";
 import { ProjectStore } from "../projects/project-store";
-import { baseDraft, draftLabel, groupIntoStories, storyOf } from "../projects/stories";
+import { baseDraft, draftLabel, groupIntoStories, projectArchived, storyOf } from "../projects/stories";
 import { Project, isMultiScene } from "../projects/types";
 import { SCENE_STATUSES, readSceneMeta, statusLabel, visibleStatuses } from "../scenes/scene-meta";
 import { sprintSeconds, sprintStats, sprintWpm } from "../sprints/sprint-stats";
@@ -634,7 +634,10 @@ export class StatsPanel {
     // this story is active, else the base. Matches the Home hero card, and
     // keeps the bar moving when all the writing happens in a revision draft.
     const activePath = this.plugin.activeProject.get();
+    // Archived stories are out of sight here (a shelved book's ETA is noise) —
+    // unless it's the one in focus. Their words still count toward every goal.
     const withTargets = groupIntoStories(this.store.getProjects())
+      .filter((s) => !projectArchived(baseDraft(s)) || s.drafts.some((d) => d.vaultPath === activePath))
       .map((s) => ({
         base: baseDraft(s),
         counted: s.drafts.find((d) => d.vaultPath === activePath) ?? baseDraft(s),

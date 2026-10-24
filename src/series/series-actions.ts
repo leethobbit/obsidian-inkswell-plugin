@@ -11,7 +11,7 @@ import { FormModal } from "../lib/form-modal";
 import { renderListEditor } from "../lib/list-editor";
 import { tryFileOp } from "../lib/notify";
 import { writeSeries } from "../projects/index-writer";
-import { baseDraftFor, representativeDrafts } from "../projects/stories";
+import { baseDraftFor, representativeDrafts, storyArchived } from "../projects/stories";
 import { Project } from "../projects/types";
 import { confirmDestructive, promptText } from "../scenes/scene-actions";
 import { Series, projectSeries } from "./series";
@@ -85,11 +85,12 @@ export function addExistingToSeries(
   activePath: string | null,
   series: Series
 ): void {
+  // Archived books are out of sight here too — unarchive one to add it.
   const candidates = representativeDrafts(projects, activePath).filter(
-    (p) => !projectSeries(baseDraftFor(projects, p))
+    (p) => !projectSeries(baseDraftFor(projects, p)) && !storyArchived(projects, p)
   );
   if (candidates.length === 0) {
-    new Notice("Every project already belongs to a series.");
+    new Notice("No standalone project to add — every project is already in a series or archived.");
     return;
   }
   new ProjectSuggestModal(app, candidates, `Add a book to ${series.name}…`, (p) => {

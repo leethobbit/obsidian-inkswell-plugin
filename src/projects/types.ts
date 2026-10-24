@@ -138,6 +138,12 @@ export interface InkswellProjectData {
   draftCreated?: string;
   /** Write panel "Next up" breadcrumb — a note to the next session. Per draft; lives here (not data.json) so it syncs between devices. */
   nextUp?: string;
+  /**
+   * Out of sight: hidden from Home and the project picker. Nothing else changes —
+   * goals, history, compile, search and codex all still see the book. Story-level:
+   * written to every draft, read off the base draft (`storyArchived`).
+   */
+  archived?: boolean;
 }
 
 export function isMultiScene(draft: Draft): draft is MultipleSceneDraft {

@@ -86,6 +86,37 @@ export function baseDraftFor(projects: Project[], project: Project): Project {
   return story ? baseDraft(story) : project;
 }
 
+/** All drafts of the story containing `project` (or just `project` if ungrouped). */
+export function storyDrafts(project: Project, allProjects: Project[]): Project[] {
+  const story = groupIntoStories(allProjects).find((s) =>
+    s.drafts.some((d) => d.vaultPath === project.vaultPath)
+  );
+  return story ? story.drafts : [project];
+}
+
+/** This draft's own `inkswell.archived` flag (strict `true`; anything else is live). */
+export function projectArchived(project: Project): boolean {
+  return project.inkswell?.archived === true;
+}
+
+/**
+ * Is the story containing `project` archived (out of sight on Home and in the
+ * picker)? Story-level, read off the BASE draft — a byte-copied sibling's stale
+ * flag never wins, matching series/overview/goals.
+ */
+export function storyArchived(projects: Project[], project: Project): boolean {
+  return projectArchived(baseDraftFor(projects, project));
+}
+
+/** Titles of every archived story — one grouping pass for list surfaces. */
+export function archivedStoryTitles(projects: Project[]): Set<string> {
+  return new Set(
+    groupIntoStories(projects)
+      .filter((s) => projectArchived(baseDraft(s)))
+      .map((s) => s.title)
+  );
+}
+
 /**
  * ONE draft per story: the active draft when that story is active, else the
  * base. The dedup rule for anything that would otherwise process a story once

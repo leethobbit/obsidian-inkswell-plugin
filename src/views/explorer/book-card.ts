@@ -21,6 +21,8 @@ export interface BookCardContext {
   /** Every project (all drafts) — story-level data (cover, target, series) reads off the base draft. */
   projects: Project[];
   showWordCounts: boolean;
+  /** Story is archived → dimmed card + "Archived" badge (it still opens normally). */
+  isArchived(project: Project): boolean;
   /** Drafts per story title (>1 → badge). */
   draftCount(title: string): number;
   menu(project: Project): Menu;
@@ -83,6 +85,10 @@ export function renderBookCard(grid: HTMLElement, project: Project, ctx: BookCar
   renderCoverArt(cover, ctx.app, project, base);
   const info = projectSeries(base);
   if (info?.order != null) cover.createSpan({ cls: "inkswell-card__badge", text: `Book ${info.order}` });
+  if (ctx.isArchived(project)) {
+    card.addClass("is-archived");
+    cover.createSpan({ cls: "inkswell-card__badge inkswell-card__badge--archived", text: "Archived" });
+  }
 
   const body = card.createDiv({ cls: "inkswell-card__body" });
   body.createDiv({ cls: "inkswell-card__title", text: project.draft.title });

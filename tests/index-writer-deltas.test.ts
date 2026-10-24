@@ -14,6 +14,7 @@ import {
   updateDecisions,
   updateNextUp,
   updateStyleEntries,
+  writeArchived,
 } from "../src/projects/index-writer";
 import { setAssignment } from "../src/outliner/beats";
 import { renameSceneInBeats } from "../src/outliner/beats";
@@ -70,6 +71,29 @@ describe("inkswell delta writers (stale-snapshot regression)", () => {
     await updateNextUp(app.asApp(), file, "   ");
     expect(inkswellOf(app)).not.toHaveProperty("nextUp");
     expect((inkswellOf(app)["beats"] as BeatSheet).assignments["catalyst"]?.note).toBe("Keep me.");
+  });
+
+  it("archived: sets true, clears by deleting the key, never touches sibling keys", async () => {
+    const file = app.file(INDEX_PATH);
+    await updateNextUp(app.asApp(), file, "Keep me.");
+    await writeArchived(app.asApp(), file, true);
+    expect(inkswellOf(app)["archived"]).toBe(true);
+    expect(inkswellOf(app)["nextUp"]).toBe("Keep me.");
+
+    await writeArchived(app.asApp(), file, false);
+    expect(inkswellOf(app)).not.toHaveProperty("archived");
+    expect(inkswellOf(app)["nextUp"]).toBe("Keep me.");
+    expect(app.vault.raw(INDEX_PATH)).toContain("Hand-written index body — must survive every write byte-for-byte.");
+  });
+
+  it("archived + another key written from the same pre-state: both survive", async () => {
+    const file = app.file(INDEX_PATH);
+    await Promise.all([
+      writeArchived(app.asApp(), file, true),
+      updateNextUp(app.asApp(), file, "From the same render."),
+    ]);
+    expect(inkswellOf(app)["archived"]).toBe(true);
+    expect(inkswellOf(app)["nextUp"]).toBe("From the same render.");
   });
 
   it("beats: notes written box-after-box from the same pre-state both survive", async () => {

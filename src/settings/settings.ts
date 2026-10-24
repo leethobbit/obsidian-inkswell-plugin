@@ -28,6 +28,8 @@ export interface InkswellSettings {
   showWordCounts: boolean;
   /** Home: whether the ideas inbox section is expanded (UI state, not a Settings row). */
   homeIdeasOpen: boolean;
+  /** Home: whether the Archived section is expanded (UI state; collapsed by default). */
+  homeArchivedOpen: boolean;
   /** Mirror this device's writing history to a vault note and merge other devices' (#44). */
   syncWritingHistory: boolean;
   /** Heading level used by the "prepend title" compile step. */
@@ -158,6 +160,7 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
   defaultCompileFormat: "md",
   showWordCounts: true,
   homeIdeasOpen: true,
+  homeArchivedOpen: false,
   syncWritingHistory: false,
   sceneHeadingLevel: 1,
   dailyWordGoal: 500,

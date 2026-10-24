@@ -6,6 +6,7 @@
  * — it's session/UI state, not user config.
  */
 
+import { projectArchived } from "./stories";
 import { Project } from "./types";
 
 type Listener = (path: string | null) => void;
@@ -38,9 +39,17 @@ export class ActiveProject {
 
 /**
  * Resolve the active path against a (possibly filtered) project list: the match,
- * else the first project, else null. Callers that only handle multi-scene
- * projects should filter the list before calling.
+ * else the first project that isn't archived (an archived book never opens by
+ * default — every draft carries the flag, so this per-draft check is exact),
+ * else the first project, else null. An explicit match always wins, archived or
+ * not. Callers that only handle multi-scene projects should filter the list
+ * before calling.
  */
 export function resolveActive(projects: Project[], activePath: string | null): Project | null {
-  return projects.find((p) => p.vaultPath === activePath) ?? projects[0] ?? null;
+  return (
+    projects.find((p) => p.vaultPath === activePath) ??
+    projects.find((p) => !projectArchived(p)) ??
+    projects[0] ??
+    null
+  );
 }

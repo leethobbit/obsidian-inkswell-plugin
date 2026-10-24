@@ -6,6 +6,7 @@ import {
   filterToScope,
   isEntityVisible,
   isGlobalScope,
+  onlyArchivedScope,
   parseProjectScopeValue,
   projectKey,
   projectName,
@@ -432,5 +433,48 @@ describe("Scope editor helpers (#57)", () => {
     expect(next).toEqual(["Solo", "Ember"]);
     // Adding a book already named is a no-op.
     expect(applyBookPicks(["Ash"], books, { add: [book("Ash")], remove: [], dropValues: [] })).toEqual(["Ash"]);
+  });
+});
+
+describe("onlyArchivedScope (Codex 'All projects' hides archived-only entries)", () => {
+  const archive = (p: Project): Project => ({ ...p, inkswell: { ...(p.inkswell ?? {}), archived: true } });
+  const isArchived = (p: Project) => p.inkswell?.archived === true;
+  const trunk = archive(project("Trunk"));
+  const live = project("Live");
+  const doneOne = archive(project("Done One", { name: "Done", order: 1 }));
+  const doneTwo = archive(project("Done Two", { name: "Done", order: 2 }));
+  const sagaOld = archive(project("Saga One", { name: "Saga", order: 1 }));
+  const sagaNew = project("Saga Two", { name: "Saga", order: 2 });
+  const all = [trunk, live, doneOne, doneTwo, sagaOld, sagaNew];
+  const only = (scope?: EntityScope, projects = all) => onlyArchivedScope(entity("X", scope), projects, isArchived);
+
+  it("never hides a global entry", () => {
+    expect(only(undefined)).toBe(false);
+    expect(only({})).toBe(false);
+  });
+
+  it("hides an entry whose only book is archived", () => {
+    expect(only({ projects: ["Trunk"] })).toBe(true);
+  });
+
+  it("keeps an entry visible while any of its books is live", () => {
+    expect(only({ projects: ["Trunk", "Live"] })).toBe(false);
+  });
+
+  it("a series scope counts only when the whole series is archived", () => {
+    expect(only({ series: "Done" })).toBe(true);
+    expect(only({ series: "Saga" })).toBe(false);
+  });
+
+  it("a book that no longer resolves is not 'archived' — the entry stays visible", () => {
+    expect(only({ projects: ["Deleted Book"] })).toBe(false);
+    expect(only({ projects: ["Trunk", "Deleted Book"] })).toBe(false);
+  });
+
+  it("a legacy shared basename matching one live book keeps the entry visible", () => {
+    const a = archive(project("Book A", null, "A/Index.md"));
+    const b = project("Book B", null, "B/Index.md");
+    expect(only({ projects: ["Index"] }, [a, b])).toBe(false);
+    expect(only({ projects: ["A/Index"] }, [a, b])).toBe(true);
   });
 });

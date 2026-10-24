@@ -70,6 +70,37 @@ export function groupIntoSeries(projects: Project[]): {
   return { series, standalone };
 }
 
+/** Home's shelves split by archive state (see {@link partitionArchived}). */
+export interface ArchivePartition {
+  /** Live series — a partially archived one stays here, its archived books inside. */
+  series: Series[];
+  standalone: Project[];
+  /** Series whose EVERY book is archived — they move to the Archived shelf whole. */
+  archivedSeries: Series[];
+  archivedStandalone: Project[];
+}
+
+/**
+ * Split grouped shelves by archive state, AFTER grouping (so series order and
+ * book numbering still see every book). Only a fully archived series leaves its
+ * shelf; a partially archived one keeps its archived books in place (Home dims
+ * them) so book order and shelf totals stay truthful. Pure.
+ */
+export function partitionArchived(
+  grouped: { series: Series[]; standalone: Project[] },
+  isArchived: (p: Project) => boolean
+): ArchivePartition {
+  const out: ArchivePartition = { series: [], standalone: [], archivedSeries: [], archivedStandalone: [] };
+  for (const s of grouped.series) {
+    if (s.books.length > 0 && s.books.every(isArchived)) out.archivedSeries.push(s);
+    else out.series.push(s);
+  }
+  for (const p of grouped.standalone) {
+    (isArchived(p) ? out.archivedStandalone : out.standalone).push(p);
+  }
+  return out;
+}
+
 /** A series name as series match it: trimmed, case-insensitive. */
 const seriesKey = (name: string): string => name.trim().toLowerCase();
 
