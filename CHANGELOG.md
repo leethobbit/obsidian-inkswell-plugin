@@ -10,6 +10,10 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.22.0] - 2026-10-24
+
+Your words, your shelf. Mark unfinished spots with your own words, like `[CHECK: …]` or `[TK: …]`, and archive finished books (or short stories already out to readers) so Home shows only what you're working on. Archiving hides a book; it doesn't delete it or stop its words counting.
+
 ### Added
 - **Your own to-do markers.** Customize → **To-do markers** lets you add the words you use to mark unfinished spots, like `[CHECK: …]` or `[TK: …]`. They work like the built-in five: highlighted in Write, in the Insert menu and the to-do picker, listed (and filterable) in Revise → To-dos, and removed when you compile. You can also reorder the markers, or hide the built-in ones you never use. Hiding only takes a marker out of the Insert menu; markers already in your scenes are still found and still removed when you compile.
 - **Archive a project.** Finished, shelved or trunk books can be put out of sight: **Archive project** in a book's ⋯ menu on Home, in the project menu next to the project picker, or as a command (and **Archive series** on a series shelf). Archived books leave Home's shelves and the project picker and wait in a collapsed **Archived** section at the bottom of Home, ready to unarchive. Nothing is deleted or excluded: their words still count toward your goals and history, and they compile, search and keep their codex exactly as before. In a series where only some books are archived, those books stay in place on the shelf, dimmed, unless you turn on **Settings → Hide archived books from their series**: then they leave the series shelf and the series covers too, and wait under their series name in Archived, which suits short stories you archive once they're out to readers. Codex entries that belong only to archived books also step out of the Codex "All projects" list; pick **Include archived** to see them.
@@ -447,7 +451,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.21.1...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.22.0...HEAD
+[1.22.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.21.1...1.22.0
 [1.21.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.21.0...1.21.1
 [1.21.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.20.0...1.21.0
 [1.20.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.19.0...1.20.0
