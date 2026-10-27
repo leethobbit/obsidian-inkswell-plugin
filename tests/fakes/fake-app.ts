@@ -160,8 +160,20 @@ export class FakeVault extends Emitter {
     return `app://fake/${file.path}?${file.stat.mtime}`;
   }
 
+  /**
+   * Like real Obsidian (measured live, #64): `modify` on a TFile whose note was
+   * deleted does NOT throw — it RECREATES the note at that path (a new file, so
+   * a "create" event). That's a resurrection hazard for code holding a stale
+   * TFile across an await; `process` and `processFrontMatter` read first and
+   * throw on a missing note, which is why scene writes use them.
+   */
   async modify(file: TFile, content: string): Promise<void> {
-    if (!this.contents.has(file.path)) throw new Error(`File not found: ${file.path}`);
+    if (!this.contents.has(file.path)) {
+      const recreated = this.newFile(file.path);
+      this.contents.set(file.path, content);
+      this.trigger("create", recreated);
+      return;
+    }
     this.contents.set(file.path, content);
     file.stat.mtime = this.tick++;
     this.trigger("modify", file);

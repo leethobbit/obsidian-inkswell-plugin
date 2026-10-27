@@ -14,7 +14,7 @@ import { writeSeries } from "../projects/index-writer";
 import { baseDraftFor, representativeDrafts, storyArchived } from "../projects/stories";
 import { Project } from "../projects/types";
 import { confirmDestructive, promptText } from "../scenes/scene-actions";
-import { Series, projectSeries } from "./series";
+import { STANDALONE_SHELF, Series, projectSeries } from "./series";
 import { SeriesWrite, nextBookOrder, planReorder, planSeriesRename } from "./series-ops";
 
 function indexFile(app: App, path: string): TFile | null {
@@ -190,8 +190,9 @@ export class ReorderBooksModal extends FormModal {
   }
 }
 
-/** Drag (or ⋯ → Move up/down) Home's series shelves into order (#57); Save
- *  hands back every series name in its new order. */
+/** Drag (or ⋯ → Move up/down) Home's shelves into order (#57, #67); Save hands
+ *  back every series name — and `STANDALONE_SHELF` for the Standalone shelf —
+ *  in its new order. */
 export class ReorderSeriesModal extends FormModal {
   private order: string[];
   private list: HTMLElement | null = null;
@@ -206,10 +207,10 @@ export class ReorderSeriesModal extends FormModal {
   }
 
   protected renderForm(contentEl: HTMLElement): void {
-    contentEl.createEl("h3", { text: "Reorder series" });
+    contentEl.createEl("h3", { text: "Reorder shelves" });
     contentEl.createEl("p", {
       cls: "inkswell-stats__muted",
-      text: "Drag to reorder, or use a row's ⋯ menu. Home shows your series in this order, with standalone books last.",
+      text: "Drag to reorder, or use a row's ⋯ menu. Home and the project switcher show your shelves in this order.",
     });
     this.list = contentEl.createDiv();
     this.renderList();
@@ -221,7 +222,8 @@ export class ReorderSeriesModal extends FormModal {
     renderListEditor(this.list, {
       items: this.order.map((name) => ({ id: name, name })),
       renderRow: (body, item) => {
-        body.setText(item.name);
+        // The Standalone shelf rides in the same list as a reserved entry (#67).
+        body.setText(item.name === STANDALONE_SHELF ? "Standalone" : item.name);
       },
       onReorder: (next) => {
         this.order = next.map((x) => x.name);

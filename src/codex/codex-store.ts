@@ -8,7 +8,8 @@
  */
 
 import { App, TFile, normalizePath } from "obsidian";
-import { detectMentions, imageRefTarget, linkTarget } from "./codex";
+import { detectMentions, imageRefTarget, linkTarget, toLink } from "./codex";
+import { PLACE_CATEGORY } from "./places";
 import { isImage } from "../lib/images";
 import {
   dedupe,
@@ -370,6 +371,37 @@ export async function createEntityForProject(
     active ? baseDraftFor(projects, active).vaultPath : undefined
   );
   return createEntity(app, def.id, name, folder, scope, resolveCodexTemplate(app, settings, def));
+}
+
+/**
+ * Create a place nested inside `container` (#66) — a world or a location: a new
+ * location beside the container's note, with the container's scope (a city
+ * inside a series-only region is series-only too) and `parent` pointing at it.
+ * Returns "invalid" for an unusable name and "taken" when a note with it
+ * already exists there (that note is never re-parented behind the writer's back).
+ */
+export async function createPlaceInside(
+  app: App,
+  settings: CodexSettings,
+  container: CodexEntity,
+  containerFile: TFile,
+  name: string
+): Promise<TFile | "taken" | "invalid"> {
+  const safe = sanitizeSegment(name);
+  if (!safe) return "invalid";
+  const folder = containerFile.parent && containerFile.parent.path !== "/" ? containerFile.parent.path : "";
+  const path = normalizePath(folder ? `${folder}/${safe}.md` : `${safe}.md`);
+  if (app.vault.getAbstractFileByPath(path)) return "taken";
+  const def = allCategories(settings.customCategories, settings.categoryOverrides).find(
+    (c) => c.id === PLACE_CATEGORY
+  );
+  const template = def ? resolveCodexTemplate(app, settings, def) : null;
+  const file = await createEntity(app, PLACE_CATEGORY, safe, folder, container.scope ?? {}, template);
+  if (!file) return "invalid";
+  await app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+    fm["parent"] = toLink(container.name);
+  });
+  return file;
 }
 
 /**

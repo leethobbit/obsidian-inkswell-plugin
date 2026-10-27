@@ -10,6 +10,7 @@ import {
   appearancesForEntity,
   createEntity,
   createEntityForProject,
+  createPlaceInside,
   generateCodexTemplates,
   getCodexEntities,
   resolveCodexTemplate,
@@ -530,5 +531,37 @@ describe("codex-project scope: one book or several (#40)", () => {
     expect(scopeOf(app, "Anna")).toEqual({ projects: ["Book A", "Book B"] });
     const one = await createEntity(app.asApp(), "character", "Solo", "Codex", { projects: ["Book A"] });
     expect(app.vault.raw(one!.path)).toContain('codex-project: "[[Book A]]"');
+  });
+});
+
+describe("createPlaceInside (#66)", () => {
+  const container = (app: FakeApp, path: string, scope?: EntityScope): { entity: CodexEntity; file: TFile } => {
+    const file = app.file(path) as unknown as TFile;
+    const name = path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/, "");
+    return { entity: { path, name, category: "location", aliases: [], scope }, file };
+  };
+
+  it("creates a location beside its container, inside it, with the container's scope", async () => {
+    const app = new FakeApp({ "Worlds/Ice/The North.md": "---\ncodex: location\ncodex-series: Saga\n---\n" });
+    const { entity, file } = container(app, "Worlds/Ice/The North.md", { series: "Saga" });
+    const made = await createPlaceInside(app.asApp(), settingsWith(), entity, file as never, "Winterfell");
+    expect(made).not.toBe("taken");
+    expect(made).not.toBe("invalid");
+    const fm = app.metadataCache.getFileCache(app.vault.getAbstractFileByPath("Worlds/Ice/Winterfell.md") as never)
+      ?.frontmatter as Record<string, unknown>;
+    expect(fm["codex"]).toBe("location");
+    expect(fm["parent"]).toBe("[[The North]]");
+    expect(fm["codex-series"]).toBe("Saga");
+  });
+
+  it("never re-parents an existing note, and rejects an unusable name", async () => {
+    const app = new FakeApp({
+      "Codex/The North.md": "---\ncodex: location\n---\n",
+      "Codex/Winterfell.md": "---\ncodex: location\nparent: \"[[Elsewhere]]\"\n---\n",
+    });
+    const { entity, file } = container(app, "Codex/The North.md");
+    expect(await createPlaceInside(app.asApp(), settingsWith(), entity, file as never, "Winterfell")).toBe("taken");
+    expect(app.vault.raw("Codex/Winterfell.md")).toContain("[[Elsewhere]]");
+    expect(await createPlaceInside(app.asApp(), settingsWith(), entity, file as never, "..")).toBe("invalid");
   });
 });

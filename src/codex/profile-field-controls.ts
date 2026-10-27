@@ -15,14 +15,17 @@ import { tagField } from "../lib/focus-preserve";
 import { autosizeTextarea } from "../lib/form-fields";
 import { promptText } from "../scenes/scene-actions";
 import { linkAlias, linkTarget, toLink } from "./codex";
-import { ProfileField, ProfileValue } from "./profile-schema";
+import { ProfileField, ProfileValue, linkAccepts, linkCategories } from "./profile-schema";
 
 export interface ProfileFieldDeps {
   app: App;
   field: ProfileField;
   value: ProfileValue | undefined;
   /** Link candidates (already scoped; any category — filtered by `linkCategory` here). */
-  candidates: () => { name: string; category: string }[];
+  candidates: () => { name: string; category: string; path?: string }[];
+  /** Candidates this field must not offer (by path) — e.g. a place's own
+   *  sub-places for its "Inside" field, which would make a loop. */
+  exclude?: ReadonlySet<string>;
   /** Display label for a codex type id (the "no entries" message). */
   typeLabel: (id: string) => string;
   /** Focus-tag prefix: `<prefix>:<key>` (`codex`, `scene:x`). */
@@ -170,16 +173,28 @@ function renderDateControl(control: HTMLElement, deps: ProfileFieldDeps, tag: st
 function renderLinkControl(control: HTMLElement, deps: ProfileFieldDeps): void {
   const { field, value, tagPrefix } = deps;
   const tag = `${tagPrefix}:${field.key}`;
+  const cats = linkCategories(field);
   const candidates = deps
     .candidates()
-    .filter((e) => !field.linkCategory || e.category === field.linkCategory);
+    .filter((e) => linkAccepts(field, e.category) && !(e.path && deps.exclude?.has(e.path)));
 
   if (field.single) {
     const cur = typeof value === "string" && value ? linkTarget(value) : "";
     const sel = control.createEl("select", { cls: "dropdown" });
     tagField(sel, tag);
     sel.createEl("option", { text: "— none —", value: "" });
-    for (const c of candidates) sel.createEl("option", { text: c.name, value: c.name });
+    if (cats.length > 1) {
+      // Several types (a place inside a World or a Location): one group each.
+      for (const cat of cats) {
+        const inCat = candidates.filter((c) => c.category === cat);
+        if (inCat.length === 0) continue;
+        const group = sel.createEl("optgroup");
+        group.label = deps.typeLabel(cat);
+        for (const c of inCat) group.createEl("option", { text: c.name, value: c.name });
+      }
+    } else {
+      for (const c of candidates) sel.createEl("option", { text: c.name, value: c.name });
+    }
     sel.value = candidates.some((c) => c.name === cur) ? cur : "";
     sel.onchange = () => deps.saveValue(sel.value ? toLink(sel.value) : "", true);
     return;
@@ -231,7 +246,7 @@ function renderLinkControl(control: HTMLElement, deps: ProfileFieldDeps): void {
       deps.updateList((cur) => (cur.some((l) => linkTarget(l) === name) ? cur : [...cur, toLink(name)]));
     };
   } else if (candidates.length === 0) {
-    const cat = field.linkCategory ? deps.typeLabel(field.linkCategory).toLowerCase() : "entity";
+    const cat = cats.length > 0 ? cats.map((c) => deps.typeLabel(c).toLowerCase()).join(" or ") : "entity";
     control.createSpan({ cls: "inkswell-stats__muted", text: `No ${cat} entries in codex.` });
   }
 }

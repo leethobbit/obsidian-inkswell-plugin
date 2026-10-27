@@ -59,7 +59,7 @@ A configurable **compile/export** pipeline (Markdown & HTML built in; `.docx` / 
 
 ### Codex — your story bible
 
-Characters, locations, worlds, factions, items, events, and concepts, each with its own profile and an optional portrait image. Every entry automatically lists the scenes that mention it — by name or alias, for any category — so your canon stays consistent as the manuscript grows. Can be scoped for single writing projects, or shared across a series.
+Characters, locations, worlds, factions, items, events, and concepts, each with its own profile and an optional portrait image. Places nest, so a city can sit inside a region inside a world. Every entry automatically lists the scenes that mention it — by name or alias, for any category — so your canon stays consistent as the manuscript grows. Can be scoped for single writing projects, or shared across a series.
 
 ![Codex: a character profile in the story bible with linked scenes](assets/codex.png)
 
@@ -102,6 +102,53 @@ Recovery options, should anything ever go wrong:
 - **Manual:** download `main.js`, `manifest.json`, and `styles.css` from the latest [release](https://github.com/leethobbit/obsidian-inkswell-plugin/releases) into `<vault>/.obsidian/plugins/inkswell/`, then enable Inkswell in *Community plugins*.
 
 Open Inkswell from the pen-tip ribbon icon or the *"Open Inkswell"* command.
+
+## Bringing an existing project in
+
+Inkswell works with the notes you already have. Setting up a project only creates one new note, the project's **index note**; your chapter notes aren't changed. If you sync your vault, set the project up on one device and let sync finish before you open it on another.
+
+### From Longform
+
+Nothing to do. Inkswell reads and writes Longform's format, so your projects show up on Home as soon as Inkswell is on.
+
+### From a folder of chapter notes
+
+If your book is already in Obsidian as one note per chapter or scene:
+
+1. Click **New project** on Home (or run the *New project* command) and fill it in to match where your book already is:
+   - **Title**: the exact name of the folder that holds your book, for example `My Book`.
+   - **Base folder**: the folder that *contains* your book's folder, for example `Writing` for `Writing/My Book/`. Clear it if your book's folder is at the top level of your vault.
+   - **Scene folder**: the subfolder your chapter notes are in, for example `Chapters`. Type `/` if they sit directly in the book's folder.
+
+   Inkswell adds an index note named after the book (`My Book.md`) inside the book's folder. If one of your chapters already has exactly that name, rename it first.
+2. On Home, click your book's card. A **Scene files out of sync** box lists every note in the scene folder as **Unindexed**.
+3. Click **Add as scene** on each one **in reading order**, because each is added to the end. Click **Ignore** for notes that aren't part of the manuscript, like outlines or scraps.
+4. Fix the order whenever you like by dragging scenes on Home or in Plan → Structure → Tree. If your notes already have a `chapter` property with a number ("Chapter 12" or "12"), **Sort scenes by chapter number…** in the book's ⋯ menu puts them in order in one step.
+
+Good to know:
+
+- Inkswell only picks up notes sitting directly in the scene folder. If your book is split into subfolders (`Part 1/`, `Part 2/`), move the notes into one folder first. To keep the parts, give each scene an **Act** in the Scene inspector.
+- A scene's title is its file name, and renaming a scene in Inkswell renames the note.
+- Words already in your notes don't count as words written today. Only what you write from now on counts toward your goals.
+
+### From Scrivener, Word, or Google Docs
+
+Inkswell can't open these files directly, so first turn your manuscript into Markdown:
+
+- **Scrivener**: compile to MultiMarkdown (*File → Compile*).
+- **Word**: convert it with [pandoc](https://pandoc.org): `pandoc book.docx -o book.md`.
+- **Google Docs**: *File → Download → Markdown (.md)*.
+
+If you end up with one file per chapter, put them in a folder in your vault and follow the steps above. If you have one big file:
+
+1. Create a **New project**, open **Write**, and click **New scene**.
+2. Paste your whole manuscript into it.
+3. Put the cursor at the start of chapter two and choose **Split scene here…** from the **Insert** menu (or run *Split scene at cursor*). Name the new scene. Everything from the cursor on moves into it, and it opens.
+4. Repeat at the start of each chapter until you reach the end.
+
+### Bringing in your worldbuilding notes
+
+Any note becomes a Codex entry when you add a `codex` property set to its type: `character`, `location`, `world`, `faction`, `item`, `event`, or `concept`. An entry without a scope shows up in every book. To tie it to a book or a series, open it in the Codex panel and use **Scope → Change…**.
 
 ## Try it: the sample vault
 

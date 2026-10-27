@@ -21,12 +21,14 @@ import {
   BookAppearances,
   appearancesForEntity,
   createEntityForProject,
+  createPlaceInside,
   getCodexEntities,
   resolveEntityImage,
   updateEntityProjects,
   writeEntityScope,
 } from "./codex-store";
 import { awaitCacheUpdate } from "./codex-template-io";
+import { PLACE_CATEGORY, buildPlaceTree, placeDescendants, placePath, placesInside } from "./places";
 import { firstMentionOffset } from "./codex";
 import { stripFrontmatter } from "../lib/frontmatter";
 import type { SceneHighlight } from "../views/write-panel";
@@ -50,7 +52,7 @@ import { codexEntryText } from "../plan/story-bible";
 import { renderProfileFieldControl } from "./profile-field-controls";
 import { codexEntryData } from "../plan/story-bible-io";
 import { readProfile, resolveProfileFields, writeProfile } from "./codex-profile";
-import { Profile, ProfileField } from "./profile-schema";
+import { Profile, ProfileField, isEmptyValue } from "./profile-schema";
 import {
   CategoryDef,
   CodexEntity,
@@ -75,6 +77,8 @@ export class CodexPanel {
   private showAll = false;
   /** With `showAll`: also list entries scoped only to archived books (out of sight by default). */
   private includeArchived = false;
+  /** Places folded shut in the list's place tree, by path (in-memory view state). */
+  private collapsedPlaces = new Set<string>();
   /** Category id the list is narrowed to ("" = all types). Also the type **New** creates. */
   private categoryFilter = "";
   /** Bumped per detail render so a slow "Appears in" scan can't fill a stale pane. */
@@ -330,7 +334,10 @@ export class CodexPanel {
       const entries = shown.filter((e) => e.category === cat.id);
       if (entries.length === 0) continue;
       list.createEl("h4", { text: `${cat.plural} (${entries.length})` });
-      for (const e of entries) this.renderRow(list, cat.icon, e);
+      // Places nest (#66): an indented, foldable tree — flat while searching,
+      // so every match shows whatever it sits inside.
+      if (cat.id === PLACE_CATEGORY && !q) this.renderPlaceTree(list, cat.icon, entries);
+      else for (const e of entries) this.renderRow(list, cat.icon, e);
     }
 
     // Orphan safety: entries whose category no longer exists (a deleted custom
@@ -352,15 +359,62 @@ export class CodexPanel {
     });
   }
 
-  private renderRow(parent: HTMLElement, icon: string, entity: CodexEntity): void {
+  /**
+   * The Locations group as a tree (#66): each place under the place it's
+   * inside, indented, with a chevron to fold a place's contents. A place whose
+   * container isn't listed (a world, out of scope, missing) is top-level.
+   */
+  private renderPlaceTree(list: HTMLElement, icon: string, places: CodexEntity[]): void {
+    const tree = buildPlaceTree(places);
+    const walk = (place: CodexEntity, depth: number): void => {
+      const kids = tree.children.get(place.path) ?? [];
+      const collapsed = this.collapsedPlaces.has(place.path);
+      this.renderRow(list, icon, place, { depth, childCount: kids.length, collapsed });
+      if (!collapsed) for (const kid of kids) walk(kid, depth + 1);
+    };
+    for (const root of tree.roots) walk(root, 0);
+  }
+
+  /** Select an entry (row click, breadcrumb, "Places inside" chip). */
+  private select(path: string): void {
+    if (this.onSelect?.(path)) return; // phone: drilled into a detail screen
+    this.selectedPath = path;
+    this.refreshPanes();
+  }
+
+  private renderRow(
+    parent: HTMLElement,
+    icon: string,
+    entity: CodexEntity,
+    /** Set when the row sits in the place tree. */
+    place?: { depth: number; childCount: number; collapsed: boolean }
+  ): void {
     const row = parent.createDiv({ cls: "inkswell-codex__row" });
     if (entity.path === this.selectedPath) row.addClass("is-selected");
+    if (place) {
+      row.addClass("is-place");
+      row.style.setProperty("--inkswell-place-depth", String(place.depth));
+      const chev = row.createSpan({ cls: "inkswell-codex__placechev" });
+      if (place.childCount > 0) {
+        setIcon(chev, place.collapsed ? "chevron-right" : "chevron-down");
+        chev.setAttribute("role", "button");
+        chev.setAttribute("aria-label", place.collapsed ? `Show places inside ${entity.name}` : `Hide places inside ${entity.name}`);
+        chev.onclick = (e) => {
+          e.stopPropagation(); // fold only — don't also select the row
+          if (place.collapsed) this.collapsedPlaces.delete(entity.path);
+          else this.collapsedPlaces.add(entity.path);
+          this.renderList();
+        };
+      }
+    }
     setIcon(row.createSpan({ cls: "inkswell-codex__icon" }), icon);
     row.createSpan({ cls: "inkswell-codex__name", text: entity.name });
-    // Show the parent as a muted annotation rather than indenting — the parent
-    // (e.g. a World) lives in its own category group, so indenting here would
-    // imply a hierarchy the list doesn't actually show.
-    if (entity.parent) {
+    if (place?.collapsed && place.childCount > 0) {
+      row.createSpan({ cls: "inkswell-codex__placecount", text: String(place.childCount) });
+    }
+    // The parent as a muted annotation (e.g. the World a top-level place is in).
+    // A nested place's container is already shown by the indent, so skip it.
+    if (entity.parent && !(place && place.depth > 0)) {
       row.createSpan({ cls: "inkswell-codex__parent", text: `↳ ${entity.parent}` });
     }
     if (entity.aliases.length) {
@@ -373,11 +427,7 @@ export class CodexPanel {
     const file = this.app.vault.getAbstractFileByPath(entity.path);
     if (!(file instanceof TFile)) return;
 
-    row.onclick = () => {
-      if (this.onSelect?.(entity.path)) return; // phone: drilled into a detail screen
-      this.selectedPath = entity.path;
-      this.refreshPanes();
-    };
+    row.onclick = () => this.select(entity.path);
     attachRowMenu(row, row, () => {
       const menu = new Menu();
       menu.addItem((i) =>
@@ -389,6 +439,14 @@ export class CodexPanel {
       menu.addItem((i) =>
         i.setTitle("Rename…").setIcon("pencil").onClick(() => this.rename(file))
       );
+      if (entity.category === PLACE_CATEGORY || entity.category === "world") {
+        menu.addItem((i) =>
+          i
+            .setTitle("New place inside…")
+            .setIcon("map-pin")
+            .onClick(() => this.newPlaceInside(entity, file))
+        );
+      }
       menu.addSeparator();
       menu.addItem((i) =>
         i.setTitle("Delete").setIcon("trash").onClick(() => this.remove(file, entity.name))
@@ -443,6 +501,21 @@ export class CodexPanel {
       cls: "inkswell-inspector__project",
       text: this.label(entity.category),
     });
+    // Where this place sits (#66): Westeros › The North, each step clickable.
+    if (entity.category === PLACE_CATEGORY) {
+      const path = placePath(entity, entities);
+      if (path.length > 0) {
+        const crumbs = meta.createDiv({ cls: "inkswell-codex__placepath" });
+        path.forEach((step, i) => {
+          if (i > 0) crumbs.createSpan({ cls: "inkswell-codex__placesep", text: "›" });
+          const a = crumbs.createEl("a", { text: step.name });
+          a.onclick = (e) => {
+            e.preventDefault();
+            this.select(step.path);
+          };
+        });
+      }
+    }
     const openBtn = meta.createEl("button", { text: "Open note" });
     openBtn.onclick = () => openScene(this.app, file);
 
@@ -450,7 +523,13 @@ export class CodexPanel {
 
     for (const field of fields) {
       if (field.type === "image") continue;
+      // A superseded shipped field (Location's loose-text Region) shows only
+      // where it already holds something.
+      if (field.hideWhenEmpty && isEmptyValue(profile[field.key])) continue;
       this.renderField(host, file, entity, fields, field, profile, entities);
+    }
+    if (entity.category === PLACE_CATEGORY || entity.category === "world") {
+      this.renderPlacesInside(host, file, entity, entities);
     }
     // Where the fields come from, and the door to changing them: Customize →
     // Codex types → this type (the discovery path for "can I add a field?").
@@ -662,6 +741,63 @@ export class CodexPanel {
     input.click();
   }
 
+  /**
+   * "Places inside" (#66) on a world or a location: the places whose Inside
+   * names it, as clickable chips, plus "New place inside…" — the quick way to
+   * build World › Region › City without retyping containers.
+   */
+  private renderPlacesInside(host: HTMLElement, file: TFile, entity: CodexEntity, entities: CodexEntity[]): void {
+    this.field(host, "Places inside", (control) => {
+      const inside = placesInside(entity, entities);
+      if (inside.length > 0) {
+        const chips = control.createDiv({ cls: "inkswell-inspector__chips" });
+        for (const place of inside) {
+          const chip = chips.createSpan({ cls: "inkswell-chip inkswell-chip--link", text: place.name });
+          chip.onclick = () => this.select(place.path);
+        }
+      }
+      const add = control.createEl("button", { text: "New place inside…" });
+      add.onclick = () => this.newPlaceInside(entity, file);
+    });
+  }
+
+  /** Prompt for a name and create a location inside `container` (same folder
+   *  and scope; `parent` set), then open it. */
+  private newPlaceInside(container: CodexEntity, containerFile: TFile): void {
+    void (async () => {
+      const name = await promptText(this.app, {
+        title: `New place inside ${container.name}`,
+        value: "",
+        multiline: false,
+        cta: "Create",
+      });
+      if (!name?.trim()) return;
+      const created = await tryFileOp(
+        () => createPlaceInside(this.app, this.plugin.settings, container, containerFile, name),
+        "Couldn't create the place."
+      );
+      if (created === null) return; // tryFileOp already said why
+      if (created === "taken") {
+        new Notice(`There's already a note named “${name.trim()}” beside ${container.name}.`);
+        return;
+      }
+      if (created === "invalid") {
+        new Notice("That name can't be used as a file name.");
+        return;
+      }
+      // The list and breadcrumb read `parent` from the metadata cache, which
+      // re-indexes after the write — render once it has (gotcha 18), or the new
+      // place shows top-level until something else redraws the panel. Creating
+      // is two writes (note, then parent), so wait for the parent itself, not
+      // just the next re-index; bounded so a slow cache can't hang the click.
+      const parentIndexed = (): boolean =>
+        typeof this.app.metadataCache.getFileCache(created)?.frontmatter?.["parent"] === "string";
+      for (let tries = 0; tries < 3 && !parentIndexed(); tries++) await awaitCacheUpdate(this.app, created);
+      this.selectedPath = created.path;
+      this.refreshPanes();
+    })();
+  }
+
   private renderField(
     host: HTMLElement,
     file: TFile,
@@ -700,6 +836,11 @@ export class CodexPanel {
           const inScope = ctx ? filterToScope(entities, ctx) : entities;
           return inScope.filter((e) => e.path !== entity.path);
         },
+        // A place can't sit inside anything that's inside it (#66) — the loop guard.
+        exclude:
+          field.key === "parent" && entity.category === PLACE_CATEGORY
+            ? placeDescendants(entity, entities)
+            : undefined,
         typeLabel: (id) => this.label(id),
         tagPrefix: "codex",
         // Plain fields save quietly; links re-render the panes (the list shows them).

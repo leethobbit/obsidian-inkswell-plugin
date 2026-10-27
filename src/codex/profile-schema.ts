@@ -9,6 +9,7 @@
  */
 
 import { normalizeDate } from "../lib/date-key";
+import { PLACE_PARENT_TYPES } from "./places";
 import { BuiltinCodexCategory, isBuiltinCategory } from "./types";
 
 export type ProfileFieldType =
@@ -26,7 +27,9 @@ export interface ProfileField {
   label: string;
   type: ProfileFieldType;
   placeholder?: string;
-  /** For `links`: restrict the picker to this category (undefined = any). */
+  /** For `links`: restrict the picker to this category (undefined = any) —
+   *  or several, comma-separated (`world,location`; ids never contain commas).
+   *  Test with {@link linkAccepts}, never `===`. */
   linkCategory?: string;
   /** For `links`: single value stored as a string (default = array). */
   single?: boolean;
@@ -36,6 +39,27 @@ export interface ProfileField {
    * `linkTarget` still yields the name, so scope/mentions/appears-in are unaffected.
    */
   labeled?: boolean;
+  /**
+   * Shipped-only: shown in the Codex panel only when the entry already has a
+   * value. For a field kept so old data stays visible but no longer offered to
+   * new entries (Location's loose-text Region, superseded by nesting places).
+   * A template that LISTS the field always shows it.
+   */
+  hideWhenEmpty?: boolean;
+}
+
+/** The type ids a link field's `linkCategory` names ([] = any type). */
+export function linkCategories(field: Pick<ProfileField, "linkCategory">): string[] {
+  return (field.linkCategory ?? "")
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean);
+}
+
+/** May a link field point at an entry of `category`? (Any type when unrestricted.) */
+export function linkAccepts(field: Pick<ProfileField, "linkCategory">, category: string): boolean {
+  const cats = linkCategories(field);
+  return cats.length === 0 || cats.includes(category);
 }
 
 /** Shared first field: alternative names (matches Obsidian's `aliases`). */
@@ -91,8 +115,12 @@ const CATEGORY_FIELDS: Record<BuiltinCodexCategory, ProfileField[]> = {
   ],
   location: [
     { key: "type", label: "Type", type: "text", placeholder: "City, fortress, forest…" },
-    { key: "parent", label: "World", type: "links", linkCategory: "world", single: true },
-    { key: "region", label: "Region", type: "text" },
+    // Places nest (#66): a location sits inside a world OR another location
+    // (World › The North › Winterfell). Same `parent` key as before, so a
+    // location already pointing at its world reads unchanged.
+    { key: "parent", label: "Inside", type: "links", linkCategory: PLACE_PARENT_TYPES, single: true },
+    // Superseded by nesting; still shown wherever a region was already written.
+    { key: "region", label: "Region", type: "text", hideWhenEmpty: true },
     { key: "climate", label: "Climate", type: "text" },
     { key: "population", label: "Population", type: "text" },
     { key: "atmosphere", label: "Atmosphere", type: "textarea" },
@@ -277,6 +305,8 @@ function resolveSpecField(category: string, entry: FieldSpec): ProfileField {
   const base: ProfileField = known
     ? { ...known }
     : { key: entry.key, label: humanizeKey(entry.key), type: "text" };
+  // A field the template lists by name is wanted — always shown.
+  delete base.hideWhenEmpty;
   if (entry.label) base.label = entry.label;
   if (!entry.type) return base;
   const hint = parseTypeHint(entry.type);

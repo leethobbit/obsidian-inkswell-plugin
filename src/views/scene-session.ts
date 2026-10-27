@@ -17,6 +17,11 @@
  *     the editor immediately after calling it — and `load()` callers await the
  *     previous session's flush before reading, so a rebuilt editor can never be
  *     seeded from pre-save bytes.
+ *  4. No write without an edit. CodeMirror turns every line break into "\n",
+ *     so editor-vs-disk comparisons ignore line endings (`sameText`), and a real
+ *     save writes the file's own endings back (`withEol`). Opening a Windows
+ *     ("\r\n") scene and clicking away never rewrites it — a spurious write is
+ *     a sync hazard (#64).
  *
  * EditorView-free by design (`getDoc` is a thunk): fully unit-testable against
  * the FakeApp harness.
@@ -25,6 +30,7 @@
 import { App, Notice, TFile, debounce, Debouncer } from "obsidian";
 import { splitFrontmatter } from "../lib/frontmatter";
 import { writeConflictBackup } from "../lib/conflict-backup";
+import { Eol, detectEol, sameText, withEol } from "../lib/line-endings";
 
 export type SessionState = "clean" | "dirty" | "conflict";
 export type SaveResult = "saved" | "noop" | "conflict" | "error";
@@ -57,6 +63,8 @@ export class SceneSession {
   /** Frontmatter of the loaded scene (kept fresh on every save/reload). */
   loadedFrontmatter: string;
   state: SessionState = "clean";
+  /** The file's own line endings, written back on a real save. */
+  private eol: Eol;
 
   private app: App;
   private getDoc: () => string | null;
@@ -75,6 +83,7 @@ export class SceneSession {
     this.onReloaded = opts.onReloaded;
     this.loadedFrontmatter = frontmatter;
     this.loadedBody = body;
+    this.eol = detectEol(body);
     this.autosave = debounce(
       () => void this.save("editor-alive"),
       opts.autosaveMs ?? 2000,
@@ -142,10 +151,15 @@ export class SceneSession {
         this.loadedFrontmatter = frontmatter;
         return;
       }
+      // Only the line endings changed (another tool or device rewrote them):
+      // the words are the ones we loaded — adopt the new baseline, no conflict.
+      if (sameText(body, this.loadedBody)) {
+        this.adoptBaseline(frontmatter, body);
+        return;
+      }
       const doc = this.getDoc();
-      if (doc === null || doc === this.loadedBody) {
-        this.loadedBody = body;
-        this.loadedFrontmatter = frontmatter;
+      if (doc === null || sameText(doc, this.loadedBody)) {
+        this.adoptBaseline(frontmatter, body);
         this.setState("clean");
         this.onReloaded(body);
       } else {
@@ -166,16 +180,15 @@ export class SceneSession {
       const content = await this.app.vault.cachedRead(this.file);
       const { frontmatter, body } = splitFrontmatter(content);
       let backupPath = "";
-      if (doc !== null && doc.trim() && doc !== body) {
+      if (doc !== null && doc.trim() && !sameText(doc, body)) {
         backupPath = await writeConflictBackup(
           this.app,
           this.file.basename,
           "unsaved editor text",
-          this.loadedFrontmatter + doc
+          this.loadedFrontmatter + withEol(doc, this.eol)
         );
       }
-      this.loadedBody = body;
-      this.loadedFrontmatter = frontmatter;
+      this.adoptBaseline(frontmatter, body);
       this.setState("clean");
       this.onReloaded(body);
       return backupPath;
@@ -198,12 +211,13 @@ export class SceneSession {
         "disk version",
         diskContent
       );
+      const out = withEol(doc, this.eol);
       await this.app.vault.process(this.file, (cur) => {
         const { frontmatter } = splitFrontmatter(cur);
         this.loadedFrontmatter = frontmatter;
-        return frontmatter + doc;
+        return frontmatter + out;
       });
-      this.loadedBody = doc;
+      this.loadedBody = out;
       this.setState("clean");
       return backupPath;
     });
@@ -234,27 +248,37 @@ export class SceneSession {
   /** After a successful save: clean if the editor matches what we wrote. */
   private reconcileState(savedBody: string): void {
     const doc = this.getDoc();
-    this.setState(doc === null || doc === savedBody ? "clean" : "dirty");
+    this.setState(doc === null || sameText(doc, savedBody) ? "clean" : "dirty");
+  }
+
+  /** A new on-disk baseline (reload, or a disk change we've accepted). */
+  private adoptBaseline(frontmatter: string, body: string): void {
+    this.loadedBody = body;
+    this.loadedFrontmatter = frontmatter;
+    this.eol = detectEol(body);
   }
 
   private async writeBody(body: string, ctx: "editor-alive" | "teardown"): Promise<SaveResult> {
     if (this.state === "conflict") return "conflict"; // banner owns the file until resolved
-    if (body === this.loadedBody) {
-      this.reconcileState(body);
+    // The editor's "\n" text equals the baseline in everything but endings —
+    // nothing was edited, so nothing is written (contract 4).
+    if (sameText(body, this.loadedBody)) {
+      this.reconcileState(this.loadedBody);
       return "noop";
     }
+    const out = withEol(body, this.eol);
     try {
       // Atomic read-check-write: the CURRENT frontmatter is reattached and the
-      // CURRENT body must equal the baseline — otherwise the disk holds words
-      // this session never saw, and writing would destroy them.
+      // CURRENT body must equal the baseline (endings aside) — otherwise the
+      // disk holds words this session never saw, and writing would destroy them.
       await this.app.vault.process(this.file, (cur) => {
         const { frontmatter, body: diskBody } = splitFrontmatter(cur);
-        if (diskBody !== this.loadedBody) throw new ConflictError();
+        if (!sameText(diskBody, this.loadedBody)) throw new ConflictError();
         this.loadedFrontmatter = frontmatter;
-        return frontmatter + body;
+        return frontmatter + out;
       });
-      this.loadedBody = body;
-      this.reconcileState(body);
+      this.loadedBody = out;
+      this.reconcileState(out);
       return "saved";
     } catch (e) {
       if (e instanceof ConflictError) {

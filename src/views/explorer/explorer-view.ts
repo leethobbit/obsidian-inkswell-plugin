@@ -29,10 +29,13 @@ import {
   representativeDrafts,
 } from "../../projects/stories";
 import {
+  STANDALONE_SHELF,
   Series,
+  Shelf,
   ShelfBook,
   groupIntoSeries,
   orderSeries,
+  orderShelves,
   partitionArchived,
   projectSeries,
   renameInOrder,
@@ -89,7 +92,8 @@ export class ExplorerPanel {
       newProject: (preset) => plugin.newProject(preset),
       activePath: () => plugin.activeProject.get(),
       markSelfWrite: (p) => plugin.selfWrites.mark(p),
-      reorderSeries: () => this.reorderSeries(),
+      reorderShelves: () => this.reorderShelves(),
+      canReorderShelves: () => this.liveShelves().length > 1,
       seriesRenamed: (from, to) => {
         const next = renameInOrder(plugin.settings.seriesOrder, from, to);
         if (!next) return;
@@ -202,8 +206,15 @@ export class ExplorerPanel {
     if (shelves.series.length === 0) {
       this.renderGrid(container, shelves.standalone, null);
     } else {
-      for (const s of shelves.series) this.renderShelf(container, s.name, s.books, fullOf(s));
-      if (shelves.standalone.length > 0) this.renderShelf(container, "Standalone", shelves.standalone, null);
+      // The writer's shelf order, Standalone included (#67).
+      const ordered = orderShelves(shelves.series, shelves.standalone.length > 0, this.plugin.settings.seriesOrder);
+      for (const shelf of ordered) {
+        if (shelf.kind === "series") {
+          this.renderShelf(container, shelf.series.name, shelf.series.books, fullOf(shelf.series));
+        } else {
+          this.renderShelf(container, "Standalone", shelves.standalone, null);
+        }
+      }
     }
     renderIdeas(container, this.plugin);
     this.renderArchived(container, shelves.archivedSeries, shelves.archivedStandalone, fullOf);
@@ -269,7 +280,10 @@ export class ExplorerPanel {
     const meta = header.createSpan({ cls: "inkswell-shelf__meta" });
     void this.renderShelfMeta(meta, books);
     // Right-click / ⋯ → series menu (new book, add existing, rename, reorder).
+    // A live Standalone shelf gets its own menu (Reorder shelves…, #67); the
+    // Archived section's shelves (addGhost false) aren't reorderable.
     if (series) attachRowMenu(header, header, () => this.seriesMenu.seriesMenu(series));
+    else if (addGhost) attachRowMenu(header, header, () => this.seriesMenu.standaloneMenu());
     this.renderGrid(sec, books, series, addGhost);
   }
 
@@ -301,13 +315,34 @@ export class ExplorerPanel {
     };
   }
 
-  /** Reorder Home's series shelves (#57); saved to settings, which sync. */
-  private reorderSeries(): void {
+  /** Home's live (non-archived) shelves, in the writer's order — what the
+   *  reorder dialog lists and what decides whether it's worth offering. */
+  private liveShelves(): Shelf<Series>[] {
     const projects = this.store.getProjects();
     const reps = representativeDrafts(projects, this.plugin.activeProject.get());
-    const names = orderSeries(groupIntoSeries(reps).series, this.plugin.settings.seriesOrder).map((s) => s.name);
-    new ReorderSeriesModal(this.app, names, (next) => {
-      this.plugin.settings.seriesOrder = next;
+    const grouped = groupIntoSeries(reps);
+    const archived = archivedStoryTitles(projects);
+    const live = partitionArchived(
+      { series: orderSeries(grouped.series, this.plugin.settings.seriesOrder), standalone: grouped.standalone },
+      (p) => archived.has(p.draft.title),
+      this.plugin.settings.hideArchivedInSeries
+    );
+    if (live.series.length === 0) return live.standalone.length > 0 ? [{ kind: "standalone" }] : [];
+    return orderShelves(live.series, live.standalone.length > 0, this.plugin.settings.seriesOrder);
+  }
+
+  /**
+   * Reorder Home's shelves (#57, #67) — series and Standalone. Saved to
+   * settings, which sync. Entries the dialog doesn't list (a fully archived
+   * series) keep their slots after the reordered ones, so unarchiving puts a
+   * shelf back where it was rather than at the end.
+   */
+  private reorderShelves(): void {
+    const ids = this.liveShelves().map((s) => (s.kind === "series" ? s.series.name : STANDALONE_SHELF));
+    new ReorderSeriesModal(this.app, ids, (next) => {
+      const listed = new Set(next.map((n) => n.toLowerCase()));
+      const kept = this.plugin.settings.seriesOrder.filter((n) => !listed.has(n.toLowerCase()));
+      this.plugin.settings.seriesOrder = [...next, ...kept];
       void this.plugin.saveSettings();
       this.plugin.refreshView();
     }).open();
