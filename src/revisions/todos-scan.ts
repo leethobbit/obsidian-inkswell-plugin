@@ -12,6 +12,7 @@
 import { App, TFile } from "obsidian";
 import { DEFAULT_MARKERS, GapHit, MarkerSet, findGaps } from "../lib/placeholders";
 import { stripFrontmatter } from "../lib/frontmatter";
+import { toLf } from "../lib/line-endings";
 
 export interface SceneTodos {
   title: string;
@@ -30,7 +31,9 @@ export async function scanProjectTodos(
     if (!scene.path) continue;
     const file = app.vault.getAbstractFileByPath(scene.path);
     if (!(file instanceof TFile)) continue;
-    const body = stripFrontmatter(await app.vault.cachedRead(file));
+    // "\n" endings, like the Write editor's document: a scene saved with "\r\n"
+    // would otherwise give offsets one off per line, and a jump would land early.
+    const body = toLf(stripFrontmatter(await app.vault.cachedRead(file)));
     const todos = findGaps(body, markers);
     if (todos.length) groups.push({ title: scene.title, path: scene.path, todos });
   }

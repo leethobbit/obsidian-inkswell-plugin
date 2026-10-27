@@ -8,6 +8,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { SceneSession, SessionState } from "../src/views/scene-session";
 import { CONFLICT_FOLDER } from "../src/lib/conflict-backup";
+import { toLf } from "../src/lib/line-endings";
 import { capturedNotices } from "./fakes/obsidian";
 import { FakeApp, flushAsync } from "./fakes/fake-app";
 
@@ -265,5 +266,88 @@ describe("SceneSession", () => {
     expect(backups).toHaveLength(1);
     expect(app.vault.raw(backups[0])).toContain("Words typed into a doomed scene.");
     expect(capturedNotices.some((n) => n.includes("backed up to"))).toBe(true);
+  });
+});
+
+/**
+ * Contract 4 (#64): no write without an edit. CodeMirror normalizes every line
+ * break to "\n", so a scene saved with Windows endings never equals its editor
+ * text byte-for-byte. This harness mirrors the real editor (seeds and reloads
+ * are normalized), which the plain harness above does not.
+ */
+describe("SceneSession — Windows line endings", () => {
+  const CRLF_PATH = SCENE_PATH;
+  const CRLF_SCENE = "---\r\nstatus: draft\r\n---\r\nFirst line.\r\nSecond line.\r\n";
+  let app: FakeApp;
+
+  beforeEach(() => {
+    app = new FakeApp({ [CRLF_PATH]: CRLF_SCENE });
+    capturedNotices.length = 0;
+  });
+
+  async function makeCmSession(): Promise<Harness> {
+    let doc: string | null = null;
+    const states: SessionState[] = [];
+    const reloads: string[] = [];
+    const session = await SceneSession.load({
+      app: app.asApp(),
+      file: app.file(CRLF_PATH),
+      getDoc: () => doc,
+      onStateChange: (s) => states.push(s),
+      onReloaded: (body) => {
+        reloads.push(body);
+        doc = toLf(body); // CodeMirror normalizes inserted text
+      },
+      autosaveMs: 60000,
+    });
+    doc = toLf(session.loadedBody); // CodeMirror normalizes the seed
+    return { session, setDoc: (t) => (doc = t), states, reloads };
+  }
+
+  it("opening and leaving a CRLF scene never rewrites it", async () => {
+    const h = await makeCmSession();
+    expect(await h.session.save()).toBe("noop"); // blur
+    expect(await h.session.flush()).toBe("noop"); // scene switch / quit
+    expect(app.vault.raw(CRLF_PATH)).toBe(CRLF_SCENE); // byte-identical
+    expect(h.session.state).toBe("clean");
+  });
+
+  it("a real edit keeps the file's own CRLF endings", async () => {
+    const h = await makeCmSession();
+    h.setDoc("First line.\nSecond line, edited.\n");
+    expect(await h.session.save()).toBe("saved");
+    expect(app.vault.raw(CRLF_PATH)).toBe("---\r\nstatus: draft\r\n---\r\nFirst line.\r\nSecond line, edited.\r\n");
+    expect(h.session.state).toBe("clean");
+    // Our own write comes back as a modify: recognized, no reload or conflict.
+    await h.session.handleExternalModify();
+    expect(h.reloads).toEqual([]);
+    expect(h.session.state).toBe("clean");
+  });
+
+  it("a synced change to an open, unedited CRLF scene reloads quietly — no false conflict", async () => {
+    const h = await makeCmSession();
+    await app.vault.modify(app.file(CRLF_PATH) as never, "---\r\nstatus: draft\r\n---\r\nWords from the iPad.\r\n");
+    await h.session.handleExternalModify();
+    expect(h.session.state).toBe("clean");
+    expect(h.reloads).toEqual(["Words from the iPad.\r\n"]);
+  });
+
+  it("another tool rewriting only the endings is not a conflict, even mid-edit", async () => {
+    const h = await makeCmSession();
+    h.setDoc("First line.\nSecond line.\nA new line being typed.\n");
+    await app.vault.modify(app.file(CRLF_PATH) as never, "---\nstatus: draft\n---\nFirst line.\nSecond line.\n");
+    await h.session.handleExternalModify();
+    expect(h.session.state).not.toBe("conflict");
+    expect(await h.session.save()).toBe("saved");
+    // The file is LF now, so the save writes LF.
+    expect(bodyOf(app, CRLF_PATH)).toBe("First line.\nSecond line.\nA new line being typed.\n");
+  });
+
+  it("an unseen change to the WORDS is still a conflict (the safety contract holds)", async () => {
+    const h = await makeCmSession();
+    await app.vault.modify(app.file(CRLF_PATH) as never, "---\r\nstatus: draft\r\n---\r\nSomeone else's words.\r\n");
+    h.setDoc("First line.\nMy edit.\n");
+    expect(await h.session.save()).toBe("conflict");
+    expect(bodyOf(app, CRLF_PATH)).toBe("Someone else's words.\r\n");
   });
 });
