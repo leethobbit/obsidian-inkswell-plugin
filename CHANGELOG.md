@@ -10,7 +10,12 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-10-27
+
+Places inside places. Build your world as deep as you like, with a city inside a region inside a world. Put your shelves on Home in any order, Standalone included. And opening a scene saved with Windows line endings no longer rewrites it, which kept sync tools from seeing changes you never made.
+
 ### Added
+- **A guide to bringing an existing project in.** The [README](https://github.com/leethobbit/obsidian-inkswell-plugin#bringing-an-existing-project-in) now explains how to move a book into Inkswell from Longform, from a folder of chapter notes, or from Scrivener, Word, or Google Docs, and how to turn worldbuilding notes into Codex entries.
 - **Places inside places.** A location can now sit inside another location, not just a world, so you can build World › Region › City as deep as you like. A location's **World** field is now **Inside**, and it offers your worlds and your other locations. In the Codex list, places show as a tree you can fold. A place's profile shows where it sits ("Aszmar › The Lattice"), with each step clickable, and lists the **Places inside** it. **New place inside…** (on a world or location, or in its ⋯ menu) creates one in the right spot in one step, sharing its scope. Locations that already point at their world are unchanged. The loose-text **Region** field now only appears on places that already have one. If you've customized the Location type's fields, set its Inside field to "World or Location" in Customize → Codex types to nest places. Requested in [#66](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/66).
 
 ### Fixed
@@ -458,7 +463,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.22.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.23.0...HEAD
+[1.23.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.22.0...1.23.0
 [1.22.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.21.1...1.22.0
 [1.21.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.21.0...1.21.1
 [1.21.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.20.0...1.21.0
