@@ -26,7 +26,7 @@ import {
   storyArchived,
   storyOf,
 } from "../projects/stories";
-import { groupIntoSeries, orderSeries } from "../series/series";
+import { groupIntoSeries, orderSeries, orderShelves } from "../series/series";
 import { promptText } from "../scenes/scene-actions";
 import { Project } from "../projects/types";
 import { NewDraftModal } from "./drafts-modal";
@@ -360,18 +360,11 @@ export class InkswellView extends ItemView {
     if (series.length === 0) {
       for (const s of stories) if (!archived.has(s.title)) addStory(sel, s);
     } else {
-      for (const grp of series) {
+      // Same shelf order as Home, Standalone included (#67).
+      for (const shelf of orderShelves(series, standalone.length > 0, this.plugin.settings.seriesOrder)) {
         const og = sel.createEl("optgroup");
-        og.label = grp.name;
-        for (const book of grp.books) {
-          const story = storyFor(book);
-          if (story) addStory(og, story);
-        }
-      }
-      if (standalone.length > 0) {
-        const og = sel.createEl("optgroup");
-        og.label = "Standalone";
-        for (const book of standalone) {
+        og.label = shelf.kind === "series" ? shelf.series.name : "Standalone";
+        for (const book of shelf.kind === "series" ? shelf.series.books : standalone) {
           const story = storyFor(book);
           if (story) addStory(og, story);
         }

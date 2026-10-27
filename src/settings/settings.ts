@@ -72,9 +72,10 @@ export interface InkswellSettings {
   /** The writer's rail arrangement (#55), or null for the shipped one. Edited by
    *  dragging the rail / its item menu — never a Settings-tab row. */
   railLayout: RailLayout | null;
-  /** Home's series shelf order (#57): series names, first shelf first. Series
-   *  not listed follow alphabetically; Standalone is always last. Edited from a
-   *  shelf's menu (Reorder series…) — never a Settings-tab row. Syncs. */
+  /** Home's shelf order (#57, #67): series names, first shelf first, plus the
+   *  reserved `STANDALONE_SHELF` entry for the Standalone shelf. Series not
+   *  listed follow alphabetically; an unlisted Standalone is last. Edited from a
+   *  shelf's menu (Reorder shelves…) — never a Settings-tab row. Syncs. */
   seriesOrder: string[];
   /** The one-time "goals now count project words by category" notice was shown. */
   categoryNoticeSeen: boolean;

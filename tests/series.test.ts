@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  STANDALONE_SHELF,
   groupIntoSeries,
   normalizeSeriesOrder,
   orderSeries,
+  orderShelves,
   partitionArchived,
   projectSeries,
   readSeriesInfo,
@@ -155,6 +157,37 @@ describe("series shelf order (#57)", () => {
     expect(normalizeSeriesOrder([" Saga ", "saga", "", 3, "Other"])).toEqual(["Saga", "Other"]);
     expect(normalizeSeriesOrder("Saga")).toEqual([]);
     expect(normalizeSeriesOrder(undefined)).toEqual([]);
+  });
+
+  describe("orderShelves (#67: Standalone is a shelf you can move)", () => {
+    const names = (shelves: ReturnType<typeof orderShelves<{ name: string }>>) =>
+      shelves.map((x) => (x.kind === "series" ? x.series.name : "[Standalone]"));
+
+    it("with no saved order, Standalone stays last (as before)", () => {
+      expect(names(orderShelves(s("Saga"), true, []))).toEqual(["Saga", "[Standalone]"]);
+    });
+
+    it("one series + Standalone can be swapped", () => {
+      expect(names(orderShelves(s("Saga"), true, [STANDALONE_SHELF, "Saga"]))).toEqual(["[Standalone]", "Saga"]);
+    });
+
+    it("Standalone sits where it was saved among several series; unlisted series follow", () => {
+      expect(names(orderShelves(s("A", "B", "C"), true, ["b", STANDALONE_SHELF]))).toEqual([
+        "B",
+        "[Standalone]",
+        "A",
+        "C",
+      ]);
+    });
+
+    it("no standalone books → no Standalone shelf, whatever the saved order says", () => {
+      expect(names(orderShelves(s("A"), false, [STANDALONE_SHELF, "A"]))).toEqual(["A"]);
+    });
+
+    it("the token never matches a series, survives normalizing, and orderSeries ignores it", () => {
+      expect(normalizeSeriesOrder([STANDALONE_SHELF, "Saga"])).toEqual([STANDALONE_SHELF, "Saga"]);
+      expect(orderSeries(s("Saga", "Other"), [STANDALONE_SHELF, "Other"]).map((x) => x.name)).toEqual(["Other", "Saga"]);
+    });
   });
 
   it("a rename keeps the slot; a merge drops the old name", () => {

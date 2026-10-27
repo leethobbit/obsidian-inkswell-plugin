@@ -141,6 +141,52 @@ export function orderSeries<T extends { name: string }>(series: readonly T[], or
     .map((x) => x.s);
 }
 
+/**
+ * The reserved `settings.seriesOrder` entry for Home's Standalone shelf (#67).
+ * A control character leads it, so no series name — typed text — can collide.
+ * Series sorting ignores it (no series matches); only {@link orderShelves} reads it.
+ */
+export const STANDALONE_SHELF = "\u0000standalone";
+
+/** One live shelf on Home, in the writer's order. */
+export type Shelf<T> = { kind: "series"; series: T } | { kind: "standalone" };
+
+/**
+ * Home's shelves in the writer's order (#67): the series, plus the Standalone
+ * shelf when there is one. Listed entries (series names case-insensitively,
+ * the {@link STANDALONE_SHELF} token exactly) come first in saved order; the
+ * rest follow in the order given, with an unlisted Standalone last — so a vault
+ * that never reordered looks exactly as before. Pure.
+ */
+export function orderShelves<T extends { name: string }>(
+  series: readonly T[],
+  hasStandalone: boolean,
+  order: readonly string[]
+): Shelf<T>[] {
+  const rank = new Map<string, number>();
+  order.forEach((name, i) => {
+    const k = name === STANDALONE_SHELF ? STANDALONE_SHELF : seriesKey(name);
+    if (!rank.has(k)) rank.set(k, i);
+  });
+  const items: { shelf: Shelf<T>; key: string; base: number }[] = series.map((s, i) => ({
+    shelf: { kind: "series" as const, series: s },
+    key: seriesKey(s.name),
+    base: i,
+  }));
+  if (hasStandalone) {
+    items.push({ shelf: { kind: "standalone" }, key: STANDALONE_SHELF, base: Number.POSITIVE_INFINITY });
+  }
+  const at = (key: string): number => rank.get(key) ?? Number.POSITIVE_INFINITY;
+  return items
+    .sort((a, b) => {
+      const ra = at(a.key);
+      const rb = at(b.key);
+      if (ra !== rb) return ra < rb ? -1 : 1;
+      return a.base - b.base;
+    })
+    .map((x) => x.shelf);
+}
+
 /** `settings.seriesOrder` as stored (data.json is hand-editable and synced):
  *  trimmed non-empty strings, case-insensitive repeats dropped. */
 export function normalizeSeriesOrder(raw: unknown): string[] {

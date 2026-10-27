@@ -10,6 +10,9 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Fixed
+- **Reorder shelves on Home, even with one series.** "Reorder series…" only appeared once you had two or more series, so with one series and some standalone books there was no way to change the order. It's now **Reorder shelves…**, and the Standalone shelf is one of the shelves you can move. It's in any shelf's ⋯ menu, including Standalone's, which now has a menu of its own. The project switcher follows the same order. [#67](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/67)
+
 ## [1.22.0] - 2026-10-24
 
 Your words, your shelf. Mark unfinished spots with your own words, like `[CHECK: …]` or `[TK: …]`, and archive finished books (or short stories already out to readers) so Home shows only what you're working on. Archiving hides a book; it doesn't delete it or stop its words counting.

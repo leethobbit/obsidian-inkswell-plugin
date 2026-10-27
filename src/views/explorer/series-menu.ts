@@ -11,7 +11,7 @@ import { writeSeries } from "../../projects/index-writer";
 import { ProjectStore } from "../../projects/project-store";
 import { baseDraftFor, storyArchived } from "../../projects/stories";
 import { Project, SeriesInfo, isMultiScene } from "../../projects/types";
-import { Series, groupIntoSeries, projectSeries } from "../../series/series";
+import { Series, projectSeries } from "../../series/series";
 import {
   ReorderBooksModal,
   addExistingToSeries,
@@ -30,8 +30,10 @@ export interface SeriesMenuCallbacks {
   activePath(): string | null;
   /** Mark an index path as our own write (softens the resulting refresh). */
   markSelfWrite(path: string): void;
-  /** Open the series-shelf reorder dialog (#57). */
-  reorderSeries(): void;
+  /** Open the shelf reorder dialog — series and Standalone (#57, #67). */
+  reorderShelves(): void;
+  /** Home has two or more live shelves to put in order. */
+  canReorderShelves(): boolean;
   /** A series was renamed (keeps its shelf's place in the saved order). */
   seriesRenamed(from: string, to: string): void;
   /** Archive / unarchive a story (all drafts) — out of sight only. */
@@ -126,14 +128,9 @@ export class SeriesMenu {
         .setIcon("list-ordered")
         .onClick(() => new ReorderBooksModal(this.app, projects, series).open())
     );
-    if (groupIntoSeries(projects).series.length > 1) {
-      menu.addItem((i) =>
-        i
-          .setTitle("Reorder series…")
-          .setIcon("arrow-up-down")
-          .onClick(() => this.cb.reorderSeries())
-      );
-    }
+    // Offered whenever Home has two shelves to order — one series plus the
+    // Standalone shelf counts (#67: with one series it used to never show).
+    if (this.cb.canReorderShelves()) this.addReorderShelves(menu);
     // A partially archived series offers both: archive the rest, or bring all back.
     const archived = series.books.filter((b) => storyArchived(projects, b)).length;
     menu.addSeparator();
@@ -154,6 +151,28 @@ export class SeriesMenu {
       );
     }
     return menu;
+  }
+
+  /** Right-click / ⋯ menu on the Standalone shelf header (#67). */
+  standaloneMenu(): Menu {
+    const menu = new Menu();
+    menu.addItem((i) =>
+      i
+        .setTitle("New project…")
+        .setIcon("book-plus")
+        .onClick(() => this.cb.newProject())
+    );
+    if (this.cb.canReorderShelves()) this.addReorderShelves(menu);
+    return menu;
+  }
+
+  private addReorderShelves(menu: Menu): void {
+    menu.addItem((i) =>
+      i
+        .setTitle("Reorder shelves…")
+        .setIcon("arrow-up-down")
+        .onClick(() => this.cb.reorderShelves())
+    );
   }
 
   /** The "+ Add book" card's menu: just the two ways to add a book. */
