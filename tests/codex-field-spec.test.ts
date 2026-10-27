@@ -32,7 +32,11 @@ describe("serializeFieldSpec ↔ parseFieldSpec", () => {
       const written = serializeFieldSpec(spec);
       const parsed = parseFieldSpec(written);
       expect(parsed).not.toBeNull();
-      expect(profileFields(cat, parsed)).toEqual(shipped);
+      // `hideWhenEmpty` is shipped-only (Location's legacy Region): once a
+      // template lists the field, the writer chose it, so it always shows.
+      const plain = (fields: ReturnType<typeof profileFields>) =>
+        fields.map(({ hideWhenEmpty: _drop, ...f }) => f);
+      expect(profileFields(cat, parsed)).toEqual(plain(shipped));
     }
   });
 
@@ -104,7 +108,8 @@ describe("fields editor row model", () => {
   it("rowsFromFields drops Aliases and maps single links to the 'link' kind", () => {
     const rows = rowsFromFields(profileFields("location"));
     expect(rows[0].key).toBe("image");
-    expect(rows.find((r) => r.key === "parent")).toMatchObject({ kind: "link", linkCategory: "world" });
+    // Places nest (#66): a location sits inside a World or another Location.
+    expect(rows.find((r) => r.key === "parent")).toMatchObject({ kind: "link", linkCategory: "world,location" });
     expect(rows.some((r) => r.key === "aliases")).toBe(false);
   });
 

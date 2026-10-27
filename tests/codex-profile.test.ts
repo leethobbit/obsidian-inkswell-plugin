@@ -4,6 +4,7 @@ import {
   coerceValue,
   isArrayField,
   isEmptyValue,
+  linkCategories,
   profileFields,
 } from "../src/codex/profile-schema";
 import { BuiltinCodexCategory, CODEX_CATEGORIES } from "../src/codex/types";
@@ -40,11 +41,12 @@ describe("profile schema", () => {
     }
   });
 
-  it("only uses link fields that target a real category", () => {
+  it("only uses link fields that target real categories (each of several, #66)", () => {
     for (const cat of CODEX_CATEGORIES) {
       for (const f of profileFields(cat.id)) {
-        if (f.type === "links" && f.linkCategory) {
-          expect(CODEX_CATEGORIES.some((c) => c.id === f.linkCategory)).toBe(true);
+        if (f.type !== "links") continue;
+        for (const target of linkCategories(f)) {
+          expect(CODEX_CATEGORIES.some((c) => c.id === target)).toBe(true);
         }
       }
     }

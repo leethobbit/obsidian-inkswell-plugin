@@ -12,6 +12,7 @@
 
 import { App, Notice, Setting, TFile } from "obsidian";
 import { awaitCacheUpdate, writeTemplateFields } from "../codex/codex-template-io";
+import { PLACE_PARENT_TYPES } from "../codex/places";
 import { ProfileField } from "../codex/profile-schema";
 import { allCategories } from "../codex/types";
 import { FormModal } from "../lib/form-modal";
@@ -119,7 +120,17 @@ export function renderFieldSpecEditor(body: HTMLElement, ctx: SectionCtx, opts: 
       if (row.kind === "links" || row.kind === "link") {
         const restrict = taggedSelect(el, `${prefix}:cat:${row.key}`, { cls: "dropdown" });
         restrict.createEl("option", { text: "Any type", value: "" });
-        for (const c of types()) restrict.createEl("option", { text: c.label, value: c.id });
+        const all = types();
+        for (const c of all) restrict.createEl("option", { text: c.label, value: c.id });
+        // Several types, comma-joined: the place-nesting pair is always offered
+        // (#66 — a place inside a World or another Location), and any other
+        // stored combination gets an option so it round-trips untouched.
+        const labelOf = (id: string) => all.find((c) => c.id === id)?.label ?? id;
+        const combos = new Set([PLACE_PARENT_TYPES]);
+        if (row.linkCategory?.includes(",")) combos.add(row.linkCategory);
+        for (const combo of combos) {
+          restrict.createEl("option", { text: combo.split(",").map(labelOf).join(" or "), value: combo });
+        }
         restrict.value = row.linkCategory ?? "";
         restrict.setAttribute("aria-label", `Restrict ${row.key} to a type`);
         restrict.onchange = () => update(index, { linkCategory: restrict.value || undefined });

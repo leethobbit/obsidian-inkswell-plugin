@@ -224,6 +224,12 @@ export const HINTS: Record<string, HintEntry> = {
       );
       p(
         el,
+        "Places nest: set a location's Inside to a world or to another location, and the " +
+          "Locations list shows them as a tree (World › Region › City). On a world or a " +
+          "location, “New place inside…” creates one already in place, sharing its scope."
+      );
+      p(
+        el,
         "An image you upload as an entry's portrait is saved where Obsidian puts new " +
           "attachments (Settings → Files and links → Default location for new attachments). " +
           "Choose “In subfolder under current folder” to keep each entry's images in a " +

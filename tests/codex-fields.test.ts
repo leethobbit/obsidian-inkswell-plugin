@@ -8,7 +8,10 @@
 import { describe, expect, it } from "vitest";
 import {
   FIELDS_KEY,
+  fieldTypeHint,
   humanizeKey,
+  linkAccepts,
+  linkCategories,
   parseFieldSpec,
   profileFields,
 } from "../src/codex/profile-schema";
@@ -325,5 +328,34 @@ describe("readProfile / writeProfile with a resolved field list", () => {
     expect(fm["role"]).toBe("Hero"); // not in the resolved list → untouched
     expect(fm["tags"]).toEqual(["character"]);
     expect(await app.vault.cachedRead(file as never)).toContain("Body.");
+  });
+});
+
+describe("nested places (#66): Location's Inside field", () => {
+  it("ships as a single link to a World or another Location; Region only shows when set", () => {
+    const fields = profileFields("location");
+    const inside = fields.find((f) => f.key === "parent");
+    expect(inside).toMatchObject({ label: "Inside", type: "links", single: true, linkCategory: "world,location" });
+    expect(linkCategories(inside!)).toEqual(["world", "location"]);
+    expect(linkAccepts(inside!, "world")).toBe(true);
+    expect(linkAccepts(inside!, "location")).toBe(true);
+    expect(linkAccepts(inside!, "character")).toBe(false);
+    expect(fields.find((f) => f.key === "region")?.hideWhenEmpty).toBe(true);
+  });
+
+  it("an unrestricted link accepts any type", () => {
+    expect(linkAccepts({ linkCategory: undefined }, "item")).toBe(true);
+  });
+
+  it("a two-type hint round-trips through a template spec", () => {
+    const fields = profileFields("location", [{ key: "parent", type: "link:world,location" }]);
+    const inside = fields.find((f) => f.key === "parent");
+    expect(inside).toMatchObject({ linkCategory: "world,location", single: true });
+    expect(fieldTypeHint(inside!)).toBe("link:world,location");
+  });
+
+  it("a template that lists Region shows it always (it was asked for)", () => {
+    const fields = profileFields("location", [{ key: "region" }]);
+    expect(fields.find((f) => f.key === "region")?.hideWhenEmpty).toBeUndefined();
   });
 });

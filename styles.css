@@ -434,6 +434,44 @@
 .inkswell-codex__row.is-selected {
   background-color: var(--background-modifier-active-hover);
 }
+/* Nested places (#66): indent by depth; a fixed-width chevron slot keeps names
+   aligned whether or not a place has anything inside it. */
+.inkswell-codex__row.is-place {
+  padding-left: calc(var(--size-4-1) + var(--inkswell-place-depth, 0) * 1.25em);
+  gap: var(--size-4-1);
+}
+.inkswell-codex__placechev {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 16px;
+  color: var(--text-faint);
+}
+.inkswell-codex__placechev .svg-icon {
+  width: 14px;
+  height: 14px;
+}
+.inkswell-codex__placechev:hover {
+  color: var(--text-normal);
+}
+.inkswell-codex__placecount {
+  padding: 0 6px;
+  border-radius: var(--radius-s);
+  background-color: var(--background-modifier-border);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+/* Detail pane breadcrumb: World › Region › … above a place's fields. */
+.inkswell-codex__placepath {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-1);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+.inkswell-codex__placesep {
+  color: var(--text-faint);
+}
 
 /* Codex master-detail: list (left) + profile editor (right) */
 .inkswell-codex__body {
