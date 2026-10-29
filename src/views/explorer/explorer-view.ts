@@ -86,7 +86,11 @@ export class ExplorerPanel {
     this.onSelectScene = onSelectScene;
 
     this.hero = new HeroCard(app, plugin, store, stats);
-    this.reconcile = new ReconcileBanner(app, (p) => plugin.selfWrites.mark(p));
+    this.reconcile = new ReconcileBanner(
+      app,
+      (p) => plugin.selfWrites.mark(p),
+      () => this.softRefresh()
+    );
     this.seriesMenu = new SeriesMenu(app, store, {
       renameProject: (p) => plugin.renameProject(p),
       sortByChapter: (p) => void sortProjectByChapter(app, plugin, p),

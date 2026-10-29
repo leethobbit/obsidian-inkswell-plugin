@@ -7,6 +7,10 @@
  * the plugin was closed — surface them with one-click relink options.
  * Proposes; never silently guesses. Writes go through the index writer, which
  * triggers a store refresh that re-renders this banner away.
+ *
+ * Waits until the mismatch has held still ({@link advanceSettle}): mid-sync,
+ * a rename from another device shows up here as missing + unindexed for a few
+ * seconds, and its "obvious" relink points backwards (#69).
  */
 
 import { App, TFile } from "obsidian";
@@ -17,7 +21,14 @@ import {
   updateDraftFields,
   updateScenes,
 } from "../../projects/index-writer";
-import { reconcileSuggestions } from "../../projects/rename-heal";
+import {
+  SettleState,
+  advanceSettle,
+  mismatchKeys,
+  reconcileSuggestions,
+  settleRemaining,
+  wasCreatedHere,
+} from "../../projects/rename-heal";
 import { addScene } from "../../projects/scene-tree";
 import { Project, isMultiScene } from "../../projects/types";
 
@@ -28,18 +39,39 @@ function plural(n: number, noun: string): string {
 
 export class ReconcileBanner {
   private app: App;
+  /** Settle clock per project (index path → its mismatch and when it was first seen). */
+  private settle = new Map<string, SettleState>();
 
   constructor(
     app: App,
     /** Marks index writes as the app's own so the host soft-refreshes in place. */
-    private markWrite: (path: string) => void = () => {}
+    private markWrite: (path: string) => void = () => {},
+    /** Re-renders the panel from the live store, once a held-back mismatch settles. */
+    private refresh: () => void = () => {}
   ) {
     this.app = app;
   }
 
   render(section: HTMLElement, project: Project): void {
-    const { missing, orphans, autoMatch } = reconcileSuggestions(project);
-    if (missing.length === 0 && orphans.length === 0) return;
+    const suggestions = reconcileSuggestions(project);
+    const now = Date.now();
+    const state = advanceSettle(this.settle.get(project.vaultPath), mismatchKeys(suggestions), now);
+    if (!state) {
+      this.settle.delete(project.vaultPath);
+      return;
+    }
+    this.settle.set(project.vaultPath, state);
+    const wait = wasCreatedHere(project.vaultPath) ? 0 : settleRemaining(state, now);
+    if (wait > 0) {
+      // Nothing yet. Re-render when the wait is up, unless a newer render (any
+      // store change) has replaced this section by then; it set its own timer.
+      window.setTimeout(() => {
+        if (section.isConnected) this.refresh();
+      }, wait);
+      return;
+    }
+
+    const { missing, orphans, autoMatch } = suggestions;
 
     const box = section.createDiv({ cls: "inkswell-reconcile" });
     box.createDiv({ cls: "inkswell-reconcile__head", text: "Scene files out of sync" });

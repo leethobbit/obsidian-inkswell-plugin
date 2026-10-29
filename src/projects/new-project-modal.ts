@@ -9,6 +9,7 @@
 
 import { App, Notice, Setting, TFile, normalizePath } from "obsidian";
 import { persistDraft, writeSeries } from "./index-writer";
+import { markCreatedHere } from "./rename-heal";
 import { MultipleSceneDraft, SeriesInfo } from "./types";
 import { FolderSettings, joinPath, projectFolder, sanitizeSegment } from "../settings/folders";
 import { FormModal } from "../lib/form-modal";
@@ -80,6 +81,8 @@ export async function createProject(
 
   const sceneFolder = trimSlashes(opts.sceneFolder) || "/";
   return tryFileOp(async () => {
+    // Before the create, so the store's first render already knows it's ours.
+    markCreatedHere(indexPath);
     const file = await app.vault.create(indexPath, "");
     const draft: MultipleSceneDraft = {
       format: "scenes",

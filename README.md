@@ -121,7 +121,7 @@ If your book is already in Obsidian as one note per chapter or scene:
    - **Scene folder**: the subfolder your chapter notes are in, for example `Chapters`. Type `/` if they sit directly in the book's folder.
 
    Inkswell adds an index note named after the book (`My Book.md`) inside the book's folder. If one of your chapters already has exactly that name, rename it first.
-2. On Home, click your book's card. A **Scene files out of sync** box lists every note in the scene folder as **Unindexed**.
+2. On Home, click your book's card. A **Scene files out of sync** box lists every note in the scene folder as **Unindexed**. (If you come back to this after restarting Obsidian, the box takes about 10 seconds to appear.)
 3. Click **Add as scene** on each one **in reading order**, because each is added to the end. Click **Ignore** for notes that aren't part of the manuscript, like outlines or scraps.
 4. Fix the order whenever you like by dragging scenes on Home or in Plan → Structure → Tree. If your notes already have a `chapter` property with a number ("Chapter 12" or "12"), **Sort scenes by chapter number…** in the book's ⋯ menu puts them in order in one step.
 
