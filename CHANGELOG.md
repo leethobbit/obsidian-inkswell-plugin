@@ -12,6 +12,7 @@ time the version bump renames that section to the new version and date.
 
 ### Fixed
 - **A book no longer disappears when its index note can't be read.** If the properties at the top of a book's index note got damaged (one line out of place, or a property listed twice, which a sync conflict, another plugin or a hand edit can cause), the book simply vanished from Home and the project picker, with nothing to say why. Home now shows **Inkswell can't read this book**, names the note (and, for a formatting error, the line to look at), and has an **Open note** button. Fix the properties, or restore an earlier version of the note, and the book comes back. Your scenes were never affected. Reported in [#69](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/69).
+- **Deleting a draft never takes another draft's scenes with it.** When a sync service keeps a "conflicted copy" of a book's index note, Inkswell shows that copy as a second draft, and its scenes are the same files as the real book's. Deleting that copy used to move those shared scene files to the trash too. Now **Delete draft** only trashes scene files no other draft uses, and the confirmation says which ones stay. Found while investigating [#69](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/69).
 
 ## [1.23.0] - 2026-10-27
 

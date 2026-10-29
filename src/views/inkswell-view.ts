@@ -474,7 +474,9 @@ export class InkswellView extends ItemView {
   }
 
   private async deleteDraftAction(story: Story, project: Project): Promise<void> {
-    const deleted = await deleteDraft(this.app, project, story.drafts.length <= 1);
+    const deleted = await deleteDraft(this.app, project, story.drafts.length <= 1, () =>
+      this.plugin.store.getProjects()
+    );
     if (!deleted) return;
     const sibling = story.drafts.find((d) => d.vaultPath !== project.vaultPath);
     this.plugin.activeProject.set(sibling ? sibling.vaultPath : null);
