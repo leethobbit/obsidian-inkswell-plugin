@@ -228,18 +228,23 @@ class FakeMetadataCache extends Emitter {
     super();
   }
 
-  getFileCache(file: TFile): { frontmatter?: Record<string, unknown> } | null {
+  getFileCache(
+    file: TFile
+  ): { frontmatter?: Record<string, unknown>; sections?: { type: string }[] } | null {
     const content = this.vault.raw(file.path);
     if (content === undefined) return null;
     const m = content.match(FM_RE);
     if (!m) return {};
+    // As measured in Obsidian: a block that won't parse loses `frontmatter`
+    // but is still typed as a `yaml` section.
+    const sections = [{ type: "yaml" }];
     try {
       const parsed = parseYaml(m[1]);
       return parsed && typeof parsed === "object"
-        ? { frontmatter: parsed as Record<string, unknown> }
-        : {};
+        ? { frontmatter: parsed as Record<string, unknown>, sections }
+        : { sections };
     } catch {
-      return {};
+      return { sections };
     }
   }
 

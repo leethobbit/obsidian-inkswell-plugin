@@ -339,6 +339,43 @@
   font-size: var(--font-ui-small);
 }
 
+/* Home: books whose index note can't be read (#69) */
+.inkswell-unreadable {
+  margin: var(--size-4-2) 0;
+  padding: var(--size-4-2) var(--size-4-3);
+  border: 1px solid var(--background-modifier-border);
+  border-left: 3px solid var(--text-warning, #b45309);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+.inkswell-unreadable__head {
+  font-weight: var(--font-semibold);
+  color: var(--text-warning, #b45309);
+}
+.inkswell-unreadable__summary {
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-unreadable__row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  flex-wrap: wrap;
+  margin-top: var(--size-4-1);
+}
+.inkswell-unreadable__text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-ui-small);
+}
+.inkswell-unreadable__name {
+  overflow-wrap: anywhere;
+}
+.inkswell-unreadable__reason {
+  color: var(--text-muted);
+}
+
 /* Scene status badge (explorer rows) */
 .inkswell-status {
   font-size: var(--font-ui-smaller);

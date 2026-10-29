@@ -10,6 +10,9 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Fixed
+- **A book no longer disappears when its index note can't be read.** If the properties at the top of a book's index note got damaged (one line out of place, or a property listed twice, which a sync conflict, another plugin or a hand edit can cause), the book simply vanished from Home and the project picker, with nothing to say why. Home now shows **Inkswell can't read this book**, names the note (and, for a formatting error, the line to look at), and has an **Open note** button. Fix the properties, or restore an earlier version of the note, and the book comes back. Your scenes were never affected. Reported in [#69](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/69).
+
 ## [1.23.0] - 2026-10-27
 
 Places inside places. Build your world as deep as you like, with a city inside a region inside a world. Put your shelves on Home in any order, Standalone included. And opening a scene saved with Windows line endings no longer rewrites it, which kept sync tools from seeing changes you never made.

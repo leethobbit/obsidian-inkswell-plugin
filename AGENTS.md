@@ -20,7 +20,7 @@ Obsidian plugin conventions (toolchain, Vault API rules, deferred views, mobile,
 | Reload plugin in vault | use the `obsidian-cli` skill, not a manual restart |
 
 ## Architecture rules
-- **Finding projects:** query `app.metadataCache` for the `longform` frontmatter key. Don't walk the filesystem — use [src/projects/](src/projects/).
+- **Finding projects:** query `app.metadataCache` for the `longform` frontmatter key. Don't walk the filesystem — use [src/projects/](src/projects/). A book's index that won't parse must never just vanish: the store reports it via `getUnreadable()` (`src/projects/unreadable-index.ts`; broken YAML shows in the cache as a `yaml` section with no `frontmatter`), and Home lists it (#69).
 - **Project persistence:** rewrite ONLY the index note's frontmatter. NEVER mutate scene-file bodies — Longform's core invariant. Use the index writer in [src/projects/](src/projects/), not raw `vault.modify` on scenes.
 - **Longform compatibility is the premise.** Scene indentation serializes as nested YAML arrays (see `indentedScenesToArrays`/`arraysToIndentedScenes` ported from Longform). Don't invent a flatter encoding — it breaks drop-in compatibility. Inkswell-only data goes under a `inkswell:` sub-key, never inside `longform`.
 - **Frontmatter is a frozen 1.0 contract.** Every key Inkswell reads/writes is documented in [SCHEMA.md](SCHEMA.md). Don't rename or repurpose an existing key (including checkpoint/beat/task/category IDs) in a `1.x` release — new optional keys are fine; renames/removals wait for `2.0`. Update SCHEMA.md when adding a key.
