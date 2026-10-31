@@ -41,6 +41,8 @@ A three-step flow: *Overview* (novel-level fields and long-form prose), *Beats* 
 
 A distraction-light, Live-Preview manuscript editor with writing prompts and timed **sprints**. Five fast-drafting **inline markers** — for to-dos, research questions, dialogue gaps, missing scenes, and notes — highlight as you type (e.g. `[RESEARCH: what did 1920s lamplighters earn?]`), so you can mark a gap and keep moving forward. Add your own marker words (`[CHECK: …]`, `[TK: …]`) under Customize → To-do markers. Find them all later in Revise → To-dos.
 
+Switch Write to **Stream** to read and edit the whole book as one continuous page, in order: click anywhere to edit that scene in place, jump between chapters, or narrow the page to one chapter, POV, plotline, character or status. Each scene still saves to its own note.
+
 ![Write: Live-Preview editor with highlighted draft markers and a running sprint timer](assets/write.png)
 
 ### Revise — from draft to book

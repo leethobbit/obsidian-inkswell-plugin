@@ -9,6 +9,7 @@
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "build:sample": "npm run build && node scripts/build-sample.mjs",
     "dev-vault:reset": "node scripts/reset-dev-vault.mjs",
+    "dev-vault:big-books": "node scripts/gen-big-books.mjs",
     "gen:sample-data": "node scripts/gen-sample-data.mjs",
     "typecheck": "tsc -noEmit -skipLibCheck",
     "lint": "eslint src main.ts && npm run lint:css",

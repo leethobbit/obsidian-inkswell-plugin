@@ -24,7 +24,8 @@ export type FeatureId =
   | "checklist"
   | "launch"
   | "prompts"
-  | "tracking";
+  | "tracking"
+  | "stream";
 
 /** Grouping label for the Settings → Features section. */
 export type FeatureGroup = "Planning" | "Revision" | "Publishing" | "Writing";
@@ -94,6 +95,12 @@ export const OPTIONAL_FEATURES: FeatureDef[] = [
     label: "Writing prompts",
     group: "Writing",
     desc: "The writing-prompt / ideation button on the Write toolbar.",
+  },
+  {
+    id: "stream",
+    label: "Scene stream",
+    group: "Writing",
+    desc: "Write's Stream view: read and edit a book's scenes as one continuous page. Not shown on phones.",
   },
   {
     id: "tracking",

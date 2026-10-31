@@ -484,6 +484,34 @@ export default class InkswellPlugin extends Plugin {
         return true;
       },
     });
+    // Write → Stream: the toggle (also opens Write), and chapter jumps while it's showing.
+    this.addCommand({
+      id: "toggle-scene-stream",
+      name: "Toggle scene stream (Write)",
+      checkCallback: (checking) => {
+        const view = this.inkswellView();
+        if (!view || !view.canToggleStream()) return false;
+        if (!checking) view.toggleStream();
+        return true;
+      },
+    });
+    const chapterCommands: { id: string; name: string; run: (v: InkswellView) => void }[] = [
+      { id: "stream-jump-to-chapter", name: "Jump to chapter… (scene stream)", run: (v) => v.promptJumpToChapter() },
+      { id: "stream-next-chapter", name: "Next chapter (scene stream)", run: (v) => v.jumpChapter(1) },
+      { id: "stream-previous-chapter", name: "Previous chapter (scene stream)", run: (v) => v.jumpChapter(-1) },
+    ];
+    for (const { id, name, run } of chapterCommands) {
+      this.addCommand({
+        id,
+        name,
+        checkCallback: (checking) => {
+          const view = this.inkswellView();
+          if (!view || !view.isStreaming()) return false;
+          if (!checking) run(view);
+          return true;
+        },
+      });
+    }
     this.addCommand({
       id: "move-selection-to-new-scene",
       name: "Move selection to new scene (Write editor)",
