@@ -490,6 +490,22 @@
 .inkswell-codex__placechev:hover {
   color: var(--text-normal);
 }
+/* Pinned in the open book (#70): a small accent pin, and a rule under the
+   last pinned row of a group so the A–Z rest reads as its own run. */
+.inkswell-codex__pin {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--text-accent);
+}
+.inkswell-codex__pin .svg-icon {
+  width: 13px;
+  height: 13px;
+}
+.inkswell-codex__row.is-last-pinned {
+  margin-bottom: var(--size-4-1);
+  border-bottom: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s) var(--radius-s) 0 0;
+}
 .inkswell-codex__placecount {
   padding: 0 6px;
   border-radius: var(--radius-s);

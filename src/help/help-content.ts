@@ -223,6 +223,14 @@ export const HINTS: Record<string, HintEntry> = {
       ]);
       p(
         el,
+        "Pin your main cast: right-click an entry (or tap ⋯) and choose Pin in this book. " +
+          "Pinned entries list first in their group, with a pin mark, and come first when " +
+          "you type [[ in Write. Pins belong to the open book, so a series character can " +
+          "be pinned in one book and not the next. The search box also matches a " +
+          "character's Role and a place's or item's Type: type “antag” to find your antagonists."
+      );
+      p(
+        el,
         "Each entry's “Appears in” list updates itself: it shows every scene whose text " +
           "mentions the entry by name or alias, plus any scene that links it in its " +
           "metadata (Characters, Location, POV), for every category — so a new entry " +

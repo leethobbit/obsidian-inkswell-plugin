@@ -16,6 +16,8 @@ export interface LinkCandidate {
   alias?: string;
   /** Secondary text in the popup (codex type, "Scene"). */
   detail?: string;
+  /** A codex entry pinned in the open book — ranks first among equal matches. */
+  pinned?: boolean;
 }
 
 export interface LinkContext {
@@ -70,8 +72,9 @@ function matchScore(query: string, text: string): number | null {
 /**
  * Candidates matching `query`, best first, capped at `limit`. A candidate is
  * scored on its alias when it carries one, else on its name; ties fall back to
- * kind (codex, then scenes, then other notes) and name. With an empty query the
- * order is kind, then name — so `[[` alone offers the story bible first.
+ * pinned codex entries, kind (codex, then scenes, then other notes) and name.
+ * With an empty query the order is pinned, kind, then name — so `[[` alone
+ * offers the book's main cast, then the rest of the story bible.
  */
 export function rankCandidates(
   query: string,
@@ -87,6 +90,7 @@ export function rankCandidates(
   scored.sort(
     (a, b) =>
       b.s - a.s ||
+      Number(!!b.c.pinned) - Number(!!a.c.pinned) ||
       KIND_ORDER[a.c.kind] - KIND_ORDER[b.c.kind] ||
       a.c.name.localeCompare(b.c.name) ||
       (a.c.alias ?? "").localeCompare(b.c.alias ?? "")

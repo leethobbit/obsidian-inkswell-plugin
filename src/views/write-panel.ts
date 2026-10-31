@@ -29,6 +29,7 @@ import {
   setIcon,
 } from "obsidian";
 import { createEntityForProject, getCodexEntities } from "../codex/codex-store";
+import { isPinnedIn } from "../codex/codex-list";
 import {
   defaultScopeForProject,
   describeCreateScope,
@@ -1464,17 +1465,17 @@ export class WritePanel implements HoverParent {
     const activePath = this.plugin.activeProject.get();
     const active = activePath ? this.store.getProject(activePath) ?? null : null;
     const entities = getCodexEntities(this.app);
-    const visible = active
-      ? filterToScope(entities, scopeContextForProject(active, projects))
-      : entities;
+    const ctx = active ? scopeContextForProject(active, projects) : null;
+    const visible = ctx ? filterToScope(entities, ctx) : entities;
     const out: LinkCandidate[] = [];
     const seen = new Set<string>();
     for (const e of visible) {
       const detail = categoryLabel(e.category, s.customCategories, s.categoryOverrides);
-      out.push({ name: e.name, kind: "codex", detail });
+      const pinned = isPinnedIn(e, ctx);
+      out.push({ name: e.name, kind: "codex", detail, pinned });
       seen.add(e.name.toLowerCase());
       for (const alias of e.aliases) {
-        if (alias.trim()) out.push({ name: e.name, kind: "codex", alias: alias.trim(), detail });
+        if (alias.trim()) out.push({ name: e.name, kind: "codex", alias: alias.trim(), detail, pinned });
       }
     }
     const current = this.currentScenePath();

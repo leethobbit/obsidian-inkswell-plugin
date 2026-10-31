@@ -10,6 +10,7 @@ import {
   parseProjectScopeValue,
   projectKey,
   projectName,
+  remapBookKeys,
   remapScopeProjects,
   scopeContextForEntity,
   scopeContextForProject,
@@ -328,6 +329,12 @@ describe("remapScopeProjects (project rename)", () => {
     expect(remapScopeProjects({ projects: ["A"] }, byOld)).toBeNull();
     expect(remapScopeProjects({}, byOld)).toBeNull();
     expect(remapScopeProjects({ series: "Old" }, byOld)).toBeNull();
+  });
+
+  it("remapBookKeys does the same for a bare key list (pins)", () => {
+    expect(remapBookKeys(["A", "old"], byOld)).toEqual(["A", "New"]);
+    expect(remapBookKeys(["New", "Old"], byOld)).toEqual(["New"]);
+    expect(remapBookKeys(["A"], byOld)).toBeNull();
   });
 
   it("matches the old key case-insensitively and remaps the path form too", () => {

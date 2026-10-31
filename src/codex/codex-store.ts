@@ -35,6 +35,7 @@ import {
   CodexCategory,
   CodexEntity,
   EntityScope,
+  PINNED_KEY,
   SCOPE_PROJECT_KEY,
   SCOPE_SERIES_KEY,
   allCategories,
@@ -47,6 +48,10 @@ export interface CodexSettings extends FolderSettings {
   customCategories: CategoryDef[];
   categoryOverrides: CategoryOverrides;
 }
+
+/** The shipped "what kind of entry" fields (Character's Role; the Type of a
+ *  place, faction, item or concept) — the Codex search matches their values. */
+const CLASSIFIER_KEYS = ["role", "type"];
 
 export function getCodexEntities(app: App): CodexEntity[] {
   const out: CodexEntity[] = [];
@@ -71,7 +76,14 @@ export function getCodexEntities(app: App): CodexEntity[] {
     const parent = typeof parentRaw === "string" ? linkTarget(parentRaw) : undefined;
 
     const scope = readEntityScope(fm);
-    out.push({ path: file.path, name: file.basename, category: cat.trim(), aliases, parent, scope });
+    const entity: CodexEntity = { path: file.path, name: file.basename, category: cat.trim(), aliases, parent, scope };
+    const pinned = parseProjectScopeValue(fm?.[PINNED_KEY]);
+    if (pinned.length) entity.pinned = pinned;
+    const classifiers = CLASSIFIER_KEYS.map((k) => fm?.[k]).filter(
+      (v): v is string => typeof v === "string" && !!v.trim()
+    );
+    if (classifiers.length) entity.classifiers = classifiers;
+    out.push(entity);
   }
   out.sort((a, b) => a.name.localeCompare(b.name));
   return out;
@@ -144,6 +156,24 @@ export async function updateEntityProjects(
   await app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
     const next = dedupe(fn(parseProjectScopeValue(fm[SCOPE_PROJECT_KEY])));
     applyScopeToFrontmatter(fm, { projects: next });
+  });
+}
+
+/**
+ * Delta writer for the books an entry is pinned in (`codex-pinned`): `fn`
+ * receives the CURRENT list parsed inside `processFrontMatter` (gotcha 10) and
+ * returns the next one. Always written as a YAML list of wikilinks; an empty
+ * list removes the key.
+ */
+export async function updateEntityPins(
+  app: App,
+  file: TFile,
+  fn: (current: string[]) => string[]
+): Promise<void> {
+  await app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+    const next = dedupe(fn(parseProjectScopeValue(fm[PINNED_KEY])));
+    if (next.length) fm[PINNED_KEY] = next.map((b) => `[[${b}]]`);
+    else delete fm[PINNED_KEY];
   });
 }
 

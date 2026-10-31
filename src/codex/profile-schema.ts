@@ -231,6 +231,7 @@ export const RESERVED_FIELD_KEYS = new Set([
   "codex",
   "codex-series",
   "codex-project",
+  "codex-pinned",
   FIELDS_KEY,
   ALIASES.key,
 ]);

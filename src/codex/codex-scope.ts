@@ -252,11 +252,19 @@ export function remapScopeProjects(
   scope: EntityScope,
   byOld: ReadonlyMap<string, string>
 ): EntityScope | null {
-  const books = scope.projects ?? [];
   if (scope.series) return null;
+  const books = remapBookKeys(scope.projects ?? [], byOld);
+  return books ? { ...scope, projects: books } : null;
+}
+
+/**
+ * A list of book keys (scope books, pins) with every key found in `byOld`
+ * replaced by its new key, or null when none matched. Duplicates collapse.
+ */
+export function remapBookKeys(keys: readonly string[], byOld: ReadonlyMap<string, string>): string[] | null {
   const lookup = new Map(Array.from(byOld, ([from, to]) => [normKey(from), to]));
-  if (!books.some((b) => lookup.has(normKey(b)))) return null;
-  return { ...scope, projects: dedupe(books.map((b) => lookup.get(normKey(b)) ?? b)) };
+  if (!keys.some((b) => lookup.has(normKey(b)))) return null;
+  return dedupe(keys.map((b) => lookup.get(normKey(b)) ?? b));
 }
 
 // --- The Scope editor (#57) -------------------------------------------------

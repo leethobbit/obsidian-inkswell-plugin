@@ -204,6 +204,13 @@ export const SCOPE_PROJECT_KEY = "codex-project";
 export const SCOPE_SERIES_KEY = "codex-series";
 
 /**
+ * The books an entry is pinned in (#70): a YAML list of `[[wikilinks]]` naming
+ * books the way `codex-project` does. Pinned entries list first in that book's
+ * Codex. Per book, because a series character's prominence changes book to book.
+ */
+export const PINNED_KEY = "codex-pinned";
+
+/**
  * An entity's visibility scope. `projects` are project index-note basenames (the
  * targets of `[[wikilinks]]`), `series` is a series name. Neither set = global.
  * Series and projects are mutually exclusive; series wins.
@@ -227,4 +234,8 @@ export interface CodexEntity {
   parent?: string;
   /** Project/series this entity is scoped to. Absent = global (shared). */
   scope?: EntityScope;
+  /** Book keys it's pinned in (`codex-pinned`, same forms as `codex-project`). */
+  pinned?: string[];
+  /** Its `role` / `type` values, which the Codex search also matches. */
+  classifiers?: string[];
 }
