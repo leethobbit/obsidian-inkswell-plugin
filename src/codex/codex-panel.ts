@@ -24,15 +24,18 @@ import {
   createPlaceInside,
   getCodexEntities,
   resolveEntityImage,
+  updateEntityPins,
   updateEntityProjects,
   writeEntityScope,
 } from "./codex-store";
+import { codexSearchMatch, isPinnedIn, pinnedFirst, withPin, withoutPin } from "./codex-list";
 import { awaitCacheUpdate } from "./codex-template-io";
 import { PLACE_CATEGORY, buildPlaceTree, placeDescendants, placePath, placesInside } from "./places";
 import { firstMentionOffset } from "./codex";
 import { stripFrontmatter } from "../lib/frontmatter";
 import type { SceneHighlight } from "../views/write-panel";
 import {
+  ScopeContext,
   applyBookPicks,
   defaultScopeForProject,
   describeCreateScope,
@@ -281,21 +284,22 @@ export class CodexPanel {
     list.empty();
 
     const active = this.activeProject();
+    // The open book: its scope, and the book pins are read against.
+    const bookCtx = active ? scopeContextForProject(active, this.plugin.store.getProjects()) : null;
     const scoped =
-      this.showAll || !active
+      this.showAll || !bookCtx
         ? this.unscopedEntities(active)
-        : filterToScope(
-            getCodexEntities(this.app),
-            scopeContextForProject(active, this.plugin.store.getProjects())
-          );
+        : filterToScope(getCodexEntities(this.app), bookCtx);
 
+    // Search: name and aliases, then Role / Type — a row found only by those
+    // shows the value it matched.
     const q = this.search.trim().toLowerCase();
-    const all = scoped.filter((e) =>
-      !q
-        ? true
-        : e.name.toLowerCase().includes(q) ||
-          e.aliases.some((a) => a.toLowerCase().includes(q))
-    );
+    const matchedBy = new Map<string, string>();
+    const all = scoped.filter((e) => {
+      const m = codexSearchMatch(e, q);
+      if (m && m !== "name") matchedBy.set(e.path, m.classifier);
+      return m !== null;
+    });
 
     const cats = this.categories();
     const filterDef = cats.find((c) => c.id === this.categoryFilter);
@@ -336,8 +340,8 @@ export class CodexPanel {
       list.createEl("h4", { text: `${cat.plural} (${entries.length})` });
       // Places nest (#66): an indented, foldable tree — flat while searching,
       // so every match shows whatever it sits inside.
-      if (cat.id === PLACE_CATEGORY && !q) this.renderPlaceTree(list, cat.icon, entries);
-      else for (const e of entries) this.renderRow(list, cat.icon, e);
+      if (cat.id === PLACE_CATEGORY && !q) this.renderPlaceTree(list, cat.icon, entries, bookCtx);
+      else this.renderRows(list, cat.icon, entries, bookCtx, matchedBy);
     }
 
     // Orphan safety: entries whose category no longer exists (a deleted custom
@@ -346,8 +350,24 @@ export class CodexPanel {
     const orphans = shown.filter((e) => !known.has(e.category));
     if (orphans.length > 0) {
       list.createEl("h4", { text: `Uncategorized (${orphans.length})` });
-      for (const e of orphans) this.renderRow(list, "circle-help", e);
+      this.renderRows(list, "circle-help", orphans, bookCtx, matchedBy);
     }
+  }
+
+  /** One type's rows: pinned in the open book first (#70), a rule under the last of them. */
+  private renderRows(
+    list: HTMLElement,
+    icon: string,
+    entries: CodexEntity[],
+    bookCtx: ScopeContext | null,
+    matchedBy: ReadonlyMap<string, string>
+  ): void {
+    const ordered = pinnedFirst(entries, bookCtx);
+    ordered.forEach((e, i) => {
+      const pinned = isPinnedIn(e, bookCtx);
+      const lastPinned = pinned && i < ordered.length - 1 && !isPinnedIn(ordered[i + 1], bookCtx);
+      this.renderRow(list, icon, e, { bookCtx, lastPinned, matched: matchedBy.get(e.path) });
+    });
   }
 
   /** Open the add-custom-type dialog; on submit rebuild with the new type selected.
@@ -364,15 +384,17 @@ export class CodexPanel {
    * inside, indented, with a chevron to fold a place's contents. A place whose
    * container isn't listed (a world, out of scope, missing) is top-level.
    */
-  private renderPlaceTree(list: HTMLElement, icon: string, places: CodexEntity[]): void {
+  private renderPlaceTree(list: HTMLElement, icon: string, places: CodexEntity[], bookCtx: ScopeContext | null): void {
     const tree = buildPlaceTree(places);
+    // Pinned places lead among their neighbours; a pin never lifts one out of
+    // the place it's inside.
     const walk = (place: CodexEntity, depth: number): void => {
-      const kids = tree.children.get(place.path) ?? [];
+      const kids = pinnedFirst(tree.children.get(place.path) ?? [], bookCtx);
       const collapsed = this.collapsedPlaces.has(place.path);
-      this.renderRow(list, icon, place, { depth, childCount: kids.length, collapsed });
+      this.renderRow(list, icon, place, { bookCtx, place: { depth, childCount: kids.length, collapsed } });
       if (!collapsed) for (const kid of kids) walk(kid, depth + 1);
     };
-    for (const root of tree.roots) walk(root, 0);
+    for (const root of pinnedFirst(tree.roots, bookCtx)) walk(root, 0);
   }
 
   /** Select an entry (row click, breadcrumb, "Places inside" chip). */
@@ -386,11 +408,22 @@ export class CodexPanel {
     parent: HTMLElement,
     icon: string,
     entity: CodexEntity,
-    /** Set when the row sits in the place tree. */
-    place?: { depth: number; childCount: number; collapsed: boolean }
+    opts: {
+      /** The open book (pins are per book); null with none open. */
+      bookCtx: ScopeContext | null;
+      /** Set when the row sits in the place tree. */
+      place?: { depth: number; childCount: number; collapsed: boolean };
+      /** The last pinned row of its group, with unpinned rows below. */
+      lastPinned?: boolean;
+      /** The Role / Type value the search matched, when it wasn't the name. */
+      matched?: string;
+    }
   ): void {
+    const { bookCtx, place } = opts;
+    const pinned = isPinnedIn(entity, bookCtx);
     const row = parent.createDiv({ cls: "inkswell-codex__row" });
     if (entity.path === this.selectedPath) row.addClass("is-selected");
+    if (opts.lastPinned) row.addClass("is-last-pinned");
     if (place) {
       row.addClass("is-place");
       row.style.setProperty("--inkswell-place-depth", String(place.depth));
@@ -409,6 +442,10 @@ export class CodexPanel {
     }
     setIcon(row.createSpan({ cls: "inkswell-codex__icon" }), icon);
     row.createSpan({ cls: "inkswell-codex__name", text: entity.name });
+    if (pinned) {
+      const pin = row.createSpan({ cls: "inkswell-codex__pin", attr: { "aria-label": "Pinned in this book" } });
+      setIcon(pin, "pin");
+    }
     if (place?.collapsed && place.childCount > 0) {
       row.createSpan({ cls: "inkswell-codex__placecount", text: String(place.childCount) });
     }
@@ -423,6 +460,7 @@ export class CodexPanel {
         text: entity.aliases.join(", "),
       });
     }
+    if (opts.matched) row.createSpan({ cls: "inkswell-codex__aliases", text: opts.matched });
 
     const file = this.app.vault.getAbstractFileByPath(entity.path);
     if (!(file instanceof TFile)) return;
@@ -439,6 +477,16 @@ export class CodexPanel {
       menu.addItem((i) =>
         i.setTitle("Rename…").setIcon("pencil").onClick(() => this.rename(file))
       );
+      // Pins are per book: offered for entries the open book can see (and to
+      // undo a pin on one it no longer can).
+      if (bookCtx && (pinned || isEntityVisible(entity, bookCtx))) {
+        menu.addItem((i) =>
+          i
+            .setTitle(pinned ? "Unpin from this book" : "Pin in this book")
+            .setIcon(pinned ? "pin-off" : "pin")
+            .onClick(() => this.setPinned(file, !pinned))
+        );
+      }
       if (entity.category === PLACE_CATEGORY || entity.category === "world") {
         menu.addItem((i) =>
           i
@@ -453,6 +501,31 @@ export class CodexPanel {
       );
       return menu;
     });
+  }
+
+  /**
+   * Pin or unpin an entry in the open book (#70). A delta on the note's current
+   * pins, so another book's pin on the same entry is kept. A new pin names the
+   * story's base draft, the way new scope does.
+   */
+  private setPinned(file: TFile, pin: boolean): void {
+    const active = this.activeProject();
+    if (!active) return;
+    const projects = this.plugin.store.getProjects();
+    const ctx = scopeContextForProject(active, projects);
+    const key = projectKey(baseDraftFor(projects, active), projects);
+    void (async () => {
+      this.plugin.selfWrites.mark(file.path);
+      // Listen before writing, so a fast cache update can't slip past.
+      const cached = awaitCacheUpdate(this.app, file);
+      const done = await tryFileOp(
+        () => updateEntityPins(this.app, file, (cur) => (pin ? withPin(cur, ctx, key) : withoutPin(cur, ctx))),
+        pin ? "Couldn't pin it." : "Couldn't unpin it."
+      );
+      if (done === null) return;
+      await cached;
+      this.refreshPanes();
+    })();
   }
 
   /** Put the entry's profile on the clipboard as plain readable text (#50) —

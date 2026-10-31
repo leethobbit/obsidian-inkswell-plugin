@@ -50,6 +50,7 @@ import { renderIdeas } from "./ideas-inbox";
 import { ReconcileBanner } from "./reconcile-banner";
 import { SceneRows } from "./scene-rows";
 import { SeriesMenu } from "./series-menu";
+import { renderUnreadableNotice } from "./unreadable-notice";
 import type InkswellPlugin from "../../../main";
 
 export class ExplorerPanel {
@@ -85,7 +86,11 @@ export class ExplorerPanel {
     this.onSelectScene = onSelectScene;
 
     this.hero = new HeroCard(app, plugin, store, stats);
-    this.reconcile = new ReconcileBanner(app, (p) => plugin.selfWrites.mark(p));
+    this.reconcile = new ReconcileBanner(
+      app,
+      (p) => plugin.selfWrites.mark(p),
+      () => this.softRefresh()
+    );
     this.seriesMenu = new SeriesMenu(app, store, {
       renameProject: (p) => plugin.renameProject(p),
       sortByChapter: (p) => void sortProjectByChapter(app, plugin, p),
@@ -136,13 +141,18 @@ export class ExplorerPanel {
     newBtn.onclick = () => this.plugin.newProject();
 
     const projects = this.store.getProjects();
+    const unreadable = this.store.getUnreadable();
     if (projects.length === 0) {
       // No projects yet — this is the global Home, so the idea inbox belongs here.
+      // A book whose index can't be read is listed instead of "no projects" (#69).
+      renderUnreadableNotice(container, this.app, unreadable);
       renderIdeas(container, this.plugin);
-      container.createDiv({
-        cls: "inkswell-explorer__empty",
-        text: 'No writing projects yet. Click "New project" above to create one (or add a `longform` key to a note\'s frontmatter).',
-      });
+      if (unreadable.length === 0) {
+        container.createDiv({
+          cls: "inkswell-explorer__empty",
+          text: 'No writing projects yet. Click "New project" above to create one (or add a `longform` key to a note\'s frontmatter).',
+        });
+      }
       return;
     }
 
@@ -197,6 +207,8 @@ export class ExplorerPanel {
     // numbering, reorder, rename, archive) act on the FULL series.
     const full = new Map(series.map((s) => [s.name, s] as const));
     const fullOf = (s: Series): Series => full.get(s.name) ?? s;
+    // Books whose index can't be read, above the shelves they're missing from.
+    renderUnreadableNotice(container, this.app, unreadable);
     if (shelves.series.length === 0 && shelves.standalone.length === 0 && archived.size > 0) {
       container.createDiv({
         cls: "inkswell-explorer__empty",

@@ -29,6 +29,7 @@ import {
   setIcon,
 } from "obsidian";
 import { createEntityForProject, getCodexEntities } from "../codex/codex-store";
+import { isPinnedIn } from "../codex/codex-list";
 import {
   defaultScopeForProject,
   describeCreateScope,
@@ -94,7 +95,20 @@ import { resolveActive } from "../projects/active-project";
 import { updateNextUp } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
-import { SceneMeta, readSceneMeta } from "../scenes/scene-meta";
+import { SceneMeta, SceneStatus, readSceneMeta, statusLabel } from "../scenes/scene-meta";
+import {
+  ChapterStop,
+  StreamField,
+  StreamFilter,
+  StreamRow,
+  applyFilter,
+  chapterStep,
+  chapterStops,
+  filterOptions,
+  neighbour,
+} from "../lib/stream-plan";
+import { SceneStream, StreamSceneSpec } from "./stream/scene-stream";
+import { WriteMode, loadWriteMode, saveWriteMode } from "./stream/write-mode";
 import { SceneInspector } from "../scenes/scene-inspector";
 import { RightPanel } from "./right-panel";
 import { RevisionSidebar } from "../revisions/revision-sidebar";
@@ -155,6 +169,27 @@ class TodoPickerModal extends FuzzySuggestModal<MarkerDef> {
   }
   onChooseItem(m: MarkerDef): void {
     this.onPick(m);
+  }
+}
+
+/** "Jump to chapter…" in the stream (command palette). */
+class ChapterPickerModal extends FuzzySuggestModal<ChapterStop> {
+  constructor(
+    app: App,
+    private stops: ChapterStop[],
+    private onPick: (stop: ChapterStop) => void
+  ) {
+    super(app);
+    this.setPlaceholder("Jump to chapter…");
+  }
+  getItems(): ChapterStop[] {
+    return this.stops;
+  }
+  getItemText(s: ChapterStop): string {
+    return s.title;
+  }
+  onChooseItem(s: ChapterStop): void {
+    this.onPick(s);
   }
 }
 
@@ -219,6 +254,23 @@ export class WritePanel implements HoverParent {
   /** A token to scroll-to + flash once the editor finishes loading (Todos / Search). */
   private pendingHighlight: SceneHighlight | null = null;
 
+  /** One scene at a time, or the whole book as a stream (remembered per device). */
+  private writeMode: WriteMode;
+  /** The stream page while Stream is showing. The live scene's editor and
+   *  session are still this panel's own (`editor`/`session`), as in single-scene
+   *  mode; every other scene is a read-only reader inside the stream. */
+  private stream: SceneStream | null = null;
+  private streamBarEl: HTMLElement | null = null;
+  /** In-memory filter (survives re-renders; cleared when the project changes). */
+  private streamFilter: StreamFilter | null = null;
+  /** Every scene of the book, and the ones the filter keeps (manuscript order). */
+  private streamRowsAll: StreamRow[] = [];
+  private streamShown: StreamRow[] = [];
+  /** The scene at the top of the page (the navigator marks it). */
+  private streamInView: string | null = null;
+  /** Where the page was when it was last torn down, to come back to it. */
+  private streamAnchor: { path: string; within: number; live: string | null } | null = null;
+
   // Writing-prompt state. Filters persist across modal opens; promptText is the
   // chosen prompt currently shown next to the topbar "Prompt" button ("" = none).
   private promptPhase: PromptPhase = "draft";
@@ -230,6 +282,7 @@ export class WritePanel implements HoverParent {
     this.plugin = plugin;
     this.store = store;
     this.sprints = sprints;
+    this.writeMode = loadWriteMode(app.vault.getName());
     this.inspector = new SceneInspector(this.app, this.plugin, store);
     const revision = new RevisionSidebar(
       this.app,
@@ -262,6 +315,10 @@ export class WritePanel implements HoverParent {
     this.selectedScene = path;
     this.lastProject = ctx.project.vaultPath;
     this.pendingHighlight = highlight ?? null;
+    // A scene the stream's filter hides was asked for (Search, To-dos): show it.
+    if (this.streamFilter && !applyFilter(this.streamRows(ctx.project), this.streamFilter).some((r) => r.path === path)) {
+      this.streamFilter = null;
+    }
   }
 
   /** Whether a live scene editor is currently mounted (for command availability). */
@@ -277,9 +334,19 @@ export class WritePanel implements HoverParent {
   /**
    * Flush any unsaved editor text to disk NOW. Called before a cross-scene replace
    * so the open scene's latest content is what replace re-reads (never a stale
-   * on-disk copy). No-op when nothing is dirty.
+   * on-disk copy). No-op when nothing is dirty. The editor stays up, so a
+   * conflict stays with its banner.
    */
   async flushPendingSave(): Promise<void> {
+    await this.session?.flush("editor-alive");
+  }
+
+  /**
+   * App quit: flush as a teardown — the editor won't outlive the quit, so a
+   * scene in conflict gets its editor text backed up instead of lost (view
+   * close isn't reliably awaited on quit).
+   */
+  async flushBeforeQuit(): Promise<void> {
     await this.session?.flush();
   }
 
@@ -305,6 +372,7 @@ export class WritePanel implements HoverParent {
    */
   flushForNavigation(): void {
     void this.detachSession();
+    this.destroyStream();
   }
 
   /**
@@ -705,6 +773,7 @@ export class WritePanel implements HoverParent {
     // synchronously and the final write is chained into `teardown`, which the
     // next scene load awaits before reading the file.
     this.teardown = this.detachSession();
+    this.destroyStream();
 
     this.container = container;
     container.empty();
@@ -733,6 +802,27 @@ export class WritePanel implements HoverParent {
       this.selectedScene = null;
       this.currentFile = null;
       this.lastProject = project.vaultPath;
+      this.streamFilter = null;
+      this.streamAnchor = null;
+    }
+
+    // Stream: settle which scene is live before the navigator highlights it —
+    // the selected one when the filter keeps it, else the first one shown. A
+    // scene the store hasn't caught up with yet (just created or split off)
+    // stays wanted: the editor waits where it was and the next refresh moves
+    // it there (updateStream).
+    const streaming = this.streamActive();
+    if (streaming) {
+      this.streamRowsAll = this.streamRows(project);
+      this.streamShown = applyFilter(this.streamRowsAll, this.streamFilter);
+      const sel = this.selectedScene;
+      const pending =
+        !!sel &&
+        !this.streamRowsAll.some((r) => r.path === sel) &&
+        this.app.vault.getAbstractFileByPath(sel) instanceof TFile;
+      if (!pending && !this.streamShown.some((r) => r.path === sel)) {
+        this.selectedScene = this.streamShown[0]?.path ?? null;
+      }
     }
 
     this.renderNextUp(container, project);
@@ -743,7 +833,8 @@ export class WritePanel implements HoverParent {
     const backdrop = main.createDiv({ cls: "inkswell-write__backdrop" });
     backdrop.onclick = () => container.removeClass("nav-open");
     this.renderNavigator(main, project);
-    this.renderEditor(main);
+    if (streaming) this.renderStream(main);
+    else this.renderEditor(main);
     this.inspectorHost = main.createDiv({ cls: "inkswell-write__inspector" });
     this.renderRightColumn();
   }
@@ -758,6 +849,7 @@ export class WritePanel implements HoverParent {
    */
   update(): boolean {
     if (!this.container || !this.container.isConnected) return false;
+    if (this.stream) return this.updateStream();
     if (!this.editor || !this.currentFile) return false;
     // A pending scene switch (selectScene / nav click) needs the full path so
     // the new scene loads into the editor.
@@ -854,6 +946,22 @@ export class WritePanel implements HoverParent {
       const c = this.container;
       if (c) c.toggleClass("nav-open", !c.hasClass("nav-open"));
     };
+
+    // Scene | Stream. Not on phones; hideable like the other optional extras.
+    if (this.canStream()) {
+      const seg = bar.createDiv({ cls: "inkswell-viewswitch inkswell-write__mode" });
+      const modes: { mode: WriteMode; label: string; hint: string }[] = [
+        { mode: "scene", label: "Scene", hint: "Write one scene at a time" },
+        { mode: "stream", label: "Stream", hint: "Read and edit the whole book as one page" },
+      ];
+      for (const m of modes) {
+        const btn = seg.createEl("button", { cls: "inkswell-viewswitch__btn", text: m.label });
+        btn.toggleClass("is-active", this.writeMode === m.mode);
+        btn.setAttribute("aria-label", m.hint);
+        btn.onclick = () => this.setWriteMode(m.mode);
+      }
+      attachHideMenu(seg, this.plugin, "stream", "the scene stream");
+    }
 
     // Sprint group — part of the optional "tracking" feature. A sprint already
     // running still shows its controls so it can be ended, hidden or not.
@@ -988,7 +1096,10 @@ export class WritePanel implements HoverParent {
       // collapsing one "Alice" doesn't fold every chapter named Alice.
       const key = members[0].scene.title;
       const holdsSelection = members.some((m) => m.scene.path === this.selectedScene);
-      this.navGroupHead(nav, project, run.title, key, holdsSelection);
+      // Stream: the chapter name jumps to the chapter's first scene on the page.
+      const firstShown = (): string | null =>
+        members.map((m) => m.scene.path).find((p): p is string => !!p && !!this.stream?.has(p)) ?? null;
+      this.navGroupHead(nav, project, run.title, key, holdsSelection, firstShown);
       if (this.navCollapsed.has(key)) continue;
       for (const { scene, file } of members) this.navSceneRow(nav, project, scene, file);
     }
@@ -1028,7 +1139,9 @@ export class WritePanel implements HoverParent {
     project: Project,
     chapter: string,
     key: string,
-    holdsSelection: boolean
+    holdsSelection: boolean,
+    /** Stream: the chapter's first scene on the page (null when filtered out). */
+    firstShown?: () => string | null
   ): void {
     const collapsed = this.navCollapsed.has(key);
     const head = nav.createDiv({ cls: "inkswell-write__navhead" });
@@ -1037,7 +1150,7 @@ export class WritePanel implements HoverParent {
     head.createSpan({ cls: "inkswell-write__navheadname", text: chapter });
     // Hint that the open scene is hidden inside this collapsed group.
     if (collapsed && holdsSelection) head.addClass("has-active");
-    head.onclick = () => {
+    const toggle = (): void => {
       if (collapsed) this.navCollapsed.delete(key);
       else this.navCollapsed.add(key);
       // Rebuild just the list — no reason to touch the live editor.
@@ -1046,6 +1159,18 @@ export class WritePanel implements HoverParent {
         this.renderNavRows(this.navEl, project);
       }
     };
+    const target = this.stream ? firstShown?.() ?? null : null;
+    if (target) {
+      // Stream: the name jumps there, the chevron still folds the list.
+      head.setAttribute("aria-label", `Jump to ${chapter}`);
+      chev.onclick = (e) => {
+        e.stopPropagation();
+        toggle();
+      };
+      head.onclick = () => this.stream?.scrollToScene(target);
+    } else {
+      head.onclick = toggle;
+    }
   }
 
   private navSceneRow(
@@ -1058,6 +1183,8 @@ export class WritePanel implements HoverParent {
   ): void {
     const row = nav.createDiv({ cls: "inkswell-write__scene" });
     if (scene.path === this.selectedScene) row.addClass("is-active");
+    if (scene.path) row.dataset.scenePath = scene.path;
+    if (this.stream && scene.path === this.streamInView) row.addClass("is-inview");
     if (chapterLabel) {
       row.addClass("is-chapter-row");
       row.createSpan({ cls: "inkswell-write__scenechapter", text: chapterLabel });
@@ -1097,6 +1224,10 @@ export class WritePanel implements HoverParent {
     openSceneOnModClick(row, this.app, scene.path);
     row.onclick = () => {
       if (!scene.path) return;
+      if (this.stream) {
+        this.streamGoTo(scene.path);
+        return;
+      }
       // Re-clicking the open scene must NOT rebuild the editor — the old
       // save-then-immediately-re-read path could show pre-save text and invert
       // the dirty check (retyping then blurring destroyed the original words).
@@ -1149,6 +1280,30 @@ export class WritePanel implements HoverParent {
     const host = wrap.createDiv({ cls: "inkswell-write__cm" });
     host.toggleClass("is-manuscript", this.editorPrefs().manuscript);
     this.cmHostEl = host;
+    this.mountEditor(host, file, token, {
+      onFailed: () => this.emptyState(wrap, "Couldn't read this scene file."),
+    });
+  }
+
+  /**
+   * Load `file` into a session and build the live editor in `host` — the one
+   * write path for both single-scene Write and the stream's live scene. The
+   * outgoing session's flush (`teardown`) is awaited first, and `token` drops
+   * a load that a newer render or scene switch has overtaken.
+   */
+  private mountEditor(
+    host: HTMLElement,
+    file: TFile,
+    token: number,
+    opts: {
+      /** Stream: arrow keys at the scene's edges move into its neighbours. */
+      stream?: boolean;
+      /** Where to put the caret once the editor is up (and focus it). */
+      cursor?: number | "start" | "end" | null;
+      onMounted?: () => void;
+      onFailed?: () => void;
+    } = {}
+  ): void {
     const handoff = this.teardown;
     void (async () => {
       await handoff.catch(() => {});
@@ -1176,7 +1331,7 @@ export class WritePanel implements HoverParent {
         });
       } catch (e) {
         console.error("[Inkswell] Failed to load scene", e);
-        if (token === this.editorToken) this.emptyState(wrap, "Couldn't read this scene file.");
+        if (token === this.editorToken) opts.onFailed?.();
         return;
       }
       if (token !== this.editorToken) {
@@ -1202,14 +1357,27 @@ export class WritePanel implements HoverParent {
         },
         getPrefs: () => this.editorPrefs(),
         getLinkCandidates: () => this.linkCandidates(),
+        onBoundary: opts.stream ? (dir, x) => this.streamBoundary(dir, x) : undefined,
       });
+      opts.onMounted?.();
       this.renderConflictBanner();
       this.updateCount();
       // Prime the tracker baseline for this scene so the first word typed in a
       // not-yet-seen file isn't lost to first-sight baselining.
       this.reportLiveCount();
+      if (opts.cursor != null) this.placeCursor(opts.cursor);
       this.applyPendingHighlight(session.loadedBody);
     })();
+  }
+
+  /** Put the live editor's caret at `cursor` and focus it. */
+  private placeCursor(cursor: number | "start" | "end"): void {
+    const view = this.editor;
+    if (!view) return;
+    const len = view.state.doc.length;
+    const pos = cursor === "start" ? 0 : cursor === "end" ? len : Math.max(0, Math.min(cursor, len));
+    view.dispatch({ selection: { anchor: pos }, scrollIntoView: true });
+    view.focus();
   }
 
   /** Show/refresh the conflict banner from the session's state. */
@@ -1297,17 +1465,17 @@ export class WritePanel implements HoverParent {
     const activePath = this.plugin.activeProject.get();
     const active = activePath ? this.store.getProject(activePath) ?? null : null;
     const entities = getCodexEntities(this.app);
-    const visible = active
-      ? filterToScope(entities, scopeContextForProject(active, projects))
-      : entities;
+    const ctx = active ? scopeContextForProject(active, projects) : null;
+    const visible = ctx ? filterToScope(entities, ctx) : entities;
     const out: LinkCandidate[] = [];
     const seen = new Set<string>();
     for (const e of visible) {
       const detail = categoryLabel(e.category, s.customCategories, s.categoryOverrides);
-      out.push({ name: e.name, kind: "codex", detail });
+      const pinned = isPinnedIn(e, ctx);
+      out.push({ name: e.name, kind: "codex", detail, pinned });
       seen.add(e.name.toLowerCase());
       for (const alias of e.aliases) {
-        if (alias.trim()) out.push({ name: e.name, kind: "codex", alias: alias.trim(), detail });
+        if (alias.trim()) out.push({ name: e.name, kind: "codex", alias: alias.trim(), detail, pinned });
       }
     }
     const current = this.currentScenePath();
@@ -1344,10 +1512,11 @@ export class WritePanel implements HoverParent {
     const prefs = this.editorPrefs();
     this.cmHostEl?.toggleClass("is-manuscript", prefs.manuscript);
     if (this.editor) {
-      setTypewriter(this.editor, prefs.typewriter);
+      setTypewriter(this.editor, prefs.typewriter, !!this.stream);
       refreshMilestones(this.editor);
       refreshMarkers(this.editor);
     }
+    this.stream?.applyPrefs();
   }
 
   private updateCount(): void {
@@ -1486,6 +1655,355 @@ export class WritePanel implements HoverParent {
     new RevisionModal(this.app, project, scene).open();
   }
 
+  // --- Stream ----------------------------------------------------------------------
+
+  /** Whether this device and the feature toggles allow the stream at all. */
+  canStream(): boolean {
+    return !isPhone() && featureEnabled(this.plugin.settings.disabledFeatures, "stream");
+  }
+
+  /** Whether the stream is what Write shows right now (for command availability). */
+  isStreaming(): boolean {
+    return !!this.stream;
+  }
+
+  private streamActive(): boolean {
+    return this.writeMode === "stream" && this.canStream();
+  }
+
+  /** Switch between one scene at a time and the stream (command / topbar). */
+  toggleStream(): void {
+    this.setWriteMode(this.writeMode === "stream" ? "scene" : "stream");
+  }
+
+  private setWriteMode(mode: WriteMode): void {
+    if (mode === this.writeMode) return;
+    this.writeMode = mode;
+    saveWriteMode(this.app.vault.getName(), mode);
+    // The live scene carries over both ways: it's `selectedScene` either way.
+    if (this.container?.isConnected) this.rerender();
+  }
+
+  /** The book's scenes with what the stream filters and groups by. Missing files are left out. */
+  private streamRows(project: Project): StreamRow[] {
+    const files = project.scenes.map((s) => {
+      const f = s.path ? this.app.vault.getAbstractFileByPath(s.path) : null;
+      return f instanceof TFile ? f : null;
+    });
+    const metas = files.map((f) => (f ? readSceneMeta(this.app, f) : null));
+    // The navigator's chapter runs, so the stream groups exactly as it does.
+    const { runs } = chapterRuns(
+      project.scenes.map((s, i) => ({ title: s.title, chapter: metas[i]?.chapter })),
+      project.inkswell?.chapters
+    );
+    const runAt = new Map<number, { id: string; title: string }>();
+    for (const r of runs) for (const i of r.indices) runAt.set(i, { id: r.id, title: r.title });
+    const rows: StreamRow[] = [];
+    project.scenes.forEach((s, i) => {
+      const m = metas[i];
+      if (!s.path || !files[i] || !m) return;
+      rows.push({
+        path: s.path,
+        title: s.title,
+        run: runAt.get(i) ?? null,
+        pov: m.pov,
+        plotlines: m.plotlines,
+        characters: m.characters,
+        status: m.status,
+      });
+    });
+    return rows;
+  }
+
+  private streamSpecs(shown: StreamRow[]): StreamSceneSpec[] {
+    const o = this.plugin.settings.listOverrides["scene.status"];
+    return shown.map((r, i) => ({
+      path: r.path,
+      title: r.title,
+      // A chapter heading where a chapter starts on the page (also mid-chapter
+      // when a filter left out its first scenes).
+      chapterHead: r.run && shown[i - 1]?.run?.id !== r.run.id ? r.run.title : null,
+      status: r.status ? { id: r.status, label: statusLabel(r.status as SceneStatus, o) } : null,
+    }));
+  }
+
+  /** The stream column: its bar (jump, filter) over the page, with the live editor in place. */
+  private renderStream(parent: HTMLElement): void {
+    const wrap = parent.createDiv({ cls: "inkswell-write__editor inkswell-write__editor--stream" });
+    this.streamBarEl = wrap.createDiv({ cls: "inkswell-stream__bar" });
+    this.renderStreamBar(this.streamBarEl);
+    const token = ++this.editorToken;
+    const stream = new SceneStream(wrap, {
+      app: this.app,
+      markers: () => this.markers(),
+      manuscript: () => this.editorPrefs().manuscript,
+      onActivate: (path, pos) => this.activateStreamScene(path, pos),
+      onInView: (path) => this.markInView(path),
+    });
+    this.stream = stream;
+
+    // The live scene: the selected one; while that's still pending, the one
+    // that was live before (the page doesn't move), else the first shown.
+    const onPage = (p: string | null | undefined): p is string =>
+      !!p && this.streamShown.some((r) => r.path === p);
+    const livePath = onPage(this.selectedScene)
+      ? this.selectedScene
+      : onPage(this.streamAnchor?.live)
+        ? this.streamAnchor?.live
+        : this.streamShown[0]?.path;
+    const f = livePath ? this.app.vault.getAbstractFileByPath(livePath) : null;
+    if (this.streamShown.length === 0 || !(f instanceof TFile)) {
+      this.currentFile = null;
+      stream.showEmpty(
+        this.streamFilter ? "No scenes match this filter." : "This book has no scenes yet."
+      );
+      return;
+    }
+    stream.setScenes(this.streamSpecs(this.streamShown));
+    this.currentFile = f;
+    // Back where the page was when only the panel around it changed (a
+    // trip to another destination, a settings change); else at the live scene.
+    const a = this.streamAnchor;
+    if (a && a.live === f.path && stream.has(a.path)) stream.scrollToScene(a.path, a.within);
+    else stream.scrollToScene(f.path);
+    this.mountStreamEditor(f, token, null);
+  }
+
+  /** Jump-to-chapter, the filter, and how many scenes are showing. */
+  private renderStreamBar(bar: HTMLElement): void {
+    bar.empty();
+    const rows = this.streamRowsAll;
+    const shown = this.streamShown;
+
+    const stops = chapterStops(shown);
+    if (stops.length > 1) {
+      const jump = bar.createEl("select", { cls: "dropdown inkswell-stream__jump" });
+      tagField(jump, "stream:jump");
+      jump.setAttribute("aria-label", "Jump to a chapter");
+      jump.createEl("option", { text: "Jump to chapter…", value: "" });
+      for (const s of stops) jump.createEl("option", { text: s.title, value: s.path });
+      jump.onchange = () => {
+        const path = jump.value;
+        jump.value = "";
+        if (path) this.stream?.scrollToScene(path);
+      };
+    }
+
+    const fields: { field: StreamField; label: string }[] = [
+      { field: "chapter", label: "One chapter" },
+      { field: "pov", label: "POV" },
+      { field: "plotline", label: "Plotline" },
+      { field: "character", label: "Character" },
+      { field: "status", label: "Status" },
+    ];
+    const usable = fields.filter((f) => filterOptions(rows, f.field).length > 0);
+    if (usable.length) {
+      const field = bar.createEl("select", { cls: "dropdown" });
+      tagField(field, "stream:field");
+      field.setAttribute("aria-label", "Show only scenes with…");
+      field.createEl("option", { text: "All scenes", value: "" });
+      for (const f of usable) field.createEl("option", { text: f.label, value: f.field });
+      field.value = this.streamFilter?.field ?? "";
+      field.onchange = () => {
+        const chosen = usable.find((f) => f.field === field.value)?.field;
+        const first = chosen ? filterOptions(rows, chosen)[0] : undefined;
+        this.setStreamFilter(chosen && first ? { field: chosen, value: first.value } : null);
+      };
+    }
+    const filter = this.streamFilter;
+    if (filter) {
+      const value = bar.createEl("select", { cls: "dropdown" });
+      tagField(value, "stream:value");
+      value.setAttribute("aria-label", "Filter value");
+      const o = this.plugin.settings.listOverrides["scene.status"];
+      for (const opt of filterOptions(rows, filter.field)) {
+        const label = filter.field === "status" ? statusLabel(opt.value as SceneStatus, o) : opt.label;
+        value.createEl("option", { text: label, value: opt.value });
+      }
+      value.value = filter.value;
+      value.onchange = () => this.setStreamFilter({ field: filter.field, value: value.value });
+    }
+
+    bar.createSpan({
+      cls: "inkswell-stream__count",
+      text: filter
+        ? `${shown.length} of ${rows.length} scenes`
+        : `${rows.length} ${rows.length === 1 ? "scene" : "scenes"}`,
+    });
+  }
+
+  private setStreamFilter(filter: StreamFilter | null): void {
+    this.streamFilter = filter;
+    this.streamAnchor = null; // a different page: start at the live scene
+    this.rerender();
+  }
+
+  /** Build the live editor inside `file`'s scene on the page. */
+  private mountStreamEditor(file: TFile, token: number, cursor: number | "start" | "end" | null): void {
+    const slot = this.stream?.openLive(file.path);
+    if (!slot) return;
+    this.bannerEl = slot.banner;
+    this.cmHostEl = slot.host;
+    this.mountEditor(slot.host, file, token, {
+      stream: true,
+      cursor,
+      onMounted: () => this.stream?.liveReady(file.path),
+      onFailed: () => {
+        this.stream?.cancelLive(file.path);
+        new Notice(`Couldn't read “${file.basename}”.`);
+      },
+    });
+  }
+
+  /**
+   * Move the live editor to `path` (a click in its text, its title, an arrow
+   * key across a scene edge, the navigator). The outgoing scene becomes a
+   * reader of the editor's final text before the editor goes, and its save
+   * runs exactly as a scene switch does in single-scene Write.
+   */
+  private activateStreamScene(path: string, cursor: number | "start" | "end" | null): void {
+    const stream = this.stream;
+    if (!stream?.has(path)) return;
+    if (this.currentFile?.path === path) {
+      if (cursor != null) this.placeCursor(cursor);
+      return;
+    }
+    // A conflict waits for the writer to pick a version in its banner. Moving
+    // on would file the editor's text under "Inkswell conflicts" and leave a
+    // reader showing it in place of the file's.
+    if (this.session?.state === "conflict") {
+      new Notice(
+        `“${this.currentFile?.basename ?? "This scene"}” changed on disk while you were editing — choose a version in its banner first.`
+      );
+      return;
+    }
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof TFile)) return;
+    const text = this.editor ? this.editor.state.doc.toString() : null;
+    this.teardown = stream.retireLive(this.currentFile?.path ?? null, text, () => this.detachSession());
+    this.selectedScene = path;
+    this.currentFile = file;
+    this.mountStreamEditor(file, ++this.editorToken, cursor);
+    // The panels around the page follow the live scene.
+    const project = this.store.getProject(this.lastProject ?? "");
+    if (this.container) {
+      preserveUi(this.container, () => {
+        this.renderTopbar();
+        if (this.navEl && project) {
+          this.navEl.empty();
+          this.renderNavRows(this.navEl, project);
+        }
+        this.renderRightColumn();
+      });
+    }
+  }
+
+  /** Navigator click in the stream: scroll there and make it the live scene. */
+  private streamGoTo(path: string): void {
+    this.container?.removeClass("nav-open");
+    if (!this.stream?.has(path)) {
+      // Filtered out: show the whole book again, at that scene.
+      this.streamFilter = null;
+      this.streamAnchor = null;
+      this.selectedScene = path;
+      this.rerender();
+      return;
+    }
+    this.stream.scrollToScene(path);
+    this.activateStreamScene(path, "start");
+  }
+
+  /** An arrow key ran off the live scene's edge: continue in the neighbour. */
+  private streamBoundary(dir: "prev" | "next", x: number | null): boolean {
+    const stream = this.stream;
+    const cur = this.currentFile?.path;
+    if (!stream || !cur) return false;
+    const target = neighbour(this.streamShown, cur, dir === "next" ? 1 : -1);
+    if (!target) return false;
+    const pos = x === null ? null : stream.edgePos(target, x, dir === "next" ? "first" : "last");
+    this.activateStreamScene(target, pos ?? (dir === "next" ? "start" : "end"));
+    return true;
+  }
+
+  /** The navigator marks the scene at the top of the page. */
+  private markInView(path: string | null): void {
+    this.streamInView = path;
+    this.navEl?.querySelectorAll<HTMLElement>(".inkswell-write__scene").forEach((el) => {
+      el.toggleClass("is-inview", !!path && el.dataset.scenePath === path);
+    });
+  }
+
+  /** Scroll the stream to the next / previous chapter start (commands). */
+  jumpChapter(dir: 1 | -1): void {
+    // Where the page is now (measured, not the observer's last report).
+    const from = this.stream?.anchor()?.path ?? this.currentFile?.path;
+    if (!this.stream || !from) return;
+    const target = chapterStep(this.streamShown, from, dir);
+    if (target) this.stream.scrollToScene(target);
+    else new Notice(dir === 1 ? "This is the last chapter." : "This is the first chapter.");
+  }
+
+  /** Pick a chapter to scroll the stream to (command). */
+  promptJumpToChapter(): void {
+    const stops = chapterStops(this.streamShown);
+    if (!this.stream || stops.length === 0) {
+      new Notice("This book has no chapters to jump to.");
+      return;
+    }
+    new ChapterPickerModal(this.app, stops, (s) => this.stream?.scrollToScene(s.path)).open();
+  }
+
+  /**
+   * Absorb a store refresh with the stream showing: the page reconciles its
+   * scenes in place (the live editor and every drawn scene survive), and the
+   * panels around it re-render. Returns false — full rebuild — when the
+   * project changed or the live scene left the page (renamed, removed,
+   * filtered out).
+   */
+  private updateStream(): boolean {
+    const stream = this.stream;
+    if (!stream || !this.container || !this.streamActive()) return false;
+    const projects = this.store.getProjects().filter((p) => p.draft.format === "scenes");
+    const project = resolveActive(projects, this.plugin.activeProject.get());
+    if (!project || project.vaultPath !== this.lastProject) return false;
+    const rows = this.streamRows(project);
+    const shown = applyFilter(rows, this.streamFilter);
+    const live = this.currentFile?.path ?? null;
+    if (!live || !shown.some((r) => r.path === live)) return false;
+    this.streamRowsAll = rows;
+    this.streamShown = shown;
+    stream.setScenes(this.streamSpecs(shown));
+    preserveUi(this.container, () => {
+      this.renderTopbar();
+      if (this.navEl) {
+        this.navEl.empty();
+        this.renderNavRows(this.navEl, project);
+      }
+      if (this.inspectorHost) this.renderRightColumn();
+      if (this.streamBarEl) this.renderStreamBar(this.streamBarEl);
+    });
+    // Another panel asked for a scene (Search, To-dos): move the editor there.
+    const wanted = this.selectedScene;
+    if (wanted && wanted !== live && stream.has(wanted)) {
+      stream.scrollToScene(wanted);
+      this.activateStreamScene(wanted, null);
+    } else if (this.pendingHighlight && this.editor) {
+      this.applyPendingHighlight(this.editor.state.doc.toString());
+    }
+    return true;
+  }
+
+  /** Tear the page down (its readers; the live editor goes with detachSession),
+   *  remembering where it was. */
+  private destroyStream(): void {
+    if (!this.stream) return;
+    const a = this.stream.anchor();
+    this.streamAnchor = a ? { ...a, live: this.currentFile?.path ?? null } : null;
+    this.stream.destroy();
+    this.stream = null;
+    this.streamBarEl = null;
+  }
+
   private rerender(): void {
     if (this.container) this.render(this.container);
   }
@@ -1494,6 +2012,7 @@ export class WritePanel implements HoverParent {
    *  the plugin's quit-time flush awaits it so an in-flight write isn't cut off. */
   async dispose(): Promise<void> {
     const flushed = this.detachSession();
+    this.destroyStream();
     this.hoverPopover = null;
     this.unsub?.();
     this.unsub = null;

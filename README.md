@@ -41,6 +41,8 @@ A three-step flow: *Overview* (novel-level fields and long-form prose), *Beats* 
 
 A distraction-light, Live-Preview manuscript editor with writing prompts and timed **sprints**. Five fast-drafting **inline markers** — for to-dos, research questions, dialogue gaps, missing scenes, and notes — highlight as you type (e.g. `[RESEARCH: what did 1920s lamplighters earn?]`), so you can mark a gap and keep moving forward. Add your own marker words (`[CHECK: …]`, `[TK: …]`) under Customize → To-do markers. Find them all later in Revise → To-dos.
 
+Switch Write to **Stream** to read and edit the whole book as one continuous page, in order: click anywhere to edit that scene in place, jump between chapters, or narrow the page to one chapter, POV, plotline, character or status. Each scene still saves to its own note.
+
 ![Write: Live-Preview editor with highlighted draft markers and a running sprint timer](assets/write.png)
 
 ### Revise — from draft to book
@@ -59,7 +61,7 @@ A configurable **compile/export** pipeline (Markdown & HTML built in; `.docx` / 
 
 ### Codex — your story bible
 
-Characters, locations, worlds, factions, items, events, and concepts, each with its own profile and an optional portrait image. Places nest, so a city can sit inside a region inside a world. Every entry automatically lists the scenes that mention it — by name or alias, for any category — so your canon stays consistent as the manuscript grows. Can be scoped for single writing projects, or shared across a series.
+Characters, locations, worlds, factions, items, events, and concepts, each with its own profile and an optional portrait image. Places nest, so a city can sit inside a region inside a world. Every entry automatically lists the scenes that mention it — by name or alias, for any category — so your canon stays consistent as the manuscript grows. Can be scoped for single writing projects, or shared across a series. Pin your main cast in each book so they list first (and come first when you type `[[` in Write), and search by name, alias, or a character's Role ("antagonist").
 
 ![Codex: a character profile in the story bible with linked scenes](assets/codex.png)
 
@@ -91,7 +93,7 @@ Everything Inkswell stores is plain text you can inspect, sync, and back up like
 Recovery options, should anything ever go wrong:
 
 - **Obsidian's File Recovery** (Settings → File Recovery → *View*) keeps periodic snapshots of every note that changes — including plugin-written ones. The search is by **file name**: for plan data (beats, goals, revision log), search for your **project's name** and look at the index note's snapshots; for prose, search the scene's name.
-- **The "Inkswell conflicts" folder**: whenever Inkswell must displace a version of your text (resolving an editor/disk conflict, or overwriting a file during compile at your request), the displaced version is saved there first — nothing is ever silently discarded.
+- **The "Inkswell conflicts" folder**: whenever Inkswell must displace a version of your text (resolving an editor/disk conflict, leaving a scene before you've resolved one, or overwriting a file during compile at your request), the displaced version is saved there first — nothing is ever silently discarded.
 - **Daily `data.json` backups**: on each load, Inkswell keeps a daily copy of its `data.json` in `.obsidian/plugins/inkswell/backups/` (the last 7 days). To bring back **settings only** (custom codex types, renamed types, Customize changes, the rail arrangement) without touching your writing history, run the command **Restore settings from a backup** and pick a day. To restore everything, including writing history: disable Inkswell, copy the backup over `data.json`, re-enable. If `data.json` can't be read when Obsidian starts, Inkswell loads the newest backup by itself, keeps the unreadable file as `data-unreadable-<date>.json`, and shows a notice.
 
 ## Install
@@ -121,7 +123,7 @@ If your book is already in Obsidian as one note per chapter or scene:
    - **Scene folder**: the subfolder your chapter notes are in, for example `Chapters`. Type `/` if they sit directly in the book's folder.
 
    Inkswell adds an index note named after the book (`My Book.md`) inside the book's folder. If one of your chapters already has exactly that name, rename it first.
-2. On Home, click your book's card. A **Scene files out of sync** box lists every note in the scene folder as **Unindexed**.
+2. On Home, click your book's card. A **Scene files out of sync** box lists every note in the scene folder as **Unindexed**. (If you come back to this after restarting Obsidian, the box takes about 10 seconds to appear.)
 3. Click **Add as scene** on each one **in reading order**, because each is added to the end. Click **Ignore** for notes that aren't part of the manuscript, like outlines or scraps.
 4. Fix the order whenever you like by dragging scenes on Home or in Plan → Structure → Tree. If your notes already have a `chapter` property with a number ("Chapter 12" or "12"), **Sort scenes by chapter number…** in the book's ⋯ menu puts them in order in one step.
 

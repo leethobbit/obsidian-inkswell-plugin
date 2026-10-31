@@ -88,3 +88,20 @@ describe("completionText", () => {
     expect(completionText({ name: "Anna", kind: "codex", alias: "a|b]]" })).toBe("Anna|ab]]");
   });
 });
+
+describe("rankCandidates — pinned codex entries (#70)", () => {
+  const cands: LinkCandidate[] = [
+    { name: "Anna", kind: "codex" },
+    { name: "Zed", kind: "codex", pinned: true },
+    { name: "Arrival", kind: "scene" },
+  ];
+
+  it("lists the open book's pinned entries first after a bare [[", () => {
+    expect(rankCandidates("", cands).map((c) => c.name)).toEqual(["Zed", "Anna", "Arrival"]);
+  });
+
+  it("only breaks ties: a better match still wins over a pin", () => {
+    expect(rankCandidates("ann", cands).map((c) => c.name)).toEqual(["Anna"]);
+    expect(rankCandidates("a", cands)[0]?.name).toBe("Anna");
+  });
+});

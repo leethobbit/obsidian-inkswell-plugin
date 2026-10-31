@@ -219,3 +219,94 @@ describe("ProjectStore", () => {
     });
   });
 });
+
+describe("ProjectStore — index notes it can't read (#69)", () => {
+  const BROKEN = [
+    "---",
+    "longform:",
+    "  format: scenes",
+    "  title: Broken Book",
+    "  sceneFolder: Scenes",
+    "  scenes:",
+    "    - One",
+    "   - Two",
+    "---",
+    "",
+  ].join("\n");
+  const FIXED = BROKEN.replace("   - Two", "    - Two");
+
+  let app: FakeApp;
+  let store: ProjectStore;
+
+  beforeEach(async () => {
+    app = new FakeApp({
+      "Broken/Broken.md": BROKEN,
+      "Broken/Scenes/One.md": "One prose.\n",
+      "Broken/Scenes/Two.md": "Two prose.\n",
+      "Notes/Messy.md": "---\ntags:\n  - a\n - b\n---\nNot a book.\n",
+      "Notes/Other tool.md": "---\nlongform: true\n---\nSome other plugin's flag.\n",
+      "Solo.md": "---\nlongform:\n  format: single\n  title: Solo\n---\nBody.\n",
+    });
+    store = new ProjectStore(app.asApp());
+    store.load();
+    await flushAsync();
+  });
+
+  it("lists a book whose index YAML won't parse instead of dropping it in silence", () => {
+    expect(store.getProjects().map((p) => p.draft.title)).toEqual(["Solo"]);
+    expect(store.getUnreadable()).toEqual([{ path: "Broken/Broken.md", reason: "yaml", line: 8 }]);
+  });
+
+  it("brings the book back, and notifies, once the note is fixed", async () => {
+    const batches: Array<ReadonlySet<string> | undefined> = [];
+    const unsub = store.subscribe((_, changed) => batches.push(changed));
+    await app.vault.modify(app.file("Broken/Broken.md") as never, FIXED);
+    await flushAsync();
+    expect(store.getUnreadable()).toEqual([]);
+    expect(store.getProject("Broken/Broken.md")?.scenes.map((s) => s.title)).toEqual(["One", "Two"]);
+    expect(batches.at(-1)?.has("Broken/Broken.md")).toBe(true);
+    unsub();
+  });
+
+  it("notifies when a readable index breaks, so Home re-renders", async () => {
+    await app.vault.modify(app.file("Broken/Broken.md") as never, FIXED);
+    await flushAsync();
+    const batches: Array<ReadonlySet<string> | undefined> = [];
+    const unsub = store.subscribe((_, changed) => batches.push(changed));
+    await app.vault.modify(app.file("Broken/Broken.md") as never, BROKEN);
+    await flushAsync();
+    expect(store.getProject("Broken/Broken.md")).toBeUndefined();
+    expect(store.getUnreadable().map((u) => u.path)).toEqual(["Broken/Broken.md"]);
+    expect(batches.at(-1)?.has("Broken/Broken.md")).toBe(true);
+    unsub();
+  });
+
+  it("reports a longform block with no format and no scenes", async () => {
+    const index = app.file("Broken/Broken.md");
+    await app.vault.modify(index as never, "---\nlongform:\n  title: Broken Book\n---\n");
+    await flushAsync();
+    expect(store.getUnreadable()).toEqual([{ path: "Broken/Broken.md", reason: "longform" }]);
+  });
+
+  it("reads a broken note once per change, not on every refresh", async () => {
+    const reads: string[] = [];
+    const vault = app.vault as unknown as { cachedRead: (f: { path: string }) => Promise<string> };
+    const original = vault.cachedRead.bind(app.vault);
+    vault.cachedRead = (f) => {
+      reads.push(f.path);
+      return original(f);
+    };
+    // An unrelated edit refreshes the store; the unchanged broken notes aren't re-read.
+    let notified = 0;
+    const unsub = store.subscribe(() => notified++);
+    await app.vault.modify(
+      app.file("Solo.md") as never,
+      "---\nlongform:\n  format: single\n  title: Solo\n---\nBody, revised.\n"
+    );
+    await flushAsync();
+    unsub();
+    expect(notified).toBe(2); // the subscribe-time call, then the refresh
+    expect(reads.filter((p) => p === "Broken/Broken.md" || p === "Notes/Messy.md")).toEqual([]);
+    expect(store.getUnreadable().map((u) => u.path)).toEqual(["Broken/Broken.md"]);
+  });
+});

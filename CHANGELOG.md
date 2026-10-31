@@ -10,6 +10,21 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-10-31
+
+Write the whole book as one page. The new Stream view in Write shows every scene in order and lets you edit any of them right where it sits, with quick jumps between chapters. Pin your main cast in the Codex so they list first in each book, and find characters by their role. And a round of fixes for books you write on more than one device: a book whose index note can't be read now says so instead of vanishing, and leaving a scene with a sync conflict no longer loses your words.
+
+### Added
+- **Stream: write the whole book as one page.** A new **Scene | Stream** switch at the top of Write shows every scene of the book in order, on one continuous page. Click anywhere in the text to edit that scene right there, and the arrow keys carry on into the next or previous scene. Each scene still saves to its own note, the same way single-scene Write does. Jump between chapters with the **Jump to chapter** menu, the chapter names in the scene list on the left, or the new *Next chapter*, *Previous chapter* and *Jump to chapter…* commands. The scene list marks where you are as you scroll. Narrow the page to one chapter, POV, plotline, character or status. Built and tested for 200,000-word books. Write remembers which view you used last on each device. Not available on phones; turn it off under Settings → Features if you don't want it. The milestone word-count gutter isn't shown in Stream.
+- **Pin your main cast in the Codex.** Right-click an entry (or tap ⋯) and choose **Pin in this book**. Pinned entries list first in their group with a small pin, and they come first when you type `[[` in Write. Pins belong to the book you have open, so a series character can be pinned in book one and not in book three. Pinning never changes which books can see an entry. Requested in [#70](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/70).
+- **Search the Codex by role.** The Codex search now also matches a character's **Role** and the **Type** of a place, faction, item or concept. Type "antag" to list your antagonists; the row shows the role it matched.
+
+### Fixed
+- **Leaving a scene in conflict no longer loses what you typed.** When a scene changes on disk while you have unsaved edits in Write (another device synced, or another app saved it), Write shows a banner asking which version to keep. If you went to another scene, left Write, closed Inkswell or quit Obsidian before choosing, your unsaved text was thrown away. Now the scene file keeps the version on disk, and your text is saved to the "Inkswell conflicts" folder, with a notice that names the note. The same happens if the change on disk only turns up during that final save.
+- **A book no longer disappears when its index note can't be read.** If the properties at the top of a book's index note got damaged (one line out of place, or a property listed twice, which a sync conflict, another plugin or a hand edit can cause), the book simply vanished from Home and the project picker, with nothing to say why. Home now shows **Inkswell can't read this book**, names the note (and, for a formatting error, the line to look at), and has an **Open note** button. Fix the properties, or restore an earlier version of the note, and the book comes back. Your scenes were never affected. Reported in [#69](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/69).
+- **Deleting a draft never takes another draft's scenes with it.** When a sync service keeps a "conflicted copy" of a book's index note, Inkswell shows that copy as a second draft, and its scenes are the same files as the real book's. Deleting that copy used to move those shared scene files to the trash too. Now **Delete draft** only trashes scene files no other draft uses, and the confirmation says which ones stay. Found while investigating [#69](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/69).
+- **The "Scene files out of sync" box no longer jumps in while files are still syncing.** When you rename a scene on one device, your other device gets the index note and the renamed file separately, and for a few seconds it looked out of sync. The box then offered a **Relink** that pointed the wrong way, and clicking it rewrote the index against a version that was still on its way. The box now waits until the list of missing and unindexed files has stayed the same for 10 seconds, so a sync that finishes in that time never shows it. A project you just created on this device shows it straight away, so bringing in an existing folder works as before. Found while investigating [#69](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/69).
+
 ## [1.23.0] - 2026-10-27
 
 Places inside places. Build your world as deep as you like, with a city inside a region inside a world. Put your shelves on Home in any order, Standalone included. And opening a scene saved with Windows line endings no longer rewrites it, which kept sync tools from seeing changes you never made.
@@ -463,7 +478,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.23.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.24.0...HEAD
+[1.24.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.23.0...1.24.0
 [1.23.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.22.0...1.23.0
 [1.22.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.21.1...1.22.0
 [1.21.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.21.0...1.21.1

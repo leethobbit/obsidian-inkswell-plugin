@@ -339,6 +339,43 @@
   font-size: var(--font-ui-small);
 }
 
+/* Home: books whose index note can't be read (#69) */
+.inkswell-unreadable {
+  margin: var(--size-4-2) 0;
+  padding: var(--size-4-2) var(--size-4-3);
+  border: 1px solid var(--background-modifier-border);
+  border-left: 3px solid var(--text-warning, #b45309);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+.inkswell-unreadable__head {
+  font-weight: var(--font-semibold);
+  color: var(--text-warning, #b45309);
+}
+.inkswell-unreadable__summary {
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-unreadable__row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  flex-wrap: wrap;
+  margin-top: var(--size-4-1);
+}
+.inkswell-unreadable__text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-ui-small);
+}
+.inkswell-unreadable__name {
+  overflow-wrap: anywhere;
+}
+.inkswell-unreadable__reason {
+  color: var(--text-muted);
+}
+
 /* Scene status badge (explorer rows) */
 .inkswell-status {
   font-size: var(--font-ui-smaller);
@@ -452,6 +489,22 @@
 }
 .inkswell-codex__placechev:hover {
   color: var(--text-normal);
+}
+/* Pinned in the open book (#70): a small accent pin, and a rule under the
+   last pinned row of a group so the A–Z rest reads as its own run. */
+.inkswell-codex__pin {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--text-accent);
+}
+.inkswell-codex__pin .svg-icon {
+  width: 13px;
+  height: 13px;
+}
+.inkswell-codex__row.is-last-pinned {
+  margin-bottom: var(--size-4-1);
+  border-bottom: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s) var(--radius-s) 0 0;
 }
 .inkswell-codex__placecount {
   padding: 0 6px;
@@ -2009,6 +2062,106 @@ body.is-mobile .inkswell-idea .inkswell-rowmenu {
      Obsidian's app CSS hides it with caret-color: transparent for its own editor,
      so re-enable it here or the cursor is invisible while typing. */
   caret-color: var(--caret-color, var(--text-normal));
+}
+
+/* Write → Stream: the book as one page. The page scrolls, not each editor:
+   every scene's editor (the live one and the read-only readers) grows to its
+   text. Undrawn scenes are placeholders of an estimated height. */
+.inkswell-write__editor--stream {
+  padding: 0;
+}
+.inkswell-stream__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-3);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.inkswell-stream__count {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-stream {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  position: relative;
+  /* The stream keeps the text in view still itself (scene-stream.ts,
+     restoreAnchor); the browser's own anchoring would double-correct. */
+  overflow-anchor: none;
+  padding: 0 var(--size-4-3);
+}
+.inkswell-stream__list {
+  /* Room for the last line of the book to scroll up to mid-screen. */
+  padding-bottom: 50vh;
+}
+.inkswell-stream__top {
+  max-width: 90ch;
+  margin: 0 auto;
+  padding: 0 var(--size-4-2);
+}
+.inkswell-stream__chapter {
+  margin-top: var(--size-4-8);
+  padding-bottom: var(--size-4-1);
+  border-bottom: 1px solid var(--background-modifier-border);
+  font-size: var(--font-ui-medium);
+  font-weight: var(--font-semibold);
+}
+.inkswell-stream__head {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin: var(--size-4-4) 0 var(--size-4-1);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  cursor: pointer;
+}
+.inkswell-stream__title {
+  font-weight: var(--font-semibold);
+}
+.inkswell-stream__head:hover .inkswell-stream__title {
+  color: var(--text-normal);
+}
+.inkswell-stream__section.is-live .inkswell-stream__title {
+  color: var(--text-accent);
+}
+.inkswell-stream__words {
+  margin-left: auto;
+}
+.inkswell-stream__body.is-placeholder {
+  height: var(--inkswell-stream-h);
+}
+.inkswell-write__cm.is-stream {
+  flex: none;
+  display: block;
+  min-height: 0;
+}
+.inkswell-write__cm.is-stream .cm-editor {
+  flex: none;
+  min-height: 0;
+}
+/* A drawn (not live) scene: text cursor, since a click starts editing there.
+   Tab width as CodeMirror sets it on the live editor. */
+.inkswell-stream__static .cm-content {
+  cursor: text;
+  tab-size: 4;
+}
+/* The throwaway editor static-scene.ts reads CodeMirror's class names from. */
+.inkswell-stream__probe {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+}
+.inkswell-stream__empty {
+  padding: var(--size-4-8) var(--size-4-4);
+  color: var(--text-muted);
+  text-align: center;
+}
+/* The scene at the top of the page, in the navigator. */
+.inkswell-write__scene.is-inview {
+  box-shadow: inset 2px 0 0 var(--interactive-accent);
 }
 
 /* Markdown syntax highlighting (markers stay visible but dimmed) */

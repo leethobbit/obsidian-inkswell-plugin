@@ -14,6 +14,9 @@
  * the filename) and a `Scenes/` subfolder. Scene files keep their
  * titles/basenames, so the index's `scenes` list and any title-keyed Inkswell
  * data (revision log, beat assignments) still resolve in the copy.
+ *
+ * {@link planDraftDelete} is the matching plan for "delete draft": which scene
+ * files go to trash and which another project still needs.
  */
 
 import { joinPath, parentFolder, sanitizeSegment as sanitize } from "../settings/folders";
@@ -89,4 +92,37 @@ export function planDraftCopy(
     },
     renameOriginalTo,
   };
+}
+
+/** What deleting a draft trashes, and which of its scene files it must leave. */
+export interface DraftDeletePlan {
+  /** Scene files no other project resolves to — trashed with the index note. */
+  trash: string[];
+  /** Scene files another project also resolves to — left where they are. */
+  kept: string[];
+}
+
+/**
+ * Split `project`'s scene files into those only it uses and those another
+ * project in `all` also resolves to. Drafts made by {@link planDraftCopy} never
+ * share files, but a sync conflict copy of an index note (or a hand-copied one)
+ * points at the very same scene folder (#69) — deleting that "draft" must not
+ * take the real book's scenes with it.
+ */
+export function planDraftDelete(project: Project, all: readonly Project[]): DraftDeletePlan {
+  const inUse = new Set<string>();
+  for (const p of all) {
+    if (p.vaultPath === project.vaultPath) continue;
+    inUse.add(p.vaultPath);
+    for (const s of p.scenes) if (s.path) inUse.add(s.path);
+  }
+  const trash: string[] = [];
+  const kept: string[] = [];
+  const seen = new Set<string>();
+  for (const s of project.scenes) {
+    if (!s.path || seen.has(s.path)) continue;
+    seen.add(s.path);
+    (inUse.has(s.path) ? kept : trash).push(s.path);
+  }
+  return { trash, kept };
 }

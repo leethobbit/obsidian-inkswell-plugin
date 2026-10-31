@@ -10,7 +10,7 @@
 import { App, Notice, TFile, normalizePath } from "obsidian";
 import { tryFileOp } from "../lib/notify";
 import { confirmDelete } from "../scenes/scene-actions";
-import { planDraftCopy } from "./draft-plan";
+import { DraftDeletePlan, planDraftCopy, planDraftDelete } from "./draft-plan";
 import { persistDraft, persistDraftCreated, updateDraftFields } from "./index-writer";
 import { Project } from "./types";
 
@@ -113,34 +113,52 @@ export async function renameDraft(app: App, project: Project, newName: string): 
   );
 }
 
+/** The confirm text for deleting a draft, naming any scene files that stay. */
+function deleteDraftMessage(label: string, plan: DraftDeletePlan): string {
+  const head = `Delete draft "${label}"?`;
+  const kept = plan.kept.length;
+  if (kept === 0) return `${head} Its index note and scene files move to trash (recoverable).`;
+  if (plan.trash.length === 0) {
+    return `${head} Its index note moves to trash (recoverable). Its scene files stay: another draft uses the same ones.`;
+  }
+  const trashed = plan.trash.length;
+  return (
+    `${head} Its index note and ${trashed} scene ${trashed === 1 ? "file" : "files"} move to trash (recoverable). ` +
+    `${kept} other scene ${kept === 1 ? "file stays" : "files stay"}: another draft uses ${kept === 1 ? "it" : "them"} too.`
+  );
+}
+
 /**
  * Delete a draft: trash its index note and scene files (recoverable). Blocked when
  * it's the story's only draft (that's deleting the whole project). Files are
- * trashed individually — never whole folders — so a sibling draft's content can
- * never be caught up in it. Returns whether the delete happened.
+ * trashed individually — never whole folders — and a scene file another project
+ * also resolves to is left alone ({@link planDraftDelete}): a sync conflict copy
+ * of an index shares the real draft's scene folder. `getProjects` is read again
+ * after the confirm, so a file that became shared while the dialog was open is
+ * kept too. Returns whether the delete happened.
  */
 export async function deleteDraft(
   app: App,
   project: Project,
-  isOnlyDraft: boolean
+  isOnlyDraft: boolean,
+  getProjects: () => readonly Project[]
 ): Promise<boolean> {
   if (isOnlyDraft) {
     new Notice("This is the story's only draft — delete the project from the file explorer instead.");
     return false;
   }
   const label = project.draft.draftTitle ?? project.draft.title;
-  const ok = await confirmDelete(
-    app,
-    `Delete draft "${label}"? Its index note and scene files move to trash (recoverable).`
-  );
-  if (!ok) return false;
+  const plan = planDraftDelete(project, getProjects());
+  if (!(await confirmDelete(app, deleteDraftMessage(label, plan)))) return false;
 
+  // Trash only what the dialog promised AND is still unshared now.
+  const stillUnshared = new Set(planDraftDelete(project, getProjects()).trash);
+  const trash = plan.trash.filter((p) => stillUnshared.has(p));
   const done = await tryFileOp(async () => {
     const index = app.vault.getAbstractFileByPath(project.vaultPath);
     if (index instanceof TFile) await app.fileManager.trashFile(index);
-    for (const s of project.scenes) {
-      if (!s.path) continue;
-      const f = app.vault.getAbstractFileByPath(s.path);
+    for (const path of trash) {
+      const f = app.vault.getAbstractFileByPath(path);
       if (f instanceof TFile) await app.fileManager.trashFile(f);
     }
   }, `Couldn't delete draft "${label}".`);

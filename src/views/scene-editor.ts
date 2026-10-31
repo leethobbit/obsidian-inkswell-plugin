@@ -168,30 +168,35 @@ const flashField = StateField.define<DecorationSet>({
  */
 const typewriterCompartment = new Compartment();
 
-const typewriterExt = [
-  EditorState.transactionExtender.of((tr) => {
-    if (!tr.docChanged && !tr.selection) return null;
-    if (tr.isUserEvent("select.pointer")) return null;
-    const drives =
-      tr.isUserEvent("input") ||
-      tr.isUserEvent("delete") ||
-      tr.isUserEvent("move") ||
-      tr.isUserEvent("select") ||
-      tr.isUserEvent("undo") ||
-      tr.isUserEvent("redo");
-    if (!drives) return null;
-    return {
-      effects: EditorView.scrollIntoView(tr.newSelection.main.head, { y: "center" }),
-    };
-  }),
-  scrollPastEnd(),
-];
+const typewriterCentering = EditorState.transactionExtender.of((tr) => {
+  if (!tr.docChanged && !tr.selection) return null;
+  if (tr.isUserEvent("select.pointer")) return null;
+  const drives =
+    tr.isUserEvent("input") ||
+    tr.isUserEvent("delete") ||
+    tr.isUserEvent("move") ||
+    tr.isUserEvent("select") ||
+    tr.isUserEvent("undo") ||
+    tr.isUserEvent("redo");
+  if (!drives) return null;
+  return {
+    effects: EditorView.scrollIntoView(tr.newSelection.main.head, { y: "center" }),
+  };
+});
+
+const typewriterExt = [typewriterCentering, scrollPastEnd()];
+
+/** In the stream the page scrolls, not the editor: scroll-past-end padding
+ *  would open a gap after every scene, so the stream pads its own end instead. */
+function typewriterFor(inStream: boolean) {
+  return inStream ? [typewriterCentering] : typewriterExt;
+}
 
 /** Turn typewriter mode on/off for a live editor (recenters when turning on). */
-export function setTypewriter(view: EditorView, on: boolean): void {
+export function setTypewriter(view: EditorView, on: boolean, inStream = false): void {
   view.dispatch({
     effects: [
-      typewriterCompartment.reconfigure(on ? typewriterExt : []),
+      typewriterCompartment.reconfigure(on ? typewriterFor(inStream) : []),
       ...(on ? [EditorView.scrollIntoView(view.state.selection.main.head, { y: "center" })] : []),
     ],
   });
@@ -528,10 +533,50 @@ export interface SceneEditorOptions {
   getLinkCandidates?: () => LinkCandidate[];
   /** The live to-do marker set, read on every re-decoration (default: shipped). */
   getMarkers?: () => MarkerSet;
+  /**
+   * Stream mode: the editor is one scene among many on a scrolling page. Arrow
+   * keys past its first or last line call this (with the caret's x for up/down)
+   * so the stream can move the caret into the neighbouring scene; return true
+   * when it did.
+   */
+  onBoundary?: (dir: "prev" | "next", x: number | null) => boolean;
+}
+
+/**
+ * Arrow keys at a scene's edge hand over to the neighbour (stream mode). Up and
+ * down count VISUAL lines: the caret must be on the same rendered line as the
+ * document's first/last character. Left/right only at the very start/end.
+ * Anything else (a selection, a mid-scene caret) falls through to CM's keys.
+ */
+function boundaryKeys(onBoundary: NonNullable<SceneEditorOptions["onBoundary"]>) {
+  const vertical =
+    (dir: "prev" | "next") =>
+    (view: EditorView): boolean => {
+      const r = view.state.selection.main;
+      if (!r.empty) return false;
+      const caret = view.coordsAtPos(r.head);
+      const edge = view.coordsAtPos(dir === "next" ? view.state.doc.length : 0);
+      if (!caret || !edge || Math.abs(caret.top - edge.top) > 1) return false;
+      return onBoundary(dir, caret.left);
+    };
+  const horizontal =
+    (dir: "prev" | "next") =>
+    (view: EditorView): boolean => {
+      const r = view.state.selection.main;
+      const atEdge = r.empty && r.head === (dir === "next" ? view.state.doc.length : 0);
+      return atEdge ? onBoundary(dir, null) : false;
+    };
+  return keymap.of([
+    { key: "ArrowDown", run: vertical("next") },
+    { key: "ArrowUp", run: vertical("prev") },
+    { key: "ArrowRight", run: horizontal("next") },
+    { key: "ArrowLeft", run: horizontal("prev") },
+  ]);
 }
 
 /** Create a manuscript editor bound to `parent`, seeded with `doc`. */
 export function createSceneEditor(opts: SceneEditorOptions): EditorView {
+  const inStream = !!opts.onBoundary;
   return new EditorView({
     parent: opts.parent,
     state: EditorState.create({
@@ -550,10 +595,13 @@ export function createSceneEditor(opts: SceneEditorOptions): EditorView {
             stopPropagation: true,
           }))
         ),
+        ...(opts.onBoundary ? [boundaryKeys(opts.onBoundary)] : []),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         ...(opts.getTypography ? [smartTypographyHandler(opts.getTypography)] : []),
-        typewriterCompartment.of(opts.getPrefs?.().typewriter ? typewriterExt : []),
-        ...milestoneGutter(() => opts.getPrefs?.().milestoneWords ?? 0),
+        typewriterCompartment.of(opts.getPrefs?.().typewriter ? typewriterFor(inStream) : []),
+        // Not in the stream: its other scenes are static text with no gutter,
+        // and a gutter appearing on click would reflow the scene under the pointer.
+        ...(inStream ? [] : milestoneGutter(() => opts.getPrefs?.().milestoneWords ?? 0)),
         ...(opts.getLinkCandidates ? linkCompletion(opts.getLinkCandidates) : []),
         EditorView.lineWrapping,
         ...markdownHighlighting(opts.getMarkers ?? (() => DEFAULT_MARKERS)),

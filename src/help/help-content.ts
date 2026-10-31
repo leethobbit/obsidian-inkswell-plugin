@@ -68,6 +68,14 @@ export const HINTS: Record<string, HintEntry> = {
       );
       p(
         el,
+        "Switch Scene to Stream (top of Write, not on phones) to see the whole book as one " +
+          "page, in order. Click anywhere to edit that scene right there; the arrow keys " +
+          "carry on into the next scene. Jump between chapters from the menu at the top or " +
+          "the chapter names on the left, and narrow the page to one chapter, POV, " +
+          "plotline, character or status. Each scene still saves to its own note."
+      );
+      p(
+        el,
         "Don't stop to research or perfect a hard bit. Drop a bracketed marker and " +
           "keep moving — they're highlighted in the editor and swept up later in " +
           "Revise → To-dos. The keyword is case-insensitive and the “: text” is optional."
@@ -213,6 +221,14 @@ export const HINTS: Record<string, HintEntry> = {
         "Project — set codex-project on the note; only that book sees it. Under Scope, click Change…, choose Books and tick the books to share an entry between some books of a series without making it series-wide.",
         "Series — set codex-series; shared across the books in a series.",
       ]);
+      p(
+        el,
+        "Pin your main cast: right-click an entry (or tap ⋯) and choose Pin in this book. " +
+          "Pinned entries list first in their group, with a pin mark, and come first when " +
+          "you type [[ in Write. Pins belong to the open book, so a series character can " +
+          "be pinned in one book and not the next. The search box also matches a " +
+          "character's Role and a place's or item's Type: type “antag” to find your antagonists."
+      );
       p(
         el,
         "Each entry's “Appears in” list updates itself: it shows every scene whose text " +
@@ -573,7 +589,8 @@ export const HELP_SECTIONS: HelpSection[] = [
       p(
         el,
         "Whenever Inkswell must displace a version of your text — resolving an " +
-          "editor-vs-disk conflict, or overwriting a file during compile at your request " +
+          "editor-vs-disk conflict, leaving a scene before you've resolved one, or " +
+          "overwriting a file during compile at your request " +
           "— the displaced version is saved to the “Inkswell conflicts” folder first. " +
           "Nothing is silently discarded."
       );

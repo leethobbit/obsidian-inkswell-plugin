@@ -30,6 +30,12 @@ import {
   InkswellProjectData,
   isMultiScene,
 } from "./types";
+import {
+  UnreadableIndex,
+  diagnoseUnparsedIndex,
+  frontmatterBlock,
+  looksLikeBookBlock,
+} from "./unreadable-index";
 
 /**
  * `changed` lists the vault paths whose fingerprint entries differ from the
@@ -44,6 +50,14 @@ interface ParsedIndex {
   mtime: number;
   draft: Draft | null;
   inkswellRaw: unknown;
+  /** The parsed `longform` value was meant as a book (see `looksLikeBookBlock`). */
+  bookBlock: boolean;
+}
+
+/** Cached diagnosis of a note whose frontmatter didn't parse, by path + mtime. */
+interface UnparsedNote {
+  mtime: number;
+  result: UnreadableIndex | null;
 }
 
 export class ProjectStore extends Component {
@@ -55,6 +69,10 @@ export class ProjectStore extends Component {
   private rerun = false;
   /** Index-note frontmatter parses, keyed by path (invalidated by mtime). */
   private parseCache = new Map<string, ParsedIndex>();
+  /** Book index notes Inkswell can't read (#69), path order. */
+  private unreadable: UnreadableIndex[] = [];
+  /** Diagnoses of notes whose frontmatter didn't parse, keyed by path. */
+  private unparsedCache = new Map<string, UnparsedNote>();
   /** Per-path fingerprint of the last notified state (key = `C|path` /
    *  `I|path` / `P|path`); an unchanged map ⇒ notify is skipped, and the
    *  diff of the two maps becomes the notify's `changed` path set. */
@@ -85,6 +103,13 @@ export class ProjectStore extends Component {
   /** Current snapshot of discovered projects. */
   getProjects(): Project[] {
     return this.projects;
+  }
+
+  /** Notes that are a book's index but can't be read (frontmatter that won't
+   *  parse, or a `longform` block with no book in it). Home lists them, so a
+   *  broken index never just makes its book disappear. */
+  getUnreadable(): UnreadableIndex[] {
+    return this.unreadable;
   }
 
   /** Find a project by the vault path of its index note. */
@@ -165,7 +190,9 @@ export class ProjectStore extends Component {
     this.refreshing = true;
     try {
       const found: Project[] = [];
+      const unreadable: UnreadableIndex[] = [];
       const liveCache = new Map<string, ParsedIndex>();
+      const liveUnparsed = new Map<string, UnparsedNote>();
       // Fingerprint parts: everything the panels render FROM THE VAULT that the
       // host re-renders on notify — project indexes, codex notes (any note with
       // a `codex` key; discovery is vault-wide, gotcha #7), and resolved scene
@@ -177,11 +204,23 @@ export class ProjectStore extends Component {
       // be scoped. Detection is cache-only — full frontmatter is read only for the
       // handful of candidates that carry a `longform` key (see the guard below).
       for (const file of this.app.vault.getMarkdownFiles()) {
+        const cache = this.app.metadataCache.getFileCache(file);
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- cast tames Obsidian's `any`-typed frontmatter; without it the reads below trip no-unsafe-assignment
-        const fm = this.app.metadataCache.getFileCache(file)?.frontmatter as
-          | Record<string, unknown>
-          | undefined;
-        if (!fm) continue;
+        const fm = cache?.frontmatter as Record<string, unknown> | undefined;
+        if (!fm) {
+          // Frontmatter Obsidian couldn't parse: the cache drops `frontmatter`
+          // but still types the block as a `yaml` section (measured). If it's
+          // a book's index, report it instead of letting the book vanish
+          // (#69). Only these notes are read, once per mtime.
+          if (cache?.sections?.[0]?.type === "yaml") {
+            const bad = await this.diagnoseUnparsed(file, liveUnparsed);
+            if (bad) {
+              unreadable.push(bad);
+              parts.set(`X|${file.path}`, `${file.stat.mtime}|${bad.reason}`);
+            }
+          }
+          continue;
+        }
         if ("codex" in fm) parts.set(`C|${file.path}`, String(file.stat.mtime));
         if (!("longform" in fm)) continue; // cheap detection only
         parts.set(`I|${file.path}`, String(file.stat.mtime));
@@ -200,14 +239,24 @@ export class ProjectStore extends Component {
             // build new ones; never mutate draft.scenes in place).
             draft: longform ? parseDraft(longform, file.basename) : null,
             inkswellRaw: parsed?.["inkswell"] ?? fm["inkswell"],
+            bookBlock: looksLikeBookBlock(longform),
           };
         }
         liveCache.set(file.path, entry);
-        if (!entry.draft) continue;
+        if (!entry.draft) {
+          // A `longform` block with no book in it (no format, no scenes).
+          if (entry.bookBlock) {
+            unreadable.push({ path: file.path, reason: "longform" });
+            parts.set(`X|${file.path}`, `${file.stat.mtime}|longform`);
+          }
+          continue;
+        }
         found.push(this.buildProject(file, entry.draft, entry.inkswellRaw));
       }
       this.parseCache = liveCache; // auto-prunes renamed/deleted indexes
+      this.unparsedCache = liveUnparsed;
       found.sort((a, b) => a.draft.title.localeCompare(b.draft.title));
+      unreadable.sort((a, b) => a.path.localeCompare(b.path));
 
       for (const p of found) {
         const scenes = p.scenes
@@ -230,6 +279,7 @@ export class ProjectStore extends Component {
 
       this.lastFingerprint = parts;
       this.projects = found;
+      this.unreadable = unreadable;
       this.notify(changed);
     } finally {
       this.refreshing = false;
@@ -245,16 +295,36 @@ export class ProjectStore extends Component {
     file: TFile
   ): Promise<Record<string, unknown> | null> {
     try {
-      const text = await this.app.vault.cachedRead(file);
-      const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-      if (!m) return null;
-      const parsed: unknown = parseYaml(m[1]);
+      const yaml = frontmatterBlock(await this.app.vault.cachedRead(file));
+      if (yaml === null) return null;
+      const parsed: unknown = parseYaml(yaml);
       return parsed && typeof parsed === "object"
         ? (parsed as Record<string, unknown>)
         : null;
     } catch {
       return null;
     }
+  }
+
+  /** Is this note (whose frontmatter didn't parse) a book's index? Cached by
+   *  path + mtime in `live`, so an unchanged note is read once. */
+  private async diagnoseUnparsed(
+    file: TFile,
+    live: Map<string, UnparsedNote>
+  ): Promise<UnreadableIndex | null> {
+    const cached = this.unparsedCache.get(file.path);
+    if (cached && cached.mtime === file.stat.mtime) {
+      live.set(file.path, cached);
+      return cached.result;
+    }
+    let result: UnreadableIndex | null = null;
+    try {
+      result = diagnoseUnparsedIndex(file.path, await this.app.vault.cachedRead(file), parseYaml);
+    } catch {
+      result = null; // couldn't read it at all: nothing to say about it
+    }
+    live.set(file.path, { mtime: file.stat.mtime, result });
+    return result;
   }
 
   private notify(changed: ReadonlySet<string>): void {

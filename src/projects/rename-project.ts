@@ -2,12 +2,12 @@
  * Obsidian I/O for "Rename project" — executes a {@link ./rename-plan} plan.
  * Order matters: the folder moves first (Obsidian carries every child and
  * rewrites wikilinks), then the index notes and plan note, then frontmatter on
- * each draft, then codex scope, path-keyed caches, and the active-project pointer.
+ * each draft, then codex scope and pins, path-keyed caches, and the active-project pointer.
  */
 
 import { App, Notice, TAbstractFile, TFile, normalizePath } from "obsidian";
-import { getCodexEntities, writeEntityScope } from "../codex/codex-store";
-import { remapScopeProjects } from "../codex/codex-scope";
+import { getCodexEntities, updateEntityPins, writeEntityScope } from "../codex/codex-store";
+import { remapBookKeys, remapScopeProjects } from "../codex/codex-scope";
 import { tryFileOp } from "../lib/notify";
 import { persistOverview, updateDraftFields } from "./index-writer";
 import { expectInAppRename } from "./rename-heal";
@@ -67,16 +67,19 @@ export async function executeProjectRename(
         await persistOverview(app, index, { planningNote: p.planningNote, cover: p.cover });
       }
     }
-    // Codex scope is the index basename stored as a wikilink; Obsidian already
-    // rewrote resolving links during the rename when link-updating is on. This
-    // sweep covers the rest (setting off, or a link that didn't resolve).
+    // Codex scope and pins are the index basename stored as a wikilink; Obsidian
+    // already rewrote resolving links during the rename when link-updating is
+    // on. This sweep covers the rest (setting off, or a link that didn't resolve).
     if (plan.codexRenames.length) {
       const byOld = new Map(plan.codexRenames.map((r) => [r.from, r.to]));
       for (const e of getCodexEntities(app)) {
         const next = e.scope ? remapScopeProjects(e.scope, byOld) : null;
-        if (!next) continue;
+        const pins = e.pinned ? remapBookKeys(e.pinned, byOld) : null;
+        if (!next && !pins) continue;
         const f = app.vault.getAbstractFileByPath(e.path);
-        if (f instanceof TFile) await writeEntityScope(app, f, next);
+        if (!(f instanceof TFile)) continue;
+        if (next) await writeEntityScope(app, f, next);
+        if (pins) await updateEntityPins(app, f, (cur) => remapBookKeys(cur, byOld) ?? cur);
       }
     }
   }, `Couldn't finish renaming "${plan.oldTitle}" — some files may have moved; check the project folder.`);

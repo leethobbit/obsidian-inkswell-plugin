@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planDraftCopy } from "../src/projects/draft-plan";
+import { planDraftCopy, planDraftDelete } from "../src/projects/draft-plan";
 import { MultipleSceneDraft, Project, SingleSceneDraft } from "../src/projects/types";
 
 function multiScene(over: Partial<MultipleSceneDraft> = {}): Project {
@@ -135,5 +135,63 @@ describe("planDraftCopy (single-format)", () => {
     expect(plan.sceneCopies).toEqual([]);
     expect(plan.folders).toEqual(["Stories/Drafts/Revision"]);
     expect(plan.newDraft).toMatchObject({ format: "single", draftTitle: "Revision" });
+  });
+});
+
+describe("planDraftDelete", () => {
+  const SCENES = "Inkswell/My Novel/Scenes";
+  const atPath = (vaultPath: string, scenes: string[]): Project => ({
+    ...multiScene(),
+    vaultPath,
+    scenes: scenes.map((t) => ({ title: t, indent: 0, path: `${SCENES}/${t}.md` })),
+  });
+
+  it("trashes every scene of a draft that shares nothing", () => {
+    const real = multiScene();
+    const other = {
+      ...multiScene(),
+      vaultPath: "Inkswell/My Novel/Drafts/B/My Novel — B.md",
+      scenes: [{ title: "01 - Opening", indent: 0, path: "Inkswell/My Novel/Drafts/B/Scenes/01 - Opening.md" }],
+    };
+    expect(planDraftDelete(real, [real, other])).toEqual({
+      trash: ["Inkswell/My Novel/Scenes/01 - Opening.md", "Inkswell/My Novel/Scenes/02 - Rising.md"],
+      kept: [],
+    });
+  });
+
+  it("keeps every scene when the draft is a sync conflict copy of the index (#69)", () => {
+    const real = multiScene();
+    const copy = { ...multiScene(), vaultPath: "Inkswell/My Novel/My Novel (Conflicted copy).md" };
+    expect(planDraftDelete(copy, [real, copy])).toEqual({
+      trash: [],
+      kept: ["Inkswell/My Novel/Scenes/01 - Opening.md", "Inkswell/My Novel/Scenes/02 - Rising.md"],
+    });
+    // And the other way round: deleting the original leaves the copy whole.
+    expect(planDraftDelete(real, [real, copy]).trash).toEqual([]);
+  });
+
+  it("splits a partial overlap: only the scenes no other project lists are trashed", () => {
+    const copy = atPath("Inkswell/My Novel/Copy.md", ["01 - Opening", "02 - Rising", "03 - New"]);
+    const real = atPath("Inkswell/My Novel/My Novel.md", ["01 - Opening", "02 - Rising"]);
+    expect(planDraftDelete(copy, [real, copy])).toEqual({
+      trash: [`${SCENES}/03 - New.md`],
+      kept: [`${SCENES}/01 - Opening.md`, `${SCENES}/02 - Rising.md`],
+    });
+  });
+
+  it("counts another story's files too, and another project's index note", () => {
+    const mine = atPath("A/Mine.md", ["Shared", "Index"]);
+    mine.scenes[1].path = "B/Other.md";
+    const other = { ...atPath("B/Other.md", ["Shared"]), draft: { ...multiScene().draft, title: "Other" } };
+    expect(planDraftDelete(mine, [mine, other])).toEqual({
+      trash: [],
+      kept: [`${SCENES}/Shared.md`, "B/Other.md"],
+    });
+  });
+
+  it("skips unresolved scenes and lists a repeated scene once", () => {
+    const p = atPath("A/Mine.md", ["One", "One"]);
+    p.scenes.push({ title: "Gone", indent: 0, path: null });
+    expect(planDraftDelete(p, [p])).toEqual({ trash: [`${SCENES}/One.md`], kept: [] });
   });
 });

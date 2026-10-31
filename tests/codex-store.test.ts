@@ -16,6 +16,7 @@ import {
   resolveCodexTemplate,
   resolveEntityImage,
   scenesForEntity,
+  updateEntityPins,
   updateEntityProjects,
   writeEntityScope,
 } from "../src/codex/codex-store";
@@ -563,5 +564,41 @@ describe("createPlaceInside (#66)", () => {
     expect(await createPlaceInside(app.asApp(), settingsWith(), entity, file as never, "Winterfell")).toBe("taken");
     expect(app.vault.raw("Codex/Winterfell.md")).toContain("[[Elsewhere]]");
     expect(await createPlaceInside(app.asApp(), settingsWith(), entity, file as never, "..")).toBe("invalid");
+  });
+});
+
+describe("pins (codex-pinned, #70) and the search's Role / Type", () => {
+  const fmOf = (app: FakeApp, path: string) =>
+    app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(path) as never)?.frontmatter ?? {};
+  const byName = (app: FakeApp, name: string) => getCodexEntities(app.asApp()).find((e) => e.name === name);
+
+  it("reads pins (a list or one link) and the role / type values", () => {
+    const app = new FakeApp();
+    app.vault.seed(
+      "Codex/Mira.md",
+      '---\ncodex: character\nrole: Antagonist\ncodex-pinned:\n  - "[[Book A]]"\n  - "[[Book B]]"\n---\n'
+    );
+    app.vault.seed("Codex/Port.md", '---\ncodex: location\ntype: City\ncodex-pinned: "[[Book A]]"\n---\n');
+    app.vault.seed("Codex/Anna.md", "---\ncodex: character\nrole: 3\n---\n");
+    expect(byName(app, "Mira")?.pinned).toEqual(["Book A", "Book B"]);
+    expect(byName(app, "Mira")?.classifiers).toEqual(["Antagonist"]);
+    expect(byName(app, "Port")?.pinned).toEqual(["Book A"]);
+    expect(byName(app, "Port")?.classifiers).toEqual(["City"]);
+    expect(byName(app, "Anna")?.pinned).toBeUndefined();
+    expect(byName(app, "Anna")?.classifiers).toBeUndefined(); // a non-string role is skipped
+  });
+
+  it("updateEntityPins: always a list, two pins from the same pre-state both survive, empty removes the key", async () => {
+    const app = new FakeApp();
+    const file = app.vault.seed("Codex/Mira.md", '---\ncodex: character\ncodex-project: "[[Book A]]"\n---\n');
+    const p1 = updateEntityPins(app.asApp(), file as never, (cur) => [...cur, "Book A"]);
+    const p2 = updateEntityPins(app.asApp(), file as never, (cur) => [...cur, "Book B"]);
+    await Promise.all([p1, p2]);
+    expect(fmOf(app, "Codex/Mira.md")["codex-pinned"]).toEqual(["[[Book A]]", "[[Book B]]"]);
+    await updateEntityPins(app.asApp(), file as never, (cur) => cur.filter((b) => b !== "Book A"));
+    expect(fmOf(app, "Codex/Mira.md")["codex-pinned"]).toEqual(["[[Book B]]"]); // one stays a list
+    await updateEntityPins(app.asApp(), file as never, () => []);
+    expect("codex-pinned" in fmOf(app, "Codex/Mira.md")).toBe(false);
+    expect(fmOf(app, "Codex/Mira.md")["codex-project"]).toBe("[[Book A]]"); // scope untouched
   });
 });

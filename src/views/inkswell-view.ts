@@ -474,7 +474,9 @@ export class InkswellView extends ItemView {
   }
 
   private async deleteDraftAction(story: Story, project: Project): Promise<void> {
-    const deleted = await deleteDraft(this.app, project, story.drafts.length <= 1);
+    const deleted = await deleteDraft(this.app, project, story.drafts.length <= 1, () =>
+      this.plugin.store.getProjects()
+    );
     if (!deleted) return;
     const sibling = story.drafts.find((d) => d.vaultPath !== project.vaultPath);
     this.plugin.activeProject.set(sibling ? sibling.vaultPath : null);
@@ -603,6 +605,32 @@ export class InkswellView extends ItemView {
     void this.write.splitScene(mode);
   }
 
+  /** True when Write may show the stream here (not a phone, feature on). */
+  canToggleStream(): boolean {
+    return this.write.canStream();
+  }
+
+  /** Switch Write between one scene at a time and the stream, and show Write. */
+  toggleStream(): void {
+    this.write.toggleStream();
+    if (this.mode !== "write") this.setMode("write");
+  }
+
+  /** True when Write is showing the stream (gates the chapter-jump commands). */
+  isStreaming(): boolean {
+    return this.mode === "write" && this.write.isStreaming();
+  }
+
+  /** Scroll the stream to the next / previous chapter. */
+  jumpChapter(dir: 1 | -1): void {
+    this.write.jumpChapter(dir);
+  }
+
+  /** Pick a chapter to scroll the stream to. */
+  promptJumpToChapter(): void {
+    this.write.promptJumpToChapter();
+  }
+
   /** True when Write is active with a live editor (gates the toggle-* commands). */
   canFormat(): boolean {
     return this.mode === "write" && this.write.hasEditor();
@@ -621,7 +649,7 @@ export class InkswellView extends ItemView {
   /** Flush unsaved Write-editor text to disk (quit-time safety). The editor
    *  stays live — this only drains the pending save. */
   flushWrites(): Promise<void> {
-    return this.write.flushPendingSave();
+    return this.write.flushBeforeQuit();
   }
 
   /** Force a re-render (e.g. after a settings change). */

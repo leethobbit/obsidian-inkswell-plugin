@@ -9,7 +9,8 @@
  *  - `planSceneRename` — given a vault rename event, decide whether it's a scene
  *    rename we can heal automatically, and how (Tier 1).
  *  - `reconcileSuggestions` — given a project, surface missing scenes + orphan
- *    files so the UI can offer a relink (Tier 2).
+ *    files so the UI can offer a relink (Tier 2). `advanceSettle` holds that
+ *    offer back until the mismatch stops changing (a sync still in flight).
  *
  * Plus a tiny suppression registry so the app's OWN rename (which already updates
  * the index) doesn't also trigger a heal — avoiding a redundant/racing write.
@@ -72,6 +73,74 @@ export function reconcileSuggestions(project: Project): ReconcileSuggestions {
       ? { oldTitle: missing[0], newBasename: orphans[0] }
       : null;
   return { missing, orphans, autoMatch };
+}
+
+// --- Settle window (mid-sync) ----------------------------------------------------
+// A sync service delivers an index note and the scene files it names separately,
+// so for a few seconds a rename made on another device looks like "missing +
+// unindexed" here, and the obvious relink points the WRONG way. A fix clicked
+// then rewrites the index against a version that's still on its way (#69). So
+// the banner waits until the mismatch has held still before offering anything.
+
+/** How long a project's mismatch must hold still before the banner shows it. */
+export const RECONCILE_SETTLE_MS = 10_000;
+
+export interface SettleState {
+  /** The mismatch, one sorted key per missing title (`m:`) and unindexed file (`o:`). */
+  keys: string[];
+  /** When this exact mismatch was first seen. */
+  since: number;
+}
+
+/** The identity of a project's mismatch, for {@link advanceSettle}. */
+export function mismatchKeys(s: ReconcileSuggestions): string[] {
+  return [...s.missing.map((t) => `m:${t}`), ...s.orphans.map((b) => `o:${b}`)].sort();
+}
+
+/**
+ * Advance a project's settle clock to `now`. Null when nothing is out of sync.
+ * The clock restarts whenever the mismatch changes, with one exception: once
+ * it's showing (settled), items that only go away keep it showing. That's the
+ * writer working through the list, and the rest mustn't vanish under them.
+ */
+export function advanceSettle(
+  prev: SettleState | undefined,
+  keys: string[],
+  now: number,
+  settleMs = RECONCILE_SETTLE_MS
+): SettleState | null {
+  if (keys.length === 0) return null;
+  if (prev) {
+    const before = new Set(prev.keys);
+    const onlyShrank = keys.every((k) => before.has(k));
+    const same = onlyShrank && keys.length === prev.keys.length;
+    if (same || (onlyShrank && now - prev.since >= settleMs)) return { keys, since: prev.since };
+  }
+  return { keys, since: now };
+}
+
+/** Milliseconds until a mismatch may show; 0 means show it now. */
+export function settleRemaining(
+  state: SettleState,
+  now: number,
+  settleMs = RECONCILE_SETTLE_MS
+): number {
+  return Math.max(0, state.since + settleMs - now);
+}
+
+// A project created on this device can't be half-synced, and bringing an
+// existing folder in (README "Bringing in a book") starts with every note
+// unindexed, so its banner shows at once instead of after the wait.
+const createdHere = new Set<string>();
+
+/** Record that this device just created the project indexed at `indexPath`. */
+export function markCreatedHere(indexPath: string): void {
+  createdHere.add(indexPath);
+}
+
+/** Whether this device created the project at `indexPath` this session. */
+export function wasCreatedHere(indexPath: string): boolean {
+  return createdHere.has(indexPath);
 }
 
 // --- In-app-rename suppression -------------------------------------------------
