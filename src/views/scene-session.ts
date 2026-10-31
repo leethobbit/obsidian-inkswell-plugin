@@ -22,6 +22,9 @@
  *     save writes the file's own endings back (`withEol`). Opening a Windows
  *     ("\r\n") scene and clicking away never rewrites it — a spurious write is
  *     a sync hazard (#64).
+ *  5. Words never leave with the editor. A teardown flush that can't write —
+ *     the scene is in conflict, or the write fails — backs the editor text up
+ *     to "Inkswell conflicts" and says so. The file keeps the disk version.
  *
  * EditorView-free by design (`getDoc` is a thunk): fully unit-testable against
  * the FakeApp harness.
@@ -34,6 +37,8 @@ import { Eol, detectEol, sameText, withEol } from "../lib/line-endings";
 
 export type SessionState = "clean" | "dirty" | "conflict";
 export type SaveResult = "saved" | "noop" | "conflict" | "error";
+/** "teardown": the editor is going away, so text that can't be written is backed up. */
+export type SaveContext = "editor-alive" | "teardown";
 
 /** Thrown out of the `vault.process` transform to abort a stale write. */
 export class ConflictError extends Error {
@@ -74,6 +79,8 @@ export class SceneSession {
   private chain: Promise<unknown> = Promise.resolve();
   private autosave: Debouncer<[], void>;
   private disposed = false;
+  /** Editor text already backed up by a conflicted teardown (quit, then close). */
+  private rescued: string | null = null;
 
   private constructor(opts: SceneSessionOptions, frontmatter: string, body: string) {
     this.app = opts.app;
@@ -109,7 +116,7 @@ export class SceneSession {
    * Save the current editor text (captured when the queued op RUNS, so the
    * latest keystrokes win). Serialized with every other session op.
    */
-  save(ctx: "editor-alive" | "teardown" = "editor-alive"): Promise<SaveResult> {
+  save(ctx: SaveContext = "editor-alive"): Promise<SaveResult> {
     return this.enqueue(() => {
       const body = this.getDoc();
       if (body === null) return Promise.resolve<SaveResult>("noop"); // editor gone; flush() handles teardown
@@ -118,16 +125,17 @@ export class SceneSession {
   }
 
   /**
-   * Teardown flush: capture the editor text NOW (synchronously — the caller
-   * may destroy the editor on the next line), cancel the pending autosave, and
-   * queue the final save. Await the returned promise wherever ordering matters
-   * (scene switch re-seeds, app quit).
+   * Flush: capture the editor text NOW (synchronously — the caller may destroy
+   * the editor on the next line), cancel the pending autosave, and queue the
+   * final save. Await the returned promise wherever ordering matters (scene
+   * switch re-seeds, app quit). Pass "editor-alive" when the editor stays up
+   * (the flush before Search's replace), so a conflict stays with the banner.
    */
-  flush(): Promise<SaveResult> {
+  flush(ctx: SaveContext = "teardown"): Promise<SaveResult> {
     const body = this.getDoc();
     this.autosave.cancel();
     if (body === null) return Promise.resolve("noop");
-    return this.enqueue(() => this.writeBody(body, "teardown"));
+    return this.enqueue(() => this.writeBody(body, ctx));
   }
 
   /**
@@ -258,8 +266,12 @@ export class SceneSession {
     this.eol = detectEol(body);
   }
 
-  private async writeBody(body: string, ctx: "editor-alive" | "teardown"): Promise<SaveResult> {
-    if (this.state === "conflict") return "conflict"; // banner owns the file until resolved
+  private async writeBody(body: string, ctx: SaveContext): Promise<SaveResult> {
+    if (this.state === "conflict") {
+      // The banner owns the file until resolved — unless the editor is going.
+      if (ctx === "teardown") await this.rescueConflict(body);
+      return "conflict";
+    }
     // The editor's "\n" text equals the baseline in everything but endings —
     // nothing was edited, so nothing is written (contract 4).
     if (sameText(body, this.loadedBody)) {
@@ -283,6 +295,7 @@ export class SceneSession {
     } catch (e) {
       if (e instanceof ConflictError) {
         this.setState("conflict");
+        if (ctx === "teardown") await this.rescueConflict(body);
         return "conflict";
       }
       console.error("[Inkswell] Failed to save scene body", e);
@@ -292,7 +305,7 @@ export class SceneSession {
   }
 
   /** Honest failure messaging: name where the text still lives. */
-  private async reportSaveFailure(body: string, ctx: "editor-alive" | "teardown"): Promise<void> {
+  private async reportSaveFailure(body: string, ctx: SaveContext): Promise<void> {
     if (ctx === "editor-alive") {
       new Notice(
         `Inkswell couldn't save "${this.file.basename}". Your text is still in the editor — copy it out if this keeps happening.`
@@ -301,20 +314,51 @@ export class SceneSession {
     }
     // The editor is going away — the old "still in the editor" claim would be a
     // lie here. Best-effort backup, then say exactly where the words are.
+    const path = await this.backUpUnsaved(body);
+    new Notice(
+      path
+        ? `Inkswell couldn't save "${this.file.basename}" — your unsaved text was backed up to "${path}".`
+        : `Inkswell couldn't save "${this.file.basename}" or back it up — the unsaved text was printed to the developer console (Ctrl/Cmd-Shift-I).`
+    );
+  }
+
+  /**
+   * Teardown of a scene in conflict: the file holds words this session never
+   * saw, so the editor's version can't be written, and the editor is about to
+   * go. The file keeps the disk version and the editor's goes to "Inkswell
+   * conflicts" — skipped when it's empty, matches the disk after all, or was
+   * already backed up (a quit flush, then the view closing).
+   */
+  private async rescueConflict(body: string): Promise<void> {
+    if (!body.trim() || (this.rescued !== null && sameText(body, this.rescued))) return;
     try {
-      const path = await writeConflictBackup(
+      const { body: diskBody } = splitFrontmatter(await this.app.vault.cachedRead(this.file));
+      if (sameText(body, diskBody)) return;
+    } catch {
+      // Unreadable or deleted: back it up regardless.
+    }
+    const path = await this.backUpUnsaved(body);
+    if (path) this.rescued = body;
+    new Notice(
+      path
+        ? `"${this.file.basename}" changed on disk while you were editing, so Inkswell kept the disk version. Your version was saved to "${path}".`
+        : `"${this.file.basename}" changed on disk while you were editing, and Inkswell couldn't back up your version — it was printed to the developer console (Ctrl/Cmd-Shift-I).`
+    );
+  }
+
+  /** Back the editor text up to "Inkswell conflicts"; null (after a console dump) if that fails too. */
+  private async backUpUnsaved(body: string): Promise<string | null> {
+    try {
+      return await writeConflictBackup(
         this.app,
         this.file.basename,
         "unsaved editor text",
-        this.loadedFrontmatter + body
+        this.loadedFrontmatter + withEol(body, this.eol)
       );
-      new Notice(`Inkswell couldn't save "${this.file.basename}" — your unsaved text was backed up to "${path}".`);
     } catch (backupErr) {
       console.error("[Inkswell] Backup also failed; dumping unsaved text:", backupErr);
       console.error(body);
-      new Notice(
-        `Inkswell couldn't save "${this.file.basename}" or back it up — the unsaved text was printed to the developer console (Ctrl/Cmd-Shift-I).`
-      );
+      return null;
     }
   }
 }

@@ -93,7 +93,7 @@ Everything Inkswell stores is plain text you can inspect, sync, and back up like
 Recovery options, should anything ever go wrong:
 
 - **Obsidian's File Recovery** (Settings → File Recovery → *View*) keeps periodic snapshots of every note that changes — including plugin-written ones. The search is by **file name**: for plan data (beats, goals, revision log), search for your **project's name** and look at the index note's snapshots; for prose, search the scene's name.
-- **The "Inkswell conflicts" folder**: whenever Inkswell must displace a version of your text (resolving an editor/disk conflict, or overwriting a file during compile at your request), the displaced version is saved there first — nothing is ever silently discarded.
+- **The "Inkswell conflicts" folder**: whenever Inkswell must displace a version of your text (resolving an editor/disk conflict, leaving a scene before you've resolved one, or overwriting a file during compile at your request), the displaced version is saved there first — nothing is ever silently discarded.
 - **Daily `data.json` backups**: on each load, Inkswell keeps a daily copy of its `data.json` in `.obsidian/plugins/inkswell/backups/` (the last 7 days). To bring back **settings only** (custom codex types, renamed types, Customize changes, the rail arrangement) without touching your writing history, run the command **Restore settings from a backup** and pick a day. To restore everything, including writing history: disable Inkswell, copy the backup over `data.json`, re-enable. If `data.json` can't be read when Obsidian starts, Inkswell loads the newest backup by itself, keeps the unreadable file as `data-unreadable-<date>.json`, and shows a notice.
 
 ## Install

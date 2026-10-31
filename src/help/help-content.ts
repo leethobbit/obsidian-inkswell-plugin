@@ -581,7 +581,8 @@ export const HELP_SECTIONS: HelpSection[] = [
       p(
         el,
         "Whenever Inkswell must displace a version of your text — resolving an " +
-          "editor-vs-disk conflict, or overwriting a file during compile at your request " +
+          "editor-vs-disk conflict, leaving a scene before you've resolved one, or " +
+          "overwriting a file during compile at your request " +
           "— the displaced version is saved to the “Inkswell conflicts” folder first. " +
           "Nothing is silently discarded."
       );

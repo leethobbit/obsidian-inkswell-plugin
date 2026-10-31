@@ -649,7 +649,7 @@ export class InkswellView extends ItemView {
   /** Flush unsaved Write-editor text to disk (quit-time safety). The editor
    *  stays live — this only drains the pending save. */
   flushWrites(): Promise<void> {
-    return this.write.flushPendingSave();
+    return this.write.flushBeforeQuit();
   }
 
   /** Force a re-render (e.g. after a settings change). */

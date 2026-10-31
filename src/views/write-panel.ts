@@ -333,9 +333,19 @@ export class WritePanel implements HoverParent {
   /**
    * Flush any unsaved editor text to disk NOW. Called before a cross-scene replace
    * so the open scene's latest content is what replace re-reads (never a stale
-   * on-disk copy). No-op when nothing is dirty.
+   * on-disk copy). No-op when nothing is dirty. The editor stays up, so a
+   * conflict stays with its banner.
    */
   async flushPendingSave(): Promise<void> {
+    await this.session?.flush("editor-alive");
+  }
+
+  /**
+   * App quit: flush as a teardown — the editor won't outlive the quit, so a
+   * scene in conflict gets its editor text backed up instead of lost (view
+   * close isn't reliably awaited on quit).
+   */
+  async flushBeforeQuit(): Promise<void> {
     await this.session?.flush();
   }
 
@@ -1857,8 +1867,9 @@ export class WritePanel implements HoverParent {
       if (cursor != null) this.placeCursor(cursor);
       return;
     }
-    // A conflict's unsaved text lives only in this editor until the writer
-    // picks a version; moving on would drop it.
+    // A conflict waits for the writer to pick a version in its banner. Moving
+    // on would file the editor's text under "Inkswell conflicts" and leave a
+    // reader showing it in place of the file's.
     if (this.session?.state === "conflict") {
       new Notice(
         `“${this.currentFile?.basename ?? "This scene"}” changed on disk while you were editing — choose a version in its banner first.`

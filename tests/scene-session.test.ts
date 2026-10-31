@@ -267,6 +267,64 @@ describe("SceneSession", () => {
     expect(app.vault.raw(backups[0])).toContain("Words typed into a doomed scene.");
     expect(capturedNotices.some((n) => n.includes("backed up to"))).toBe(true);
   });
+
+  /** A conflict whose editor text the panel is about to destroy. */
+  async function conflicted(): Promise<Harness> {
+    const h = await makeSession(app);
+    h.setDoc("My unsaved words.\n");
+    await app.vault.modify(app.file(SCENE_PATH) as never, "---\nstatus: draft\npov: Mara\n---\nDisk version.\n");
+    await h.session.handleExternalModify();
+    expect(h.session.state).toBe("conflict");
+    return h;
+  }
+
+  it("leaving a scene in conflict backs the editor text up and keeps the disk version", async () => {
+    const h = await conflicted();
+    const flushed = h.session.flush(); // scene switch / leaving Write / view close
+    h.setDoc(null);
+    h.session.dispose();
+    expect(await flushed).toBe("conflict");
+    expect(bodyOf(app)).toBe("Disk version.\n");
+    const backups = backupPaths(app);
+    expect(backups).toHaveLength(1);
+    expect(app.vault.raw(backups[0])).toContain("My unsaved words.");
+    expect(capturedNotices.some((n) => n.includes("kept the disk version") && n.includes(backups[0]))).toBe(true);
+  });
+
+  it("a conflict found by the teardown write itself is backed up too", async () => {
+    const h = await makeSession(app);
+    h.setDoc("Typed before the sync's modify event arrived.\n");
+    await app.vault.modify(app.file(SCENE_PATH) as never, "---\na: 1\n---\nSynced text.\n");
+    expect(await h.session.flush()).toBe("conflict"); // no handleExternalModify first
+    expect(bodyOf(app)).toBe("Synced text.\n");
+    expect(backupPaths(app)).toHaveLength(1);
+  });
+
+  it("a flush that keeps the editor up (Search's replace) leaves the conflict to the banner", async () => {
+    const h = await conflicted();
+    expect(await h.session.flush("editor-alive")).toBe("conflict");
+    expect(backupPaths(app)).toEqual([]);
+    expect(h.session.state).toBe("conflict");
+  });
+
+  it("the same conflicted text is backed up once (quit flush, then the view closing)", async () => {
+    const h = await conflicted();
+    await h.session.flush(); // quit task
+    await h.session.flush(); // onClose
+    expect(backupPaths(app)).toHaveLength(1);
+    h.setDoc("My unsaved words.\nPlus a line typed after.\n");
+    await h.session.flush();
+    expect(backupPaths(app)).toHaveLength(2); // new words, new backup
+  });
+
+  it("no backup when the editor text matches the disk after all, or is empty", async () => {
+    const h = await conflicted();
+    h.setDoc("Disk version.\n");
+    await h.session.flush();
+    h.setDoc("  \n");
+    await h.session.flush();
+    expect(backupPaths(app)).toEqual([]);
+  });
 });
 
 /**
