@@ -22,6 +22,9 @@ CLAUDE.md
 # absolute local paths). AGENTS.md carries the one hook worth reproducing.
 .claude/
 
+# Playwright MCP session dumps (page snapshots, console logs) — local debugging output
+.playwright-mcp/
+
 # obsidian notes surfaced via junction (DKB owns these)
 docs/
 
