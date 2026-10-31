@@ -10,6 +10,10 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-10-31
+
+Write the whole book as one page. The new Stream view in Write shows every scene in order and lets you edit any of them right where it sits, with quick jumps between chapters. Pin your main cast in the Codex so they list first in each book, and find characters by their role. And a round of fixes for books you write on more than one device: a book whose index note can't be read now says so instead of vanishing, and leaving a scene with a sync conflict no longer loses your words.
+
 ### Added
 - **Stream: write the whole book as one page.** A new **Scene | Stream** switch at the top of Write shows every scene of the book in order, on one continuous page. Click anywhere in the text to edit that scene right there, and the arrow keys carry on into the next or previous scene. Each scene still saves to its own note, the same way single-scene Write does. Jump between chapters with the **Jump to chapter** menu, the chapter names in the scene list on the left, or the new *Next chapter*, *Previous chapter* and *Jump to chapter…* commands. The scene list marks where you are as you scroll. Narrow the page to one chapter, POV, plotline, character or status. Built and tested for 200,000-word books. Write remembers which view you used last on each device. Not available on phones; turn it off under Settings → Features if you don't want it. The milestone word-count gutter isn't shown in Stream.
 - **Pin your main cast in the Codex.** Right-click an entry (or tap ⋯) and choose **Pin in this book**. Pinned entries list first in their group with a small pin, and they come first when you type `[[` in Write. Pins belong to the book you have open, so a series character can be pinned in book one and not in book three. Pinning never changes which books can see an entry. Requested in [#70](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/70).
@@ -474,7 +478,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.23.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.24.0...HEAD
+[1.24.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.23.0...1.24.0
 [1.23.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.22.0...1.23.0
 [1.22.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.21.1...1.22.0
 [1.21.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.21.0...1.21.1
