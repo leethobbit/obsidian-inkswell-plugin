@@ -20,7 +20,7 @@ import { attachRowMenu } from "../lib/row-menu";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
 import { Project, isMultiScene } from "../projects/types";
-import { confirmDelete, openScene, openSceneOnModClick, promptText } from "../scenes/scene-actions";
+import { addSceneMenuItems, confirmDelete, openSceneOnModClick, promptText } from "../scenes/scene-actions";
 import { readSceneMeta } from "../scenes/scene-meta";
 import { renderEmptyState, renderEmptyStateAction } from "../views/panel-kit";
 import { applyOutline } from "../outliner/apply-outline";
@@ -414,18 +414,18 @@ export class OutlinePanel {
     );
   }
 
-  // --- Touch fallback menus ------------------------------------------------
+  // --- Row menus (also the touch fallback for drag-drop) -------------------
 
   private sceneMenu(scene: SceneRef): Menu {
     const menu = new Menu();
-    if (scene.path) {
-      // The row click already opens the scene in Write; offer the plain note here.
-      menu.addItem((i) =>
-        i.setTitle("Open in new tab").setIcon("file-text").onClick(() => {
-          const f = this.app.vault.getAbstractFileByPath(scene.path!);
-          if (f instanceof TFile) openScene(this.app, f);
-        })
-      );
+    // The same scene items as Board and Grid (#72). A scene whose file is
+    // missing gets only the Move items.
+    const file = scene.path ? this.app.vault.getAbstractFileByPath(scene.path) : null;
+    if (file instanceof TFile && this.project) {
+      addSceneMenuItems(menu, this.app, this.project, scene.title, file, {
+        includeOpen: true,
+        plugin: this.plugin,
+      });
     }
     menu.addSeparator();
     const chapters = this.allChapters();
