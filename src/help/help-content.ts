@@ -191,6 +191,8 @@ export const HINTS: Record<string, HintEntry> = {
           "scenes. Drag a scene into a chapter (or a chapter into an act), and drop above " +
           "or below a row to reorder. This tree is the source of truth — arranging it also " +
           "sets the manuscript's reading order, so each chapter's scenes stay together. " +
+          "Right-click a scene (or tap ⋯) to rename it, edit its details or synopsis, or " +
+          "move it to another chapter. " +
           "The Board and Grid views (top of the tab) show the same scenes a different way."
       );
       p(

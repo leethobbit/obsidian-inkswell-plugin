@@ -10,6 +10,9 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Fixed
+- **Edit, rename and delete scenes from the Tree.** In Plan → Structure → Tree, right-clicking a scene (or tapping ⋯) only offered to open it or move it to another chapter. It now has the same **Edit scene…**, **Edit synopsis…**, **Rename…** and **Delete scene** items as Board and Grid. A scene keeps its chapter when you rename it. Reported in [#72](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/72).
+
 ## [1.24.0] - 2026-10-31
 
 Write the whole book as one page. The new Stream view in Write shows every scene in order and lets you edit any of them right where it sits, with quick jumps between chapters. Pin your main cast in the Codex so they list first in each book, and find characters by their role. And a round of fixes for books you write on more than one device: a book whose index note can't be read now says so instead of vanishing, and leaving a scene with a sync conflict no longer loses your words.
