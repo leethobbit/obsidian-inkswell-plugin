@@ -10,6 +10,10 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.24.1] - 2026-11-01
+
+A small fix. The Tree view in Plan → Structure now has the same scene menu as Board and Grid, so you can rename a scene, edit its details or synopsis, or delete it without switching views.
+
 ### Fixed
 - **Edit, rename and delete scenes from the Tree.** In Plan → Structure → Tree, right-clicking a scene (or tapping ⋯) only offered to open it or move it to another chapter. It now has the same **Edit scene…**, **Edit synopsis…**, **Rename…** and **Delete scene** items as Board and Grid. A scene keeps its chapter when you rename it. Reported in [#72](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/72).
 
@@ -481,7 +485,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.24.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.24.1...HEAD
+[1.24.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.24.0...1.24.1
 [1.24.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.23.0...1.24.0
 [1.23.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.22.0...1.23.0
 [1.22.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.21.1...1.22.0
