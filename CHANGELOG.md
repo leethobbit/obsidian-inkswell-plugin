@@ -10,6 +10,19 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.25.0] - 2026-11-11
+
+Export a manuscript to Word with nothing else installed, on your computer or your phone. Publish → Compile now writes a standard manuscript .docx, title page and running header included, the format agents and editors ask for. And Revise → Audit gets a checklist for every chapter, between the whole-book and per-scene passes, so you can check that each one earns its place.
+
+### Added
+- **Word export, built in.** Publish → Compile has a new **Word (.docx)** format that needs nothing else installed, and it works on phones and tablets too. It writes a standard manuscript, the format agents and editors ask for: 12 pt Times New Roman or Courier New, double-spaced, 1-inch margins, indented paragraphs, each chapter starting a third of the way down a new page, `#` for scene breaks, and a running header with your surname, the title, and the page number. It opens with a title page (your name, contact details, and the word count rounded the usual way, "about 88,000 words") and ends with "END". Each of these can be switched off. Pick US Letter or A4. Set the byline (a pen name, say) and the header surname per book. Italics, bold, block quotes, lists, centered and right-aligned text (`<center>`, `<p align>`), and images from your vault (PNG, JPEG, GIF) come through. Tables, footnotes and code blocks become plain paragraphs, and **Check manuscript before export** tells you how many there are. Compiling again replaces the last file, unless it has been changed in Word since; then Inkswell asks first and saves a copy of the edited file to "Inkswell conflicts".
+- **A revision checklist for every chapter.** Revise → Audit has a new **Chapters** section between the whole-book and per-scene checklists, one row per chapter in manuscript order. Each chapter gets ten checks: earns its place, opens with a hook, has conflict, moves the story forward, develops a character, raises or answers a story question, sets up or pays off something, builds tension, is paced right, and ends with a reason to keep reading. Tick what a chapter already does and add a note for what it still needs. Make the list your own in Customize → Revision checklists: rename, reorder, hide, or add checks. The ticks stay with the chapter when you rename it in Plan → Structure. Books without chapters don't see the section. Requested in [#75](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/75).
+- **Your name and contact details for manuscripts.** A new **Manuscript** section in Settings holds your legal name and contact block, used on the Word title page.
+
+### Changed
+- **Pandoc is now only needed for PDF, EPUB, and Word with your own reference doc.** Those keep working as before, now labelled "via pandoc" in the format list. Books already set to pandoc Word keep using it. The "needs pandoc" notes only appear when a pandoc format is selected.
+- **Behind the scenes: groundwork for translating Inkswell.** The compile panel's and Revise → Audit's text now comes from a translation file, the first step toward Inkswell in other languages. Nothing changes in English.
+
 ## [1.24.1] - 2026-11-01
 
 A small fix. The Tree view in Plan → Structure now has the same scene menu as Board and Grid, so you can rename a scene, edit its details or synopsis, or delete it without switching views.
@@ -485,7 +498,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.24.1...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.25.0...HEAD
+[1.25.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.24.1...1.25.0
 [1.24.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.24.0...1.24.1
 [1.24.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.23.0...1.24.0
 [1.23.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.22.0...1.23.0

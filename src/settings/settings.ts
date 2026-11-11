@@ -20,6 +20,7 @@ import { deviceFlaggedAsPhone } from "../lib/platform";
 import type { ListOverrides } from "./overridable-lists";
 import { resetHelpState } from "../help/hint";
 import { WelcomeModal } from "../help/welcome-modal";
+import { t } from "../i18n";
 
 export interface InkswellSettings {
   /** Default output format offered in the compile dialog. */
@@ -161,10 +162,18 @@ export interface InkswellSettings {
    * (`normalizeListOverrides`). Absent key = shipped list verbatim.
    */
   listOverrides: ListOverrides;
+  /** Writer's legal name: the built-in Word manuscript's title page (and the
+   *  default byline / header surname). A preference, so it lives here, not in
+   *  any book's frontmatter. */
+  authorName: string;
+  /** Contact block under the name on the title page, one item per line. */
+  authorContact: string;
 }
 
 export const DEFAULT_SETTINGS: InkswellSettings = {
   defaultCompileFormat: "md",
+  authorName: "",
+  authorContact: "",
   showWordCounts: true,
   homeIdeasOpen: true,
   homeArchivedOpen: false,
@@ -385,7 +394,7 @@ export class InkswellSettingTab extends PluginSettingTab {
         control: {
           type: "dropdown",
           key: "defaultCompileFormat",
-          options: { md: "Markdown", html: "HTML", pandoc: "Pandoc (docx/pdf/epub)" },
+          options: compileFormatOptions(),
           defaultValue: "md",
         },
       },
@@ -416,6 +425,22 @@ export class InkswellSettingTab extends PluginSettingTab {
     ];
 
     items.push(
+      {
+        type: "group",
+        heading: t("settings.manuscript.heading"),
+        items: [
+          {
+            name: t("settings.authorName.name"),
+            desc: t("settings.authorName.desc"),
+            control: { type: "text", key: "authorName", defaultValue: "" },
+          },
+          {
+            name: t("settings.authorContact.name"),
+            desc: t("settings.authorContact.desc"),
+            control: { type: "textarea", key: "authorContact", defaultValue: "", rows: 4 },
+          },
+        ],
+      },
       {
         type: "group",
         heading: "Write editor",
@@ -566,6 +591,12 @@ export class InkswellSettingTab extends PluginSettingTab {
       case "defaultCompileFormat":
         s.defaultCompileFormat = value as OutputFormat;
         break;
+      case "authorName":
+        s.authorName = typeof value === "string" ? value.trim() : "";
+        break;
+      case "authorContact":
+        s.authorContact = typeof value === "string" ? value : "";
+        break;
       case "showWordCounts":
         s.showWordCounts = !!value;
         break;
@@ -614,6 +645,31 @@ export class InkswellSettingTab extends PluginSettingTab {
     if (key === "syncWritingHistory") this.plugin.logSync.setEnabled(s.syncWritingHistory);
     if (key === "dailyWordGoal") this.plugin.refreshStatus();
     if (key === "milestoneWords") this.plugin.applyEditorPrefs();
+  }
+
+  /** The "Manuscript" section (imperative fallback). Same rows as the
+   *  declarative group — keep them in lockstep. */
+  private renderManuscript(containerEl: HTMLElement): void {
+    new Setting(containerEl).setName(t("settings.manuscript.heading")).setHeading();
+    new Setting(containerEl)
+      .setName(t("settings.authorName.name"))
+      .setDesc(t("settings.authorName.desc"))
+      .addText((c) =>
+        c.setValue(this.plugin.settings.authorName).onChange(async (v) => {
+          this.plugin.settings.authorName = v.trim();
+          await this.plugin.saveSettings();
+        })
+      );
+    new Setting(containerEl)
+      .setName(t("settings.authorContact.name"))
+      .setDesc(t("settings.authorContact.desc"))
+      .addTextArea((c) => {
+        c.inputEl.rows = 4;
+        c.setValue(this.plugin.settings.authorContact).onChange(async (v) => {
+          this.plugin.settings.authorContact = v;
+          await this.plugin.saveSettings();
+        });
+      });
   }
 
   /** The "Write editor" section (imperative fallback): editor toggles.
@@ -682,9 +738,7 @@ export class InkswellSettingTab extends PluginSettingTab {
       .setDesc("Format pre-selected when you open the compile dialog.")
       .addDropdown((d) =>
         d
-          .addOption("md", "Markdown")
-          .addOption("html", "HTML")
-          .addOption("pandoc", "Pandoc (docx/pdf/epub)")
+          .addOptions(compileFormatOptions())
           .setValue(this.plugin.settings.defaultCompileFormat)
           .onChange(async (v) => {
             this.plugin.settings.defaultCompileFormat = v as OutputFormat;
@@ -729,6 +783,7 @@ export class InkswellSettingTab extends PluginSettingTab {
           })
       );
 
+    this.renderManuscript(containerEl);
     this.renderWriteEditor(containerEl);
 
     new Setting(containerEl).setName("Goals & sprints").setHeading();
@@ -949,6 +1004,16 @@ export class InkswellSettingTab extends PluginSettingTab {
 }
 
 /** A number-control definition backed by a NUMERIC_BOUNDS entry. */
+/** Default-compile-format choices, shared by both settings renderers. */
+function compileFormatOptions(): Record<OutputFormat, string> {
+  return {
+    md: t("settings.compileFormat.md"),
+    html: t("settings.compileFormat.html"),
+    docx: t("settings.compileFormat.docx"),
+    pandoc: t("settings.compileFormat.pandoc"),
+  };
+}
+
 function numberDef(
   name: string,
   desc: string,

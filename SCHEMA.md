@@ -80,7 +80,7 @@ Top-level keys written by the Revise → Audit toolkit. Source: `src/revisions/a
 A single nested object under `inkswell`. All sub-keys optional. Source: `src/projects/types.ts`, `src/projects/index-writer.ts`.
 
 ### `inkswell.compile` — compile/export config
-`sceneSteps` / `manuscriptSteps` (ordered `{id, options}` step lists) · `separator` (string) · `targetBasename` (string, default `manuscript`) · `format` (`md` · `html` · `pandoc`) · `pandoc` (`{to, extension, extraArgs}`, when `format: pandoc`).
+`sceneSteps` / `manuscriptSteps` (ordered `{id, options}` step lists) · `separator` (string) · `targetBasename` (string, default `manuscript`) · `format` (`md` · `html` · `docx` · `pandoc`; `docx` since 1.25) · `pandoc` (`{to, extension, extraArgs}`, when `format: pandoc`) · `docx` (since 1.25, built-in Word options, all optional, kept when the format changes): `font` (`times` default · `courier`) · `paper` (`letter` default · `a4`) · `byline` (string; default = the writer's `authorName` setting) · `surname` (string; default = the byline's last word) · `titlePage` / `endMarker` (only `false` is ever written; absent = on). The writer's legal name and contact block are device-synced *settings* (`authorName`, `authorContact` in data.json), not frontmatter. Source: `src/compile/docx/`, `src/compile/types.ts` (`DocxConfig`).
 
 ### `inkswell.goals` — targets & pace
 `target` (number) · `deadline` (string `YYYY-MM-DD`) · `daysPerWeek` (number 1–7, default 7). **Story-level** — see the note under `overview`.
@@ -125,8 +125,9 @@ Array of `{id, text, scene: string|null, status, created, type?, priority?}`.
 - `type`: `continuity` (default if absent) · `plot-hole` · `rewrite` · `character` · `research` · `new-scene` — `research` and `new-scene` are **legacy as of 1.8**: still read, displayed, filtered, and preserved on edit, but no longer offered when logging a new decision (that work is directed to `[RESEARCH: ]` / `[SCENE: ]` prose markers)
 - `priority`: `low` · `med` · `high` — **legacy as of 1.8**: still read, displayed as a badge, and preserved on edit, but no longer offered when logging a decision (a rank never changes behavior in a prose-order revision pass)
 
-### `inkswell.revisionChecklist` — project Story/Page checklists
-`story` and `page`, each a map of `checkpointId → {done?: boolean, note?: string}`. Ids are the shipped ones below or custom ids from `settings.listOverrides` (`st-…` for story, `pr-…` for page items; custom page groups are `pg-…`, §E.1); unknown ids are preserved and ignored.
+### `inkswell.revisionChecklist` — project Story/Chapter/Page checklists
+`story` and `page`, each a map of `checkpointId → {done?: boolean, note?: string}`; `chapter` (since 1.25) maps a **chapter id** (the `inkswell.chapters` entry's `id`, or the `c:<title>` id derived for an unconfigured chapter) to the same per-checkpoint map. Ticking a check on an unconfigured chapter also stores its `{id, title, firstScene}` entry in `inkswell.chapters`, so the ticks stay with that chapter; a deleted chapter's state is preserved and ignored. Ids are the shipped ones below or custom ids from `settings.listOverrides` (`st-…` for story, `pr-…` for page items; custom page groups are `pg-…`, §E.1); unknown ids are preserved and ignored.
+- **Chapter IDs (10):** `earnsPlace` `hook` `conflict` `advancesPlot` `developsCharacter` `storyQuestion` `setupPayoff` `tension` `paced` `endsPull` (custom: `ch-…`)
 - **Story IDs (18):** `structure` `startsRight` `reveals` `heroGoals` `conflict` `stakes` `tension` `believable` `researched` `backstory` `heroComplex` `heroTransforms` `sideCharsPurpose` `sideCharsMemorable` `subplots` `worldFleshed` `worldImmersive` `consistent`
 - **Page IDs (32),** grouped: *necessity* (`telling` `overDescribing` `preempting` `internalQuestions` `adverbs`) · *paragraphs* (`repetitiveStructure` `overChoreographed` `purpleProse` `overusedMetaphor` `passiveVoice`) · *dialogue* (`tagOverload` `repetitiveDialogue` `flashyTags` `dialogueAdverbs` `unrealisticDialogue` `unnecessaryDialogue` `disjointedDialogue`) · *words* (`overusedWords` `echoes` `redundantWords` `intensifiers` `mitigators` `filterWords` `weakWords` `nonSpecificWords` `cliches` `researchWords`) · *consistency* (`namesConsistent` `descriptionsConsistent` `actionsConsistent` `referencesConsistent` `formattingConsistent`)
 
@@ -203,6 +204,7 @@ One optional entry per overridable list id, each a `ListOverride`: `{ hidden?: i
 |---------|--------------|--------------------|-------|---------|
 | `audit.scene` | 14 scene checkpoints (`revScene`) | `sc` | yes | — |
 | `audit.story` | 18 story checkpoints (`revisionChecklist.story`) | `st` | yes | — |
+| `audit.chapter` | 10 chapter checkpoints (`revisionChecklist.chapter`, since 1.25) | `ch` | yes | — |
 | `audit.page` | 32 prose checkpoints in 5 groups (`revisionChecklist.page`) | `pr` (groups `pg`) | yes | yes |
 | `publishing` | the publishing checklist (`inkswell.publishing.checklist`) | `pt` (phases `pg`) | yes (`optional?` extra) | yes |
 | `prompts` | writing prompts (ids = `p` + FNV-1a of `phase\|category\|text`) | `wp` | yes (`phase`, `category`) | — |

@@ -1448,6 +1448,19 @@ body.is-mobile .inkswell-idea .inkswell-rowmenu {
   gap: var(--size-4-2);
   padding: 2px 0;
 }
+/* Built-in Word: labelled option rows inside the manuscript-format field. */
+.inkswell-publish__docx-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-1);
+}
+.inkswell-publish__docx-row > input[type="text"],
+.inkswell-publish__docx-row > select {
+  flex: 0 1 200px;
+  min-width: 0;
+}
 .inkswell-publish__refrow {
   display: flex;
   align-items: center;

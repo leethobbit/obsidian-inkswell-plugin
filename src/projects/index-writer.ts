@@ -24,12 +24,12 @@ import type { BeatAssignment, BeatSheet } from "../outliner/beat-templates";
 import { renameSceneInBeats, setAssignment } from "../outliner/beats";
 import { rebaseSceneOrder } from "../outliner/outline";
 import type { Plotline } from "../outliner/plotgrid";
-import { passChapterAnchors, renameSceneInChapters } from "../outliner/structure";
+import { passChapterAnchors, pinChapterConfig, renameSceneInChapters } from "../outliner/structure";
 import type { StructureGroup } from "../outliner/structure";
 import { removeScene } from "./scene-tree";
 import type { RevisionDecision } from "../revisions/types";
 import type { ChecklistItem, ChecklistTier, RevisionChecklistData } from "../revisions/checklist";
-import { setChecklistItem } from "../revisions/checklist";
+import { setChapterChecklistItem, setChecklistItem } from "../revisions/checklist";
 import type { StyleEntry } from "../revisions/stylesheet";
 
 /**
@@ -360,6 +360,36 @@ export async function persistChecklistItem(
       raw && typeof raw === "object" ? (raw as RevisionChecklistData) : undefined;
     const next = setChecklistItem(current, tier, id, patch);
     return Object.keys(next).length === 0 ? undefined : next;
+  });
+}
+
+/**
+ * Apply one chapter-checklist patch against the CURRENT stored checklist, and
+ * in the same transaction pin the chapter's id as a config entry when it has
+ * none yet (derived `c:<title>` ids follow occurrence order, so a same-named
+ * chapter added earlier would otherwise inherit the ticks; see pinChapterConfig).
+ */
+export async function persistChapterChecklistItem(
+  app: App,
+  indexFile: TFile,
+  chapter: { id: string; title: string; firstScene?: string },
+  id: string,
+  patch: Partial<ChecklistItem>
+): Promise<void> {
+  await app.fileManager.processFrontMatter(indexFile, (fm: Record<string, unknown>) => {
+    const inkswell = { ...asRecord(fm["inkswell"]) };
+    const raw = inkswell["revisionChecklist"];
+    const current = raw && typeof raw === "object" ? (raw as RevisionChecklistData) : undefined;
+    const next = setChapterChecklistItem(current, chapter.id, id, patch);
+    if (Object.keys(next).length === 0) delete inkswell["revisionChecklist"];
+    else inkswell["revisionChecklist"] = next;
+    if (next.chapter?.[chapter.id]) {
+      const cur = Array.isArray(inkswell["chapters"]) ? (inkswell["chapters"] as StructureGroup[]) : undefined;
+      const pinned = pinChapterConfig(cur, chapter);
+      if (pinned) inkswell["chapters"] = pinned;
+    }
+    if (Object.keys(inkswell).length === 0) delete fm["inkswell"];
+    else fm["inkswell"] = inkswell;
   });
 }
 

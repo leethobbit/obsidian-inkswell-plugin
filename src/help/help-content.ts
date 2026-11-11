@@ -258,12 +258,14 @@ export const HINTS: Record<string, HintEntry> = {
   "revise/audit": {
     title: "How the revision audit works",
     body: (el) => {
-      p(el, "A three-tier checklist that takes a draft from messy to finished:");
+      p(el, "Tiered checklists that take a draft from messy to finished, macro to micro:");
       steps(el, [
         "Story — 18 manuscript-wide checkpoints (saved on the project).",
-        "Prose — 32 line-level checks, grouped.",
+        "Chapters — 10 checks per chapter: does it earn its place, hook, move the story, end with a pull? (Saved on the project; shown once your book has chapters.)",
         "Scene — a 14-point pass per scene (saved on each scene's frontmatter).",
+        "Prose — 32 line-level checks, grouped.",
       ]);
+      p(el, "Rename, reorder, hide, or add checks in Customize → Revision checklists.");
       p(
         el,
         "The per-scene pass classifies each opening (Action / Dialogue / Thought / " +
@@ -326,7 +328,14 @@ export const HINTS: Record<string, HintEntry> = {
       p(
         el,
         "Assemble the active project's scenes into one manuscript file. Pick a format — " +
-          "Markdown, HTML, or Word/PDF/EPUB via Pandoc — set the output name, and compile."
+          "Markdown, HTML, Word, or PDF/EPUB via Pandoc — set the output name, and compile."
+      );
+      p(
+        el,
+        "Word (.docx) is built in and works on every device. It writes a standard manuscript: " +
+          "double-spaced, indented, chapters on a new page, a title page with your name and the " +
+          "word count, and a running header. Add your name and contact details under Settings → " +
+          "Inkswell → Manuscript; set a pen name and the header surname per book under the format."
       );
       p(
         el,

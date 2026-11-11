@@ -140,20 +140,44 @@ export class FakeVault extends Emitter {
     return this.folderAt(path);
   }
 
-  /** Binary files store a marker string; tests assert on paths, not bytes. */
-  async createBinary(path: string, _data: ArrayBuffer): Promise<TFile> {
+  /** Binary files keep their bytes in `bins` (read back via `readBinary` /
+   *  `binary()`); their text content is a "<binary>" marker. */
+  private bins = new Map<string, Uint8Array>();
+
+  async createBinary(path: string, data: ArrayBuffer): Promise<TFile> {
     if (this.nodes.has(path)) throw new Error(`File already exists: ${path}`);
     const file = this.newFile(path);
     this.contents.set(path, "<binary>");
+    this.bins.set(path, new Uint8Array(data.slice(0)));
     this.trigger("create", file);
     return file;
   }
 
-  async modifyBinary(file: TFile, _data: ArrayBuffer): Promise<void> {
+  async modifyBinary(file: TFile, data: ArrayBuffer): Promise<void> {
     if (!this.contents.has(file.path)) throw new Error(`File not found: ${file.path}`);
     this.contents.set(file.path, "<binary>");
+    this.bins.set(file.path, new Uint8Array(data.slice(0)));
     file.stat.mtime = this.tick++;
     this.trigger("modify", file);
+  }
+
+  /** A text file reads back as its UTF-8 bytes; a binary one as stored. */
+  async readBinary(file: TFile): Promise<ArrayBuffer> {
+    const bin = this.bins.get(file.path);
+    if (bin) return bin.slice().buffer;
+    const c = this.contents.get(file.path);
+    if (c === undefined) throw new Error(`File not found: ${file.path}`);
+    return new TextEncoder().encode(c).buffer;
+  }
+
+  /** Seed or inspect raw bytes (tests). */
+  setBinary(path: string, data: Uint8Array): void {
+    if (!this.nodes.has(path)) this.newFile(path);
+    this.contents.set(path, "<binary>");
+    this.bins.set(path, data.slice());
+  }
+  binary(path: string): Uint8Array | undefined {
+    return this.bins.get(path);
   }
 
   getResourcePath(file: TFile): string {
@@ -175,6 +199,7 @@ export class FakeVault extends Emitter {
       return;
     }
     this.contents.set(file.path, content);
+    this.bins.delete(file.path);
     file.stat.mtime = this.tick++;
     this.trigger("modify", file);
   }
@@ -191,6 +216,9 @@ export class FakeVault extends Emitter {
     if (!(file instanceof TFile) || content === undefined) {
       throw new Error(`Cannot rename: ${oldPath}`);
     }
+    const bin = this.bins.get(oldPath);
+    this.bins.delete(oldPath);
+    if (bin) this.bins.set(newPath, bin);
     this.contents.delete(oldPath);
     this.nodes.delete(oldPath);
     const oldParent = file.parent;
@@ -212,6 +240,7 @@ export class FakeVault extends Emitter {
 
   private removeNode(file: TAbstractFile): void {
     this.contents.delete(file.path);
+    this.bins.delete(file.path);
     this.nodes.delete(file.path);
     if (file.parent) file.parent.children = file.parent.children.filter((c) => c !== file);
   }

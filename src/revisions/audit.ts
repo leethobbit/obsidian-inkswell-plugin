@@ -1,10 +1,12 @@
 /**
  * Pure revision-checkpoint definitions and progress math (no Obsidian imports —
- * unit-testable). Implements a three-tier revision method, macro→micro: Story →
- * Scene → Prose, each tier a master checklist.
+ * unit-testable). Implements a tiered revision method, macro→micro: Story →
+ * Chapter → Scene → Prose, each tier a master checklist.
  *
  * - SCENE checkpoints are per-scene state (stored in scene frontmatter; see
  *   `audit-meta.ts`). The 14 checks below are the scene-level pass.
+ * - CHAPTER checkpoints (10) are per-chapter state kept on the project, keyed by
+ *   chapter id (`inkswell.revisionChecklist.chapter`; see `checklist.ts`).
  * - STORY (18) and PROSE (5 grouped categories) checkpoints are project-level state
  *   (stored under `inkswell.revisionChecklist`; see `checklist.ts`). The prose tier
  *   keeps the internal id/const name "page" for back-compat — only its label changed.
@@ -84,6 +86,25 @@ export const STORY_CHECKPOINTS: Checkpoint[] = [
   { id: "worldFleshed", label: "The world is fleshed out" },
   { id: "worldImmersive", label: "The world is immersive" },
   { id: "consistent", label: "Is consistent" },
+];
+
+// --- Chapter-level (10): per-chapter checklist (#75) -----------------------
+// Stored per chapter under `inkswell.revisionChecklist.chapter[<chapterId>]`
+// (see checklist.ts), keyed by the chapter's stable structure id so a rename
+// keeps its ticks. Worded as checks a chapter can pass, not a menu of purposes
+// that no chapter fulfils all of.
+
+export const CHAPTER_CHECKPOINTS: Checkpoint[] = [
+  { id: "earnsPlace", label: "Earns its place (cut it and the story breaks)" },
+  { id: "hook", label: "Opens with a hook" },
+  { id: "conflict", label: "Has conflict or rising pressure" },
+  { id: "advancesPlot", label: "Moves the story forward" },
+  { id: "developsCharacter", label: "Develops at least one character" },
+  { id: "storyQuestion", label: "Raises or answers a story question" },
+  { id: "setupPayoff", label: "Sets up or pays off something" },
+  { id: "tension", label: "Builds tension or suspense" },
+  { id: "paced", label: "Paced right for its place in the book" },
+  { id: "endsPull", label: "Ends with a reason to keep reading" },
 ];
 
 // --- Prose-level (5 grouped categories): project checklist -----------------
@@ -171,6 +192,9 @@ export function sceneCheckIds(override?: ListOverride): string[] {
 }
 export function storyCheckpoints(override?: ListOverride): Checkpoint[] {
   return visibleItems(STORY_CHECKPOINTS, override).map((i) => ({ id: i.id, label: i.label }));
+}
+export function chapterCheckpoints(override?: ListOverride): Checkpoint[] {
+  return visibleItems(CHAPTER_CHECKPOINTS, override).map((i) => ({ id: i.id, label: i.label }));
 }
 export function pageGroups(override?: ListOverride): CheckpointGroup[] {
   return applyGroupedOverride(PAGE_GROUPS, override)

@@ -47,7 +47,7 @@ Switch Write to **Stream** to read and edit the whole book as one continuous pag
 
 ### Revise — from draft to book
 
-- **Audit** — per-scene and project revision checklists, a scene-purpose lift-out test, scene-opening variety, a character-arc grid, a side-character roster, and a style-sheet consistency scan.
+- **Audit** — revision checklists for the whole book, each chapter, each scene, and the prose, a scene-purpose lift-out test, scene-opening variety, a character-arc grid, a side-character roster, and a style-sheet consistency scan.
 - **To-dos** — everything left to fix in one scene-grouped worklist: every draft marker left in the prose (to-dos, research questions, …), plus your **invisible-revision decisions** — capture *"from now on, assume X"* rulings (e.g. "the inn is now called the Gilded Wren") as typed, prioritized entries and **keep drafting forward** instead of breaking flow to backfill earlier chapters.
 - **Analysis** — readability, overused words, echoes, and composition mix.
 
@@ -55,7 +55,7 @@ Switch Write to **Stream** to read and edit the whole book as one continuous pag
 
 ### Publish — manuscript to market
 
-A configurable **compile/export** pipeline (Markdown & HTML built in; `.docx` / `.pdf` / `.epub` via pandoc when installed) with a step editor, chapter grouping, and a pre-export check. Plus a self-publishing **Checklist** (master checklist + book-metadata worksheet) and a **Launch** planner — pre-order timeline, budget, cover, marketing, and ARC trackers.
+A configurable **compile/export** pipeline (Markdown, HTML and Word built in — Word as a standard manuscript with title page and running header; `.pdf` / `.epub` via pandoc when installed) with a step editor, chapter grouping, and a pre-export check. Plus a self-publishing **Checklist** (master checklist + book-metadata worksheet) and a **Launch** planner — pre-order timeline, budget, cover, marketing, and ARC trackers.
 
 ![Publish: compile step editor and the self-publishing launch planner](assets/publish.png)
 
@@ -75,8 +75,8 @@ Daily / weekly / monthly word goals, habit streaks, a GitHub-style heatmap, life
 
 - **Local-first.** No network calls, no telemetry, no account. Everything is stored in your vault's frontmatter and the plugin's local `data.json`.
 - **No AI.** By design — Inkswell is tooling around your writing. It cannot generate any text.
-- **Optional pandoc.** Exporting to `.docx` / `.pdf` / `.epub` shells out to a [pandoc](https://pandoc.org/) binary on your machine. It's feature-detected and disabled gracefully when pandoc isn't present; Markdown and HTML export need nothing extra.
-- **Runs on mobile.** Inkswell installs on Obsidian mobile. On tablets and iPad the full suite is available with a responsive layout; on phones it focuses on drafting (a single-column editor with a slide-in scene list), while the planning/reference/publish surfaces point you to a larger screen. The only desktop-only piece is pandoc-based `.docx` / `.pdf` / `.epub` export, which disables itself gracefully elsewhere.
+- **Optional pandoc.** Markdown, HTML and Word (`.docx`) export are built in. Exporting to `.pdf` / `.epub` (or Word styled by your own reference doc) shells out to a [pandoc](https://pandoc.org/) binary on your machine. It's feature-detected and disabled gracefully when pandoc isn't present.
+- **Runs on mobile.** Inkswell installs on Obsidian mobile. On tablets and iPad the full suite is available with a responsive layout; on phones it focuses on drafting (a single-column editor with a slide-in scene list), while the planning/reference/publish surfaces point you to a larger screen. The only desktop-only piece is pandoc-based `.pdf` / `.epub` export, which disables itself gracefully elsewhere; built-in Word export works everywhere.
 
 ## Where your data lives — backups & recovery
 
@@ -98,7 +98,7 @@ Recovery options, should anything ever go wrong:
 
 ## Install
 
-**Requirements:** Obsidian 1.7.4+ (pandoc optional, for `.docx` / `.pdf` / `.epub`).
+**Requirements:** Obsidian 1.7.4+ (pandoc optional, for `.pdf` / `.epub`).
 
 - **Community plugins:** Settings → *Community plugins* → *Browse* → search **Inkswell** → Install → Enable.
 - **Manual:** download `main.js`, `manifest.json`, and `styles.css` from the latest [release](https://github.com/leethobbit/obsidian-inkswell-plugin/releases) into `<vault>/.obsidian/plugins/inkswell/`, then enable Inkswell in *Community plugins*.

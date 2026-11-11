@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { OutputExistsError, runCompile } from "../src/compile/engine";
+import { isOwnCompile } from "../src/compile/docx";
 import { CompileConfig, DEFAULT_COMPILE_CONFIG } from "../src/compile/types";
 import { Project } from "../src/projects/types";
 import { TFile } from "./fakes/obsidian";
@@ -200,5 +201,54 @@ describe("runCompile (md)", () => {
     expect(app.vault.raw("Book/Scenes/One.md")).toBe(before.one);
     expect(app.vault.raw("Book/Scenes/Two.md")).toBe(before.two);
     expect(app.vault.raw("Book/Book.md")).toBe(before.index);
+  });
+});
+
+describe("runCompile (built-in docx)", () => {
+  const DOCX: CompileConfig = { ...DEFAULT_COMPILE_CONFIG, format: "docx" };
+  const AUTHOR = { author: { name: "Jane Writer", contact: "jane@example.com" } };
+  const both = (app: FakeApp) =>
+    project(app, [
+      { title: "One", path: "Book/Scenes/One.md" },
+      { title: "Two", path: "Book/Scenes/Two.md" },
+    ]);
+
+  it("writes a marked .docx next to the index through the binary vault API", async () => {
+    const app = seededApp();
+    const result = await runCompile(app.asApp(), both(app), DOCX, AUTHOR);
+    expect(result.outputPath).toBe("Book/manuscript.docx");
+    expect(app.vault.getAbstractFileByPath("Book/manuscript.docx")).toBeInstanceOf(TFile);
+    const bytes = app.vault.binary("Book/manuscript.docx");
+    expect(bytes && isOwnCompile(bytes)).toBe(true);
+    expect(result.docx).toEqual({ unsupported: 0, skippedImages: [] });
+  });
+
+  it("replaces its own previous output silently", async () => {
+    const app = seededApp();
+    await runCompile(app.asApp(), both(app), DOCX, AUTHOR);
+    await expect(runCompile(app.asApp(), both(app), DOCX, AUTHOR)).resolves.toBeTruthy();
+  });
+
+  it("refuses to overwrite a .docx it didn't write (or one re-saved in Word) unless allowed", async () => {
+    const app = seededApp();
+    app.vault.setBinary("Book/manuscript.docx", new Uint8Array([0x50, 0x4b, 3, 4, 1, 2, 3]));
+    await expect(runCompile(app.asApp(), both(app), DOCX, AUTHOR)).rejects.toThrow(OutputExistsError);
+    await runCompile(app.asApp(), both(app), DOCX, { ...AUTHOR, allowOverwrite: true });
+    expect(isOwnCompile(app.vault.binary("Book/manuscript.docx") ?? new Uint8Array())).toBe(true);
+  });
+
+  it("embeds vault images and reports the ones it can't use, never fetching URLs", async () => {
+    const app = seededApp();
+    const png = new Uint8Array(24);
+    png.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+    new DataView(png.buffer).setUint32(16, 10);
+    new DataView(png.buffer).setUint32(20, 10);
+    app.vault.setBinary("Book/map.png", png);
+    await app.vault.modify(
+      app.vault.getAbstractFileByPath("Book/Scenes/Two.md") as TFile,
+      "Prose.\n\n![[Book/map.png]]\n\n![](https://example.com/x.png)\n"
+    );
+    const result = await runCompile(app.asApp(), both(app), DOCX, AUTHOR);
+    expect(result.docx?.skippedImages).toEqual(["https://example.com/x.png"]);
   });
 });

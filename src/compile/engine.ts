@@ -20,7 +20,9 @@ import { Project, isMultiScene } from "../projects/types";
 import { chapterRuns } from "../outliner/outline";
 import { readSceneMeta } from "../scenes/scene-meta";
 import { sanitizeSegment } from "../settings/folders";
+import { countWords } from "../lib/wordcount";
 import { assembleManuscript } from "./assemble";
+import { AuthorDetails, buildDocx, isOwnCompile, resolveManuscriptOptions } from "./docx";
 import { runPandoc } from "./pandoc";
 import { CompileConfig, CompileScene } from "./types";
 
@@ -28,6 +30,8 @@ export interface CompileResult {
   /** Vault-relative path written, or absolute path for pandoc output. */
   outputPath: string;
   wordCountSource: string;
+  /** Built-in Word only: what didn't make it into the document as-is. */
+  docx?: { unsupported: number; skippedImages: string[] };
 }
 
 export { assembleManuscript };
@@ -57,6 +61,8 @@ export interface CompileOptions {
   /** The vault's effective to-do markers (`markerSet(settings.listOverrides.markers)`);
    *  the shipped five when omitted. */
   markers?: MarkerSet;
+  /** Settings `authorName` / `authorContact`, for the built-in Word title page. */
+  author?: AuthorDetails;
 }
 
 /** Load scene contents, assemble, render, and write. Returns the output path. */
@@ -90,6 +96,26 @@ export async function runCompile(
     const path = `${base}.html`;
     await writeOutput(app, path, html, opts);
     return { outputPath: path, wordCountSource: manuscript };
+  }
+
+  if (config.format === "docx") {
+    const words = countWords(manuscript);
+    const options = resolveManuscriptOptions(
+      config.docx,
+      opts.author ?? { name: "", contact: "" },
+      project.draft.title,
+      words
+    );
+    const built = await buildDocx(manuscript, options, words, (src) =>
+      readImage(app, src, project.vaultPath)
+    );
+    const path = `${base}.docx`;
+    await writeBinaryOutput(app, path, built.bytes, opts);
+    return {
+      outputPath: path,
+      wordCountSource: manuscript,
+      docx: { unsupported: built.unsupported, skippedImages: built.skippedImages },
+    };
   }
 
   // pandoc — writes binary output itself (docx/pdf/epub, never .md), so the
@@ -127,6 +153,59 @@ async function writeOutput(
     throw new Error(`Can't write "${path}" — a folder with that name exists.`);
   }
   return app.vault.create(path, content);
+}
+
+/**
+ * Binary twin of {@link writeOutput}, for the built-in .docx. Our own previous
+ * output carries the ZIP-comment marker and is replaced silently; anything
+ * else (a file the writer made, or our output re-saved in Word, which drops the
+ * comment — so their Word edits are at stake) throws {@link OutputExistsError}.
+ * Uses the Vault API, so it works on mobile too.
+ */
+async function writeBinaryOutput(
+  app: App,
+  path: string,
+  bytes: Uint8Array,
+  opts: CompileOptions
+): Promise<TFile> {
+  const data = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  const existing = app.vault.getAbstractFileByPath(path);
+  if (existing instanceof TFile) {
+    if (!opts.allowOverwrite) {
+      const current = new Uint8Array(await app.vault.readBinary(existing));
+      if (!isOwnCompile(current)) throw new OutputExistsError(path);
+    }
+    await app.vault.modifyBinary(existing, data);
+    return existing;
+  }
+  if (existing) {
+    throw new Error(`Can't write "${path}" — a folder with that name exists.`);
+  }
+  return app.vault.createBinary(path, data);
+}
+
+/**
+ * Bytes of an image a manuscript references (`![](src)`, as `flatten-links`
+ * leaves it): resolved like an Obsidian link from the project index, then as a
+ * vault path. Remote URLs are never fetched — Inkswell makes no network calls.
+ */
+async function readImage(app: App, src: string, sourcePath: string): Promise<Uint8Array | null> {
+  if (/^[a-z][a-z0-9+.-]*:/i.test(src)) return null; // http:, https:, data:, app: …
+  let link = src;
+  try {
+    link = decodeURI(src);
+  } catch {
+    /* keep it raw */
+  }
+  const file =
+    app.metadataCache.getFirstLinkpathDest(link, sourcePath) ??
+    app.vault.getAbstractFileByPath(normalizePath(link));
+  if (!(file instanceof TFile)) return null;
+  try {
+    return new Uint8Array(await app.vault.readBinary(file));
+  } catch {
+    return null;
+  }
 }
 
 async function loadScenes(app: App, project: Project): Promise<CompileScene[]> {

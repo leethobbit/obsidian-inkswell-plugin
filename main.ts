@@ -11,6 +11,8 @@
 
 import { Notice, Plugin, TFile, WorkspaceLeaf, normalizePath } from "obsidian";
 import { runCompile } from "./src/compile/engine";
+import { initLocale } from "./src/i18n/detect";
+import { t, tp } from "./src/i18n";
 import { Series, normalizeSeriesOrder } from "./src/series/series";
 import { setSeriesArchived, setStoryArchived } from "./src/projects/archive-actions";
 import { resolveCompileConfig } from "./src/compile/config";
@@ -108,6 +110,11 @@ function readSettings(stored: Partial<InkswellSettings> | undefined): InkswellSe
     settings.railLayout = isDefaultRailLayout(rail) ? null : rail;
   }
   settings.seriesOrder = normalizeSeriesOrder(settings.seriesOrder);
+  settings.authorName = typeof settings.authorName === "string" ? settings.authorName : "";
+  settings.authorContact = typeof settings.authorContact === "string" ? settings.authorContact : "";
+  if (!["md", "html", "docx", "pandoc"].includes(settings.defaultCompileFormat)) {
+    settings.defaultCompileFormat = "md";
+  }
   return settings;
 }
 
@@ -130,6 +137,9 @@ export default class InkswellPlugin extends Plugin {
   private statusBar: StatusBar | null = null;
 
   async onload(): Promise<void> {
+    // UI language first: everything that renders text reads it. Obsidian
+    // restarts on a language change, so resolving once is enough.
+    initLocale();
     await this.loadPersisted();
     // Phone layout keys on our own body class (not Obsidian's is-phone) so the
     // "use the full layout" override can flip it. Must not outlive the plugin.
@@ -1045,11 +1055,12 @@ export default class InkswellPlugin extends Plugin {
       const config = resolveCompileConfig(project, this.settings.defaultCompileFormat);
       const result = await runCompile(this.app, project, config, {
         markers: markerSet(this.settings.listOverrides.markers),
+        author: { name: this.settings.authorName, contact: this.settings.authorContact },
       });
       const words = countWords(result.wordCountSource);
-      new Notice(`Compiled ${words.toLocaleString()} words to ${result.outputPath}`);
+      new Notice(tp("compile.done", words, { path: result.outputPath }));
     } catch (e) {
-      new Notice(`Compile failed: ${(e as Error).message}`, 8000);
+      new Notice(t("compile.failed", { error: (e as Error).message }), 8000);
     }
   }
 

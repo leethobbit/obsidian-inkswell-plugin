@@ -47,6 +47,26 @@ const localPlugin = {
   },
 };
 
+// Shared by the inline-literal rule and the English locale-module rule, so a
+// string keeps the same verdict when it moves from a call site into en.ts.
+const SENTENCE_CASE_OPTIONS = {
+  brands: [
+    "Inkswell", "Obsidian", "Codex", "Vault", "Scene Inspector", "Inspector",
+    "Word", "Times New Roman", "Courier New", "LaTeX", "MiKTeX", "TeX Live",
+  ],
+  acronyms: ["HTML", "PDF", "EPUB", "DOCX", "POV", "TODO", "NOTE", "DKB", "YAML", "PATH", "END"],
+  // "pandoc" is the tool's own lower-case spelling, used mid-sentence throughout the UI.
+  ignoreWords: ["e.g.", "i.e.", "E.g.", "I.e.", "pandoc"],
+  ignoreRegex: [
+    "\\(\\.[a-z0-9]+\\)", // file extensions in parens: (.html), (.pdf)
+    "(?:Mod|Ctrl|Cmd|Shift|Alt)-\\S+", // hotkeys: Mod-Shift-L
+    "\\((?:Plan|Board|Write|Track|Revise|Publish|Compile|Codex|Home)\\)", // module refs in parens — but NOT the bare verbs ("track a character")
+    "\\b\\d+[KMB]\\b", // abbreviated counts: 12K, 0M
+    "(?:Settings|Publish|Customize) → [^.,;]+", // UI paths: Settings → Inkswell → Manuscript
+    "\\{\\w+\\}", // i18n placeholders: {count}, {path}
+  ],
+};
+
 // Flat config (ESLint 9). We run eslint-plugin-obsidianmd's **recommended** set —
 // this is the published encoding of the community-store automated review (all the
 // obsidianmd/* rules plus the type-aware @typescript-eslint rules that the review
@@ -100,17 +120,7 @@ export default tseslint.config(
       // single-word labels), and the community-store review does not gate on it —
       // so it must never block our release. Extend `brands`/`acronyms`/`ignoreRegex`
       // as new proper nouns appear instead of silencing the rule.
-      "obsidianmd/ui/sentence-case": ["warn", {
-        brands: ["Inkswell", "Pandoc", "Obsidian", "Codex", "Vault"],
-        acronyms: ["HTML", "PDF", "EPUB", "DOCX", "POV", "TODO", "DKB"],
-        ignoreWords: ["e.g.", "i.e.", "E.g.", "I.e."],
-        ignoreRegex: [
-          "\\(\\.[a-z0-9]+\\)", // file extensions in parens: (.html), (.pdf)
-          "(?:Mod|Ctrl|Cmd|Shift|Alt)-\\S+", // hotkeys: Mod-Shift-L
-          "\\((?:Plan|Board|Write|Track|Revise|Publish|Compile|Codex|Home)\\)", // module refs in parens — but NOT the bare verbs ("track a character")
-          "\\b\\d+[KMB]\\b", // abbreviated counts: 12K, 0M
-        ],
-      }],
+      "obsidianmd/ui/sentence-case": ["warn", SENTENCE_CASE_OPTIONS],
 
       // WARN (not error): the few hits are intentional String() coercions of
       // loosely-typed frontmatter / table-row scalars where object input would be
@@ -122,5 +132,12 @@ export default tseslint.config(
       // but mechanical and not review blockers, so they don't gate a release.
       "@typescript-eslint/no-unnecessary-type-assertion": "warn",
     },
+  },
+  {
+    // English UI catalog (src/i18n/locales/en.ts) holds strings that used to be
+    // inline literals, so they keep the sentence-case check: same options, same
+    // WARN level and rationale as the inline rule above.
+    files: ["src/i18n/locales/en.ts"],
+    rules: { "obsidianmd/ui/sentence-case-locale-module": ["warn", SENTENCE_CASE_OPTIONS] },
   }
 );
