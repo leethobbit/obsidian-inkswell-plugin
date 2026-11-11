@@ -5,7 +5,18 @@
  * (synopsis) — never the prose body.
  */
 
-import { App, MarkdownView, Menu, Modal, Notice, Setting, TFile, normalizePath } from "obsidian";
+import {
+  App,
+  FileView,
+  MarkdownView,
+  Menu,
+  Modal,
+  Notice,
+  Setting,
+  TFile,
+  WorkspaceLeaf,
+  normalizePath,
+} from "obsidian";
 import { FormModal } from "../lib/form-modal";
 import { attachOpenInTab } from "../lib/row-menu";
 import { removeSceneFromIndex, renameSceneInIndex } from "../projects/index-writer";
@@ -128,6 +139,25 @@ export function openScene(app: App, file: TFile): void {
   }
   const leaf = app.workspace.getLeaf("tab");
   void leaf.openFile(file, { active: true });
+}
+
+/**
+ * Open any vault file (a canvas, PDF, image or note) in Obsidian's own view
+ * for it: reveal the tab already showing it, else a new tab. `openScene` only
+ * looks for markdown tabs, so an open canvas would get a second tab.
+ */
+export function openFileInTab(app: App, file: TFile): void {
+  const open: WorkspaceLeaf[] = [];
+  app.workspace.iterateAllLeaves((leaf) => {
+    if (leaf.view instanceof FileView && leaf.view.file?.path === file.path) open.push(leaf);
+  });
+  const existing = open[0];
+  if (existing) {
+    void app.workspace.revealLeaf(existing);
+    app.workspace.setActiveLeaf(existing, { focus: true });
+    return;
+  }
+  void app.workspace.getLeaf("tab").openFile(file, { active: true });
 }
 
 /** Ctrl/Cmd-click or middle-click on `el` opens the scene at `path` in a

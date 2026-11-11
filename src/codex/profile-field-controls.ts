@@ -9,10 +9,11 @@
  * caller can apply it inside processFrontMatter — gotcha 10).
  */
 
-import { App } from "obsidian";
+import { App, setIcon } from "obsidian";
 import { isDateKey, normalizeDate } from "../lib/date-key";
 import { tagField } from "../lib/focus-preserve";
 import { autosizeTextarea } from "../lib/form-fields";
+import { attachOpenInTab } from "../lib/row-menu";
 import { promptText } from "../scenes/scene-actions";
 import { linkAlias, linkTarget, toLink } from "./codex";
 import { ProfileField, ProfileValue, linkAccepts, linkCategories } from "./profile-schema";
@@ -38,6 +39,12 @@ export interface ProfileFieldDeps {
   saveValue: (value: ProfileValue, structural: boolean) => void;
   /** Persist a list / multi-link change against the current stored value. */
   updateList: (transform: (current: string[]) => string[]) => void;
+  /**
+   * Follow a link value: a multi-link chip's name, or the single-link pick via
+   * the open button beside it. `newTab` = Ctrl/Cmd- or middle-click. Unset =
+   * link values aren't followable here.
+   */
+  openLink?: (target: string, newTab: boolean) => void;
 }
 
 export function renderProfileFieldControl(control: HTMLElement, deps: ProfileFieldDeps): void {
@@ -180,7 +187,8 @@ function renderLinkControl(control: HTMLElement, deps: ProfileFieldDeps): void {
 
   if (field.single) {
     const cur = typeof value === "string" && value ? linkTarget(value) : "";
-    const sel = control.createEl("select", { cls: "dropdown" });
+    const row = deps.openLink ? control.createDiv({ cls: "inkswell-codex__linkrow" }) : control;
+    const sel = row.createEl("select", { cls: "dropdown" });
     tagField(sel, tag);
     sel.createEl("option", { text: "— none —", value: "" });
     if (cats.length > 1) {
@@ -197,6 +205,15 @@ function renderLinkControl(control: HTMLElement, deps: ProfileFieldDeps): void {
     }
     sel.value = candidates.some((c) => c.name === cur) ? cur : "";
     sel.onchange = () => deps.saveValue(sel.value ? toLink(sel.value) : "", true);
+    const openLink = deps.openLink;
+    if (openLink && sel.value) {
+      const target = sel.value;
+      const go = row.createEl("button", { cls: "clickable-icon inkswell-codex__linkopen" });
+      setIcon(go, "arrow-up-right");
+      go.setAttribute("aria-label", `Open ${target}`);
+      go.onclick = () => openLink(target, false);
+      attachOpenInTab(go, () => openLink(target, true));
+    }
     return;
   }
 
@@ -205,7 +222,19 @@ function renderLinkControl(control: HTMLElement, deps: ProfileFieldDeps): void {
   for (const link of current) {
     const target = linkTarget(link);
     const chip = chips.createSpan({ cls: "inkswell-chip" });
-    chip.createSpan({ cls: "inkswell-codex__linktarget", text: target });
+    const name = chip.createSpan({ cls: "inkswell-codex__linktarget", text: target });
+    const openLink = deps.openLink;
+    if (openLink) {
+      name.addClass("is-followable");
+      name.setAttribute("role", "link");
+      name.tabIndex = 0;
+      name.setAttribute("aria-label", `Open ${target}`);
+      name.onclick = () => openLink(target, false);
+      name.onkeydown = (e) => {
+        if (e.key === "Enter") openLink(target, false);
+      };
+      attachOpenInTab(name, () => openLink(target, true));
+    }
     if (field.labeled) {
       // The label lives in the wikilink alias ([[Anna|sister]]). Edited via a
       // prompt rather than an inline input: the chip is rebuilt on save, and a

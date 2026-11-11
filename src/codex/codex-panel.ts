@@ -8,15 +8,18 @@
  */
 
 import { App, Menu, Notice, TFile, normalizePath, setIcon } from "obsidian";
-import { extensionFor, pickVaultImage, writeImageBinary } from "../lib/images";
-import { attachRowMenu } from "../lib/row-menu";
+import { extensionFor, isImage, pickVaultImage, writeImageBinary } from "../lib/images";
+import { attachOpenInTab, attachRowMenu } from "../lib/row-menu";
 import { preserveFocus, tagField } from "../lib/focus-preserve";
 import {
   confirmDelete,
+  openFileInTab,
   openScene,
   openSceneOnModClick,
   promptText,
 } from "../scenes/scene-actions";
+import { linkedFiles } from "./linked-files";
+import { canvasesLinkingTo, nearMatch, noteLinks } from "./linked-files-io";
 import {
   BookAppearances,
   appearancesForEntity,
@@ -55,7 +58,7 @@ import { codexEntryText } from "../plan/story-bible";
 import { renderProfileFieldControl } from "./profile-field-controls";
 import { codexEntryData } from "../plan/story-bible-io";
 import { readProfile, resolveProfileFields, writeProfile } from "./codex-profile";
-import { Profile, ProfileField, isEmptyValue } from "./profile-schema";
+import { Profile, ProfileField, RESERVED_FIELD_KEYS, isEmptyValue } from "./profile-schema";
 import {
   CategoryDef,
   CodexEntity,
@@ -68,6 +71,14 @@ import { Project } from "../projects/types";
 import { groupIntoSeries, orderSeries } from "../series/series";
 import { archivedStoryTitles, baseDraftFor } from "../projects/stories";
 import type InkswellPlugin from "../../main";
+
+/** Icon for a linked file's chip, by the view Obsidian opens it in. */
+function fileIcon(file: TFile): string {
+  if (file.extension === "canvas") return "layout-dashboard";
+  if (file.extension === "md") return "file-text";
+  if (isImage(file)) return "image";
+  return "file";
+}
 
 export class CodexPanel {
   private app: App;
@@ -629,6 +640,8 @@ export class CodexPanel {
       };
     }
 
+    this.renderLinkedFiles(host, file, fields, entities);
+
     // Read-only: scenes that mention this entity (body text) or link it explicitly
     // (characters/location frontmatter). Computed automatically — see scenesForEntity.
     // Async (reads scene bodies), so render a placeholder and fill when it resolves;
@@ -896,19 +909,24 @@ export class CodexPanel {
       this.refreshPanes();
     };
 
+    // Scope the candidates to what THIS entity can see: a series/project-
+    // scoped character only links entities in its own scope (+ globals); a
+    // global entity is unconstrained. Never itself.
+    const inScope = (): CodexEntity[] => {
+      const ctx = scopeContextForEntity(entity, this.plugin.store.getProjects());
+      const visible = ctx ? filterToScope(entities, ctx) : entities;
+      return visible.filter((e) => e.path !== entity.path);
+    };
+
     this.field(host, field.label, (control) =>
       renderProfileFieldControl(control, {
         app: this.app,
         field,
         value: profile[field.key],
-        // Scope the candidates to what THIS entity can see: a series/project-
-        // scoped character only links entities in its own scope (+ globals); a
-        // global entity is unconstrained. Never itself.
-        candidates: () => {
-          const ctx = scopeContextForEntity(entity, this.plugin.store.getProjects());
-          const inScope = ctx ? filterToScope(entities, ctx) : entities;
-          return inScope.filter((e) => e.path !== entity.path);
-        },
+        candidates: inScope,
+        // Following a link resolves the name the way picking it did: the entry
+        // this one can see first (two series may each have an "Anna").
+        openLink: (target, newTab) => this.followEntryLink(target, file, inScope(), newTab),
         // A place can't sit inside anything that's inside it (#66) — the loop guard.
         exclude:
           field.key === "parent" && entity.category === PLACE_CATEGORY
@@ -925,6 +943,101 @@ export class CodexPanel {
         },
       })
     );
+  }
+
+  /**
+   * Follow a link field's value (#74): select that entry in the Codex, or with
+   * Ctrl/Cmd-click open its note in a tab. The name resolves to an entry this
+   * one can see first, else the way Obsidian resolves the wikilink.
+   */
+  private followEntryLink(target: string, from: TFile, visible: CodexEntity[], newTab: boolean): void {
+    const path =
+      visible.find((e) => e.name === target)?.path ??
+      this.app.metadataCache.getFirstLinkpathDest(target, from.path)?.path;
+    const dest = path ? this.app.vault.getAbstractFileByPath(path) : null;
+    if (!(dest instanceof TFile)) {
+      new Notice(`There's no note named “${target}”.`);
+      return;
+    }
+    if (!newTab && getCodexEntities(this.app).some((e) => e.path === dest.path)) this.select(dest.path);
+    else openFileInTab(this.app, dest);
+  }
+
+  /**
+   * "Linked files" (#74): what the entry's note links to besides other codex
+   * entries (a mood-board canvas, a PDF, a research note) and the canvases
+   * holding its card, each a chip that opens it. Derived from the writer's own
+   * links (note text, any property, a canvas), so Obsidian keeps it current
+   * when a linked file is renamed.
+   */
+  private renderLinkedFiles(
+    host: HTMLElement,
+    file: TFile,
+    fields: ProfileField[],
+    entities: CodexEntity[]
+  ): void {
+    const shownKeys = new Set<string>(RESERVED_FIELD_KEYS);
+    for (const f of fields) if (f.type === "links" || f.type === "image") shownKeys.add(f.key);
+    const codexPaths = new Set(entities.map((e) => e.path));
+    const linked = linkedFiles(noteLinks(this.app, file), {
+      self: file.path,
+      shownKeys,
+      isCodexEntry: (p) => codexPaths.has(p),
+      linkedFrom: canvasesLinkingTo(this.app, file),
+    });
+    this.field(host, "Linked files", (control) => {
+      if (linked.length === 0) {
+        control.createDiv({
+          cls: "inkswell-stats__muted",
+          text: "None yet. Link a file from this entry's note, in its text or a property (like [[Moodboard.canvas]]), or add the note to a canvas, and it shows here.",
+        });
+        return;
+      }
+      const chips = control.createDiv({ cls: "inkswell-inspector__chips" });
+      for (const lf of linked) {
+        const target = lf.path ? this.app.vault.getAbstractFileByPath(lf.path) : null;
+        if (!(target instanceof TFile)) {
+          // A link to nothing: say why, on hover and on tap (phones have no
+          // hover). The usual cause is a canvas or PDF linked without its
+          // extension, which Obsidian reads as a note that doesn't exist.
+          const near = nearMatch(this.app, lf.linkpath);
+          const why = near
+            ? `No file named “${lf.linkpath}”. To link ${near.name}, include its extension: [[${near.name}]].`
+            : `No file named “${lf.linkpath}” yet.`;
+          const chip = chips.createSpan({
+            cls: "inkswell-chip inkswell-codex__file is-missing",
+            text: lf.linkpath,
+          });
+          chip.setAttribute("aria-label", why);
+          chip.onclick = () => new Notice(why);
+          continue;
+        }
+        const chip = chips.createSpan({ cls: "inkswell-chip inkswell-chip--link inkswell-codex__file" });
+        setIcon(chip.createSpan({ cls: "inkswell-codex__fileicon" }), fileIcon(target));
+        // A note by its name (as links read); other files with their extension,
+        // so "Moodboard.canvas" and a broken "Moodboard" link don't look alike.
+        chip.createSpan({ text: target.extension === "md" ? target.basename : target.name });
+        chip.setAttribute("role", "link");
+        chip.tabIndex = 0;
+        chip.setAttribute("aria-label", target.path);
+        const open = () => this.openLinkedFile(target);
+        chip.onclick = open;
+        chip.onkeydown = (e) => {
+          if (e.key === "Enter") open();
+        };
+        // Ctrl/Cmd-click: always Obsidian's own view, even for a scene.
+        attachOpenInTab(chip, () => openFileInTab(this.app, target));
+      }
+    });
+  }
+
+  /** A linked scene opens in Write (like "Appears in"); any other file in Obsidian's own view for it. */
+  private openLinkedFile(target: TFile): void {
+    if (this.onOpenInWrite && this.plugin.store.findSceneByPath(target.path)) {
+      this.onOpenInWrite(target.path);
+      return;
+    }
+    openFileInTab(this.app, target);
   }
 
   private field(parent: HTMLElement, label: string, build: (host: HTMLElement) => void): void {

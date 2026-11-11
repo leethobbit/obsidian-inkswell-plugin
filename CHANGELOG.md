@@ -10,6 +10,10 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Added
+- **Open an entry's canvases and files from the Codex.** A new **Linked files** row on each Codex entry lists what its note links to outside the Codex, such as a mood-board canvas, a PDF or a research note. It also lists any canvas that holds the entry's card. Click one to open it. Link a file from the note's text or from any property, like `[[Mara moodboard.canvas]]`. A link to a canvas or PDF needs its extension: a link Obsidian can't find shows as a dashed chip, and clicking it explains why. The row updates when a linked file is renamed. Requested in [#74](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/74).
+- **Follow links between Codex entries.** Click a name in a link field (Relationships, Allies, Participants…) to open that entry in the Codex, or click the arrow beside a single pick such as Owner or Inside. Ctrl/Cmd-click opens the entry's note in a new tab instead.
+
 ## [1.25.0] - 2026-11-11
 
 Export a manuscript to Word with nothing else installed, on your computer or your phone. Publish → Compile now writes a standard manuscript .docx, title page and running header included, the format agents and editors ask for. And Revise → Audit gets a checklist for every chapter, between the whole-book and per-scene passes, so you can check that each one earns its place.

@@ -248,6 +248,15 @@ export const HINTS: Record<string, HintEntry> = {
       );
       p(
         el,
+        "Links lead somewhere: click a name in a link field (Relationships, Allies…) to " +
+          "open that entry, or the arrow beside a single pick such as Owner. Ctrl/Cmd-click " +
+          "opens the note in a new tab instead. “Linked files” lists what the entry's note " +
+          "links to outside the Codex (a mood-board canvas, a PDF, a research note), plus " +
+          "any canvas that holds the entry's card. Add a link such as [[Moodboard.canvas]] " +
+          "to the note's text or to a property; a link to a canvas or PDF needs its extension."
+      );
+      p(
+        el,
         "An image you upload as an entry's portrait is saved where Obsidian puts new " +
           "attachments (Settings → Files and links → Default location for new attachments). " +
           "Choose “In subfolder under current folder” to keep each entry's images in a " +

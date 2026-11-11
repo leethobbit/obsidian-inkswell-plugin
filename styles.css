@@ -2210,6 +2210,45 @@ body.is-mobile .inkswell-idea .inkswell-rowmenu {
   color: var(--text-faint);
   font-style: italic;
 }
+/* Following a link field (#74): click the name in a chip, or the open button
+   beside a single pick (Inside, Owner). */
+.inkswell-codex__linktarget.is-followable {
+  cursor: pointer;
+}
+.inkswell-codex__linktarget.is-followable:hover,
+.inkswell-codex__linktarget.is-followable:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+.inkswell-codex__linkrow {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+}
+.inkswell-codex__linkrow select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* Linked files (#74): a file-type icon on each chip; a dashed chip is a link
+   to a file that doesn't exist. */
+.inkswell-codex__fileicon {
+  display: inline-flex;
+  color: var(--text-muted);
+}
+.inkswell-codex__fileicon svg {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+}
+.inkswell-codex__file:focus-visible {
+  box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+  outline: none;
+}
+.inkswell-codex__file.is-missing {
+  background-color: transparent;
+  border: 1px dashed var(--background-modifier-border-hover);
+  color: var(--text-faint);
+  cursor: help;
+}
 
 /* Quick Codex dialog: the alias row only applies when the typed name differs
    from the selected text. (.setting-item is display:flex, so the hidden
