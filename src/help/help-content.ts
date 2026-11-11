@@ -258,12 +258,14 @@ export const HINTS: Record<string, HintEntry> = {
   "revise/audit": {
     title: "How the revision audit works",
     body: (el) => {
-      p(el, "A three-tier checklist that takes a draft from messy to finished:");
+      p(el, "Tiered checklists that take a draft from messy to finished, macro to micro:");
       steps(el, [
         "Story — 18 manuscript-wide checkpoints (saved on the project).",
-        "Prose — 32 line-level checks, grouped.",
+        "Chapters — 10 checks per chapter: does it earn its place, hook, move the story, end with a pull? (Saved on the project; shown once your book has chapters.)",
         "Scene — a 14-point pass per scene (saved on each scene's frontmatter).",
+        "Prose — 32 line-level checks, grouped.",
       ]);
+      p(el, "Rename, reorder, hide, or add checks in Customize → Revision checklists.");
       p(
         el,
         "The per-scene pass classifies each opening (Action / Dialogue / Thought / " +

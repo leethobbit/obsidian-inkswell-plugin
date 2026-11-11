@@ -47,7 +47,7 @@ Switch Write to **Stream** to read and edit the whole book as one continuous pag
 
 ### Revise — from draft to book
 
-- **Audit** — per-scene and project revision checklists, a scene-purpose lift-out test, scene-opening variety, a character-arc grid, a side-character roster, and a style-sheet consistency scan.
+- **Audit** — revision checklists for the whole book, each chapter, each scene, and the prose, a scene-purpose lift-out test, scene-opening variety, a character-arc grid, a side-character roster, and a style-sheet consistency scan.
 - **To-dos** — everything left to fix in one scene-grouped worklist: every draft marker left in the prose (to-dos, research questions, …), plus your **invisible-revision decisions** — capture *"from now on, assume X"* rulings (e.g. "the inn is now called the Gilded Wren") as typed, prioritized entries and **keep drafting forward** instead of breaking flow to backfill earlier chapters.
 - **Analysis** — readability, overused words, echoes, and composition mix.
 

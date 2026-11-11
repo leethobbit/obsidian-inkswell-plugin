@@ -51,7 +51,7 @@ const localPlugin = {
 // string keeps the same verdict when it moves from a call site into en.ts.
 const SENTENCE_CASE_OPTIONS = {
   brands: [
-    "Inkswell", "Obsidian", "Codex", "Vault",
+    "Inkswell", "Obsidian", "Codex", "Vault", "Scene Inspector", "Inspector",
     "Word", "Times New Roman", "Courier New", "LaTeX", "MiKTeX", "TeX Live",
   ],
   acronyms: ["HTML", "PDF", "EPUB", "DOCX", "POV", "TODO", "NOTE", "DKB", "YAML", "PATH", "END"],
@@ -62,7 +62,7 @@ const SENTENCE_CASE_OPTIONS = {
     "(?:Mod|Ctrl|Cmd|Shift|Alt)-\\S+", // hotkeys: Mod-Shift-L
     "\\((?:Plan|Board|Write|Track|Revise|Publish|Compile|Codex|Home)\\)", // module refs in parens — but NOT the bare verbs ("track a character")
     "\\b\\d+[KMB]\\b", // abbreviated counts: 12K, 0M
-    "(?:Settings|Publish) → [^.,;]+", // UI paths: Settings → Inkswell → Manuscript
+    "(?:Settings|Publish|Customize) → [^.,;]+", // UI paths: Settings → Inkswell → Manuscript
     "\\{\\w+\\}", // i18n placeholders: {count}, {path}
   ],
 };

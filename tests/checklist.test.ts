@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   RevisionChecklistData,
+  chapterState,
   checklistProgress,
+  setChapterChecklistItem,
   setChecklistItem,
+  stateProgress,
   tierState,
 } from "../src/revisions/checklist";
+import { CHAPTER_CHECKPOINTS, chapterCheckpoints } from "../src/revisions/audit";
 
 describe("setChecklistItem", () => {
   it("sets an item's done flag", () => {
@@ -60,5 +64,58 @@ describe("checklistProgress", () => {
 describe("tierState", () => {
   it("returns an empty object when the tier is absent", () => {
     expect(tierState(undefined, "story")).toEqual({});
+  });
+});
+
+describe("chapter checklist (#75)", () => {
+  it("sets an item on one chapter without touching another", () => {
+    let data = setChapterChecklistItem(undefined, "sg-1", "hook", { done: true });
+    data = setChapterChecklistItem(data, "c:Two", "tension", { note: "flat middle" });
+    expect(chapterState(data, "sg-1")).toEqual({ hook: { done: true } });
+    expect(chapterState(data, "c:Two")).toEqual({ tension: { note: "flat middle" } });
+  });
+
+  it("leaves the story and prose tiers alone", () => {
+    const base = setChecklistItem(undefined, "story", "structure", { done: true });
+    const next = setChapterChecklistItem(base, "sg-1", "hook", { done: true });
+    expect(next.story).toEqual({ structure: { done: true } });
+    expect(base.chapter).toBeUndefined();
+  });
+
+  it("prunes an emptied chapter, then the whole chapter map", () => {
+    let data = setChapterChecklistItem(undefined, "sg-1", "hook", { done: true });
+    data = setChapterChecklistItem(data, "sg-2", "paced", { done: true });
+    data = setChapterChecklistItem(data, "sg-1", "hook", { done: false });
+    expect(Object.keys(data.chapter ?? {})).toEqual(["sg-2"]);
+    data = setChapterChecklistItem(data, "sg-2", "paced", { done: false, note: " " });
+    expect(data.chapter).toBeUndefined();
+    expect(Object.keys(data)).toEqual([]);
+  });
+
+  it("reads hand-edited junk as empty instead of throwing", () => {
+    const junk = { chapter: ["not", "a", "map"] } as unknown as RevisionChecklistData;
+    expect(chapterState(junk, "sg-1")).toEqual({});
+    const junk2 = { chapter: { "sg-1": "done" } } as unknown as RevisionChecklistData;
+    expect(chapterState(junk2, "sg-1")).toEqual({});
+    expect(setChapterChecklistItem(junk, "sg-1", "hook", { done: true }).chapter).toEqual({
+      "sg-1": { hook: { done: true } },
+    });
+  });
+
+  it("counts progress against the effective ids only", () => {
+    const data = setChapterChecklistItem(
+      setChapterChecklistItem(undefined, "sg-1", "hook", { done: true }),
+      "sg-1",
+      "hidden",
+      { done: true }
+    );
+    expect(stateProgress(chapterState(data, "sg-1"), ["hook", "paced"])).toEqual({ done: 1, total: 2 });
+  });
+
+  it("ships ten chapter checkpoints with unique ids", () => {
+    const ids = CHAPTER_CHECKPOINTS.map((c) => c.id);
+    expect(ids).toHaveLength(10);
+    expect(new Set(ids).size).toBe(10);
+    expect(chapterCheckpoints({ hidden: ["hook"] }).map((c) => c.id)).not.toContain("hook");
   });
 });

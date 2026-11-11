@@ -185,6 +185,19 @@ describe("scene inspector fields (rename / hide / reorder only)", () => {
 });
 
 describe("normalizeListOverrides", () => {
+  it("keeps a chapter-tier override and drops a custom that collides with a shipped id", () => {
+    const out = normalizeListOverrides({
+      "audit.chapter": {
+        hidden: ["hook"],
+        added: [
+          { id: "ch-1", label: "Has a set piece" },
+          { id: "paced", label: "collides" },
+        ],
+      },
+    });
+    expect(out["audit.chapter"]).toEqual({ hidden: ["hook"], added: [{ id: "ch-1", label: "Has a set piece" }] });
+  });
+
   it("drops unknown list ids, strips customs from statuses, validates prompt extras", () => {
     const out = normalizeListOverrides({
       bogus: { hidden: ["x"] },

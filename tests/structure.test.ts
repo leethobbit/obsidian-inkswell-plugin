@@ -3,11 +3,13 @@ import {
   StructureGroup,
   distinctInOrder,
   mergeGroups,
+  pinChapterConfig,
   removeGroup,
   renameGroupConfig,
   sumGroupWords,
   upsertGroup,
 } from "../src/outliner/structure";
+import { chapterRuns } from "../src/outliner/outline";
 
 describe("distinctInOrder", () => {
   it("keeps first-appearance order and drops blanks/dupes", () => {
@@ -122,5 +124,41 @@ describe("sumGroupWords", () => {
     expect(map.get("Two")).toEqual({ words: 200, scenes: 1 });
     // Blank + undefined both fall into the "" bucket.
     expect(map.get("")).toEqual({ words: 15, scenes: 2 });
+  });
+});
+
+describe("pinChapterConfig (#75)", () => {
+  it("appends an anchored entry for an unconfigured chapter", () => {
+    expect(pinChapterConfig(undefined, { id: "c:One", title: "One", firstScene: "A" })).toEqual([
+      { id: "c:One", title: "One", firstScene: "A" },
+    ]);
+  });
+
+  it("returns null when the id is already configured", () => {
+    const cfg: StructureGroup[] = [{ id: "sg-1", title: "One", targetWords: 3000 }];
+    expect(pinChapterConfig(cfg, { id: "sg-1", title: "One", firstScene: "A" })).toBeNull();
+  });
+
+  it("keeps a pinned chapter's id when a same-named chapter appears earlier (#58)", () => {
+    // Two runs of "Interlude": derived ids follow occurrence order.
+    const scenes = [
+      { title: "A", chapter: "Interlude" },
+      { title: "B", chapter: "Main" },
+      { title: "C", chapter: "Interlude" },
+    ];
+    const before = chapterRuns(scenes, undefined).runs;
+    const second = before[2];
+    expect(second.id).toBe("c:Interlude~2");
+    const pinned = pinChapterConfig(undefined, {
+      id: second.id,
+      title: second.title,
+      firstScene: scenes[second.indices[0]].title,
+    });
+
+    // Drop the first Interlude run: unpinned, the old second run would now
+    // derive plain `c:Interlude`; pinned, it keeps its own id.
+    const after = scenes.slice(1);
+    expect(chapterRuns(after, undefined).runs[1].id).toBe("c:Interlude");
+    expect(chapterRuns(after, pinned ?? undefined).runs[1].id).toBe("c:Interlude~2");
   });
 });

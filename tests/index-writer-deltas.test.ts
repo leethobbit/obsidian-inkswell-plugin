@@ -7,6 +7,7 @@
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  persistChapterChecklistItem,
   persistChecklistItem,
   persistGoalsPatch,
   updateArcTracked,
@@ -177,6 +178,36 @@ describe("inkswell delta writers (stale-snapshot regression)", () => {
     await persistChecklistItem(app.asApp(), file, "story", "premise", { done: true });
     await persistChecklistItem(app.asApp(), file, "story", "premise", { done: false });
     expect("revisionChecklist" in inkswellOf(app)).toBe(false);
+  });
+
+  it("chapter checklist: two ticks compose and pin the derived chapter id once", async () => {
+    const file = app.file(INDEX_PATH);
+    const chapter = { id: "c:One", title: "One", firstScene: "Alpha" };
+    await persistChapterChecklistItem(app.asApp(), file, chapter, "hook", { done: true });
+    await persistChapterChecklistItem(app.asApp(), file, chapter, "paced", { note: "slow start" });
+    await persistChecklistItem(app.asApp(), file, "story", "premise", { done: true });
+
+    const ink = inkswellOf(app);
+    const data = ink["revisionChecklist"] as Record<string, Record<string, unknown>>;
+    expect(data["chapter"]).toEqual({ "c:One": { hook: { done: true }, paced: { note: "slow start" } } });
+    expect(data["story"]).toEqual({ premise: { done: true } });
+    expect(ink["chapters"]).toEqual([{ id: "c:One", title: "One", firstScene: "Alpha" }]);
+  });
+
+  it("chapter checklist: clearing prunes the key but leaves the pinned chapter", async () => {
+    const file = app.file(INDEX_PATH);
+    const chapter = { id: "c:One", title: "One", firstScene: "Alpha" };
+    await persistChapterChecklistItem(app.asApp(), file, chapter, "hook", { done: true });
+    await persistChapterChecklistItem(app.asApp(), file, chapter, "hook", { done: false });
+    const ink = inkswellOf(app);
+    expect("revisionChecklist" in ink).toBe(false);
+    expect(ink["chapters"]).toEqual([{ id: "c:One", title: "One", firstScene: "Alpha" }]);
+  });
+
+  it("chapter checklist: an unticked first write doesn't pin anything", async () => {
+    const file = app.file(INDEX_PATH);
+    await persistChapterChecklistItem(app.asApp(), file, { id: "c:One", title: "One" }, "hook", { done: false });
+    expect("chapters" in inkswellOf(app)).toBe(false);
   });
 
   it("decisions: upsert + upsert + status change from the same pre-state all land", async () => {

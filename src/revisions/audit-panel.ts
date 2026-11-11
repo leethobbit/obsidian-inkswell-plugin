@@ -1,11 +1,14 @@
 /**
- * Audit panel (Revise → Audit): the hub for the three-tier
+ * Audit panel (Revise → Audit): the hub for the tiered
  * revision method.
  *
  *  - Story-level (18) and Prose-level (32, grouped) checklists are project state
  *    under `inkswell.revisionChecklist`, edited here and persisted via
  *    `persistChecklistItem` (per-item deltas against current state). (The prose
  *    tier's stored key is "page" for back-compat; only the display label changed.)
+ *  - The per-chapter checklist (#75) is project state too, under
+ *    `inkswell.revisionChecklist.chapter[<chapterId>]`, one expandable row per
+ *    chapter run (`chapterRuns`), persisted via `persistChapterChecklistItem`.
  *  - The per-scene 14-point checklist (scene frontmatter) is summarised as rows,
  *    each expandable to edit inline via the shared `renderSceneAuditFields`.
  *
@@ -15,6 +18,7 @@
  */
 
 import { App, TFile } from "obsidian";
+import { t, tp } from "../i18n";
 import { preserveFocus, tagField } from "../lib/focus-preserve";
 import { stripFrontmatter } from "../lib/frontmatter";
 import { tryFileOp } from "../lib/notify";
@@ -25,12 +29,14 @@ import { getCodexEntities } from "../codex/codex-store";
 import { filterToScope, scopeContextForProject } from "../codex/codex-scope";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import {
+  persistChapterChecklistItem,
   persistChecklistItem,
   updateArcTracked,
   updateStyleEntries,
 } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
+import { ChapterRun, chapterRuns } from "../outliner/outline";
 import { openScene } from "../scenes/scene-actions";
 import { readSceneMeta } from "../scenes/scene-meta";
 import { renderSceneAuditFields } from "../scenes/scene-meta-form";
@@ -53,6 +59,7 @@ import {
 import {
   Checkpoint,
   auditProgress,
+  chapterCheckpoints,
   pageCheckIds,
   pageGroups,
   sceneAuditRollup,
@@ -64,9 +71,12 @@ import type { ListOverrides } from "../settings/overridable-lists";
 import { readSceneAudit } from "./audit-meta";
 import { OPENING_LABEL, OpeningType, classifyOpening, flagOpeningRuns } from "./openings";
 import {
+  ChecklistItem,
   ChecklistState,
   ChecklistTier,
+  chapterState,
   checklistProgress,
+  stateProgress,
   tierState,
 } from "./checklist";
 
@@ -121,7 +131,7 @@ export class AuditPanel {
     const projects = this.store.getProjects().filter((p) => p.draft.format === "scenes");
     const project = resolveActive(projects, this.active.get());
     if (!project) {
-      container.createDiv({ cls: "inkswell-stats__muted", text: "No multi-scene projects." });
+      container.createDiv({ cls: "inkswell-stats__muted", text: t("audit.noProjects") });
       return;
     }
 
@@ -138,33 +148,60 @@ export class AuditPanel {
       })),
       sceneCheckIds(o["audit.scene"])
     );
+    const chapterItems = chapterCheckpoints(o["audit.chapter"]);
+    const chapterIds = chapterItems.map((c) => c.id);
+    const runs = this.chapterRunsFor(project);
+    const chaptersDone = runs.filter((r) => {
+      const p = stateProgress(chapterState(data, r.id), chapterIds);
+      return p.total > 0 && p.done === p.total;
+    }).length;
 
     const summary = container.createDiv({ cls: "inkswell-audit__summary" });
-    summary.createSpan({
-      cls: "inkswell-stats__muted",
-      text: `Scenes audited ${rollup.complete}/${rollup.rows.length} · Story ${story.done}/${story.total} · Prose ${page.done}/${page.total}`,
-    });
-
-    this.section(container, "audit-story", `Story-level (${story.done}/${story.total})`, (host) =>
-      this.renderTier(host, project, "story", storyItems)
+    const parts = [t("audit.summary.story", { done: story.done, total: story.total })];
+    if (runs.length > 0) {
+      parts.push(t("audit.summary.chapters", { done: chaptersDone, total: runs.length }));
+    }
+    parts.push(
+      t("audit.summary.scenes", { done: rollup.complete, total: rollup.rows.length }),
+      t("audit.summary.prose", { done: page.done, total: page.total })
     );
-    this.section(container, "audit-page", `Prose-level (${page.done}/${page.total})`, (host) =>
-      this.renderPageTier(host, project)
+    summary.createSpan({ cls: "inkswell-stats__muted", text: parts.join(" · ") });
+
+    this.section(
+      container,
+      "audit-story",
+      t("audit.section.story", { done: story.done, total: story.total }),
+      (host) => this.renderTier(host, project, "story", storyItems)
+    );
+    // Writers who don't use chapters never see an empty chapter section.
+    if (runs.length > 0) {
+      this.section(
+        container,
+        "audit-chapters",
+        t("audit.section.chapters", { done: chaptersDone, total: runs.length }),
+        (host) => this.renderChapters(host, project, runs, chapterItems)
+      );
+    }
+    this.section(
+      container,
+      "audit-page",
+      t("audit.section.prose", { done: page.done, total: page.total }),
+      (host) => this.renderPageTier(host, project)
     );
     this.section(
       container,
       "audit-scenes",
-      `Scenes (${rollup.complete}/${rollup.rows.length} complete)`,
+      t("audit.section.scenes", { done: rollup.complete, total: rollup.rows.length }),
       (host) => this.renderScenes(host, project)
     );
-    this.section(container, "audit-openings", "Scene openings", (host) =>
+    this.section(container, "audit-openings", t("audit.section.openings"), (host) =>
       void this.renderOpenings(host, project)
     );
-    this.section(container, "audit-arc", "Character arcs", (host) => this.renderArc(host, project));
-    this.section(container, "audit-roster", "Side-character roster", (host) =>
+    this.section(container, "audit-arc", t("audit.section.arc"), (host) => this.renderArc(host, project));
+    this.section(container, "audit-roster", t("audit.section.roster"), (host) =>
       this.renderRoster(host, project)
     );
-    this.section(container, "audit-style", "Style sheet", (host) =>
+    this.section(container, "audit-style", t("audit.section.style"), (host) =>
       this.renderStyleSheet(host, project)
     );
   }
@@ -187,6 +224,84 @@ export class AuditPanel {
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!(file instanceof TFile)) return {};
     return readSceneAudit(this.app, file).checks;
+  }
+
+  /** The manuscript's chapters (THE chapter model, #58 — never group by string). */
+  private chapterRunsFor(project: Project): ChapterRun[] {
+    const scenes = project.scenes.map((s) => {
+      const file = s.path ? this.app.vault.getAbstractFileByPath(s.path) : null;
+      return {
+        title: s.title,
+        chapter: file instanceof TFile ? readSceneMeta(this.app, file).chapter : undefined,
+      };
+    });
+    return chapterRuns(scenes, project.inkswell?.chapters).runs;
+  }
+
+  private renderChapters(
+    host: HTMLElement,
+    project: Project,
+    runs: ChapterRun[],
+    checkpoints: Checkpoint[]
+  ): void {
+    host.createDiv({ cls: "inkswell-stats__muted", text: t("audit.chapters.intro") });
+    const ids = checkpoints.map((c) => c.id);
+    for (const run of runs) {
+      const state = chapterState(project.inkswell?.revisionChecklist, run.id);
+      const { done, total } = stateProgress(state, ids);
+
+      const row = host.createEl("details", { cls: "inkswell-audit__scene" });
+      const key = `chapter:${run.id}`;
+      row.open = this.sections.isOpen(key);
+      const summary = row.createEl("summary");
+      const badge = summary.createSpan({ cls: "inkswell-audit__badge", text: `${done}/${total}` });
+      if (total > 0 && done === total) badge.addClass("is-complete");
+      summary.createSpan({ cls: "inkswell-audit__scenetitle", text: run.title });
+      summary.createSpan({
+        cls: "inkswell-stats__muted",
+        text: tp("audit.chapters.scenes", run.indices.length),
+      });
+
+      const body = row.createDiv({ cls: "inkswell-audit__body" });
+      const chapter = {
+        id: run.id,
+        title: run.title,
+        firstScene: project.scenes[run.indices[0]]?.title,
+      };
+      let built = false;
+      const build = () => {
+        if (built) return;
+        built = true;
+        for (const cp of checkpoints) {
+          this.renderCheck(body, key, cp, state, (patch) =>
+            this.saveChapterItem(project, chapter, cp.id, patch)
+          );
+        }
+      };
+      if (row.open) build();
+      row.addEventListener("toggle", () => {
+        this.sections.setOpen(key, row.open);
+        if (row.open) build();
+      });
+    }
+  }
+
+  private saveChapterItem(
+    project: Project,
+    chapter: { id: string; title: string; firstScene?: string },
+    id: string,
+    patch: Partial<ChecklistItem>
+  ): void {
+    const file = this.app.vault.getAbstractFileByPath(project.vaultPath);
+    // Same contract as saveItem: a delta against the CURRENT stored checklist;
+    // the self-marked write soft-refreshes this panel with sections restored.
+    if (file instanceof TFile) {
+      this.markWrite?.(file.path);
+      void tryFileOp(
+        () => persistChapterChecklistItem(this.app, file, chapter, id, patch),
+        t("audit.saveFailed")
+      );
+    }
   }
 
   private renderTier(
@@ -214,22 +329,34 @@ export class AuditPanel {
     cp: Checkpoint,
     state: ChecklistState
   ): void {
+    this.renderCheck(host, tier, cp, state, (patch) => this.saveItem(project, tier, cp.id, patch));
+  }
+
+  /** One checkpoint row: checkbox + label, and a note field once engaged.
+   *  `scope` keys the focus tags (`story`, `page`, `chapter:<id>`). */
+  private renderCheck(
+    host: HTMLElement,
+    scope: string,
+    cp: Checkpoint,
+    state: ChecklistState,
+    save: (patch: Partial<ChecklistItem>) => void
+  ): void {
     const item = state[cp.id] ?? {};
     const row = host.createDiv({ cls: "inkswell-audit__item" });
     const label = row.createEl("label", { cls: "inkswell-audit__check" });
     const cb = label.createEl("input", { type: "checkbox" });
-    tagField(cb, `audit:check:${tier}:${cp.id}`);
+    tagField(cb, `audit:check:${scope}:${cp.id}`);
     cb.checked = !!item.done;
-    cb.onchange = () => this.saveItem(project, tier, cp.id, { done: cb.checked });
+    cb.onchange = () => save({ done: cb.checked });
     label.createSpan({ text: cp.label });
 
     // Reveal a note field once the item is engaged (checked or already noted).
     if (item.done || item.note) {
       const note = row.createEl("input", { type: "text", cls: "inkswell-audit__note" });
-      tagField(note, `audit:note:${tier}:${cp.id}`);
+      tagField(note, `audit:note:${scope}:${cp.id}`);
       note.value = item.note ?? "";
-      note.placeholder = "note…";
-      note.onchange = () => this.saveItem(project, tier, cp.id, { note: note.value });
+      note.placeholder = t("audit.notePlaceholder");
+      note.onchange = () => save({ note: note.value });
     }
   }
 
@@ -249,7 +376,7 @@ export class AuditPanel {
       this.markWrite?.(file.path);
       void tryFileOp(
         () => persistChecklistItem(this.app, file, tier, id, patch),
-        "Couldn't save the checklist change."
+        t("audit.saveFailed")
       );
     }
   }
@@ -257,7 +384,7 @@ export class AuditPanel {
   private renderScenes(host: HTMLElement, project: Project): void {
     const scenes = project.scenes.filter((s) => s.path);
     if (scenes.length === 0) {
-      host.createDiv({ cls: "inkswell-stats__muted", text: "No scenes yet." });
+      host.createDiv({ cls: "inkswell-stats__muted", text: t("audit.noScenes") });
       return;
     }
     for (const scene of scenes) {
@@ -324,9 +451,9 @@ export class AuditPanel {
   private async renderOpenings(host: HTMLElement, project: Project): Promise<void> {
     host.createDiv({
       cls: "inkswell-stats__muted",
-      text: "Heuristic — classified from each scene's first line; override per scene in the Inspector.",
+      text: t("audit.openings.heuristic"),
     });
-    const strip = host.createDiv({ cls: "inkswell-stats__muted", text: "Analyzing openings…" });
+    const strip = host.createDiv({ cls: "inkswell-stats__muted", text: t("audit.openings.analyzing") });
 
     const scenes = project.scenes.filter((s) => s.path);
     const seq: OpeningType[] = [];
@@ -344,7 +471,7 @@ export class AuditPanel {
     strip.removeClass("inkswell-stats__muted");
     if (seq.length === 0) {
       strip.addClass("inkswell-stats__muted");
-      strip.setText("No scenes to analyze.");
+      strip.setText(t("audit.openings.none"));
       return;
     }
 
@@ -366,12 +493,17 @@ export class AuditPanel {
     const warn = host.createDiv({ cls: "inkswell-audit__runs" });
     if (runs.length === 0) {
       warn.addClass("inkswell-stats__muted");
-      warn.setText("Good variety — no runs of repeated openings.");
+      warn.setText(t("audit.openings.variety"));
     } else {
       for (const r of runs) {
         warn.createDiv({
           cls: "inkswell-stats__row",
-          text: `${r.length} scenes in a row open with ${OPENING_LABEL[r.type]} (scenes ${r.start + 1}–${r.start + r.length}).`,
+          text: t("audit.openings.run", {
+            count: r.length,
+            type: OPENING_LABEL[r.type],
+            from: r.start + 1,
+            to: r.start + r.length,
+          }),
         });
       }
     }
@@ -407,12 +539,12 @@ export class AuditPanel {
     for (const name of tracked) {
       const chip = picker.createSpan({ cls: "inkswell-chip", text: name });
       const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
-      x.onclick = () => this.saveTracked(project, (names) => names.filter((t) => t !== name));
+      x.onclick = () => this.saveTracked(project, (names) => names.filter((n) => n !== name));
     }
     const untracked = available.filter((n) => !tracked.includes(n));
     if (untracked.length > 0) {
       const add = picker.createEl("select", { cls: "dropdown" });
-      add.createEl("option", { text: "+ track character", value: "" });
+      add.createEl("option", { text: t("audit.arc.track"), value: "" });
       for (const n of untracked) add.createEl("option", { text: n, value: n });
       add.value = "";
       add.onchange = () => {
@@ -428,7 +560,7 @@ export class AuditPanel {
     if (tracked.length === 0) {
       host.createDiv({
         cls: "inkswell-stats__muted",
-        text: "Track a character to chart their arc. Record per-scene internal/external state in the Scene Inspector (link the character to the scene first).",
+        text: t("audit.arc.empty"),
       });
       return;
     }
@@ -444,13 +576,13 @@ export class AuditPanel {
       const badge = head.createSpan({ cls: "inkswell-audit__arcbadge" });
       if (delta.recorded === 0) {
         badge.addClass("inkswell-stats__muted");
-        badge.setText("no data");
+        badge.setText(t("audit.arc.noData"));
       } else if (delta.changed) {
         badge.addClass("is-transforms");
-        badge.setText(`transforms · ${delta.recorded} scenes`);
+        badge.setText(tp("audit.arc.transforms", delta.recorded));
       } else {
         badge.addClass("inkswell-stats__muted");
-        badge.setText(`flat · ${delta.recorded} scenes`);
+        badge.setText(tp("audit.arc.flat", delta.recorded));
       }
 
       const flatScenes = new Set(flats.flatMap((f) => f.scenes));
@@ -461,7 +593,7 @@ export class AuditPanel {
           dot.addClass("has-data");
           dot.setAttribute("title", `${cell.title}\n${this.snapText(cell.snapshot)}`);
         } else {
-          dot.setAttribute("title", `${cell.title} — no data`);
+          dot.setAttribute("title", t("audit.arc.cellNoData", { title: cell.title }));
         }
         if (flatScenes.has(cell.title)) dot.addClass("is-flat");
       }
@@ -469,7 +601,7 @@ export class AuditPanel {
       for (const f of flats) {
         block.createDiv({
           cls: "inkswell-stats__muted",
-          text: `Flat stretch (${f.scenes.length} scenes): ${f.scenes.join(", ")}`,
+          text: t("audit.arc.flatStretch", { count: f.scenes.length, list: f.scenes.join(", ") }),
         });
       }
     }
@@ -477,8 +609,8 @@ export class AuditPanel {
 
   private snapText(s: ArcSnapshot): string {
     const parts: string[] = [];
-    if (s.internal) parts.push(`internal: ${s.internal}`);
-    if (s.external) parts.push(`external: ${s.external}`);
+    if (s.internal) parts.push(t("audit.arc.internal", { text: s.internal }));
+    if (s.external) parts.push(t("audit.arc.external", { text: s.external }));
     return parts.join(" · ");
   }
 
@@ -494,7 +626,7 @@ export class AuditPanel {
             parse: parseTracked,
             serialize: serializeTracked,
           }),
-        "Couldn't save the tracked characters."
+        t("audit.arc.saveFailed")
       );
     }
   }
@@ -524,14 +656,14 @@ export class AuditPanel {
     if (chars.length === 0) {
       host.createDiv({
         cls: "inkswell-stats__muted",
-        text: "No codex characters yet. Add characters in the Codex to build a roster.",
+        text: t("audit.roster.empty"),
       });
       return;
     }
 
     host.createDiv({
       cls: "inkswell-stats__muted",
-      text: "Each side character should serve a function, have a goal + flaw, and a memorable trait. Edit fields in the Codex.",
+      text: t("audit.roster.intro"),
     });
 
     for (const c of chars) {
@@ -556,29 +688,29 @@ export class AuditPanel {
       head.createSpan({ cls: "inkswell-audit__arcname", text: c.name });
       head.createSpan({
         cls: "inkswell-stats__muted",
-        text: `${entry.appearances} scene${entry.appearances === 1 ? "" : "s"}`,
+        text: tp("audit.roster.scenes", entry.appearances),
       });
       if (file instanceof TFile) head.onclick = () => openScene(this.app, file);
 
       const detail = row.createDiv({ cls: "inkswell-stats__muted inkswell-audit__rosterdetail" });
       detail.setText(
         [
-          entry.func && `Function: ${entry.func}`,
-          entry.goal && `Goal: ${entry.goal}`,
-          entry.flaw && `Flaw: ${entry.flaw}`,
-          entry.trait && `Trait: ${entry.trait}`,
+          entry.func && t("audit.roster.function", { text: entry.func }),
+          entry.goal && t("audit.roster.goal", { text: entry.goal }),
+          entry.flaw && t("audit.roster.flaw", { text: entry.flaw }),
+          entry.trait && t("audit.roster.trait", { text: entry.trait }),
         ]
           .filter(Boolean)
-          .join(" · ") || "No roster fields set."
+          .join(" · ") || t("audit.roster.noFields")
       );
 
       if (gaps.missing.length || gaps.spearCarrier) {
         const flags = row.createDiv({ cls: "inkswell-audit__rosterflags" });
         if (gaps.missing.length) {
-          flags.createSpan({ cls: "inkswell-audit__flag", text: `missing: ${gaps.missing.join(", ")}` });
+          flags.createSpan({ cls: "inkswell-audit__flag", text: t("audit.roster.missing", { list: gaps.missing.join(", ") }) });
         }
         if (gaps.spearCarrier) {
-          flags.createSpan({ cls: "inkswell-audit__flag", text: "appears once — cut or merge?" });
+          flags.createSpan({ cls: "inkswell-audit__flag", text: t("audit.roster.walkOn") });
         }
       }
     }
@@ -597,10 +729,10 @@ export class AuditPanel {
       row.createSpan({ cls: "inkswell-audit__stylecanon", text: e.canonical });
       row.createSpan({ cls: "inkswell-stats__muted", text: `(${e.kind})` });
       if (e.variants.length) {
-        row.createSpan({ cls: "inkswell-stats__muted", text: `not: ${e.variants.join(", ")}` });
+        row.createSpan({ cls: "inkswell-stats__muted", text: t("audit.style.not", { list: e.variants.join(", ") }) });
       }
       const del = row.createSpan({ cls: "inkswell-chip__x", text: "×" });
-      del.setAttribute("aria-label", `Remove ${e.canonical}`);
+      del.setAttribute("aria-label", t("audit.style.remove", { name: e.canonical }));
       del.onclick = () => this.saveStyle(project, (cur) => cur.filter((x) => x.id !== e.id));
     }
 
@@ -608,14 +740,14 @@ export class AuditPanel {
     const form = host.createDiv({ cls: "inkswell-audit__styleadd" });
     const canon = form.createEl("input", { type: "text" });
     tagField(canon, "audit:style-canon");
-    canon.placeholder = "Preferred form";
+    canon.placeholder = t("audit.style.preferred");
     const variants = form.createEl("input", { type: "text" });
     tagField(variants, "audit:style-variants");
-    variants.placeholder = "Avoid (comma-separated)";
+    variants.placeholder = t("audit.style.avoid");
     const kind = form.createEl("select", { cls: "dropdown" });
     tagField(kind, "audit:style-kind");
     for (const k of STYLE_KINDS) kind.createEl("option", { text: k.label, value: k.id });
-    const add = form.createEl("button", { text: "Add" });
+    const add = form.createEl("button", { text: t("audit.style.add") });
     add.onclick = () => {
       const canonical = canon.value.trim();
       if (!canonical) return;
@@ -629,11 +761,11 @@ export class AuditPanel {
     };
 
     // Scan.
-    const scanBtn = host.createEl("button", { text: "Scan manuscript" });
+    const scanBtn = host.createEl("button", { text: t("audit.style.scan") });
     const results = host.createDiv({ cls: "inkswell-audit__styleresults" });
     scanBtn.onclick = () => {
       if (entries.length === 0) {
-        results.setText("Add at least one style entry first.");
+        results.setText(t("audit.style.needEntry"));
         results.addClass("inkswell-stats__muted");
         return;
       }
@@ -648,7 +780,7 @@ export class AuditPanel {
   ): Promise<void> {
     results.empty();
     results.removeClass("inkswell-stats__muted");
-    results.createDiv({ cls: "inkswell-stats__muted", text: "Scanning…" });
+    results.createDiv({ cls: "inkswell-stats__muted", text: t("audit.style.scanning") });
 
     let total = 0;
     const groups: { title: string; file: TFile; hits: ReturnType<typeof scanDeviations> }[] = [];
@@ -667,17 +799,17 @@ export class AuditPanel {
     results.empty();
     if (total === 0) {
       results.addClass("inkswell-stats__muted");
-      results.setText("No style deviations found.");
+      results.setText(t("audit.style.none"));
       return;
     }
     for (const g of groups) {
       const header = results.createDiv({ cls: "inkswell-todos__scene" });
       header.setText(`${g.title} (${g.hits.length})`);
-      header.setAttribute("aria-label", `Open "${g.title}" in Write`);
+      header.setAttribute("aria-label", t("audit.style.open", { title: g.title }));
       header.onclick = () => this.jump(g.file.path);
       for (const h of g.hits) {
         const r = results.createDiv({ cls: "inkswell-todos__row" });
-        r.setAttribute("aria-label", `Go to line ${h.line} in Write`);
+        r.setAttribute("aria-label", t("audit.style.goLine", { line: h.line }));
         // `verify` lets the Write panel re-locate the word if the body shifted
         // since the scan (same contract as Search hits).
         r.onclick = () =>
@@ -697,7 +829,7 @@ export class AuditPanel {
       this.markWrite?.(file.path);
       void tryFileOp(
         () => updateStyleEntries(this.app, file, op),
-        "Couldn't save the style sheet."
+        t("audit.style.saveFailed")
       );
     }
   }

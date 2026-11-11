@@ -139,6 +139,31 @@ export function removeGroup(
 }
 
 /**
+ * Persist a populated chapter's current id as a config entry, anchored at its
+ * `firstScene`, so state keyed on it (e.g. its revision checklist) stays with
+ * THAT chapter. `chapterRuns` derives `c:<title>` / `c:<title>~<n>` for an
+ * unconfigured run by occurrence order, so a same-named chapter appearing
+ * earlier in the manuscript (#58) would otherwise shift the ids and move the
+ * state onto the wrong chapter. (Renames through the Tree keep ids either way.)
+ * Returns a new array, or `null` when an entry with that id already exists.
+ */
+export function pinChapterConfig(
+  configured: StructureGroup[] | undefined,
+  chapter: { id: string; title: string; firstScene?: string }
+): StructureGroup[] | null {
+  const list = (configured ?? []).filter((g) => g && typeof g.title === "string");
+  if (list.some((g) => g.id === chapter.id)) return null;
+  return [
+    ...list,
+    {
+      id: chapter.id,
+      title: chapter.title,
+      ...(chapter.firstScene ? { firstScene: chapter.firstScene } : {}),
+    },
+  ];
+}
+
+/**
  * Rewrite a config entry's title (chapter/act rename). Returns a new array, or
  * `null` when nothing changed (no entry with `oldTitle`, or titles equal) so the
  * caller can skip a redundant write. Mirrors `renameSceneInBeats`.

@@ -18,12 +18,13 @@ import { PROMPT_CATEGORIES, PromptCategory, PromptExtra, PromptPhase, WRITING_PR
 import { ListItem, ListOverride, ListSpec, normalizeListOverride } from "../lib/list-override";
 import { MarkerExtra, SHIPPED_MARKERS, isValidKeyword, normalizeKeyword } from "../lib/placeholders";
 import { PUBLISHING_CHECKLIST, PublishingExtra } from "../publishing/checklist-def";
-import { PAGE_GROUPS, SCENE_CHECKPOINTS, STORY_CHECKPOINTS } from "../revisions/audit";
+import { CHAPTER_CHECKPOINTS, PAGE_GROUPS, SCENE_CHECKPOINTS, STORY_CHECKPOINTS } from "../revisions/audit";
 import { INSPECTOR_FIELDS, SCENE_STATUSES, statusLabel } from "../scenes/scene-meta";
 
 export type OverridableListId =
   | "audit.scene"
   | "audit.story"
+  | "audit.chapter"
   | "audit.page"
   | "publishing"
   | "prompts"
@@ -35,6 +36,7 @@ export type OverridableListId =
 export interface ListOverrides {
   "audit.scene"?: ListOverride;
   "audit.story"?: ListOverride;
+  "audit.chapter"?: ListOverride;
   "audit.page"?: ListOverride;
   publishing?: ListOverride<PublishingExtra>;
   prompts?: ListOverride<PromptExtra>;
@@ -62,6 +64,7 @@ const flatten = (groups: readonly { id: string; items: readonly ListItem[] }[]):
 export const LIST_META: Record<OverridableListId, ListMeta> = {
   "audit.scene": { label: "Scene checkpoints", idPrefix: "sc" },
   "audit.story": { label: "Story checkpoints", idPrefix: "st" },
+  "audit.chapter": { label: "Chapter checkpoints", idPrefix: "ch" },
   "audit.page": { label: "Prose checkpoints", idPrefix: "pr", groupPrefix: "pg" },
   publishing: { label: "Publishing checklist", idPrefix: "pt", groupPrefix: "pg" },
   prompts: { label: "Writing prompts", idPrefix: "wp" },
@@ -81,6 +84,12 @@ export const SPEC_AUDIT_SCENE: ListSpec = {
 };
 export const SPEC_AUDIT_STORY: ListSpec = {
   shipped: STORY_CHECKPOINTS,
+  allowAdded: true,
+  allowGroups: false,
+  allowOrder: true,
+};
+export const SPEC_AUDIT_CHAPTER: ListSpec = {
+  shipped: CHAPTER_CHECKPOINTS,
   allowAdded: true,
   allowGroups: false,
   allowOrder: true,
@@ -170,6 +179,8 @@ export function normalizeListOverrides(raw: unknown): ListOverrides {
   if (scene) out["audit.scene"] = scene;
   const story = normalizeListOverride(rec["audit.story"], SPEC_AUDIT_STORY);
   if (story) out["audit.story"] = story;
+  const chapter = normalizeListOverride(rec["audit.chapter"], SPEC_AUDIT_CHAPTER);
+  if (chapter) out["audit.chapter"] = chapter;
   const page = normalizeListOverride(rec["audit.page"], SPEC_AUDIT_PAGE);
   if (page) out["audit.page"] = page;
   const publishing = normalizeListOverride(rec["publishing"], SPEC_PUBLISHING);
