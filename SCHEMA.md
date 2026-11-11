@@ -80,7 +80,7 @@ Top-level keys written by the Revise → Audit toolkit. Source: `src/revisions/a
 A single nested object under `inkswell`. All sub-keys optional. Source: `src/projects/types.ts`, `src/projects/index-writer.ts`.
 
 ### `inkswell.compile` — compile/export config
-`sceneSteps` / `manuscriptSteps` (ordered `{id, options}` step lists) · `separator` (string) · `targetBasename` (string, default `manuscript`) · `format` (`md` · `html` · `pandoc`) · `pandoc` (`{to, extension, extraArgs}`, when `format: pandoc`).
+`sceneSteps` / `manuscriptSteps` (ordered `{id, options}` step lists) · `separator` (string) · `targetBasename` (string, default `manuscript`) · `format` (`md` · `html` · `docx` · `pandoc`; `docx` since 1.25) · `pandoc` (`{to, extension, extraArgs}`, when `format: pandoc`) · `docx` (since 1.25, built-in Word options, all optional, kept when the format changes): `font` (`times` default · `courier`) · `paper` (`letter` default · `a4`) · `byline` (string; default = the writer's `authorName` setting) · `surname` (string; default = the byline's last word) · `titlePage` / `endMarker` (only `false` is ever written; absent = on). The writer's legal name and contact block are device-synced *settings* (`authorName`, `authorContact` in data.json), not frontmatter. Source: `src/compile/docx/`, `src/compile/types.ts` (`DocxConfig`).
 
 ### `inkswell.goals` — targets & pace
 `target` (number) · `deadline` (string `YYYY-MM-DD`) · `daysPerWeek` (number 1–7, default 7). **Story-level** — see the note under `overview`.

@@ -61,7 +61,30 @@ export interface ConfiguredStep {
   options: StepOptions;
 }
 
-export type OutputFormat = "md" | "html" | "pandoc";
+/** `docx` = the built-in Word writer (src/compile/docx/); `pandoc` = the optional
+ *  external converter (docx with a reference doc, pdf, epub). */
+export type OutputFormat = "md" | "html" | "docx" | "pandoc";
+
+/**
+ * Built-in Word (standard manuscript format) options, per project. Every field
+ * is optional; absent = the default noted. The writer's legal name and contact
+ * block are vault-wide preferences (settings `authorName` / `authorContact`),
+ * not stored here.
+ */
+export interface DocxConfig {
+  /** Default "times" (Times New Roman); "courier" = Courier New. */
+  font?: "times" | "courier";
+  /** Default "letter" (8.5×11 in); "a4". */
+  paper?: "letter" | "a4";
+  /** Name readers see. Default: settings `authorName`. */
+  byline?: string;
+  /** Running-header surname. Default: the byline's last word. */
+  surname?: string;
+  /** Default true. */
+  titlePage?: boolean;
+  /** "END" after the last line. Default true. */
+  endMarker?: boolean;
+}
 
 export interface PandocOutput {
   /** pandoc `--to` value, e.g. "docx", "pdf", "epub". */
@@ -94,6 +117,8 @@ export interface CompileConfig {
   targetBasename: string;
   format: OutputFormat;
   pandoc?: PandocOutput;
+  /** Built-in Word options (kept when switching formats, so they survive a detour). */
+  docx?: DocxConfig;
 }
 
 export const DEFAULT_COMPILE_CONFIG: CompileConfig = {

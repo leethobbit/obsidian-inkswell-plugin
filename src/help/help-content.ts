@@ -326,7 +326,14 @@ export const HINTS: Record<string, HintEntry> = {
       p(
         el,
         "Assemble the active project's scenes into one manuscript file. Pick a format — " +
-          "Markdown, HTML, or Word/PDF/EPUB via Pandoc — set the output name, and compile."
+          "Markdown, HTML, Word, or PDF/EPUB via Pandoc — set the output name, and compile."
+      );
+      p(
+        el,
+        "Word (.docx) is built in and works on every device. It writes a standard manuscript: " +
+          "double-spaced, indented, chapters on a new page, a title page with your name and the " +
+          "word count, and a running header. Add your name and contact details under Settings → " +
+          "Inkswell → Manuscript; set a pen name and the header surname per book under the format."
       );
       p(
         el,

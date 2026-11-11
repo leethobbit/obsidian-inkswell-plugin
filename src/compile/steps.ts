@@ -126,7 +126,7 @@ const flattenLinks: SceneStep = {
  */
 const htmlAlign: SceneStep = {
   id: "html-align",
-  description: "Convert HTML alignment (<p align>, <center>) to Word paragraph styles — Word/PDF only",
+  description: "Convert HTML alignment (<p align>, <center>) to Word paragraph styles — pandoc Word/PDF only",
   kind: "scene",
   run: (scenes, _options, ctx) => {
     if (!htmlAlignApplies(ctx)) return scenes;

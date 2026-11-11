@@ -10,6 +10,14 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+### Added
+- **Word export, built in.** Publish → Compile has a new **Word (.docx)** format that needs nothing else installed, and it works on phones and tablets too. It writes a standard manuscript, the format agents and editors ask for: 12 pt Times New Roman or Courier New, double-spaced, 1-inch margins, indented paragraphs, each chapter starting a third of the way down a new page, `#` for scene breaks, and a running header with your surname, the title, and the page number. It opens with a title page (your name, contact details, and the word count rounded the usual way, "about 88,000 words") and ends with "END". Each of these can be switched off. Pick US Letter or A4. Set the byline (a pen name, say) and the header surname per book. Italics, bold, block quotes, lists, centered and right-aligned text (`<center>`, `<p align>`), and images from your vault (PNG, JPEG, GIF) come through. Tables, footnotes and code blocks become plain paragraphs, and **Check manuscript before export** tells you how many there are. Compiling again replaces the last file, unless it has been changed in Word since; then Inkswell asks first and saves a copy of the edited file to "Inkswell conflicts".
+- **Your name and contact details for manuscripts.** A new **Manuscript** section in Settings holds your legal name and contact block, used on the Word title page.
+
+### Changed
+- **Pandoc is now only needed for PDF, EPUB, and Word with your own reference doc.** Those keep working as before, now labelled "via pandoc" in the format list. Books already set to pandoc Word keep using it. The "needs pandoc" notes only appear when a pandoc format is selected.
+- **Behind the scenes: groundwork for translating Inkswell.** The compile panel's text now comes from a translation file, the first step toward Inkswell in other languages. Nothing changes in English.
+
 ## [1.24.1] - 2026-11-01
 
 A small fix. The Tree view in Plan → Structure now has the same scene menu as Board and Grid, so you can rename a scene, edit its details or synopsis, or delete it without switching views.
