@@ -1,6 +1,6 @@
 /**
  * Shared row renderers for revision work — the ONE place a to-do marker row or
- * a decision row is built. Consumed by the merged Revise → To-dos panel and the
+ * a decision row is built. Consumed by the merged Revise → Revision log panel and the
  * Write → Revision sidebar, so the two surfaces can't drift apart.
  *
  * Marker rows are jump-only (resolve one by editing the prose in Write).

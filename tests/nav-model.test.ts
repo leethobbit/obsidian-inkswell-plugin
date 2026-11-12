@@ -93,7 +93,7 @@ describe("nav model", () => {
     // The merged worklist (old Log folded in) keeps the phone-matching label.
     expect(
       DESTINATIONS.find((d) => d.id === "revise")?.subtabs?.find((s) => s.id === "todos")?.label
-    ).toBe("To-dos");
+    ).toBe("Revision log");
     expect(
       DESTINATIONS.find((d) => d.id === "revise")?.subtabs?.some((s) => s.id === "log")
     ).toBe(false);

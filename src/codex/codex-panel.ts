@@ -114,7 +114,7 @@ export class CodexPanel {
   onSelect?: (path: string) => boolean;
   /**
    * Open a scene in Write (never as a raw note), optionally flashing a body hit.
-   * Wired by the host to the same cross-panel navigation Search/To-dos use, so an
+   * Wired by the host to the same cross-panel navigation Search and the revision log use, so an
    * "Appears in" link lands in the manuscript editor rather than Obsidian's file.
    */
   onOpenInWrite?: (path: string, highlight?: SceneHighlight) => void;

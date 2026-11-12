@@ -20,7 +20,7 @@ export interface CompanionDef {
   /** Catalog key for its name (tab title, menus, commands). */
   labelKey: MessageKey;
   /** Its rail icon where it shows the same thing (Codex, Plan, Track), so the
-   *  sidebar tab reads as Inkswell's; Scenes and To-dos say what they list. */
+   *  sidebar tab reads as Inkswell's; Scenes and Revision log say what they list. */
   icon: string;
   /** Where it opens the first time; Obsidian remembers where you move it. */
   side: "left" | "right";

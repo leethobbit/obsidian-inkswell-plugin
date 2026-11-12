@@ -387,8 +387,10 @@ export function insertPlaceholder(view: EditorView, marker: Pick<MarkerDef, "key
 
 /** Host callbacks a shortcut or editor event may need beyond the editor itself. */
 export interface EditorShortcutHooks {
-  /** Log a revision issue for the open scene (Mod-Shift-L). */
+  /** Log a revision decision for the open scene (Mod-Shift-L). */
   onLogIssue?: () => void;
+  /** Right-click (or a long press) in the text: the host shows the editor's menu. */
+  onContextMenu?: (e: MouseEvent) => void;
   /** Create a codex entry from the selection / word at the cursor (Mod-Shift-C). */
   onQuickCodex?: () => void;
   /** Follow a wikilink (Mod-click on it, or the open-link command). */
@@ -521,6 +523,8 @@ export interface SceneEditorOptions {
   onLogIssue?: () => void;
   /** Fired by the Mod-Shift-C shortcut to create a codex entry from the selection. */
   onQuickCodex?: () => void;
+  /** Right-click (or a long press) in the text: the host shows the editor's menu. */
+  onContextMenu?: (e: MouseEvent) => void;
   /** Fired by Mod-click on a rendered wikilink. */
   onOpenLink?: (linktext: string) => void;
   /** Fired when the pointer enters a rendered wikilink. */
@@ -664,6 +668,12 @@ export function createSceneEditor(opts: SceneEditorOptions): EditorView {
             if (!el) return false;
             e.preventDefault();
             opts.onOpenLink?.(el.dataset["link"] ?? "");
+            return true;
+          },
+          contextmenu: (e) => {
+            if (!opts.onContextMenu) return false;
+            e.preventDefault();
+            opts.onContextMenu(e);
             return true;
           },
           mouseover: (e) => {

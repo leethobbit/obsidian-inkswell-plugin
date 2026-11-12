@@ -2499,8 +2499,74 @@ body.inkswell-phone .inkswell-write__cm .cm-milestone-gutter {
 .inkswell-write.is-side-collapsed .inkswell-write__resizer {
   display: none;
 }
-.inkswell-write__sidetoggle {
+.inkswell-write__sidetoggle,
+.inkswell-write__focustoggle,
+.inkswell-write__nextupbtn {
   flex: none;
+}
+/* The scene list, hidden by the writer. Phones keep it: there it's a drawer. */
+body:not(.inkswell-phone) .inkswell-write.is-nav-collapsed .inkswell-write__nav {
+  display: none;
+}
+/* "Next up", folded into its toolbar button. The row stays in the page so
+   folding never rebuilds the editor below it. */
+.inkswell-write.is-nextup-folded .inkswell-write__nextup {
+  display: none;
+}
+.inkswell-write__nextupfold {
+  flex: none;
+}
+.inkswell-write__nextupbtn {
+  position: relative;
+}
+.inkswell-write__nextupbtn.has-note::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--interactive-accent);
+}
+/* The editor's menu has a toolbar button only where there's no right-click. */
+.inkswell-write__actionsmenu {
+  display: none;
+  flex: none;
+}
+body.is-mobile .inkswell-write__actionsmenu {
+  display: inline-flex;
+}
+/* Touch targets for the toolbar's icon buttons, matching the scene-list button. */
+body.is-mobile .inkswell-write__actionsmenu,
+body.is-mobile .inkswell-write__focustoggle,
+body.is-mobile .inkswell-write__nextupbtn,
+body.is-mobile .inkswell-write__nextupfold {
+  min-width: 44px;
+  min-height: 44px;
+}
+/* Phones: the word count goes last, so the buttons stay together on the first
+   row and only the count wraps under them. */
+body.inkswell-phone .inkswell-write__count {
+  order: 1;
+}
+/* Focus mode: only the editor and the toolbar. The class sits on the host
+   because the rail and the project header are outside the Write panel. Each
+   hidden thing keeps its own setting, so leaving focus puts it all back. */
+.inkswell-host.is-write-focus > .inkswell-rail,
+.inkswell-host.is-write-focus .inkswell-host__header,
+.inkswell-host.is-write-focus .inkswell-bottombar,
+.inkswell-host.is-write-focus .inkswell-hint,
+.inkswell-host.is-write-focus .inkswell-write__nav,
+.inkswell-host.is-write-focus .inkswell-write__backdrop,
+.inkswell-host.is-write-focus .inkswell-write__resizer,
+.inkswell-host.is-write-focus .inkswell-write__inspector,
+.inkswell-host.is-write-focus .inkswell-write__nextup,
+.inkswell-host.is-write-focus .inkswell-write__scenemeta,
+.inkswell-host.is-write-focus .inkswell-write__navtoggle,
+.inkswell-host.is-write-focus .inkswell-write__sidetoggle,
+.inkswell-host.is-write-focus .inkswell-write__nextupbtn {
+  display: none;
 }
 /* Right-column panel slot: a fixed switcher over a scrolling content area. The
    switcher fills the column and its tabs share the width, so four fit at the
@@ -2517,6 +2583,8 @@ body.inkswell-phone .inkswell-write__cm .cm-milestone-gutter {
   min-width: 0;
   padding: var(--size-4-1) var(--size-2-3);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 /* The Codex and Plan panels (the companions' bodies, hosted in Write). */
 .inkswell-write__reference {
@@ -4134,8 +4202,10 @@ body.is-phone:not(.inkswell-phone) .inkswell-host__main {
 /* --- Phone: Write collapses to a single column. The scene navigator slides in
        as a drawer (toggled from the topbar); the inspector is hidden (its data
        lives in the scene's metadata / the Home inspector). --- */
+/* The scene-list toggle: a plain icon button on desktop and tablet (it hides
+   the column), a 44px drawer button on phones (below). */
 .inkswell-write__navtoggle {
-  display: none;
+  flex: none;
 }
 .inkswell-write__backdrop {
   display: none;

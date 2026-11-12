@@ -53,7 +53,7 @@ function escapeRegExp(s: string): string {
 
 /**
  * Scan `text` for each entry's variant forms, reporting line, offsets, and an
- * excerpt per hit. Pass a frontmatter-STRIPPED body (as the To-dos scan does)
+ * excerpt per hit. Pass a frontmatter-STRIPPED body (as the revision-log scan does)
  * so `line`/`from`/`to` address the Write editor's document, which never
  * contains the frontmatter.
  */

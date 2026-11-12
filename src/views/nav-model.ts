@@ -100,11 +100,11 @@ export const DESTINATIONS: Destination[] = [
       { id: "audit", label: "Audit", feature: "audit" },
       // The merged worklist: inline prose markers + logged decisions in one
       // scene-grouped view (the old separate Log subtab folded into it).
-      { id: "todos", label: "To-dos" },
+      { id: "todos", label: "Revision log" },
       { id: "analysis", label: "Analysis", feature: "analysis" },
     ],
-    // Only the To-dos slice is phone-usable; the sheet row jumps straight to it.
-    phone: { slot: "more", order: 2, label: "To-dos", subtab: "todos" },
+    // Only the revision-log slice is phone-usable; the sheet row jumps straight to it.
+    phone: { slot: "more", order: 2, label: "Revision log", subtab: "todos" },
   },
   {
     id: "publish",

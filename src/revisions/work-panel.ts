@@ -1,5 +1,5 @@
 /**
- * Revise → To-dos: ONE list of everything left to revise in the active project —
+ * Revise → Revision log: ONE list of everything left to revise in the active project —
  * inline to-do markers left in the prose (`[TODO: …]`, `[RESEARCH: …]`, …) and
  * logged revision decisions — grouped by scene, exactly like the Write sidebar's
  * Revision panel (same shared grouping and row renderers), filterable by a

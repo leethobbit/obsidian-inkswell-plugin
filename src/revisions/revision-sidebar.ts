@@ -1,12 +1,12 @@
 /**
- * Write → Revision: the "Revision" panel in the Write tab's right-column slot.
+ * Write → Revision log: the "Revision log" panel in the Write tab's right-column slot.
  * Shows outstanding revision work for the whole project, grouped by scene with the
  * scene you're writing first: inline to-do markers (jump straight to them in the
  * editor) and logged Revision Log decisions (mark applied, edit, delete, or log a
  * new one) — so you can see and act on what's left without leaving Write.
  *
  * Read-mostly composition over the pure `buildRevisionGroups` + the shared
- * `scanProjectTodos`; mutations reuse the same decision ops as Revise → To-dos,
+ * `scanProjectTodos`; mutations reuse the same decision ops as Revise → Revision log,
  * so the two stay in sync. Async (marker scan) with a stale-guard token.
  */
 
@@ -30,7 +30,7 @@ export type RevisionJump = (path: string, from?: number, to?: number) => void;
 
 export class RevisionSidebar implements RightPanel {
   readonly id = "revision";
-  readonly label = "Revision";
+  readonly label = "Revision log";
 
   private host: HTMLElement | null = null;
   private file: TFile | null = null;

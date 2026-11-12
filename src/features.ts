@@ -42,7 +42,7 @@ export interface FeatureDef {
 /**
  * Every optional feature, in the order (and grouping) the Settings section shows
  * them. Core surfaces (Home, Write, Codex, Search, Help, Customize, Plan →
- * Overview, Structure → Tree, Revise → To-dos, Publish → Compile, ideas) are
+ * Overview, Structure → Tree, Revise → Revision log, Publish → Compile, ideas) are
  * deliberately absent — they can't be hidden. Track + sprints + goals hide
  * together as one "tracking" feature (a whole destination, gated in the rail,
  * More sheet, status bar, Write toolbar, hero card, and commands).

@@ -107,14 +107,37 @@ describe("parseWriteLayout", () => {
   });
 
   it("reads a stored layout", () => {
-    const raw = JSON.stringify({ sideWidth: 340, sideCollapsed: true, sidePanel: "codex" });
-    expect(parseWriteLayout(raw)).toEqual({ sideWidth: 340, sideCollapsed: true, sidePanel: "codex" });
+    const stored = {
+      sideWidth: 340,
+      sideCollapsed: true,
+      sidePanel: "codex",
+      navCollapsed: true,
+      nextUpFolded: true,
+    };
+    expect(parseWriteLayout(JSON.stringify(stored))).toEqual(stored);
   });
 
   it("clamps a stored width and ignores fields of the wrong type", () => {
     const raw = JSON.stringify({ sideWidth: 9000, sideCollapsed: "yes", sidePanel: 3 });
-    expect(parseWriteLayout(raw)).toEqual({ sideWidth: SIDE_WIDTH_MAX, sideCollapsed: false, sidePanel: null });
+    expect(parseWriteLayout(raw)).toEqual({
+      ...DEFAULT_WRITE_LAYOUT,
+      sideWidth: SIDE_WIDTH_MAX,
+    });
     expect(parseWriteLayout(JSON.stringify({ sideWidth: "wide" })).sideWidth).toBeNull();
+  });
+
+  it("reads a layout saved before the scene list and next-up note could be hidden", () => {
+    const old = JSON.stringify({ sideWidth: 300, sideCollapsed: false, sidePanel: "plan" });
+    expect(parseWriteLayout(old)).toEqual({
+      sideWidth: 300,
+      sideCollapsed: false,
+      sidePanel: "plan",
+      navCollapsed: false,
+      nextUpFolded: false,
+    });
+    expect(parseWriteLayout(JSON.stringify({ navCollapsed: "yes", nextUpFolded: 1 }))).toEqual(
+      DEFAULT_WRITE_LAYOUT
+    );
   });
 
   it("returns a fresh object each time", () => {

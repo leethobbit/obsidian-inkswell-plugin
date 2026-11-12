@@ -61,10 +61,21 @@ export const HINTS: Record<string, HintEntry> = {
       p(
         el,
         "Write is a focused editor: pick a scene on the left, draft in the centre, and " +
-          "use the right column on the right. That column has two tabs — Scene (metadata " +
-          "for the scene you're on) and Revision (this project's outstanding to-do markers " +
-          "and logged revision decisions, current scene first — click a marker to jump to " +
-          "it). Edits save on blur and when you switch scenes — never mid-keystroke."
+          "keep what you need in the column on the right. That column has four tabs — Scene " +
+          "(details of the scene you're on), Codex (who and what is in it), Plan (this " +
+          "chapter's scenes, beats and your planning note) and Revision log (this project's " +
+          "outstanding to-do markers and logged revision decisions, current scene first — " +
+          "click a marker to jump to it). Edits save on blur and when you switch scenes — " +
+          "never mid-keystroke."
+      );
+      p(
+        el,
+        "Make room for the page: the buttons at either end of the toolbar hide the scene " +
+          "list and the right column, and you can drag the line beside the column to resize " +
+          "it. Focus (the arrows button) hides everything but the editor and the toolbar; " +
+          "press it again to bring it all back. Fold the “Next up” note away with the arrow " +
+          "at its end. Right-click in the text for formatting, Codex look-up, splitting a " +
+          "scene and logging a revision decision."
       );
       p(
         el,
@@ -78,7 +89,7 @@ export const HINTS: Record<string, HintEntry> = {
         el,
         "Don't stop to research or perfect a hard bit. Drop a bracketed marker and " +
           "keep moving — they're highlighted in the editor and swept up later in " +
-          "Revise → To-dos. The keyword is case-insensitive and the “: text” is optional."
+          "Revise → Revision log. The keyword is case-insensitive and the “: text” is optional."
       );
       examples(el, ["[TODO: ]", "[RESEARCH: ]", "[NOTE: ]", "[DIALOGUE: ]", "[SCENE: ]"]);
       p(el, 'Run “Insert a to-do marker…” for a picker that drops one at the cursor.');
@@ -87,7 +98,7 @@ export const HINTS: Record<string, HintEntry> = {
         "Check a detail without leaving the page: hold Ctrl (Cmd on a Mac) and point at a " +
           "character's or place's name in the text to see its Codex card. Hover or tap a " +
           "name in the Scene column for the same card, or run “Look up in Codex” (also in " +
-          "the Insert menu). Esc closes it and your cursor stays where it was."
+          "the right-click menu). Esc closes it and your cursor stays where it was."
       );
       p(
         el,
@@ -95,7 +106,7 @@ export const HINTS: Record<string, HintEntry> = {
           "the left rail and choose “Open in sidebar”, or run “Open a companion in the " +
           "sidebar…”. Companions follow the scene you're writing: Codex lists who and what " +
           "is in it, Plan shows this chapter's scenes, synopses and beats plus your planning " +
-          "note, Scenes is the whole outline, and To-dos lists what's left in this scene. " +
+          "note, Scenes is the whole outline, and Revision log lists what's left in this scene. " +
           "Drag them anywhere; Obsidian remembers. Clicking a scene there opens it in Write, " +
           "or in a regular tab if you choose that in Settings."
       );
@@ -301,7 +312,7 @@ export const HINTS: Record<string, HintEntry> = {
     },
   },
   "revise/todos": {
-    title: "How revision to-dos work",
+    title: "How the revision log works",
     body: (el) => {
       p(
         el,
@@ -549,7 +560,7 @@ export const HELP_SECTIONS: HelpSection[] = [
   {
     phase: "Revise",
     icon: "git-compare",
-    summary: "Audit checklists, revision to-dos, and prose analysis.",
+    summary: "Audit checklists, the revision log, and prose analysis.",
     body: (el) => {
       el.createEl("h4", { text: HINTS["revise/audit"].title });
       HINTS["revise/audit"].body(el);

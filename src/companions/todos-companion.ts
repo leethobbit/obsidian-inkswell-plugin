@@ -1,5 +1,5 @@
 /**
- * To-dos companion (sidebar): what's left to fix in the scene you're writing —
+ * Revision log companion (sidebar): what's left to fix in the scene you're writing —
  * its draft markers and logged decisions — using the same panel as Write's
  * Revision column. Clicking a marker jumps to it in Write.
  */

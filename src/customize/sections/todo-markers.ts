@@ -7,7 +7,7 @@
  * changes, and a custom one's keyword is fixed at creation. Shipped markers
  * can't be renamed because a button must say what it types; another word means
  * your own marker. Hiding only takes a marker out of the insert UI; it's still
- * found in To-dos and still stripped by compile. Removing a custom marker is
+ * found in the revision log and still stripped by compile. Removing a custom marker is
  * the one lossy act, so it confirms first.
  */
 
@@ -46,7 +46,7 @@ export const todoMarkersSection: CustomizeSection = {
       noun: "marker",
       intro:
         "Markers you drop into your prose to come back to later — [TODO: …], [RESEARCH: …] and the " +
-        "rest — then find in Revise → To-dos. Compiling removes them all. To use a different word, " +
+        "rest — then find in Revise → Revision log. Compiling removes them all. To use a different word, " +
         "add your own marker (and hide the built-in one if you like). Hiding a marker only takes it " +
         "out of the Insert menu: markers already in your scenes are still found and still removed " +
         "when you compile.",
@@ -84,7 +84,7 @@ export const todoMarkersSection: CustomizeSection = {
         confirmDestructive(
           ctx.app,
           `Remove "${it.label}"? Markers already in your scenes typed as [${it.extra.keyword}: …] won't ` +
-            "be found in To-dos or removed when you compile. To keep them working, hide the marker instead.",
+            "be found in the revision log or removed when you compile. To keep them working, hide the marker instead.",
           "Remove"
         ),
       removeNotice: (it) =>

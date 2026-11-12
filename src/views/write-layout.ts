@@ -1,6 +1,7 @@
 /**
- * How Write's side panel (the right column) is laid out on this device: its
- * width, whether it's hidden, and which panel it shows. Device-local on
+ * How Write is laid out on this device: the side panel's (right column's)
+ * width, whether it's hidden, and which panel it shows; whether the scene list
+ * is hidden; whether the "Next up" note is folded away. Device-local on
  * purpose (`window.localStorage`, scoped by vault name, like write-mode.ts): a
  * width dragged on a wide monitor shouldn't follow the vault to a laptop.
  *
@@ -22,12 +23,18 @@ export interface WriteLayout {
   sideCollapsed: boolean;
   /** Id of the panel showing; null = the first one. */
   sidePanel: string | null;
+  /** The scene list (left column) is hidden. */
+  navCollapsed: boolean;
+  /** The "Next up" note is folded into its toolbar button. */
+  nextUpFolded: boolean;
 }
 
 export const DEFAULT_WRITE_LAYOUT: WriteLayout = {
   sideWidth: null,
   sideCollapsed: false,
   sidePanel: null,
+  navCollapsed: false,
+  nextUpFolded: false,
 };
 
 /**
@@ -62,6 +69,8 @@ export function parseWriteLayout(raw: string | null | undefined): WriteLayout {
     sideWidth: typeof width === "number" && Number.isFinite(width) ? clampSideWidth(width) : null,
     sideCollapsed: o.sideCollapsed === true,
     sidePanel: typeof panel === "string" && panel ? panel : null,
+    navCollapsed: o.navCollapsed === true,
+    nextUpFolded: o.nextUpFolded === true,
   };
 }
 

@@ -9,7 +9,7 @@
  * (compile, goals, revisions) lives in the project index's `inkswell` frontmatter.
  */
 
-import { Notice, Plugin, TFile, WorkspaceLeaf, normalizePath } from "obsidian";
+import { MarkdownView, Notice, Plugin, TFile, WorkspaceLeaf, normalizePath } from "obsidian";
 import { runCompile } from "./src/compile/engine";
 import { initLocale } from "./src/i18n/detect";
 import { t, tp } from "./src/i18n";
@@ -476,11 +476,6 @@ export default class InkswellPlugin extends Plugin {
       callback: () => void this.compileActiveProject(),
     });
     this.addCommand({
-      id: "open-todos",
-      name: "Open to-dos (Revise)",
-      callback: () => this.openTodos(),
-    });
-    this.addCommand({
       id: "search-scenes",
       name: "Search scenes",
       callback: () => this.openSearch(),
@@ -519,6 +514,22 @@ export default class InkswellPlugin extends Plugin {
         return true;
       },
     });
+    const layoutCommands: { id: string; name: string; run: (v: InkswellView) => void }[] = [
+      { id: "toggle-write-scene-list", name: t("write.nav.command"), run: (v) => v.toggleSceneList() },
+      { id: "toggle-write-focus", name: t("write.focus.command"), run: (v) => v.toggleFocus() },
+    ];
+    for (const { id, name, run } of layoutCommands) {
+      this.addCommand({
+        id,
+        name,
+        checkCallback: (checking) => {
+          const view = this.inkswellView();
+          if (!view || !view.isWriting()) return false;
+          if (!checking) run(view);
+          return true;
+        },
+      });
+    }
     for (const panel of SIDE_PANELS) {
       this.addCommand({
         id: `write-side-panel-${panel.id}`,
@@ -691,18 +702,30 @@ export default class InkswellPlugin extends Plugin {
     this.addCommand({
       id: "log-revision",
       name: "Log a revision decision",
-      editorCallback: (editor, ctx) => {
-        const file = ctx.file;
-        if (!file) return;
+      // Works from both writing surfaces: Inkswell's own Write editor (which an
+      // `editorCallback` never reaches) and a scene open in a regular tab.
+      checkCallback: (checking) => {
+        const view = this.app.workspace.getActiveViewOfType(InkswellView);
+        if (view?.canFormat()) {
+          if (!checking) view.logDecision();
+          return true;
+        }
+        const md = this.app.workspace.getActiveViewOfType(MarkdownView);
+        const file = md?.file;
+        if (!md || !file) return false;
+        if (checking) return true;
         const project = this.projectForPath(file.path);
         if (!project) {
           new Notice("The active file isn't part of an Inkswell project.");
-          return;
+          return true;
         }
         const scene = project.scenes.find((s) => s.path === file.path)?.title ?? null;
-        new RevisionModal(this.app, project, scene, editor.getSelection()).open();
+        new RevisionModal(this.app, project, scene, md.editor.getSelection()).open();
+        return true;
       },
     });
+    // The one way to the revision log (Revise → Revision log): what's left to
+    // revise, focused on the active file's project when there is one.
     this.addCommand({
       id: "open-revisions",
       name: "Open revision log",
@@ -1197,7 +1220,7 @@ export default class InkswellPlugin extends Plugin {
     return this.openInkswell("help");
   }
 
-  /** Open Revise → To-dos (markers left in prose + logged decisions). */
+  /** Open the revision log (markers left in prose + logged decisions). */
   openTodos(): Promise<void> {
     return this.openInkswell("revise", undefined, "todos");
   }
@@ -1217,7 +1240,7 @@ export default class InkswellPlugin extends Plugin {
     return this.openInkswell("revise", undefined, "analysis");
   }
 
-  /** Open the merged revision worklist (Revise → To-dos), focused on the active
+  /** Open the merged revision worklist (Revise → Revision log), focused on the active
    *  file's project when possible. */
   openRevisions(): Promise<void> {
     const active = this.app.workspace.getActiveFile();

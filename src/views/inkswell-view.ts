@@ -165,7 +165,7 @@ export class InkswellView extends ItemView {
       return true;
     };
     // An "Appears in" scene opens in the Write editor (flashing the first mention),
-    // never as a raw note — matching Search/To-dos navigation.
+    // never as a raw note — matching Search / revision-log navigation.
     this.codex.onOpenInWrite = (path, hl) => this.openSceneInWrite(path, hl);
     this.write = new WritePanel(this.app, plugin, store, plugin.sprints);
     this.stats = new StatsPanel(this.app, plugin, tracker, store, stats);
@@ -539,7 +539,7 @@ export class InkswellView extends ItemView {
   }
 
   /** Whether a destination shows the "use a larger screen" notice on phones.
-   *  Revise is enabled only for its To-dos slice; its other tabs redirect. */
+   *  Revise is enabled only for its revision-log slice; its other tabs redirect. */
   private isRedirected(mode: InkswellMode): boolean {
     if (PHONE_REDIRECTED.has(mode)) return true;
     // effectiveSubtab (not the raw remembered value) so a remembered subtab
@@ -691,6 +691,26 @@ export class InkswellView extends ItemView {
     this.write.toggleSidePanel();
   }
 
+  /** True when Write is the destination showing (gates its layout commands). */
+  isWriting(): boolean {
+    return this.mode === "write";
+  }
+
+  /** Show or hide Write's scene list. */
+  toggleSceneList(): void {
+    this.write.toggleSceneList();
+  }
+
+  /** Enter or leave Write's focus mode. */
+  toggleFocus(): void {
+    this.write.toggleFocus();
+  }
+
+  /** Log a revision decision for the scene open in Write. */
+  logDecision(): void {
+    this.write.logDecision();
+  }
+
   /** Bring a panel up beside the Write editor (and show Write if it isn't). */
   showSidePanel(id: string): void {
     this.write.showSidePanel(id);
@@ -827,6 +847,10 @@ export class InkswellView extends ItemView {
     // The page scroller is restored too, but only when the rebuild shows the
     // same screen (its tag names mode + sub-tab + drill-down) — navigating
     // elsewhere still lands at the top.
+    // Write's focus mode hides the rail and the header: only while Write shows.
+    // (Write sets the class itself when it renders or toggles.)
+    if (this.mode !== "write") this.contentEl.removeClass("is-write-focus");
+
     preserveUi(this.body, () => {
       this.renderedMode = this.mode;
       this.body.empty();
@@ -1141,7 +1165,7 @@ export class InkswellView extends ItemView {
         return false;
       }
       case "revise": {
-        // To-dos: a decision write from the merged panel — refresh its rows in
+        // Revision log: a decision write from the merged panel — refresh its rows in
         // place (cached marker scan + fresh decisions). Audit: checklist/style/
         // arc writes re-render the panel in place so progress counters update.
         // Anything else (Analysis) has no self-writes of its own — return

@@ -98,7 +98,7 @@ export function buildRevisionGroups(
   return out;
 }
 
-// ---- Unified filter for the merged Revise → To-dos panel -------------------
+// ---- Unified filter for the merged Revise → Revision log panel -------------------
 // One chip row filters across both facets: inline marker kinds and logged
 // decision types. Pure so chip building and filtering are unit-testable.
 
