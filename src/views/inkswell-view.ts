@@ -51,6 +51,9 @@ import { SceneInspector } from "../scenes/scene-inspector";
 import { HelpPanel } from "../help/help-panel";
 import { CustomizePanel } from "../customize/customize-panel";
 import { addHideItem, attachHideMenu } from "../lib/hide-menu";
+import { t } from "../i18n";
+import { companionForDestination, visibleCompanions } from "../companions/registry";
+import { replaceWithCompanion } from "../companions/open";
 import { renderHint } from "../help/hint";
 import { hintKey } from "../help/help-content";
 import { PhoneShell } from "./phone/phone-shell";
@@ -130,6 +133,8 @@ export class InkswellView extends ItemView {
   /** True between pointerdown and pointerup — a deferred rebuild must not fire
    *  mid-gesture or it tears down the element a click is landing on. */
   private pointerDown = false;
+  /** Shown instead of the app while this view sits in a sidebar (checkSidebar). */
+  private sidebarNotice: HTMLElement | null = null;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -223,6 +228,8 @@ export class InkswellView extends ItemView {
 
     this.rail = root.createDiv({ cls: "inkswell-rail" });
     this.buildRail();
+    this.registerEvent(this.app.workspace.on("layout-change", () => this.checkSidebar()));
+    this.app.workspace.onLayoutReady(() => this.checkSidebar());
 
     // Right of the rail: a persistent header (project selector) above the body.
     // The header lives OUTSIDE the body so renderActive()'s body.empty() never
@@ -580,6 +587,64 @@ export class InkswellView extends ItemView {
     this.write.quickCodex();
   }
 
+  /** "Open in sidebar" for a rail destination that has a companion. */
+  private addCompanionItem(menu: Menu, dest: InkswellMode): boolean {
+    const def = companionForDestination(dest, this.plugin.settings.disabledFeatures);
+    if (!def) return false;
+    menu.addItem((i) =>
+      i
+        .setTitle(t("companion.openInSidebar"))
+        .setIcon("panel-right")
+        .onClick(() => void this.plugin.openCompanion(def.id))
+    );
+    return true;
+  }
+
+  /**
+   * The full view doesn't fit a sidebar (seven destinations in ~300px). When it
+   * lands in one, show a notice offering to move it back or to open a companion
+   * there instead; the app underneath keeps its state.
+   */
+  private checkSidebar(): void {
+    const ws = this.app.workspace;
+    const root = this.leaf.getRoot();
+    const inSidebar = root === ws.leftSplit || root === ws.rightSplit;
+    this.contentEl.toggleClass("is-in-sidebar", inSidebar);
+    this.sidebarNotice?.remove();
+    this.sidebarNotice = null;
+    if (!inSidebar) return;
+    const notice = this.contentEl.createDiv({ cls: "inkswell-sidebar-notice" });
+    this.sidebarNotice = notice;
+    notice.createDiv({ cls: "inkswell-sidebar-notice__title", text: t("companion.notice.title") });
+    notice.createDiv({ cls: "inkswell-stats__muted", text: t("companion.notice.body") });
+    const move = notice.createEl("button", { cls: "mod-cta", text: t("companion.notice.move") });
+    move.onclick = () => {
+      const leaf = this.leaf;
+      void (async () => {
+        const state = leaf.getViewState();
+        const target = this.app.workspace.getLeaf("tab");
+        await target.setViewState(state);
+        leaf.detach();
+        await this.app.workspace.revealLeaf(target);
+      })();
+    };
+    for (const def of visibleCompanions(this.plugin.settings.disabledFeatures)) {
+      const b = notice.createEl("button", { text: t("companion.notice.open", { name: t(def.labelKey) }) });
+      setIcon(b.createSpan({ cls: "inkswell-sidebar-notice__icon" }), def.icon);
+      b.onclick = () => void replaceWithCompanion(this.plugin, this.leaf, def.id);
+    }
+  }
+
+  /** Look up in Codex: peek at the name under Write's cursor (false = none). */
+  lookUpAtCursor(): boolean {
+    return this.mode === "write" && this.write.lookUpAtCursor();
+  }
+
+  /** Write's cursor position on screen, for anchoring a looked-up card. */
+  cursorRect(): DOMRect | null {
+    return this.mode === "write" ? this.write.cursorRect() : null;
+  }
+
   /** Open Plan → Structure on a specific view (deep link for board/grid commands). */
   openPlanStructure(view: StructureView): void {
     this.structure.setView(view);
@@ -858,8 +923,22 @@ export class InkswellView extends ItemView {
     item.setAttribute("aria-label", dest.label);
     item.onclick = () => this.setMode(dest.id);
     if (!section) {
-      // Fixed items (Home, the footer) only offer Hide, when gated by a feature.
-      if (dest.feature) attachHideMenu(item, this.plugin, dest.feature, dest.label);
+      // Fixed items (Home, the footer) offer Hide when gated by a feature, and
+      // Open in sidebar when they have a companion (Home → Scenes).
+      if (companionForDestination(dest.id, this.plugin.settings.disabledFeatures)) {
+        item.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          const menu = new Menu();
+          this.addCompanionItem(menu, dest.id);
+          if (dest.feature) {
+            menu.addSeparator();
+            addHideItem(menu, this.plugin, dest.feature, dest.label);
+          }
+          menu.showAtMouseEvent(e);
+        });
+      } else if (dest.feature) {
+        attachHideMenu(item, this.plugin, dest.feature, dest.label);
+      }
       return;
     }
 
@@ -867,6 +946,7 @@ export class InkswellView extends ItemView {
     item.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       const menu = new Menu();
+      if (this.addCompanionItem(menu, dest.id)) menu.addSeparator();
       const disabled = this.plugin.settings.disabledFeatures;
       const isVisible = (id: InkswellMode) => {
         const d = DESTINATIONS.find((x) => x.id === id);

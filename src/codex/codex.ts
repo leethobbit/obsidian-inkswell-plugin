@@ -110,3 +110,46 @@ export function firstMentionOffset(
   }
   return best;
 }
+
+/** A name or alias of one entity found at a position in some text. */
+export interface MentionHit {
+  entity: CodexEntity;
+  /** Offsets into the text passed in. */
+  from: number;
+  to: number;
+}
+
+/**
+ * The entity whose name or alias covers `offset` in `text` (a single line is
+ * plenty; callers pass the line under the pointer), using the same whole-word,
+ * CJK-aware, case-insensitive rule as {@link detectMentions}. When names
+ * overlap ("Mara" inside "Mara Vance") the longest match wins, so the reader
+ * gets the entry they pointed at. Null when no name covers the offset.
+ */
+export function mentionAt(
+  text: string,
+  offset: number,
+  entities: readonly CodexEntity[]
+): MentionHit | null {
+  if (!text || offset < 0 || offset > text.length) return null;
+  let best: MentionHit | null = null;
+  for (const entity of entities) {
+    const needles = [entity.name, ...entity.aliases].map((s) => s.trim()).filter(Boolean);
+    for (const n of needles) {
+      if (n.length > text.length) continue;
+      const re = new RegExp(`${LEFT_BOUNDARY}(${escapeRegex(n)})${RIGHT_BOUNDARY}`, "giu");
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(text)) !== null) {
+        const from = m.index + (m[0].length - m[1].length);
+        const to = from + m[1].length;
+        if (from > offset) break;
+        if (offset >= from && offset <= to && (!best || to - from > best.to - best.from)) {
+          best = { entity, from, to };
+        }
+        // A zero-width boundary match can't advance by itself; step past it.
+        if (m[0].length === 0) re.lastIndex += 1;
+      }
+    }
+  }
+  return best;
+}

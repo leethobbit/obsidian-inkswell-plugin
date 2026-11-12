@@ -10,6 +10,7 @@ import { tagField } from "../lib/focus-preserve";
 import { autosizeTextarea } from "../lib/form-fields";
 import { readProfile, writeProfile } from "../codex/codex-profile";
 import type { ProfileField } from "../codex/profile-schema";
+import type { CodexEntity } from "../codex/types";
 import { renderProfileFieldControl } from "../codex/profile-field-controls";
 import { linkTarget, toLink } from "../codex/codex";
 import { featureEnabled } from "../features";
@@ -53,6 +54,8 @@ interface ChipListOptions {
   emptyText: string | null;
   onAdd(value: string): void;
   onRemove(value: string): void;
+  /** Extra behaviour for one chip (the Codex peek on Characters / Location). */
+  decorate?(chip: HTMLElement, value: string): void;
 }
 
 /**
@@ -66,7 +69,11 @@ function renderChipList(host: HTMLElement, opts: ChipListOptions): void {
     const chip = chips.createSpan({ cls: "inkswell-chip", text: opts.label(value) });
     const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
     x.setAttribute("aria-label", `Remove ${opts.label(value)}`);
-    x.onclick = () => opts.onRemove(value);
+    x.onclick = (e) => {
+      e.stopPropagation();
+      opts.onRemove(value);
+    };
+    opts.decorate?.(chip, value);
   }
   if (opts.candidates.length > 0) {
     const add = host.createEl("select", { cls: "dropdown" });
@@ -120,7 +127,12 @@ export function renderSceneMetaFields(
   /** Effective field layout (`inspectorFields(override)`); shipped by default. */
   fields: readonly InspectorFieldDef[] = inspectorFields(),
   /** The writer's own fields (#52) and a codex-type labeller for their link pickers. */
-  extra: { customFields?: readonly ProfileField[]; typeLabel?: (id: string) => string } = {}
+  extra: {
+    customFields?: readonly ProfileField[];
+    typeLabel?: (id: string) => string;
+    /** Give a Characters / Location chip the Codex peek (the Scene inspector does). */
+    peekChip?: (chip: HTMLElement, entity: CodexEntity, visible: readonly CodexEntity[]) => void;
+  } = {}
 ): void {
   const meta = readSceneMeta(app, file);
   const save = (patch: Partial<SceneMeta>) => {
@@ -225,6 +237,13 @@ export function renderSceneMetaFields(
       addLabel,
       tag: `scene:${key}-add`,
       emptyText: pool.length === 0 ? emptyText : null,
+      decorate: extra.peekChip
+        ? (chip, value) => {
+            const name = linkTarget(value).trim().toLowerCase();
+            const entity = pool.find((e) => e.name.toLowerCase() === name);
+            if (entity) extra.peekChip?.(chip, entity, entities);
+          }
+        : undefined,
       onAdd: (name) => {
         const link = toLink(name);
         saveList(key, (cur) => (cur.includes(link) ? cur : [...cur, link]));

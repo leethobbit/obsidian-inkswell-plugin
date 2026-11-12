@@ -394,6 +394,11 @@ export interface EditorShortcutHooks {
   onOpenLink?: (linktext: string) => void;
   /** The pointer entered a rendered wikilink (drives Obsidian's Page Preview). */
   onHoverLink?: (e: MouseEvent, el: HTMLElement, linktext: string) => void;
+  /** The pointer moved with Ctrl/Cmd held (or Ctrl/Cmd went down over the text):
+   *  the host may show a Codex peek for the name under it. */
+  onPeek?: (e: MouseEvent, view: EditorView) => void;
+  /** The pointer left the text, or moved without Ctrl/Cmd: an open peek may close. */
+  onPeekEnd?: () => void;
   /** The live to-do marker set (shortcuts skip a hidden marker). Default: shipped. */
   getMarkers?: () => MarkerSet;
 }
@@ -519,6 +524,10 @@ export interface SceneEditorOptions {
   onOpenLink?: (linktext: string) => void;
   /** Fired when the pointer enters a rendered wikilink. */
   onHoverLink?: (e: MouseEvent, el: HTMLElement, linktext: string) => void;
+  /** Ctrl/Cmd-move over the text (the Codex peek). */
+  onPeek?: (e: MouseEvent, view: EditorView) => void;
+  /** The pointer left the text or Ctrl/Cmd is up. */
+  onPeekEnd?: () => void;
   /**
    * Live smart-typography rules, read on every candidate keystroke (so a
    * Settings change applies without rebuilding the editor). Omit to disable.
@@ -577,6 +586,10 @@ function boundaryKeys(onBoundary: NonNullable<SceneEditorOptions["onBoundary"]>)
 /** Create a manuscript editor bound to `parent`, seeded with `doc`. */
 export function createSceneEditor(opts: SceneEditorOptions): EditorView {
   const inStream = !!opts.onBoundary;
+  // The last pointer position over the text, so pressing Ctrl/Cmd while
+  // already resting on a name peeks without having to move the mouse.
+  let lastMove: MouseEvent | null = null;
+  const isMod = (e: MouseEvent | KeyboardEvent) => e.ctrlKey || e.metaKey;
   return new EditorView({
     parent: opts.parent,
     state: EditorState.create({
@@ -632,6 +645,21 @@ export function createSceneEditor(opts: SceneEditorOptions): EditorView {
           mouseover: (e) => {
             const el = linkElementAt(e.target);
             if (el) opts.onHoverLink?.(e, el, el.dataset["link"] ?? "");
+            return false;
+          },
+          mousemove: (e, view) => {
+            lastMove = e;
+            if (isMod(e)) opts.onPeek?.(e, view);
+            else opts.onPeekEnd?.();
+            return false;
+          },
+          mouseleave: () => {
+            lastMove = null;
+            opts.onPeekEnd?.();
+            return false;
+          },
+          keydown: (e, view) => {
+            if ((e.key === "Control" || e.key === "Meta") && lastMove) opts.onPeek?.(lastMove, view);
             return false;
           },
         }),

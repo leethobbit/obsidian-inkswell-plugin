@@ -45,7 +45,11 @@ import {
   selectionInsideWikilink,
 } from "../codex/quick-codex";
 import { QuickCodexModal } from "../codex/quick-codex-modal";
-import { allCategories, categoryLabel } from "../codex/types";
+import { CodexEntity, allCategories, categoryLabel } from "../codex/types";
+import { mentionAt } from "../codex/codex";
+import { entitiesForScene } from "../codex/peek";
+import { wikilinkAt } from "../lib/wikilinks";
+import { t } from "../i18n";
 import { LinkCandidate } from "../lib/link-complete";
 import { featureEnabled } from "../features";
 import { tryFileOp } from "../lib/notify";
@@ -198,6 +202,8 @@ export class WritePanel implements HoverParent {
   private plugin: InkswellPlugin;
   /** Page Preview's handle for popovers this editor spawns (HoverParent). */
   hoverPopover: HoverPopover | null = null;
+  /** Codex entries for the peek, cached briefly per scene (see peekEntities). */
+  private peekCache: { path: string | null; at: number; entities: CodexEntity[] } | null = null;
   private store: ProjectStore;
   private sprints: SprintController;
   private inspector: SceneInspector;
@@ -452,6 +458,12 @@ export class WritePanel implements HoverParent {
     );
     menu.addItem((item) =>
       item
+        .setTitle(t("peek.lookUp"))
+        .setIcon("book-marked")
+        .onClick(() => this.plugin.lookUpInCodex())
+    );
+    menu.addItem((item) =>
+      item
         .setTitle("Open link at cursor")
         .setIcon("link")
         .onClick(() => this.openLinkAtCursor())
@@ -518,6 +530,8 @@ export class WritePanel implements HoverParent {
       onQuickCodex: () => this.quickCodex(),
       onOpenLink: (linktext) => this.openLink(linktext),
       onHoverLink: (e, el, linktext) => this.hoverLink(e, el, linktext),
+      onPeek: (e, view) => this.peekAt(e, view),
+      onPeekEnd: () => this.plugin.peek.scheduleClose(),
       getMarkers: () => this.markers(),
     };
   }
@@ -748,9 +762,11 @@ export class WritePanel implements HoverParent {
     this.openLink(linktext);
   }
 
-  /** Hand a hovered link to Obsidian's Page Preview (source registered in main.ts). */
+  /** Hand a hovered link to Obsidian's Page Preview (source registered in main.ts).
+   *  A link to a Codex entry gets the Codex peek instead (see peekAt). */
   private hoverLink(e: MouseEvent, el: HTMLElement, linktext: string): void {
     if (!this.currentFile) return;
+    if (this.codexEntityForLink(linktext)) return;
     this.app.workspace.trigger("hover-link", {
       event: e,
       source: "inkswell-write",
@@ -759,6 +775,83 @@ export class WritePanel implements HoverParent {
       linktext,
       sourcePath: this.currentFile.path,
     });
+  }
+
+  /** Codex entries visible from the open scene, re-read at most every few
+   *  seconds (the peek asks on every Ctrl/Cmd-move). */
+  private peekEntities(): CodexEntity[] {
+    const path = this.currentFile?.path ?? null;
+    const now = Date.now();
+    const cache = this.peekCache;
+    if (cache && cache.path === path && now - cache.at < 3000) return cache.entities;
+    const entities = entitiesForScene(this.plugin, path);
+    this.peekCache = { path, at: now, entities };
+    return entities;
+  }
+
+  /** The Codex entry a wikilink in the open scene points at, if it is one. */
+  private codexEntityForLink(linktext: string): CodexEntity | null {
+    if (!this.currentFile) return null;
+    const linkpath = linktext.split("#")[0].split("|")[0].trim();
+    if (!linkpath) return null;
+    const dest = this.app.metadataCache.getFirstLinkpathDest(linkpath, this.currentFile.path);
+    if (!dest) return null;
+    return this.peekEntities().find((e) => e.path === dest.path) ?? null;
+  }
+
+  /** The Codex entry named at document position `pos` (a link, or a plain name
+   *  or alias), with the range it covers. */
+  private entityAt(view: EditorView, pos: number): { entity: CodexEntity; from: number; to: number } | null {
+    const line = view.state.doc.lineAt(pos);
+    const link = wikilinkAt(line.text, pos - line.from);
+    if (link) {
+      const entity = this.codexEntityForLink(link.linktext);
+      if (entity) return { entity, from: line.from + link.from, to: line.from + link.to };
+    }
+    const hit = mentionAt(line.text, pos - line.from, this.peekEntities());
+    return hit ? { entity: hit.entity, from: line.from + hit.from, to: line.from + hit.to } : null;
+  }
+
+  /** Ctrl/Cmd-move over the prose: peek at the Codex entry under the pointer. */
+  private peekAt(e: MouseEvent, view: EditorView): void {
+    const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
+    const hit = pos === null ? null : this.entityAt(view, pos);
+    if (!hit) {
+      this.plugin.peek.scheduleClose();
+      return;
+    }
+    const rect = this.rangeRect(view, hit.from, hit.to);
+    if (rect) this.plugin.peek.show(hit.entity, rect, { entities: this.peekEntities(), sticky: false });
+  }
+
+  /** Viewport rect of a document range (its first line), or null off-screen. */
+  private rangeRect(view: EditorView, from: number, to: number): DOMRect | null {
+    const a = view.coordsAtPos(from);
+    const b = view.coordsAtPos(to, -1);
+    if (!a) return null;
+    const right = b && b.top === a.top ? b.right : a.right;
+    return new DOMRect(a.left, a.top, Math.max(1, right - a.left), a.bottom - a.top);
+  }
+
+  /** Look up in Codex: peek at the name under the cursor. False when there's
+   *  no editor or no name there (the caller then offers a search). */
+  lookUpAtCursor(): boolean {
+    const view = this.editor;
+    if (!view) return false;
+    const hit = this.entityAt(view, view.state.selection.main.head);
+    if (!hit) return false;
+    const rect = this.rangeRect(view, hit.from, hit.to);
+    if (!rect) return false;
+    this.plugin.peek.show(hit.entity, rect, { entities: this.peekEntities(), sticky: true });
+    return true;
+  }
+
+  /** Where a looked-up card should appear: at the cursor when Write has one. */
+  cursorRect(): DOMRect | null {
+    const view = this.editor;
+    if (!view) return null;
+    const head = view.state.selection.main.head;
+    return this.rangeRect(view, head, head);
   }
 
   /** Editor blurred / torn down: restore normal hotkey handling. */
@@ -1339,6 +1432,8 @@ export class WritePanel implements HoverParent {
         return;
       }
       this.session = session;
+      // Every way a scene goes live (Scene, Stream, a fast-path swap) lands here.
+      this.plugin.currentScene.set(session.file.path);
       this.editor = createSceneEditor({
         parent: host,
         doc: session.loadedBody,

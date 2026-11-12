@@ -54,7 +54,7 @@ const SENTENCE_CASE_OPTIONS = {
     "Inkswell", "Obsidian", "Codex", "Vault", "Scene Inspector", "Inspector",
     "Word", "Times New Roman", "Courier New", "LaTeX", "MiKTeX", "TeX Live",
   ],
-  acronyms: ["HTML", "PDF", "EPUB", "DOCX", "POV", "TODO", "NOTE", "DKB", "YAML", "PATH", "END"],
+  acronyms: ["HTML", "PDF", "EPUB", "DOCX", "POV", "TODO", "DKB", "YAML", "PATH", "END"],
   // "pandoc" is the tool's own lower-case spelling, used mid-sentence throughout the UI.
   ignoreWords: ["e.g.", "i.e.", "E.g.", "I.e.", "pandoc"],
   ignoreRegex: [

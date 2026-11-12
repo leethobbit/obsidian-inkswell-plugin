@@ -25,6 +25,9 @@ import { t } from "../i18n";
 export interface InkswellSettings {
   /** Default output format offered in the compile dialog. */
   defaultCompileFormat: OutputFormat;
+  /** Where a scene clicked in a sidebar companion opens: Inkswell's Write, or
+   *  a regular Obsidian tab. Ctrl/Cmd-click always opens a new tab. */
+  companionSceneTarget: "write" | "tab";
   /** Show word counts in the explorer. */
   showWordCounts: boolean;
   /** Home: whether the ideas inbox section is expanded (UI state, not a Settings row). */
@@ -172,6 +175,7 @@ export interface InkswellSettings {
 
 export const DEFAULT_SETTINGS: InkswellSettings = {
   defaultCompileFormat: "md",
+  companionSceneTarget: "write",
   authorName: "",
   authorContact: "",
   showWordCounts: true,
@@ -399,6 +403,16 @@ export class InkswellSettingTab extends PluginSettingTab {
         },
       },
       {
+        name: t("settings.companionSceneTarget.name"),
+        desc: t("settings.companionSceneTarget.desc"),
+        control: {
+          type: "dropdown",
+          key: "companionSceneTarget",
+          options: companionTargetOptions(),
+          defaultValue: "write",
+        },
+      },
+      {
         name: "Show word counts",
         desc: "Display per-scene and per-project word counts in the explorer.",
         control: { type: "toggle", key: "showWordCounts", defaultValue: true },
@@ -591,6 +605,9 @@ export class InkswellSettingTab extends PluginSettingTab {
       case "defaultCompileFormat":
         s.defaultCompileFormat = value as OutputFormat;
         break;
+      case "companionSceneTarget":
+        s.companionSceneTarget = value === "tab" ? "tab" : "write";
+        break;
       case "authorName":
         s.authorName = typeof value === "string" ? value.trim() : "";
         break;
@@ -742,6 +759,19 @@ export class InkswellSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.defaultCompileFormat)
           .onChange(async (v) => {
             this.plugin.settings.defaultCompileFormat = v as OutputFormat;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName(t("settings.companionSceneTarget.name"))
+      .setDesc(t("settings.companionSceneTarget.desc"))
+      .addDropdown((d) =>
+        d
+          .addOptions(companionTargetOptions())
+          .setValue(this.plugin.settings.companionSceneTarget)
+          .onChange(async (v) => {
+            this.plugin.settings.companionSceneTarget = v === "tab" ? "tab" : "write";
             await this.plugin.saveSettings();
           })
       );
@@ -1042,4 +1072,12 @@ function clampInt(raw: string, lo: number, hi: number, fallback: number): number
   const n = Math.floor(Number(raw));
   if (!Number.isFinite(n)) return fallback;
   return Math.max(lo, Math.min(hi, n));
+}
+
+/** Options for "Open scenes from the sidebar in" (both render paths). */
+function companionTargetOptions(): Record<string, string> {
+  return {
+    write: t("settings.companionSceneTarget.write"),
+    tab: t("settings.companionSceneTarget.tab"),
+  };
 }

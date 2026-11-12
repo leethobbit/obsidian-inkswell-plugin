@@ -5,6 +5,7 @@
  * straight to that scene's frontmatter (never its body).
  */
 
+import { attachChipPeek } from "../codex/peek";
 import { App, TFile } from "obsidian";
 import { featureEnabled } from "../features";
 import { ProjectStore } from "../projects/project-store";
@@ -68,7 +69,11 @@ export class SceneInspector implements RightPanel {
       this.plugin.store.getProjects(),
       sceneStatuses(this.plugin.settings.listOverrides["scene.status"]),
       inspectorFields(this.plugin.settings.listOverrides["scene.fields"]),
-      sceneFieldExtras(this.app, this.plugin.settings)
+      {
+        ...sceneFieldExtras(this.app, this.plugin.settings),
+        peekChip: (chip, entity, visible) =>
+          attachChipPeek(chip, this.plugin, () => ({ entity, entities: visible })),
+      }
     );
 
     // Revision audit — collapsed by default so it doesn't crowd the drafting

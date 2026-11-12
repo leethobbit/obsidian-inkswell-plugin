@@ -43,6 +43,8 @@ A distraction-light, Live-Preview manuscript editor with writing prompts and tim
 
 Switch Write to **Stream** to read and edit the whole book as one continuous page, in order: click anywhere to edit that scene in place, jump between chapters, or narrow the page to one chapter, POV, plotline, character or status. Each scene still saves to its own note.
 
+Keep your story beside you while you draft. Hold Ctrl/Cmd and point at a character's or place's name to **peek** at its Codex card, or open a **sidebar companion** from the rail (right-click → *Open in sidebar*): **Codex** (who and what is in this scene), **Plan** (this chapter's scenes, synopses and beats, plus your planning note), **Scenes** (the whole outline), **Track**, and **To-dos**. Companions follow the scene you're writing, in Write or in a regular tab.
+
 ![Write: Live-Preview editor with highlighted draft markers and a running sprint timer](assets/write.png)
 
 ### Revise — from draft to book

@@ -82,6 +82,18 @@ import {
 } from "./src/tracking/types";
 import { WritingTracker } from "./src/tracking/writing-tracker";
 import { StatusBar } from "./src/views/status-bar";
+import { CodexLookupModal } from "./src/codex/lookup-modal";
+import { Peek, entitiesForScene } from "./src/codex/peek";
+import { CodexCompanionView } from "./src/companions/codex-companion";
+import { CompanionView } from "./src/companions/companion-view";
+import { CompanionPickerModal, openCompanion } from "./src/companions/open";
+import { PlanCompanionView } from "./src/companions/plan-companion";
+import { COMPANIONS, CompanionId } from "./src/companions/registry";
+import { ScenesCompanionView } from "./src/companions/scenes-companion";
+import { TodosCompanionView } from "./src/companions/todos-companion";
+import { TrackCompanionView } from "./src/companions/track-companion";
+import { CurrentScene } from "./src/scenes/current-scene";
+import type { SceneHighlight } from "./src/views/write-panel";
 import {
   InkswellMode,
   InkswellView,
@@ -115,6 +127,7 @@ function readSettings(stored: Partial<InkswellSettings> | undefined): InkswellSe
   if (!["md", "html", "docx", "pandoc"].includes(settings.defaultCompileFormat)) {
     settings.defaultCompileFormat = "md";
   }
+  if (settings.companionSceneTarget !== "tab") settings.companionSceneTarget = "write";
   return settings;
 }
 
@@ -123,6 +136,11 @@ export default class InkswellPlugin extends Plugin {
   writingLog: WritingLogData = emptyLog();
   ideas: Idea[] = [];
   activeProject: ActiveProject = new ActiveProject();
+  /** The scene being written (Write, or a scene open in a normal tab); the
+   *  sidebar companions follow it. */
+  currentScene: CurrentScene = new CurrentScene();
+  /** The one Codex peek (Ctrl/Cmd-hover in Write, chips, Look up in Codex). */
+  peek!: Peek;
   /** Paths the plugin's own inline forms just wrote — lets the view soften the
    *  store notify those writes produce instead of rebuilding the focused field. */
   selfWrites: SelfWriteRegistry = new SelfWriteRegistry();
@@ -237,6 +255,19 @@ export default class InkswellPlugin extends Plugin {
       defaultMod: true,
     });
 
+    // Sidebar companions: one view type each, read-only views beside your
+    // writing (never a scene editor — AGENTS.md "Single host view").
+    this.peek = new Peek(this.app, this);
+    this.register(() => this.peek.close());
+    const companionViews: Record<CompanionId, (leaf: WorkspaceLeaf) => CompanionView> = {
+      codex: (leaf) => new CodexCompanionView(leaf, this),
+      plan: (leaf) => new PlanCompanionView(leaf, this),
+      scenes: (leaf) => new ScenesCompanionView(leaf, this),
+      track: (leaf) => new TrackCompanionView(leaf, this),
+      todos: (leaf) => new TodosCompanionView(leaf, this),
+    };
+    for (const def of COMPANIONS) this.registerView(def.viewType, companionViews[def.id]);
+
     this.addRibbonIcon("pen-tool", "Inkswell projects", () => this.openProjects());
 
     // Status bar: today's words / sprint countdown; click → stats.
@@ -258,6 +289,7 @@ export default class InkswellPlugin extends Plugin {
     // One-time welcome, once the workspace is ready (so the modal isn't fighting
     // Obsidian's own startup UI). The modal sets `welcomeSeen` on close.
     this.app.workspace.onLayoutReady(() => {
+      this.trackCurrentScene();
       // The metadata cache is populated by now — safe to discover log notes.
       this.logSync.setEnabled(this.settings.syncWritingHistory);
 
@@ -451,6 +483,28 @@ export default class InkswellPlugin extends Plugin {
       id: "search-scenes",
       name: "Search scenes",
       callback: () => this.openSearch(),
+    });
+    // Sidebar companions + the Codex peek.
+    this.addCommand({
+      id: "open-companion",
+      name: t("companion.command.pick"),
+      callback: () => new CompanionPickerModal(this.app, this).open(),
+    });
+    for (const def of COMPANIONS) {
+      this.addCommand({
+        id: `open-companion-${def.id}`,
+        name: t("companion.command.open", { name: t(def.labelKey) }),
+        checkCallback: (checking) => {
+          if (def.feature && !featureEnabled(this.settings.disabledFeatures, def.feature)) return false;
+          if (!checking) void this.openCompanion(def.id);
+          return true;
+        },
+      });
+    }
+    this.addCommand({
+      id: "look-up-in-codex",
+      name: t("peek.lookUp"),
+      callback: () => this.lookUpInCodex(),
     });
     this.addCommand({
       id: "insert-todo",
@@ -940,6 +994,52 @@ export default class InkswellPlugin extends Plugin {
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_INKSWELL)) {
       if (leaf.view instanceof InkswellView) leaf.view.forceRefresh();
     }
+    this.refreshCompanions();
+  }
+
+  /** Re-render every open companion (a feature toggle, a settings change). */
+  refreshCompanions(): void {
+    for (const def of COMPANIONS) {
+      for (const leaf of this.app.workspace.getLeavesOfType(def.viewType)) {
+        if (leaf.view instanceof CompanionView) leaf.view.requestRender();
+      }
+    }
+  }
+
+  /**
+   * Keep `currentScene` on the scene being written when it's open in a normal
+   * Obsidian tab (Write sets it itself), and follow renames and deletes. A
+   * non-scene note leaves it alone, so companions keep showing the last scene.
+   */
+  private trackCurrentScene(): void {
+    const follow = (file: TFile | null) => {
+      if (file && this.store.findSceneByPath(file.path)) this.currentScene.set(file.path);
+    };
+    this.registerEvent(this.app.workspace.on("file-open", (file) => follow(file)));
+    this.registerEvent(
+      this.app.vault.on("rename", (file, oldPath) => this.currentScene.renamed(oldPath, file.path))
+    );
+    this.registerEvent(this.app.vault.on("delete", (file) => this.currentScene.deleted(file.path)));
+    follow(this.app.workspace.getActiveFile());
+  }
+
+  /** Show a sidebar companion (opening it in its default sidebar if needed). */
+  openCompanion(id: CompanionId): Promise<void> {
+    return openCompanion(this, id);
+  }
+
+  /**
+   * Look up in Codex: the entry named under Write's cursor, else a search over
+   * the book's Codex; the card opens as a peek you dismiss with Esc.
+   */
+  lookUpInCodex(): void {
+    const view = this.inkswellView();
+    if (view?.lookUpAtCursor()) return;
+    const entities = entitiesForScene(this, this.currentScene.get());
+    new CodexLookupModal(this.app, this, entities, (entity) => {
+      const rect = this.inkswellView()?.cursorRect() ?? centeredRect();
+      this.peek.show(entity, rect, { entities, sticky: true });
+    }).open();
   }
 
   /** Apply changed Write-editor preferences to any live editor — no rebuild, so
@@ -1213,8 +1313,8 @@ export default class InkswellPlugin extends Plugin {
   }
 
   /** Reveal the Inkswell tab, switch to Write, and open the given scene there. */
-  openSceneInWrite(path: string): void {
-    void this.openInkswell("write", (view) => view.openSceneInWrite(path));
+  openSceneInWrite(path: string, highlight?: SceneHighlight): void {
+    void this.openInkswell("write", (view) => view.openSceneInWrite(path, highlight));
   }
 
   /** Reveal the Inkswell tab and show a codex entry in the Codex panel. */
@@ -1241,4 +1341,10 @@ export default class InkswellPlugin extends Plugin {
     }
     fn(project);
   }
+}
+
+/** Where a looked-up card goes when there's no cursor to anchor it: top centre. */
+function centeredRect(): DOMRect {
+  const w = activeWindow.innerWidth;
+  return new DOMRect(Math.max(0, w / 2 - 160), 80, 1, 1);
 }

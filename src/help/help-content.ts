@@ -84,6 +84,23 @@ export const HINTS: Record<string, HintEntry> = {
       p(el, 'Run “Insert a to-do marker…” for a picker that drops one at the cursor.');
       p(
         el,
+        "Check a detail without leaving the page: hold Ctrl (Cmd on a Mac) and point at a " +
+          "character's or place's name in the text to see its Codex card. Hover or tap a " +
+          "name in the Scene column for the same card, or run “Look up in Codex” (also in " +
+          "the Insert menu). Esc closes it and your cursor stays where it was."
+      );
+      p(
+        el,
+        "Keep things beside you while you write: right-click Codex, Plan, Track or Home on " +
+          "the left rail and choose “Open in sidebar”, or run “Open a companion in the " +
+          "sidebar…”. Companions follow the scene you're writing: Codex lists who and what " +
+          "is in it, Plan shows this chapter's scenes, synopses and beats plus your planning " +
+          "note, Scenes is the whole outline, and To-dos lists what's left in this scene. " +
+          "Drag them anywhere; Obsidian remembers. Clicking a scene there opens it in Write, " +
+          "or in a regular tab if you choose that in Settings."
+      );
+      p(
+        el,
         "Want your own word, like [CHECK: ] or [TK: ]? Add it under Customize → To-do markers, " +
           "where you can also hide the built-in ones."
       );
