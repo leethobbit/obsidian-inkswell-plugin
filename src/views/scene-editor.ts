@@ -26,6 +26,7 @@ import {
   RangeSet,
   StateEffect,
   StateField,
+  Text,
 } from "@codemirror/state";
 import {
   Decoration,
@@ -549,6 +550,23 @@ export interface SceneEditorOptions {
    * when it did.
    */
   onBoundary?: (dir: "prev" | "next", x: number | null) => boolean;
+  /**
+   * Where the writer was the last time this scene was open (see
+   * src/views/editor-place.ts), asked for with the new document's length so
+   * the answer can be fitted to it. The editor is created already there: no
+   * transaction, so nothing lands in the undo history and typewriter mode
+   * doesn't recenter.
+   */
+  restore?: (docLength: number) => EditorRestore | null;
+}
+
+/** A selection and scroll position to create the editor with. */
+export interface EditorRestore {
+  anchor: number;
+  head: number;
+  /** `view.scrollSnapshot()` from the retired editor, or a `scrollIntoView`
+   *  effect; omit where the editor doesn't scroll itself (the stream). */
+  scrollTo?: StateEffect<unknown>;
 }
 
 /**
@@ -590,10 +608,16 @@ export function createSceneEditor(opts: SceneEditorOptions): EditorView {
   // already resting on a name peeks without having to move the mouse.
   let lastMove: MouseEvent | null = null;
   const isMod = (e: MouseEvent | KeyboardEvent) => e.ctrlKey || e.metaKey;
+  // Split exactly as CodeMirror would, so the length handed to `restore` is
+  // the editor's own (a CRLF in the file is one character here, gotcha 10).
+  const doc = Text.of(opts.doc.split(/\r\n?|\n/));
+  const restore = opts.restore?.(doc.length) ?? null;
   return new EditorView({
     parent: opts.parent,
+    scrollTo: restore?.scrollTo,
     state: EditorState.create({
-      doc: opts.doc,
+      doc,
+      selection: restore ? EditorSelection.single(restore.anchor, restore.head) : undefined,
       extensions: [
         history(),
         // Editor-local shortcuts (see EDITOR_SHORTCUTS — the Write panel binds

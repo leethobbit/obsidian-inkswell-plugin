@@ -2458,18 +2458,69 @@ body.inkswell-phone .inkswell-write__cm .cm-milestone-gutter {
     background: transparent;
   }
 }
+/* The side column. Its width is the writer's (dragged, kept per device in
+   --inkswell-write-side-w) or this default; the cap keeps the prose readable
+   when the window is narrowed after a wide drag. */
 .inkswell-write__inspector {
-  width: 260px;
+  width: var(--inkswell-write-side-w, 260px);
+  max-width: 60%;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-left: 1px solid var(--background-modifier-border);
 }
-/* Right-column panel slot: a fixed switcher over a scrolling content area. */
+/* The divider between the editor and the side column: a 1px line with a wider
+   invisible grab area, so it reads as a border until you reach for it. */
+.inkswell-write__resizer {
+  position: relative;
+  flex: none;
+  width: 1px;
+  background: var(--background-modifier-border);
+  cursor: col-resize;
+  touch-action: none;
+}
+.inkswell-write__resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  width: 9px;
+  z-index: 1;
+}
+.inkswell-write__resizer:hover,
+.inkswell-write__resizer.is-dragging,
+.inkswell-write__resizer:focus-visible {
+  background: var(--interactive-accent);
+  box-shadow: 0 0 0 1px var(--interactive-accent);
+  outline: none;
+}
+.inkswell-write.is-side-collapsed .inkswell-write__inspector,
+.inkswell-write.is-side-collapsed .inkswell-write__resizer {
+  display: none;
+}
+.inkswell-write__sidetoggle {
+  flex: none;
+}
+/* Right-column panel slot: a fixed switcher over a scrolling content area. The
+   switcher fills the column and its tabs share the width, so four fit at the
+   narrowest setting. */
 .inkswell-write__insptabs {
   flex-shrink: 0;
   padding: var(--size-4-2) var(--size-4-2) 0;
+}
+.inkswell-write__insptabs .inkswell-viewswitch {
+  display: flex;
+}
+.inkswell-write__insptabs .inkswell-viewswitch__btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--size-4-1) var(--size-2-3);
+  white-space: nowrap;
+}
+/* The Codex and Plan panels (the companions' bodies, hosted in Write). */
+.inkswell-write__reference {
+  padding: var(--size-4-2) var(--size-4-3) var(--size-4-6);
 }
 .inkswell-write__inspcontent {
   flex: 1;
@@ -3979,7 +4030,7 @@ body.is-mobile .inkswell-write__nav {
   width: clamp(132px, 20vw, 200px);
 }
 body.is-mobile .inkswell-write__inspector {
-  width: clamp(196px, 26vw, 260px);
+  width: var(--inkswell-write-side-w, clamp(196px, 26vw, 260px));
 }
 body.is-mobile .inkswell-inspector-col {
   width: clamp(208px, 28vw, 280px);
@@ -4097,7 +4148,9 @@ body.inkswell-phone .inkswell-write__navtoggle {
   min-height: 44px;
   margin-right: auto;
 }
-body.inkswell-phone .inkswell-write__inspector {
+body.inkswell-phone .inkswell-write__inspector,
+body.inkswell-phone .inkswell-write__resizer,
+body.inkswell-phone .inkswell-write__sidetoggle {
   display: none;
 }
 /* The writing-prompt control doesn't earn its width on a phone (and crowded the

@@ -216,15 +216,15 @@ export const en = {
   "companion.notice.open": "Open {name} here",
   "companion.codex.search": "Search the Codex",
   "companion.codex.noMatch": "No entries match.",
-  "companion.codex.kept": "Kept in sidebar",
+  "companion.codex.kept": "Kept at the top",
   "companion.codex.inScene": "In this scene",
   "companion.codex.noScene": "Open a scene and the people and places in it show here.",
   "companion.codex.nobodyHere": "No Codex entries linked or named in this scene yet.",
   "companion.codex.all.one": "All entries ({count})",
   "companion.codex.all.other": "All entries ({count})",
   "companion.codex.mentioned": "Named in the text",
-  "companion.codex.keep": "Keep in sidebar",
-  "companion.codex.unkeep": "Stop keeping in sidebar",
+  "companion.codex.keep": "Keep at the top",
+  "companion.codex.unkeep": "Stop keeping at the top",
   "companion.codex.backToList": "Back to the list",
   "companion.codex.uncategorized": "Uncategorized",
   "companion.plan.noScene": "Open a scene to see its chapter and beats here.",
@@ -247,6 +247,15 @@ export const en = {
     "Where a scene opens when you click it in a sidebar companion. Ctrl/Cmd-click always opens a new tab.",
   "settings.companionSceneTarget.write": "Inkswell Write",
   "settings.companionSceneTarget.tab": "A regular tab",
+
+  // --- Write: the side panel (right column) --------------------------------------
+  "write.side.show": "Show the side panel",
+  "write.side.hide": "Hide the side panel",
+  "write.side.resize": "Resize the side panel (double-click to reset)",
+  "write.side.panel.scene": "Scene details",
+  "write.side.panel.revision": "Revision",
+  "write.side.command.toggle": "Show or hide the side panel (Write)",
+  "write.side.command.show": "Show {name} beside the editor (Write)",
 } as const;
 
 export type MessageKey = keyof typeof en;

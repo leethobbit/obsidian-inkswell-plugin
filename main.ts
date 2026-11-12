@@ -93,6 +93,7 @@ import { ScenesCompanionView } from "./src/companions/scenes-companion";
 import { TodosCompanionView } from "./src/companions/todos-companion";
 import { TrackCompanionView } from "./src/companions/track-companion";
 import { CurrentScene } from "./src/scenes/current-scene";
+import { SIDE_PANELS } from "./src/views/right-panel";
 import type { SceneHighlight } from "./src/views/write-panel";
 import {
   InkswellMode,
@@ -506,6 +507,34 @@ export default class InkswellPlugin extends Plugin {
       name: t("peek.lookUp"),
       callback: () => this.lookUpInCodex(),
     });
+    // Write's side column: hide/show it, or bring one panel up beside the
+    // editor (also opens Write). No default hotkeys, per house rule.
+    this.addCommand({
+      id: "toggle-write-side-panel",
+      name: t("write.side.command.toggle"),
+      checkCallback: (checking) => {
+        const view = this.inkswellView();
+        if (!view || !view.canToggleSidePanel()) return false;
+        if (!checking) view.toggleSidePanel();
+        return true;
+      },
+    });
+    for (const panel of SIDE_PANELS) {
+      this.addCommand({
+        id: `write-side-panel-${panel.id}`,
+        name: t("write.side.command.show", { name: t(panel.nameKey) }),
+        checkCallback: (checking) => {
+          if (isPhone()) return false; // no side column on phones
+          if (checking) return true;
+          // Already in Inkswell: act in place, so the editor keeps the caret.
+          // Otherwise open (or reveal) Inkswell on Write first.
+          const view = this.app.workspace.getActiveViewOfType(InkswellView);
+          if (view) view.showSidePanel(panel.id);
+          else void this.openInkswell("write", (v) => v.showSidePanel(panel.id));
+          return true;
+        },
+      });
+    }
     this.addCommand({
       id: "insert-todo",
       name: "Insert a to-do marker…",

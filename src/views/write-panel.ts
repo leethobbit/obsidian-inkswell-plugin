@@ -14,6 +14,7 @@
  * (see scene-editor.ts); embedding Obsidian's own editor remains deferred.
  */
 
+import { StateEffect } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import {
   App,
@@ -53,7 +54,7 @@ import { t } from "../i18n";
 import { LinkCandidate } from "../lib/link-complete";
 import { featureEnabled } from "../features";
 import { tryFileOp } from "../lib/notify";
-import { isPhone } from "../lib/platform";
+import { isMobileApp, isPhone } from "../lib/platform";
 import { attachHideMenu } from "../lib/hide-menu";
 import { nearestIndexOf } from "../lib/text-locate";
 import { attachRowMenu } from "../lib/row-menu";
@@ -114,7 +115,17 @@ import {
 import { SceneStream, StreamSceneSpec } from "./stream/scene-stream";
 import { WriteMode, loadWriteMode, saveWriteMode } from "./stream/write-mode";
 import { SceneInspector } from "../scenes/scene-inspector";
+import { EditorPlaces } from "./editor-place";
 import { RightPanel } from "./right-panel";
+import { CodexSidePanel, PlanSidePanel } from "./side-panels";
+import {
+  SIDE_WIDTH_DEFAULT,
+  SIDE_WIDTH_STEP,
+  WriteLayout,
+  clampSideWidth,
+  loadWriteLayout,
+  saveWriteLayout,
+} from "./write-layout";
 import { RevisionSidebar } from "../revisions/revision-sidebar";
 import { SprintController } from "../sprints/sprint-controller";
 import type InkswellPlugin from "../../main";
@@ -209,8 +220,13 @@ export class WritePanel implements HoverParent {
   private inspector: SceneInspector;
   /** The right-column panel slot: choosable panels behind a switcher. */
   private rightPanels: RightPanel[];
-  /** Which right-column panel is showing (in-memory; survives update()). */
+  /** Which right-column panel is showing (remembered per device in `layout`). */
   private activeRightPanel = "scene";
+  /** The side column's width, hidden state and panel on this device. */
+  private layout: WriteLayout;
+  /** Where the writer was in each scene, handed to the next editor built for
+   *  it: leaving Write and coming back no longer lands at the top (#77). */
+  private places = new EditorPlaces<StateEffect<unknown>>();
 
   private container: HTMLElement | null = null;
   /** Tracks the project the editor is currently bound to, to reset on change. */
@@ -297,16 +313,40 @@ export class WritePanel implements HoverParent {
       (path, from, to) => this.jumpToRevision(path, from, to),
       () => this.markers()
     );
-    this.rightPanels = [this.inspector, revision];
+    // Keep in step with SIDE_PANELS (right-panel.ts), which names these for commands.
+    this.rightPanels = [
+      this.inspector,
+      new CodexSidePanel(this.app, this.plugin),
+      new PlanSidePanel(this.app, this.plugin),
+      revision,
+    ];
+    this.layout = loadWriteLayout(app.vault.getName());
+    const remembered = this.layout.sidePanel;
+    if (remembered && this.rightPanels.some((p) => p.id === remembered)) {
+      this.activeRightPanel = remembered;
+    }
     // External-change detection for the open scene: every modify of its file is
     // classified by the session (own write ⇒ ignore; clean ⇒ silent reload;
     // dirty ⇒ conflict banner). This is what stops a sync / second-tab edit
     // from being silently clobbered by the next save.
     this.modifyRef = this.app.vault.on("modify", (f) => {
-      if (f instanceof TFile && this.session && f.path === this.session.file.path) {
+      if (!(f instanceof TFile)) return;
+      if (this.session && f.path === this.session.file.path) {
         void this.session.handleExternalModify();
       }
+      // The panel beside the editor may show this file (the scene's cast, the
+      // planning note). Only the one on screen is told.
+      if (this.sidePanelShowing()) this.activePanel().onVaultModify?.(f);
     });
+  }
+
+  private activePanel(): RightPanel {
+    return this.rightPanels.find((p) => p.id === this.activeRightPanel) ?? this.rightPanels[0];
+  }
+
+  /** Whether the side column is on screen right now. */
+  private sidePanelShowing(): boolean {
+    return !this.layout.sideCollapsed && !!this.inspectorHost?.isConnected && !isPhone();
   }
 
   /**
@@ -377,8 +417,41 @@ export class WritePanel implements HoverParent {
    * even though navigation doesn't await it.
    */
   flushForNavigation(): void {
-    void this.detachSession();
+    void this.detachSession("leaving");
     this.destroyStream();
+  }
+
+  /**
+   * Record where the writer is in the scene whose editor is about to go, so the
+   * next editor built for it opens there. `resume` says whether that editor
+   * should also take the keyboard back: always after a trip to another
+   * destination (you came back to write), after a rebuild only if this editor
+   * had it, never when the stream merely moves its live editor elsewhere.
+   */
+  private rememberPlace(resume: "leaving" | "rebuild" | "handoff"): void {
+    const view = this.editor;
+    const path = this.session?.file.path ?? this.currentFile?.path;
+    // An editor already off the page reports no scroll and no focus: keep what
+    // notePlace() recorded while it was still there.
+    if (!view || !path || !view.dom.isConnected) return;
+    const sel = view.state.selection.main;
+    this.places.remember(path, {
+      anchor: sel.anchor,
+      head: sel.head,
+      docLength: view.state.doc.length,
+      // In the stream the page scrolls, not the editor (it keeps its own anchor).
+      scroll: this.stream ? null : view.scrollSnapshot(),
+      focus: resume === "leaving" || (resume === "rebuild" && view.hasFocus),
+    });
+  }
+
+  /**
+   * The host is about to rebuild Write in place (it empties the page before it
+   * calls render): record the place now, while the editor can still report its
+   * scroll position and focus.
+   */
+  notePlace(): void {
+    this.rememberPlace("rebuild");
   }
 
   /**
@@ -387,7 +460,8 @@ export class WritePanel implements HoverParent {
    * `renderEditor` awaits it before re-reading the file (kills the save→re-seed
    * race), and `dispose` awaits it on view close/quit.
    */
-  private detachSession(): Promise<unknown> {
+  private detachSession(resume: "leaving" | "rebuild" | "handoff" = "handoff"): Promise<unknown> {
+    this.rememberPlace(resume);
     this.popHotkeys();
     const s = this.session;
     if (!s) {
@@ -865,7 +939,7 @@ export class WritePanel implements HoverParent {
     // Retire the outgoing session before we rebuild the DOM: the doc is captured
     // synchronously and the final write is chained into `teardown`, which the
     // next scene load awaits before reading the file.
-    this.teardown = this.detachSession();
+    this.teardown = this.detachSession("rebuild");
     this.destroyStream();
 
     this.container = container;
@@ -928,8 +1002,110 @@ export class WritePanel implements HoverParent {
     this.renderNavigator(main, project);
     if (streaming) this.renderStream(main);
     else this.renderEditor(main);
+    // The divider between the editor and the side column (drag to resize).
+    this.wireResizer(main.createDiv({ cls: "inkswell-write__resizer" }), main);
     this.inspectorHost = main.createDiv({ cls: "inkswell-write__inspector" });
+    this.applyLayout();
     this.renderRightColumn();
+  }
+
+  // --- Side column: width, hidden state, panel -------------------------------
+
+  /** Push the remembered layout onto the page (a class + one CSS variable). */
+  private applyLayout(): void {
+    const c = this.container;
+    if (!c) return;
+    c.toggleClass("is-side-collapsed", this.layout.sideCollapsed);
+    const w = this.layout.sideWidth;
+    // An empty value removes the variable, so the stylesheet's default applies.
+    c.setCssProps({ "--inkswell-write-side-w": w === null ? "" : `${w}px` });
+  }
+
+  private saveLayout(): void {
+    saveWriteLayout(this.app.vault.getName(), this.layout);
+  }
+
+  /** Whether Write has a side column on this device (phones show scene details
+   *  above the editor instead). */
+  canUseSidePanel(): boolean {
+    return !isPhone();
+  }
+
+  /** Show or hide the side column (topbar button, command). The editor keeps
+   *  its text, cursor and focus: only the columns around it change. */
+  toggleSidePanel(): void {
+    this.layout.sideCollapsed = !this.layout.sideCollapsed;
+    this.saveLayout();
+    this.syncSidePanel();
+  }
+
+  /** Bring a panel up beside the editor, un-hiding the column if needed. */
+  showSidePanel(id: string): void {
+    if (!this.rightPanels.some((p) => p.id === id)) return;
+    this.activeRightPanel = id;
+    this.layout.sidePanel = id;
+    this.layout.sideCollapsed = false;
+    this.saveLayout();
+    this.syncSidePanel();
+  }
+
+  private syncSidePanel(): void {
+    if (!this.container?.isConnected) return;
+    this.applyLayout();
+    this.renderTopbar();
+    this.renderRightColumn();
+  }
+
+  /**
+   * Make `handle` resize the side column: drag, double-click to reset, or
+   * focus it and use the arrow keys. The width is a CSS variable on the panel,
+   * so a drag re-lays-out without rebuilding anything (the editor re-measures
+   * itself). Saved when the drag ends.
+   */
+  private wireResizer(handle: HTMLElement, main: HTMLElement): void {
+    handle.setAttribute("role", "separator");
+    handle.setAttribute("aria-orientation", "vertical");
+    handle.setAttribute("aria-label", t("write.side.resize"));
+    handle.tabIndex = 0;
+
+    const current = () => this.inspectorHost?.offsetWidth || SIDE_WIDTH_DEFAULT;
+    // What the editor and the side column share: the row minus the scene list.
+    const available = () => main.clientWidth - (this.navEl?.offsetWidth ?? 0);
+    const setWidth = (width: number | null, save: boolean) => {
+      this.layout.sideWidth = width === null ? null : clampSideWidth(width, available());
+      this.applyLayout();
+      if (save) this.saveLayout();
+    };
+
+    let drag: { x: number; width: number } | null = null;
+    handle.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      // Keep the caret in the editor, and don't start a text selection.
+      e.preventDefault();
+      handle.setPointerCapture(e.pointerId);
+      drag = { x: e.clientX, width: current() };
+      handle.addClass("is-dragging");
+    });
+    handle.addEventListener("pointermove", (e) => {
+      // The column is on the right: dragging left makes it wider.
+      if (drag) setWidth(drag.width + (drag.x - e.clientX), false);
+    });
+    const end = () => {
+      if (!drag) return;
+      drag = null;
+      handle.removeClass("is-dragging");
+      this.saveLayout();
+    };
+    handle.addEventListener("pointerup", end);
+    handle.addEventListener("pointercancel", end);
+    handle.addEventListener("dblclick", () => setWidth(null, true));
+    handle.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft") setWidth(current() + SIDE_WIDTH_STEP, true);
+      else if (e.key === "ArrowRight") setWidth(current() - SIDE_WIDTH_STEP, true);
+      else if (e.key === "Home") setWidth(null, true);
+      else return;
+      e.preventDefault();
+    });
   }
 
   /**
@@ -985,6 +1161,9 @@ export class WritePanel implements HoverParent {
     const col = this.inspectorHost;
     if (!col) return;
     col.empty();
+    // Hidden (by the writer, or by the phone layout): draw nothing, so a panel
+    // nobody can see costs nothing on a refresh.
+    if (this.layout.sideCollapsed || isPhone()) return;
     if (this.rightPanels.length > 1) {
       const bar = col.createDiv({ cls: "inkswell-write__insptabs" });
       const seg = bar.createDiv({ cls: "inkswell-viewswitch" });
@@ -994,13 +1173,14 @@ export class WritePanel implements HoverParent {
         btn.setAttribute("aria-label", `${p.label} panel`);
         btn.onclick = () => {
           this.activeRightPanel = p.id;
+          this.layout.sidePanel = p.id;
+          this.saveLayout();
           this.renderRightColumn();
         };
       }
     }
     const content = col.createDiv({ cls: "inkswell-write__inspcontent" });
-    const panel =
-      this.rightPanels.find((p) => p.id === this.activeRightPanel) ?? this.rightPanels[0];
+    const panel = this.activePanel();
     // Keyed by panel + scene: switching either starts at the top.
     tagScroller(content, `write-right:${panel.id}:${this.currentFile?.path ?? ""}`);
     panel.render(content, this.currentFile);
@@ -1134,6 +1314,17 @@ export class WritePanel implements HoverParent {
 
     this.countEl = bar.createSpan({ cls: "inkswell-write__count" });
     this.updateCount();
+
+    // Show / hide the side column (CSS hides the button on phones, which have
+    // no side column). mousedown is swallowed so the caret stays in the editor.
+    const shown = !this.layout.sideCollapsed;
+    const side = bar.createEl("button", { cls: "clickable-icon inkswell-write__sidetoggle" });
+    setIcon(side, "panel-right");
+    side.toggleClass("is-active", shown);
+    side.setAttribute("aria-label", t(shown ? "write.side.hide" : "write.side.show"));
+    side.setAttribute("aria-pressed", String(shown));
+    side.onmousedown = (e) => e.preventDefault();
+    side.onclick = () => this.toggleSidePanel();
     // Keep the topbar first in the container.
     this.container.prepend(bar);
   }
@@ -1434,9 +1625,28 @@ export class WritePanel implements HoverParent {
       this.session = session;
       // Every way a scene goes live (Scene, Stream, a fast-path swap) lands here.
       this.plugin.currentScene.set(session.file.path);
+      // Back where the writer was in this scene, unless the caller placed the
+      // cursor itself or a jump target (To-dos, Search) is about to scroll.
+      let resumeFocus = false;
+      const restore =
+        opts.cursor == null && !this.pendingHighlight
+          ? (docLength: number) => {
+              const place = this.places.recall(file.path, docLength);
+              if (!place) return null;
+              resumeFocus = place.focus;
+              // The stream's page keeps its own scroll anchor; the editor in it
+              // doesn't scroll. Elsewhere: the exact spot, or the cursor's line
+              // when the text changed since.
+              const scrollTo = opts.stream
+                ? undefined
+                : place.scroll ?? EditorView.scrollIntoView(place.head, { y: "center" });
+              return { anchor: place.anchor, head: place.head, scrollTo };
+            }
+          : undefined;
       this.editor = createSceneEditor({
         parent: host,
         doc: session.loadedBody,
+        restore,
         onChange: () => this.onEditorChange(),
         onFocus: () => this.pushHotkeys(),
         onBlur: () => {
@@ -1461,8 +1671,24 @@ export class WritePanel implements HoverParent {
       // not-yet-seen file isn't lost to first-sight baselining.
       this.reportLiveCount();
       if (opts.cursor != null) this.placeCursor(opts.cursor);
+      else if (resumeFocus) this.resumeFocus(this.editor);
       this.applyPendingHighlight(session.loadedBody);
     })();
+  }
+
+  /**
+   * Give the keyboard back to a rebuilt editor so the writer can carry on
+   * typing. Not on phones and tablets (focus raises the soft keyboard over the
+   * page), and never out of a field the writer has since moved into.
+   */
+  private resumeFocus(view: EditorView): void {
+    if (isMobileApp()) return;
+    const ae = view.dom.doc.activeElement;
+    if (ae?.instanceOf(HTMLElement) && ae !== view.dom.doc.body) {
+      if (ae.isContentEditable || ae.instanceOf(HTMLInputElement) || ae.instanceOf(HTMLTextAreaElement)) return;
+      if (ae.instanceOf(HTMLSelectElement)) return;
+    }
+    view.focus();
   }
 
   /** Put the live editor's caret at `cursor` and focus it. */
@@ -2108,6 +2334,7 @@ export class WritePanel implements HoverParent {
   async dispose(): Promise<void> {
     const flushed = this.detachSession();
     this.destroyStream();
+    for (const p of this.rightPanels) p.dispose?.();
     this.hoverPopover = null;
     this.unsub?.();
     this.unsub = null;

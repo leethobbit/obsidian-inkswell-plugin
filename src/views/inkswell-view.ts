@@ -681,6 +681,22 @@ export class InkswellView extends ItemView {
     if (this.mode !== "write") this.setMode("write");
   }
 
+  /** True when the side column can be shown or hidden right now (Write is up). */
+  canToggleSidePanel(): boolean {
+    return this.mode === "write" && this.write.canUseSidePanel();
+  }
+
+  /** Show or hide Write's side column. */
+  toggleSidePanel(): void {
+    this.write.toggleSidePanel();
+  }
+
+  /** Bring a panel up beside the Write editor (and show Write if it isn't). */
+  showSidePanel(id: string): void {
+    this.write.showSidePanel(id);
+    if (this.mode !== "write") this.setMode("write");
+  }
+
   /** True when Write is showing the stream (gates the chapter-jump commands). */
   isStreaming(): boolean {
     return this.mode === "write" && this.write.isStreaming();
@@ -799,6 +815,10 @@ export class InkswellView extends ItemView {
     // in a detached EditorView until the next visit — gone on quit/reload.
     if (this.renderedMode === "write" && this.mode !== "write") {
       this.write.flushForNavigation();
+    } else if (this.renderedMode === "write") {
+      // Rebuilding Write in place: note where the writer is while the editor
+      // is still on the page (a detached editor reports no scroll position).
+      this.write.notePlace();
     }
 
     // Safety net for a rebuild that fires while a field is somehow still

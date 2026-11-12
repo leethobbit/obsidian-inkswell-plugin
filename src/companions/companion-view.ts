@@ -17,6 +17,7 @@ import { preserveFocus } from "../lib/focus-preserve";
 import { resolveActive } from "../projects/active-project";
 import { Project } from "../projects/types";
 import { openFileInTab } from "../scenes/scene-actions";
+import { ReferenceHost, Sections, renderReferenceEmpty } from "./reference";
 import { CompanionDef, CompanionId, companionById } from "./registry";
 
 export abstract class CompanionView extends ItemView {
@@ -138,8 +139,18 @@ export abstract class CompanionView extends ItemView {
     else this.plugin.openSceneInWrite(file.path);
   }
 
+  /** This companion as the host of a shared reference body (reference.ts). */
+  protected referenceHost(): ReferenceHost {
+    return {
+      app: this.app,
+      plugin: this.plugin,
+      requestRender: () => this.requestRender(),
+      openScene: (file, newTab) => this.openScene(file, newTab),
+    };
+  }
+
   protected empty(body: HTMLElement, text: string): void {
-    body.createDiv({ cls: "inkswell-companion__empty", text });
+    renderReferenceEmpty(body, text);
   }
 
   /** A collapsible section whose open state survives re-renders. */
@@ -150,12 +161,8 @@ export abstract class CompanionView extends ItemView {
     build: (host: HTMLElement) => void,
     defaultOpen = true
   ): void {
-    const details = parent.createEl("details", { cls: "inkswell-companion__section" });
-    details.open = this.openState.get(key) ?? defaultOpen;
-    details.createEl("summary", { text: title });
-    details.addEventListener("toggle", () => this.openState.set(key, details.open));
-    build(details.createDiv({ cls: "inkswell-companion__sectionbody" }));
+    this.sections.section(parent, key, title, build, defaultOpen);
   }
 
-  private openState = new Map<string, boolean>();
+  private sections = new Sections();
 }
