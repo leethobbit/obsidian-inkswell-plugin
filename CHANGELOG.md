@@ -10,6 +10,10 @@ time the version bump renames that section to the new version and date.
 
 ## [Unreleased]
 
+## [1.26.0] - 2026-11-12
+
+Keep your Codex and plan in view while you write. Sidebar companions show this scene's cast, this chapter's beats and synopses, the whole outline, your progress and what's left to revise, in any Obsidian sidebar, following the scene you're writing. Inside Write, the column beside the editor now holds Codex and Plan too, and Ctrl/Cmd-hovering a name shows its Codex card. Write remembers your place in every scene, gets a focus mode, and Inkswell is now ready for other languages, with first drafts in six of them.
+
 ### Added
 - **Keep your Codex, plan and outline beside you while you write.** Five new sidebar companions, each opened from its icon on the left rail (right-click → **Open in sidebar**) or with **Open a companion in the sidebar…**. They follow the scene you're writing, whether in Write or in a regular tab:
   - **Codex** lists the characters, places and other entries in this scene (linked ones first, then those named in the text), with a search box for the rest. Click one for its full card; pin the ones you want to **Keep at the top**.
@@ -18,6 +22,7 @@ time the version bump renames that section to the new version and date.
   - **Track** and **Revision log** (what's left to fix in this scene).
   Companions only show things; editing still happens in Inkswell. Drag them anywhere and Obsidian keeps your layout. If you drag the whole Inkswell view into a sidebar, it now offers to open a companion there instead. Requested in [#77](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/77) and [#53](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/53).
 - **Codex and Plan beside the editor, inside Write.** The column to the right of the Write editor now has four tabs: **Scene**, **Codex**, **Plan** and **Revision log**. Codex and Plan show the same thing as their sidebar companions (this scene's cast with a search box; this chapter's scenes, beats and your planning note), so you can keep either next to your prose without opening an Obsidian sidebar. Entries you **Keep at the top** are shared between the two. Clicking a scene in Plan switches Write to it.
+- **Inkswell in six more languages (drafts).** Choose 简体中文, Español, Deutsch, Français, Português (Brasil) or 日本語 under the new **Settings → Interface language**. These are first drafts, machine-translated and marked "(draft — help review)", so Inkswell stays in English unless you pick one. Once a fluent speaker has reviewed a language, Inkswell will follow Obsidian's language for it automatically. Spotted something clumsy? Corrections are very welcome: see [Translating Inkswell](https://github.com/leethobbit/obsidian-inkswell-plugin/blob/main/src/i18n/TRANSLATING.md). Text Inkswell writes into your notes (folder and file names, headings, frontmatter, compiled manuscripts) stays as it is in every language, so a vault reads the same on every device. A few things still assume English: Analysis's readability grade and repeated-phrase checks, smart quotes (always “ ”), and the Word manuscript format, which follows US conventions.
 - **Resize or hide the column beside the Write editor.** Drag the line between the editor and the column to make it wider or narrower (double-click the line to reset it), or hide the column with the new button at the right of the Write toolbar. Width, hidden or shown, and the tab you left it on are remembered on each device. Five new commands, which you can give hotkeys under Settings → Hotkeys: **Show or hide the side panel (Write)**, and **Show Scene details / Codex / Plan / Revision log beside the editor (Write)**, which also open Write if you're elsewhere. Not on phones, which have no side column.
 - **Focus mode in Write.** The new arrows button in the Write toolbar hides everything but the editor and the toolbar: the left rail, the project bar, the scene list, the right column and the Next up note. Press it again and it all comes back as you had it. There's a command for it too, **Toggle focus mode (Write)**, so you can give it a hotkey. It works on phones, where it also hides the bottom bar. Focus isn't remembered when you restart Obsidian, so you never open Inkswell to find the navigation gone.
 - **Hide the scene list in Write.** The button at the left end of the Write toolbar hides the scene list and gives its width to the page (also **Show or hide the scene list (Write)**). Remembered on each device.
@@ -27,13 +32,12 @@ time the version bump renames that section to the new version and date.
 - **Open an entry's canvases and files from the Codex.** A new **Linked files** row on each Codex entry lists what its note links to outside the Codex, such as a mood-board canvas, a PDF or a research note. It also lists any canvas that holds the entry's card. Click one to open it. Link a file from the note's text or from any property, like `[[Mara moodboard.canvas]]`. A link to a canvas or PDF needs its extension: a link Obsidian can't find shows as a dashed chip, and clicking it explains why. The row updates when a linked file is renamed. Requested in [#74](https://github.com/leethobbit/obsidian-inkswell-plugin/issues/74).
 - **Follow links between Codex entries.** Click a name in a link field (Relationships, Allies, Participants…) to open that entry in the Codex, or click the arrow beside a single pick such as Owner or Inside. Ctrl/Cmd-click opens the entry's note in a new tab instead.
 
-- **Inkswell in six more languages (drafts).** Choose 简体中文, Español, Deutsch, Français, Português (Brasil) or 日本語 under the new **Settings → Interface language**. These are first drafts, machine-translated and marked "(draft — help review)", so Inkswell stays in English unless you pick one. Once a fluent speaker has reviewed a language, Inkswell will follow Obsidian's language for it automatically. Spotted something clumsy? Corrections are very welcome: see [Translating Inkswell](src/i18n/TRANSLATING.md). Text Inkswell writes into your notes (folder and file names, headings, frontmatter, compiled manuscripts) stays as it is in every language, so a vault reads the same on every device.
-
 ### Changed
 - **One name: the Revision log.** The list of what's left to revise (the markers you left in your prose plus the decisions you logged) had several names. It is now **Revision log** everywhere: the tab under Revise (was *To-dos*), the tab beside the Write editor (was *Revision*), the sidebar companion, and the phone menu. Logging an entry is **Log a decision** everywhere (the Write toolbar said *Log issue*).
 - **One command opens it.** **Open to-dos (Revise)** is gone; **Open revision log** does the same thing. If you had a hotkey on the old command, set it on **Open revision log**.
 - **Log a revision decision now works in Write.** The command only showed up in a regular note before. It now also works in the Write editor, and the text you have selected fills in the dialog. Ctrl/Cmd+Shift+L still does it too.
 - **The Insert control in Write only inserts.** It holds your to-do markers and nothing else. Formatting, splitting a scene, Codex look-up and logging a decision moved to the editor's right-click menu. **Find to-dos** is gone from the toolbar: the **Revision log** tab beside the editor already shows that list.
+- **New marker words need capital letters.** A to-do marker you add under Customize must now use an alphabet with capitals (A–Z, Ä, Ж…). A word in Chinese or Japanese script used to be accepted, but Inkswell could never find it in your text. Existing markers are unaffected.
 
 ### Fixed
 - **Counts read correctly.** Word, scene and chapter counts in several places said "1 words" or "1 scenes"; they now use the singular. Counts of a thousand or more get separators everywhere (1,234).
@@ -527,7 +531,8 @@ First community-store release — the full local-first writer's suite.
 - Drop-in compatibility with Longform's `longform` frontmatter (zero migration);
   Inkswell-only data lives under a separate `inkswell` key.
 
-[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.25.0...HEAD
+[Unreleased]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.26.0...HEAD
+[1.26.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.25.0...1.26.0
 [1.25.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.24.1...1.25.0
 [1.24.1]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.24.0...1.24.1
 [1.24.0]: https://github.com/leethobbit/obsidian-inkswell-plugin/compare/1.23.0...1.24.0
