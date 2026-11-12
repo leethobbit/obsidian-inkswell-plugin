@@ -5,6 +5,7 @@
  */
 
 import { readTemplateBody, writeTemplateBody } from "../../codex/codex-template-io";
+import { t } from "../../i18n";
 import { resolveActive } from "../../projects/active-project";
 import {
   ensureSceneTemplate,
@@ -18,16 +19,16 @@ export const sceneTemplateSection: CustomizeSection = {
   id: "scene-template",
 
   describe(plugin, app) {
-    return resolveVaultSceneTemplate(app, plugin.settings) ? "Using Templates/Scene.md" : "Default (empty scene)";
+    return resolveVaultSceneTemplate(app, plugin.settings)
+      ? t("customize.sceneTemplate.using")
+      : t("customize.sceneTemplate.default");
   },
 
   render(host: HTMLElement, ctx: SectionCtx) {
     const { app, plugin } = ctx;
     host.createEl("p", {
       cls: "inkswell-stats__muted",
-      text:
-        "Every scene Inkswell creates starts from this note: its frontmatter and body are " +
-        "copied in and {{title}} becomes the scene's name. Without one, new scenes start empty.",
+      text: t("customize.sceneTemplate.intro"),
     });
 
     const active = resolveActive(plugin.store.getProjects(), plugin.activeProject.get());
@@ -36,23 +37,21 @@ export const sceneTemplateSection: CustomizeSection = {
     if (own) {
       host.createDiv({
         cls: "inkswell-stats__muted inkswell-customize__hidden-note",
-        text: `The active project uses its own template instead: ${own} (the sceneTemplate key on its index note).`,
+        text: t("customize.sceneTemplate.projectOwn", { template: own }),
       });
     }
 
     ctx.cards.section(
       host,
       "scene-template:body",
-      "Starter content",
+      t("customize.sceneTemplate.card"),
       (body) => {
         renderTemplateBodyEditor(body, ctx, {
           file: resolveVaultSceneTemplate(app, plugin.settings),
           create: () => ensureSceneTemplate(app, plugin.settings),
           fieldKey: "customize:scene:body",
-          hint:
-            "{{title}} becomes the scene's name. A status: key here sets the default status " +
-            "(otherwise new scenes get status: idea); a synopsis Inkswell seeds itself always wins.",
-          noneText: `No template note yet (${sceneTemplatePath(plugin.settings)}) — new scenes start empty.`,
+          hint: t("customize.sceneTemplate.hint"),
+          noneText: t("customize.sceneTemplate.none", { path: sceneTemplatePath(plugin.settings) }),
           read: (f) => readTemplateBody(app, f),
           write: (f, text) => writeTemplateBody(app, f, text),
         });

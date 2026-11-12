@@ -6,6 +6,7 @@
  */
 
 import { App, Menu, TFile } from "obsidian";
+import { t, tp } from "../../i18n";
 import { hueFor } from "../../lib/hue";
 import { relativeTime } from "../../lib/relative-time";
 import { attachRowMenu } from "../../lib/row-menu";
@@ -38,7 +39,7 @@ export function renderCoverArt(parent: HTMLElement, app: App, project: Project, 
   if (src) {
     const img = parent.createEl("img", { cls: "inkswell-card__img" });
     img.src = src;
-    img.alt = `${project.draft.title} cover`;
+    img.alt = t("home.card.coverAlt", { title: project.draft.title });
     img.loading = "lazy";
     return;
   }
@@ -76,7 +77,7 @@ export function renderBookCard(grid: HTMLElement, project: Project, ctx: BookCar
   card.setAttribute("role", "button");
   card.tabIndex = 0;
   card.dataset.projectPath = project.vaultPath;
-  card.setAttribute("aria-label", `Open ${project.draft.title}`);
+  card.setAttribute("aria-label", t("home.card.open", { title: project.draft.title }));
   const open = () => ctx.onOpen(project);
   card.onclick = open;
   onActivate(card, open);
@@ -84,10 +85,10 @@ export function renderBookCard(grid: HTMLElement, project: Project, ctx: BookCar
   const cover = card.createDiv({ cls: "inkswell-card__cover" });
   renderCoverArt(cover, ctx.app, project, base);
   const info = projectSeries(base);
-  if (info?.order != null) cover.createSpan({ cls: "inkswell-card__badge", text: `Book ${info.order}` });
+  if (info?.order != null) cover.createSpan({ cls: "inkswell-card__badge", text: t("home.card.bookNumber", { number: info.order }) });
   if (ctx.isArchived(project)) {
     card.addClass("is-archived");
-    cover.createSpan({ cls: "inkswell-card__badge inkswell-card__badge--archived", text: "Archived" });
+    cover.createSpan({ cls: "inkswell-card__badge inkswell-card__badge--archived", text: t("home.card.archived") });
   }
 
   const body = card.createDiv({ cls: "inkswell-card__body" });
@@ -96,12 +97,12 @@ export function renderBookCard(grid: HTMLElement, project: Project, ctx: BookCar
   const meta = body.createDiv({ cls: "inkswell-card__meta" });
   const drafts = ctx.draftCount(project.draft.title);
   if (drafts > 1) {
-    const badge = meta.createSpan({ cls: "inkswell-project__drafts", text: `${drafts} drafts` });
-    badge.setAttribute("aria-label", "This story has multiple drafts — switch in the header");
+    const badge = meta.createSpan({ cls: "inkswell-project__drafts", text: tp("home.project.drafts", drafts) });
+    badge.setAttribute("aria-label", t("home.project.draftsHint"));
   }
   const stat = meta.createSpan({ cls: "inkswell-card__stat" });
   const scenes = isMultiScene(project.draft) ? project.scenes.length : null;
-  const scenesText = scenes != null ? `${scenes} scene${scenes === 1 ? "" : "s"}` : "";
+  const scenesText = scenes != null ? tp("common.scenes", scenes) : "";
   stat.setText(scenesText);
 
   if (ctx.showWordCounts) {
@@ -111,19 +112,19 @@ export function renderBookCard(grid: HTMLElement, project: Project, ctx: BookCar
     const bar = target ? body.createDiv({ cls: "inkswell-progress inkswell-card__bar" }) : null;
     const fill = bar?.createDiv({ cls: "inkswell-progress__fill" });
     void ctx.stats.projectWords(project).then((w) => {
-      const words = `${w.toLocaleString()} words`;
+      const words = tp("common.words", w);
       stat.setText(scenesText ? `${scenesText} · ${words}` : words);
       if (bar && fill && target) {
         const pct = Math.min(100, Math.round((w / target) * 100));
         fill.style.width = `${pct}%`;
         bar.toggleClass("is-done", pct >= 100);
-        bar.setAttribute("aria-label", `${pct}% of ${target.toLocaleString()} words`);
+        bar.setAttribute("aria-label", tp("home.card.progress", target, { percent: pct }));
       }
     });
   }
 
   const edited = lastEdited(ctx.app, project);
-  if (edited) body.createDiv({ cls: "inkswell-card__edited", text: `Edited ${relativeTime(edited)}` });
+  if (edited) body.createDiv({ cls: "inkswell-card__edited", text: t("home.card.edited", { time: relativeTime(edited) }) });
 
   // Right-click anywhere / the ⋯ button (hover-revealed on desktop, always on touch).
   attachRowMenu(card, card, () => ctx.menu(project));
@@ -147,7 +148,7 @@ export function renderCoverThumb(
   const info = projectSeries(base);
   thumb.setAttribute(
     "aria-label",
-    info?.order != null ? `Book ${info.order}: ${book.draft.title}` : book.draft.title
+    info?.order != null ? t("home.card.thumb", { number: info.order, title: book.draft.title }) : book.draft.title
   );
   renderCoverArt(thumb, app, book, base);
   const open = () => onOpen(book);

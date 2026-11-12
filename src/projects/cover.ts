@@ -12,6 +12,7 @@
  */
 
 import { App, TFile } from "obsidian";
+import { t } from "../i18n";
 import {
   extensionFor,
   pickVaultImage as pickImage,
@@ -67,5 +68,5 @@ export async function cleanupOwnedCover(app: App, project: Project): Promise<voi
 
 /** Fuzzy-pick a cover image already in the vault. Resolves with the file, or null if dismissed. */
 export function pickVaultImage(app: App): Promise<TFile | null> {
-  return pickImage(app, "Choose a cover image from the vault…");
+  return pickImage(app, t("project.cover.pickPlaceholder"));
 }

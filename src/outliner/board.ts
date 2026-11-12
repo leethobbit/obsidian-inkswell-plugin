@@ -12,6 +12,7 @@
  */
 
 import { linkTarget } from "../codex/codex";
+import { MessageKey, t } from "../i18n";
 import { SceneStatus, StatusDef, sceneStatuses } from "../scenes/scene-meta";
 import { OutlineTree } from "./outline";
 
@@ -38,11 +39,11 @@ export interface BoardColumn {
   items: BoardItem[];
 }
 
-const NONE_LABEL: Record<GroupField, string> = {
-  status: "No status",
-  act: "No act",
-  chapter: "No chapter",
-  pov: "No POV",
+const NONE_LABEL: Record<GroupField, MessageKey> = {
+  status: "board.none.status",
+  act: "board.none.act",
+  chapter: "board.none.chapter",
+  pov: "board.none.pov",
 };
 
 export function buildColumns(
@@ -53,7 +54,7 @@ export function buildColumns(
 ): BoardColumn[] {
   const none: BoardColumn = {
     key: "",
-    label: NONE_LABEL[field],
+    label: t(NONE_LABEL[field]),
     items: [],
   };
 
@@ -72,7 +73,7 @@ export function buildColumns(
         if (def) {
           col = hiddenCols.get(def.id);
           if (!col) {
-            col = { key: def.id, label: `${def.label} (hidden)`, items: [] };
+            col = { key: def.id, label: t("board.column.hidden", { label: def.label }), items: [] };
             hiddenCols.set(def.id, col);
           }
         }
@@ -130,7 +131,7 @@ export function buildOutlineColumns(
     for (const c of tree.looseChapters) {
       cols.push({ key: c.id, label: c.title, items: cards(c.scenes) });
     }
-    cols.push({ key: "", label: NONE_LABEL.chapter, items: cards(tree.unassignedScenes) });
+    cols.push({ key: "", label: t(NONE_LABEL.chapter), items: cards(tree.unassignedScenes) });
     return cols;
   }
 
@@ -139,7 +140,7 @@ export function buildOutlineColumns(
   }
   cols.push({
     key: "",
-    label: NONE_LABEL.act,
+    label: t(NONE_LABEL.act),
     items: cards([...tree.looseChapters.flatMap((c) => c.scenes), ...tree.unassignedScenes]),
   });
   return cols;

@@ -22,6 +22,7 @@
  * legacy values that name any sibling draft.
  */
 
+import { formatNumber, t, tp } from "../i18n";
 import { Project } from "../projects/types";
 import { baseDraft, baseDraftFor, groupIntoStories, storyDrafts } from "../projects/stories";
 import { projectSeries } from "../series/series";
@@ -143,11 +144,11 @@ export function defaultScopeForProject(
 
 /** One sentence for the UI: where a newly created entry will be tagged. */
 export function describeCreateScope(scope: EntityScope): string {
-  if (scope.series) return `New entries are tagged for the “${scope.series}” series.`;
+  if (scope.series) return t("codex.createScope.series", { series: scope.series });
   const books = scope.projects ?? [];
-  if (books.length === 1) return `New entries are tagged for “${books[0]}”.`;
-  if (books.length > 1) return `New entries are tagged for ${books.length} books.`;
-  return "New entries are created global — no project selected.";
+  if (books.length === 1) return t("codex.createScope.book", { book: books[0] });
+  if (books.length > 1) return tp("codex.createScope.books", books.length);
+  return t("codex.createScope.global");
 }
 
 /** Whether `scope` carries any actual constraint (vs. global). */
@@ -344,12 +345,18 @@ export function scopeSummary(
 ): string {
   if (scope.series) {
     const n = seriesBooks(scope.series);
-    if (n === null) return `Series · ${scope.series} (not found)`;
-    return `Series · ${scope.series}${n ? ` (${n} book${n === 1 ? "" : "s"})` : ""}`;
+    if (n === null) return t("codex.scopeSummary.seriesNotFound", { series: scope.series });
+    if (!n) return t("codex.scopeSummary.series", { series: scope.series });
+    return tp("codex.scopeSummary.seriesBooks", n, { series: scope.series });
   }
   const list = scope.projects ?? [];
-  if (list.length === 0) return "Global · every project";
-  const names = dedupe(list.map((v) => books.find((b) => namesBook(v, b))?.label ?? `${v} (not found)`));
+  if (list.length === 0) return t("codex.scopeSummary.global");
+  const names = dedupe(
+    list.map((v) => books.find((b) => namesBook(v, b))?.label ?? t("codex.scopeSummary.bookNotFound", { book: v }))
+  );
   const shown = names.slice(0, 2).join(", ");
-  return `Books · ${shown}${names.length > 2 ? ` +${names.length - 2}` : ""}`;
+  if (names.length > 2) {
+    return t("codex.scopeSummary.booksMore", { books: shown, more: formatNumber(names.length - 2) });
+  }
+  return t("codex.scopeSummary.books", { books: shown });
 }

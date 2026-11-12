@@ -9,6 +9,7 @@
  */
 
 import type { App, TFile } from "obsidian";
+import { MessageKey, t } from "../i18n";
 import { ListOverride, applyOverride } from "../lib/list-override";
 
 export type SceneStatus =
@@ -80,10 +81,6 @@ export function coerceStatus(value: unknown): SceneStatus | undefined {
     : undefined;
 }
 
-function titleCase(status: SceneStatus): string {
-  return status.charAt(0).toUpperCase() + status.slice(1);
-}
-
 // --- Status display (shipped labels + the writer's Customize overrides) ------
 // The six STORED values are frozen (SCHEMA.md §B, cross-tool). What a writer
 // may change per vault is display: label, visibility, order — via
@@ -96,11 +93,36 @@ export interface StatusDef {
   hidden: boolean;
 }
 
-const SHIPPED_STATUS_ITEMS = SCENE_STATUSES.map((s) => ({ id: s, label: titleCase(s) }));
+/** Catalog key for each status's shipped (UI) label, resolved at render time. */
+const STATUS_LABEL_KEYS: Record<SceneStatus, MessageKey> = {
+  idea: "scene.status.idea",
+  outlined: "scene.status.outlined",
+  draft: "scene.status.draft",
+  written: "scene.status.written",
+  revised: "scene.status.revised",
+  final: "scene.status.final",
+};
+
+/**
+ * The statuses as stable comparison data: ENGLISH title-cased labels, the
+ * baseline the Customize override normalizer compares stored renames against.
+ * Safe at import time (no catalog lookup). Not for display — use
+ * {@link statusLabel} / {@link sceneStatuses}.
+ */
+export const SCENE_STATUS_ITEMS: readonly { id: SceneStatus; label: string }[] = SCENE_STATUSES.map((s) => ({
+  id: s,
+  label: s.charAt(0).toUpperCase() + s.slice(1),
+}));
+
+/** The shipped label for a status in the UI language (never stored). */
+function shippedStatusLabel(status: SceneStatus): string {
+  return t(STATUS_LABEL_KEYS[status]);
+}
 
 /** All six statuses in effective order, hidden ones flagged. */
 export function sceneStatuses(override?: ListOverride): StatusDef[] {
-  return applyOverride(SHIPPED_STATUS_ITEMS, override)
+  const shipped = SCENE_STATUSES.map((s) => ({ id: s, label: shippedStatusLabel(s) }));
+  return applyOverride(shipped, override)
     .filter((i) => SCENE_STATUSES.includes(i.id as SceneStatus))
     .map((i) => ({ id: i.id as SceneStatus, label: i.label, hidden: i.hidden }));
 }
@@ -112,8 +134,8 @@ export function visibleStatuses(override?: ListOverride): StatusDef[] {
 
 /** Label for a status (for badges/dropdowns) — renamed per the override when given. */
 export function statusLabel(status: SceneStatus, override?: ListOverride): string {
-  if (!override?.labels) return titleCase(status);
-  return override.labels[status]?.trim() || titleCase(status);
+  if (!override?.labels) return shippedStatusLabel(status);
+  return override.labels[status]?.trim() || shippedStatusLabel(status);
 }
 
 /** The status new scenes get by default: `idea` unless the writer hid it. */
@@ -177,22 +199,55 @@ export type InspectorFieldId =
   | "notes"
   | "inactive";
 
-export const INSPECTOR_FIELDS: readonly { id: InspectorFieldId; label: string }[] = [
-  { id: "status", label: "Status" },
-  { id: "subtitle", label: "Subtitle" },
-  { id: "synopsis", label: "Synopsis" },
-  { id: "pov", label: "POV" },
-  { id: "characters", label: "Characters" },
-  { id: "location", label: "Location" },
-  { id: "structure", label: "Act / Chapter" },
-  { id: "plotlines", label: "Plotlines" },
-  { id: "targetWords", label: "Target words" },
-  { id: "color", label: "Color" },
+/** Shipped order of the inspector fields, each with its label's catalog key. */
+const INSPECTOR_FIELD_KEYS: readonly { id: InspectorFieldId; labelKey: MessageKey }[] = [
+  { id: "status", labelKey: "scene.field.status" },
+  { id: "subtitle", labelKey: "scene.field.subtitle" },
+  { id: "synopsis", labelKey: "scene.field.synopsis" },
+  { id: "pov", labelKey: "scene.field.pov" },
+  { id: "characters", labelKey: "scene.field.characters" },
+  { id: "location", labelKey: "scene.field.location" },
+  { id: "structure", labelKey: "scene.field.structure" },
+  { id: "plotlines", labelKey: "scene.field.plotlines" },
+  { id: "targetWords", labelKey: "scene.field.targetWords" },
+  { id: "color", labelKey: "scene.field.color" },
   // The writer's own fields (#52) as one movable block; their order within it
   // comes from the scene template's `scene-fields`.
-  { id: "custom", label: "Your fields" },
-  { id: "notes", label: "Notes" },
-  { id: "inactive", label: "Archived" },
+  { id: "custom", labelKey: "scene.field.custom" },
+  { id: "notes", labelKey: "scene.field.notes" },
+  { id: "inactive", labelKey: "scene.field.inactive" },
+];
+
+/**
+ * The shipped fields with their labels in the UI language, resolved per call
+ * (never at import time: the catalog is picked in `onload`). Display only;
+ * the ids are what the writer's overrides key on.
+ */
+export function shippedInspectorFields(): { id: InspectorFieldId; label: string }[] {
+  return INSPECTOR_FIELD_KEYS.map((f) => ({ id: f.id, label: t(f.labelKey) }));
+}
+
+/**
+ * Shipped fields as stable comparison data: their ENGLISH labels, the baseline
+ * the Customize override normalizer compares stored renames against (a rename
+ * equal to the shipped label is dropped). Kept English so a stored override
+ * means the same thing in every UI language. Not for display — render from
+ * {@link inspectorFields} / {@link shippedInspectorFields}.
+ */
+export const INSPECTOR_FIELDS: readonly { id: InspectorFieldId; label: string }[] = [
+  { id: "status", label: "Status" }, // i18n-ignore: comparison data, not display
+  { id: "subtitle", label: "Subtitle" }, // i18n-ignore: comparison data, not display
+  { id: "synopsis", label: "Synopsis" }, // i18n-ignore: comparison data, not display
+  { id: "pov", label: "POV" }, // i18n-ignore: comparison data, not display
+  { id: "characters", label: "Characters" }, // i18n-ignore: comparison data, not display
+  { id: "location", label: "Location" }, // i18n-ignore: comparison data, not display
+  { id: "structure", label: "Act / Chapter" }, // i18n-ignore: comparison data, not display
+  { id: "plotlines", label: "Plotlines" }, // i18n-ignore: comparison data, not display
+  { id: "targetWords", label: "Target words" }, // i18n-ignore: comparison data, not display
+  { id: "color", label: "Color" }, // i18n-ignore: comparison data, not display
+  { id: "custom", label: "Your fields" }, // i18n-ignore: comparison data, not display
+  { id: "notes", label: "Notes" }, // i18n-ignore: comparison data, not display
+  { id: "inactive", label: "Archived" }, // i18n-ignore: comparison data, not display
 ];
 
 export interface InspectorFieldDef {
@@ -203,8 +258,8 @@ export interface InspectorFieldDef {
 
 /** Every inspector field in effective order, hidden ones flagged. */
 export function inspectorFields(override?: ListOverride): InspectorFieldDef[] {
-  const known = new Set<string>(INSPECTOR_FIELDS.map((f) => f.id));
-  return applyOverride(INSPECTOR_FIELDS, override)
+  const known = new Set<string>(INSPECTOR_FIELD_KEYS.map((f) => f.id));
+  return applyOverride(shippedInspectorFields(), override)
     .filter((i) => known.has(i.id))
     .map((i) => ({ id: i.id as InspectorFieldId, label: i.label, hidden: i.hidden }));
 }

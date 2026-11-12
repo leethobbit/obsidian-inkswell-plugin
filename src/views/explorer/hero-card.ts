@@ -6,6 +6,7 @@
  */
 
 import { App, TFile } from "obsidian";
+import { formatNumber, t, tp } from "../../i18n";
 import { tagField } from "../../lib/focus-preserve";
 import { tryFileOp } from "../../lib/notify";
 import { resolveCoverSrc } from "../../projects/cover";
@@ -51,7 +52,7 @@ export class HeroCard {
     const saveOverview = (patch: Partial<typeof overview>) => {
       if (indexFile) {
         this.plugin.selfWrites.mark(indexFile.path);
-        void tryFileOp(() => persistOverview(this.app, indexFile, patch), "Couldn't save the change.");
+        void tryFileOp(() => persistOverview(this.app, indexFile, patch), t("home.hero.saveFailed"));
       }
     };
 
@@ -61,12 +62,12 @@ export class HeroCard {
     if (src) {
       const img = cover.createEl("img", { cls: "inkswell-hero__img" });
       img.src = src;
-      img.alt = `${focused.draft.title} cover`;
+      img.alt = t("home.card.coverAlt", { title: focused.draft.title });
     } else {
       cover.addClass("is-empty");
-      cover.createSpan({ cls: "inkswell-hero__placeholder", text: "+ Add cover" });
+      cover.createSpan({ cls: "inkswell-hero__placeholder", text: t("home.hero.addCover") });
     }
-    cover.setAttribute("aria-label", "Set cover image");
+    cover.setAttribute("aria-label", t("home.hero.setCover"));
     cover.onclick = (e) =>
       coverMenu(this.app, base, (p) => this.plugin.selfWrites.mark(p)).showAtMouseEvent(e);
 
@@ -79,36 +80,47 @@ export class HeroCard {
     const info = projectSeries(base);
     const seriesLine = meta.createDiv({ cls: "inkswell-hero__series" });
     if (info) {
-      seriesLine.setText(info.order != null ? `${info.name} · Book ${info.order}` : info.name);
+      seriesLine.setText(
+        info.order != null ? t("home.hero.seriesBook", { series: info.name, number: info.order }) : info.name
+      );
     } else {
       seriesLine.addClass("is-empty");
-      seriesLine.setText("Add to series…");
+      seriesLine.setText(t("home.menu.addToSeries"));
     }
-    seriesLine.setAttribute("aria-label", "Edit series membership");
+    seriesLine.setAttribute("aria-label", t("home.hero.editSeries"));
     seriesLine.onclick = () =>
       new SeriesModal(this.app, this.store.getProjects(), base, this.plugin.activeProject.get()).open();
 
     // An archived book still opens normally; say so, with the way back.
     if (storyArchived(this.store.getProjects(), focused)) {
       const line = meta.createDiv({ cls: "inkswell-hero__archived" });
-      line.createSpan({ text: "Archived — hidden from Home and the project list. " });
-      const undo = line.createEl("button", { cls: "inkswell-hero__unarchive", text: "Unarchive" });
+      line.createSpan({ text: `${t("home.hero.archived")} ` });
+      const undo = line.createEl("button", { cls: "inkswell-hero__unarchive", text: t("home.hero.unarchive") });
       undo.onclick = () => void this.plugin.archiveProject(focused, false);
     }
 
-    const field =(label: string, value: string | undefined, placeholder: string, save: (v: string) => void) => {
+    // `id` keys the focus tag (stable across languages); `label` is display only.
+    const field = (
+      id: string,
+      label: string,
+      value: string | undefined,
+      placeholder: string,
+      save: (v: string) => void
+    ) => {
       const row = meta.createDiv({ cls: "inkswell-hero__field" });
       row.createDiv({ cls: "inkswell-hero__label", text: label });
       const input = row.createEl("input", { type: "text", cls: "inkswell-hero__input" });
-      tagField(input, `hero:${label.toLowerCase()}`);
+      tagField(input, `hero:${id}`);
       input.value = value ?? "";
       input.placeholder = placeholder;
       input.onchange = () => save(input.value.trim());
     };
-    field("Logline", overview.logline, "One sentence: who wants what, against what odds…", (v) =>
+    field("logline", t("home.hero.logline"), overview.logline, t("home.hero.loglinePlaceholder"), (v) =>
       saveOverview({ logline: v })
     );
-    field("Theme", overview.theme, "The deeper meaning / life lesson…", (v) => saveOverview({ theme: v }));
+    field("theme", t("home.hero.theme"), overview.theme, t("home.hero.themePlaceholder"), (v) =>
+      saveOverview({ theme: v })
+    );
 
     // The word target + progress bar is part of the optional "tracking" feature.
     if (featureEnabled(this.plugin.settings.disabledFeatures, "tracking")) {
@@ -127,12 +139,12 @@ export class HeroCard {
     const indexFile = this.indexFile(base);
 
     const row = meta.createDiv({ cls: "inkswell-hero__field" });
-    row.createDiv({ cls: "inkswell-hero__label", text: "Target" });
+    row.createDiv({ cls: "inkswell-hero__label", text: t("home.hero.target") });
     const control = row.createDiv({ cls: "inkswell-hero__targetrow" });
     const input = control.createEl("input", { type: "number", cls: "inkswell-hero__input inkswell-hero__targetinput" });
     tagField(input, "hero:target");
     input.value = target ? String(target) : "";
-    input.placeholder = "e.g. 80000";
+    input.placeholder = t("home.hero.targetPlaceholder");
     input.min = "0";
     input.onchange = () => {
       if (!indexFile) return;
@@ -144,12 +156,12 @@ export class HeroCard {
       this.plugin.selfWrites.mark(indexFile.path);
       void tryFileOp(
         () => persistGoalsPatch(this.app, indexFile, { target: val }),
-        "Couldn't save the word target."
+        t("home.hero.targetFailed")
       );
     };
-    control.createSpan({ cls: "inkswell-hero__unit", text: "words" });
+    control.createSpan({ cls: "inkswell-hero__unit", text: t("home.hero.wordsUnit") });
     const more = control.createEl("button", { cls: "inkswell-hero__more", text: "⋯" });
-    more.setAttribute("aria-label", "Deadline & pace");
+    more.setAttribute("aria-label", t("home.hero.deadline"));
     more.onclick = () =>
       new TargetModal(this.app, base, (p) => this.plugin.selfWrites.mark(p)).open();
 
@@ -161,10 +173,10 @@ export class HeroCard {
       if (target > 0) {
         const pct = Math.min(100, Math.round((w / target) * 100));
         fill.style.width = `${pct}%`;
-        stat.setText(`${w.toLocaleString()} / ${target.toLocaleString()} words · ${pct}%`);
+        stat.setText(tp("home.hero.progress", target, { words: formatNumber(w), percent: pct }));
       } else {
         bar.hide();
-        stat.setText(`${w.toLocaleString()} words`);
+        stat.setText(tp("common.words", w));
       }
     });
   }

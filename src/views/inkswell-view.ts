@@ -51,7 +51,7 @@ import { SceneInspector } from "../scenes/scene-inspector";
 import { HelpPanel } from "../help/help-panel";
 import { CustomizePanel } from "../customize/customize-panel";
 import { addHideItem, attachHideMenu } from "../lib/hide-menu";
-import { t } from "../i18n";
+import { getLocale, t } from "../i18n";
 import { companionForDestination, visibleCompanions } from "../companions/registry";
 import { replaceWithCompanion } from "../companions/open";
 import { renderHint } from "../help/hint";
@@ -340,19 +340,19 @@ export class InkswellView extends ItemView {
     this.header.empty();
     const projects = this.plugin.store.getProjects();
     if (projects.length === 0) {
-      this.header.createSpan({ cls: "inkswell-stats__muted", text: "No project yet" });
+      this.header.createSpan({ cls: "inkswell-stats__muted", text: t("view.header.noProject") });
       return;
     }
     const stories = groupIntoStories(projects);
     const activePath = this.plugin.activeProject.get();
     const activeStory = storyOf(stories, activePath);
 
-    this.header.createSpan({ cls: "inkswell-host__headerlabel", text: "Project" });
+    this.header.createSpan({ cls: "inkswell-host__headerlabel", text: t("view.header.project") });
     const sel = this.header.createEl("select", { cls: "dropdown" });
     // "All projects" (empty value) is the unfocused default: Home lists every
     // project. Project-scoped tabs fall back to the first project when nothing
     // specific is selected (see resolveActive).
-    sel.createEl("option", { text: "All projects", value: "" });
+    sel.createEl("option", { text: t("view.header.allProjects"), value: "" });
     // Grouped by series (membership is story-level → read off each base draft),
     // in book order, so the switcher tells the same story as Home's shelves.
     const addStory = (parent: HTMLElement, story: Story) =>
@@ -370,7 +370,7 @@ export class InkswellView extends ItemView {
       // Same shelf order as Home, Standalone included (#67).
       for (const shelf of orderShelves(series, standalone.length > 0, this.plugin.settings.seriesOrder)) {
         const og = sel.createEl("optgroup");
-        og.label = shelf.kind === "series" ? shelf.series.name : "Standalone";
+        og.label = shelf.kind === "series" ? shelf.series.name : t("view.header.standalone");
         for (const book of shelf.kind === "series" ? shelf.series.books : standalone) {
           const story = storyFor(book);
           if (story) addStory(og, story);
@@ -379,7 +379,7 @@ export class InkswellView extends ItemView {
     }
     if (activeStory && archived.has(activeStory.title)) {
       const og = sel.createEl("optgroup");
-      og.label = "Archived";
+      og.label = t("view.header.archived");
       addStory(og, activeStory);
     }
     sel.value = activeStory?.title ?? "";
@@ -395,7 +395,7 @@ export class InkswellView extends ItemView {
       activeStory.drafts.find((d) => d.vaultPath === activePath) ?? activeStory.drafts[0];
 
     if (activeStory.drafts.length > 1) {
-      this.header.createSpan({ cls: "inkswell-host__headerlabel", text: "Draft" });
+      this.header.createSpan({ cls: "inkswell-host__headerlabel", text: t("view.header.draft") });
       const dsel = this.header.createEl("select", { cls: "dropdown" });
       activeStory.drafts.forEach((d, i) => {
         dsel.createEl("option", { text: draftLabel(d, i), value: d.vaultPath });
@@ -406,7 +406,7 @@ export class InkswellView extends ItemView {
 
     const menuBtn = this.header.createEl("button", {
       cls: "inkswell-host__draftsmenu",
-      attr: { "aria-label": "Project actions" },
+      attr: { "aria-label": t("view.header.actions") },
     });
     menuBtn.type = "button";
     setIcon(menuBtn, "ellipsis");
@@ -419,33 +419,33 @@ export class InkswellView extends ItemView {
     const menu = new Menu();
     menu.addItem((i) =>
       i
-        .setTitle("Rename project")
+        .setTitle(t("view.actions.renameProject"))
         .setIcon("text-cursor-input")
         .onClick(() => this.plugin.renameProject(active))
     );
     menu.addItem((i) =>
       i
-        .setTitle("Export story bible…")
+        .setTitle(t("view.actions.exportBible"))
         .setIcon("file-output")
         .onClick(() => this.plugin.openStoryBible(active))
     );
     const archived = storyArchived(this.plugin.store.getProjects(), active);
     menu.addItem((i) =>
       i
-        .setTitle(archived ? "Unarchive project" : "Archive project")
+        .setTitle(archived ? t("view.actions.unarchive") : t("view.actions.archive"))
         .setIcon(archived ? "archive-restore" : "archive")
         .onClick(() => void this.plugin.archiveProject(active, !archived))
     );
     menu.addSeparator();
     menu.addItem((i) =>
-      i.setTitle("New draft").setIcon("copy-plus").onClick(() => this.newDraftAction(active))
+      i.setTitle(t("view.actions.newDraft")).setIcon("copy-plus").onClick(() => this.newDraftAction(active))
     );
     menu.addItem((i) =>
-      i.setTitle("Rename draft").setIcon("pencil").onClick(() => this.renameDraftAction(active))
+      i.setTitle(t("view.actions.renameDraft")).setIcon("pencil").onClick(() => this.renameDraftAction(active))
     );
     menu.addItem((i) =>
       i
-        .setTitle("Delete draft")
+        .setTitle(t("view.actions.deleteDraft"))
         .setIcon("trash-2")
         .onClick(() => void this.deleteDraftAction(story, active))
     );
@@ -470,10 +470,10 @@ export class InkswellView extends ItemView {
 
   private renameDraftAction(project: Project): void {
     void promptText(this.app, {
-      title: "Rename draft",
+      title: t("view.actions.renameDraft"),
       value: project.draft.draftTitle ?? "",
       multiline: false,
-      cta: "Rename",
+      cta: t("common.rename"),
     }).then((name) => {
       if (name == null || !name.trim()) return;
       void renameDraft(this.app, project, name);
@@ -559,7 +559,7 @@ export class InkswellView extends ItemView {
     const back = hdr.createEl("button", { cls: "inkswell-phonehdr__back" });
     back.type = "button";
     setIcon(back, "arrow-left");
-    back.setAttribute("aria-label", "Back");
+    back.setAttribute("aria-label", t("common.back"));
     back.onclick = onBack;
     hdr.createSpan({ cls: "inkswell-phonehdr__title", text: title });
   }
@@ -809,7 +809,8 @@ export class InkswellView extends ItemView {
     // Rail highlight (desktop/tablet) + bottom-bar highlight (phone). The rail
     // is rebuilt only when its arrangement changed (e.g. synced from another
     // device); feature-gated visibility is applied on every render.
-    if (JSON.stringify(this.railLayout()) !== this.railSig) this.buildRail();
+    // The signature includes the UI language so Settings → Interface language relabels the rail.
+    if (`${getLocale()}:${JSON.stringify(this.railLayout())}` !== this.railSig) this.buildRail();
     this.syncRail();
     if (isPhone()) {
       this.phone.setActive(this.mode);
@@ -907,7 +908,7 @@ export class InkswellView extends ItemView {
     const rail = this.rail;
     rail.empty();
     const layout = this.railLayout();
-    this.railSig = JSON.stringify(layout);
+    this.railSig = `${getLocale()}:${JSON.stringify(layout)}`;
     const byId = (id: InkswellMode) => DESTINATIONS.find((d) => d.id === id);
     for (const d of DESTINATIONS.filter((x) => x.group === "hub")) this.railItem(d, null);
     this.railSeparator("upper");
@@ -998,8 +999,8 @@ export class InkswellView extends ItemView {
       };
       const layout = this.railLayout();
       const steps: [string, string, -1 | 1][] = [
-        ["Move up", "arrow-up", -1],
-        ["Move down", "arrow-down", 1],
+        [t("view.rail.moveUp"), "arrow-up", -1],
+        [t("view.rail.moveDown"), "arrow-down", 1],
       ];
       for (const [title, icon, dir] of steps) {
         const next = nudgeRailItem(layout, dest.id, dir, isVisible);
@@ -1009,7 +1010,7 @@ export class InkswellView extends ItemView {
       if (this.plugin.settings.railLayout) {
         menu.addItem((i) =>
           i
-            .setTitle("Reset rail order")
+            .setTitle(t("view.rail.reset"))
             .setIcon("rotate-ccw")
             .onClick(() => this.saveRail(resolveRailLayout(null)))
         );
@@ -1223,12 +1224,12 @@ export class InkswellView extends ItemView {
     // On a phone, heavy multi-pane destinations show a "larger screen" notice
     // instead of a cramped, unusable layout (the "writing companion" scope).
     if (isPhone() && this.isRedirected(this.mode)) {
-      const label = DESTINATIONS.find((d) => d.id === this.mode)?.label ?? "This view";
+      const label = DESTINATIONS.find((d) => d.id === this.mode)?.label ?? t("view.redirect.thisView");
       // The link is how a misdetected tablet (#41) finds the override: it flips
       // the same setting as Settings → Layout, and the mutator rebuilds this view.
       renderPhoneRedirect(content, label, () => {
         void this.plugin.setForceTabletLayout(true);
-        new Notice("Full layout on — switch back under Settings → Layout.");
+        new Notice(t("view.redirect.fullLayoutOn"));
       });
       return;
     }
@@ -1255,7 +1256,7 @@ export class InkswellView extends ItemView {
     if (homeFile) {
       this.renderPhoneBack(content, homeFile.basename, () => this.popDetail("home"));
     } else if (codexDetail) {
-      const entryName = this.fileAt(codexDetail)?.basename ?? "Codex";
+      const entryName = this.fileAt(codexDetail)?.basename ?? t("nav.codex");
       this.renderPhoneBack(content, entryName, () => this.popDetail("codex"));
     } else {
       renderHint(content, this.plugin, hintKey(this.mode, this.subtab[this.mode]));

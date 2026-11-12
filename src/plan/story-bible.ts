@@ -12,6 +12,7 @@
 import { linkAlias, linkTarget } from "../codex/codex";
 import { ProfileFieldType, ProfileValue, isEmptyValue } from "../codex/profile-schema";
 import type { MergedBeat } from "../outliner/beats";
+import type { MessageKey } from "../i18n";
 import type { ChapterNode, OutlineTree, SceneRef } from "../outliner/outline";
 
 /** Marks a note as generated (and safe to replace on the next run). */
@@ -19,11 +20,13 @@ export const STORY_BIBLE_MARKER = "<!-- inkswell:story-bible -->";
 
 export type StoryBibleSection = "overview" | "beats" | "outline" | "codex";
 
-export const STORY_BIBLE_SECTIONS: { id: StoryBibleSection; label: string }[] = [
-  { id: "overview", label: "Overview & synopsis" },
-  { id: "beats", label: "Beat sheet" },
-  { id: "outline", label: "Outline" },
-  { id: "codex", label: "Codex" },
+/** The export dialog's section toggles (labels are UI only; the note's own
+ *  headings are written in English by the section builders below). */
+export const STORY_BIBLE_SECTIONS: { id: StoryBibleSection; labelKey: MessageKey }[] = [
+  { id: "overview", labelKey: "plan.bible.section.overview" },
+  { id: "beats", labelKey: "plan.bible.section.beats" },
+  { id: "outline", labelKey: "plan.bible.section.outline" },
+  { id: "codex", labelKey: "plan.bible.section.codex" },
 ];
 
 export interface CodexEntryField {

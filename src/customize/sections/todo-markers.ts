@@ -12,6 +12,7 @@
  */
 
 import { Notice } from "obsidian";
+import { t, tp } from "../../i18n";
 import {
   MarkerExtra,
   SHIPPED_MARKERS,
@@ -31,7 +32,10 @@ export const todoMarkersSection: CustomizeSection = {
     const o = plugin.settings.listOverrides.markers;
     const mine = o?.added?.length ?? 0;
     const hidden = o?.hidden?.length ?? 0;
-    return `${SHIPPED_MARKERS.length} built-in${mine ? ` · ${mine} yours` : ""}${hidden ? ` · ${hidden} hidden` : ""}`;
+    const parts = [tp("customize.summary.builtIn", SHIPPED_MARKERS.length)];
+    if (mine) parts.push(tp("customize.summary.yours", mine));
+    if (hidden) parts.push(tp("customize.summary.hidden", hidden));
+    return parts.join(" · ");
   },
 
   render(host, ctx) {
@@ -44,27 +48,22 @@ export const todoMarkersSection: CustomizeSection = {
       shipped: SHIPPED_MARKERS,
       allowAdd: true,
       noun: "marker",
-      intro:
-        "Markers you drop into your prose to come back to later — [TODO: …], [RESEARCH: …] and the " +
-        "rest — then find in Revise → Revision log. Compiling removes them all. To use a different word, " +
-        "add your own marker (and hide the built-in one if you like). Hiding a marker only takes it " +
-        "out of the Insert menu: markers already in your scenes are still found and still removed " +
-        "when you compile.",
+      intro: t("customize.markers.intro"),
       newItemExtra: async () => {
         const raw = await promptText(ctx.app, {
-          title: "Word to type in your scenes (e.g. CHECK)",
+          title: t("customize.markers.wordPrompt"),
           value: "",
           multiline: false,
-          cta: "Add",
+          cta: t("common.add"),
         });
         if (raw === null || !raw.trim()) return null;
         if (!isValidKeyword(raw)) {
-          new Notice("A marker word starts with a letter and uses 2–20 letters, digits or hyphens.");
+          new Notice(t("customize.markers.invalidWord"));
           return null;
         }
         const keyword = normalizeKeyword(raw);
         if (markerSet(ctx.plugin.settings.listOverrides.markers).byKeyword.has(keyword)) {
-          new Notice(`[${keyword}] is already a marker.`);
+          new Notice(t("customize.markers.taken", { keyword }));
           return null;
         }
         return { keyword };
@@ -77,18 +76,16 @@ export const todoMarkersSection: CustomizeSection = {
           text: `[${keywordOf(it.id, it.extra.keyword)}: …]`,
         });
         if (!recognized) {
-          el.createSpan({ cls: "inkswell-customize__badge", text: "word already used — inactive" });
+          el.createSpan({ cls: "inkswell-customize__badge", text: t("customize.markers.inactive") });
         }
       },
       confirmRemove: (it) =>
         confirmDestructive(
           ctx.app,
-          `Remove "${it.label}"? Markers already in your scenes typed as [${it.extra.keyword}: …] won't ` +
-            "be found in the revision log or removed when you compile. To keep them working, hide the marker instead.",
-          "Remove"
+          t("customize.markers.removeConfirm", { label: it.label, keyword: it.extra.keyword }),
+          t("common.remove")
         ),
-      removeNotice: (it) =>
-        `Removed "${it.label}". Any [${it.extra.keyword}: …] markers stay in your scenes as plain text.`,
+      removeNotice: (it) => t("customize.markers.removed", { label: it.label, keyword: it.extra.keyword }),
       // Live Write editors re-highlight with the new list (no panel rebuild).
       onSaved: () => ctx.plugin.applyEditorPrefs(),
     });

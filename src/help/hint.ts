@@ -8,6 +8,7 @@
 
 import { setIcon } from "obsidian";
 import type InkswellPlugin from "../../main";
+import { t } from "../i18n";
 import { HINTS } from "./help-content";
 
 /**
@@ -27,11 +28,12 @@ export function renderHint(host: HTMLElement, plugin: InkswellPlugin, key: strin
 
   const summary = box.createEl("summary", { cls: "inkswell-hint__summary" });
   setIcon(summary.createSpan({ cls: "inkswell-hint__icon" }), "help-circle");
-  summary.createSpan({ cls: "inkswell-hint__title", text: entry.title });
+  summary.createSpan({ cls: "inkswell-hint__title", text: t(entry.titleKey) });
 
+  const dismissLabel = t("help.hint.dismiss");
   const dismiss = summary.createEl("button", {
     cls: "inkswell-hint__dismiss",
-    attr: { "aria-label": "Dismiss this tip", title: "Dismiss this tip" },
+    attr: { "aria-label": dismissLabel, title: dismissLabel },
   });
   setIcon(dismiss, "x");
   dismiss.onclick = (e) => {

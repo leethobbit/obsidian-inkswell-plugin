@@ -5,11 +5,13 @@
  * with no args at module scope; callers inject `today` for status.
  */
 
+import type { MessageKey } from "../i18n";
+
 export type PreorderStrategy = "short" | "medium" | "long";
 
 export interface MilestoneDef {
   id: string;
-  label: string;
+  labelKey: MessageKey;
   /** Days before release this milestone falls on. */
   offsetDays: number;
   /** For windows (e.g. cover reveal): days before release the window ends. */
@@ -18,7 +20,7 @@ export interface MilestoneDef {
 
 export interface StrategyDef {
   id: PreorderStrategy;
-  label: string;
+  labelKey: MessageKey;
   leadDays: number;
   milestones: MilestoneDef[];
 }
@@ -26,44 +28,44 @@ export interface StrategyDef {
 export const STRATEGIES: Record<PreorderStrategy, StrategyDef> = {
   short: {
     id: "short",
-    label: "Short (~2 weeks)",
+    labelKey: "launch.strategy.short",
     leadDays: 21,
     milestones: [
-      { id: "submit", label: "Submit for pre-order", offsetDays: 21 },
-      { id: "verify", label: "Verify approval", offsetDays: 18 },
-      { id: "finishChecklist", label: "Finish remaining checklist", offsetDays: 7 },
-      { id: "deliverIncentives", label: "Deliver pre-order incentives", offsetDays: 1 },
+      { id: "submit", labelKey: "launch.milestone.submit", offsetDays: 21 },
+      { id: "verify", labelKey: "launch.milestone.verify", offsetDays: 18 },
+      { id: "finishChecklist", labelKey: "launch.milestone.finishChecklist", offsetDays: 7 },
+      { id: "deliverIncentives", labelKey: "launch.milestone.deliverIncentives", offsetDays: 1 },
     ],
   },
   medium: {
     id: "medium",
-    label: "Medium (~90 days)",
+    labelKey: "launch.strategy.medium",
     leadDays: 90,
     milestones: [
-      { id: "submit", label: "Submit for pre-order", offsetDays: 90 },
-      { id: "verify", label: "Verify approval", offsetDays: 83 },
-      { id: "coverReveal", label: "Cover reveal window", offsetDays: 75, windowEndOffset: 60 },
-      { id: "finishChecklist", label: "Finish remaining checklist", offsetDays: 7 },
-      { id: "deliverIncentives", label: "Deliver pre-order incentives", offsetDays: 1 },
+      { id: "submit", labelKey: "launch.milestone.submit", offsetDays: 90 },
+      { id: "verify", labelKey: "launch.milestone.verify", offsetDays: 83 },
+      { id: "coverReveal", labelKey: "launch.milestone.coverReveal", offsetDays: 75, windowEndOffset: 60 },
+      { id: "finishChecklist", labelKey: "launch.milestone.finishChecklist", offsetDays: 7 },
+      { id: "deliverIncentives", labelKey: "launch.milestone.deliverIncentives", offsetDays: 1 },
     ],
   },
   long: {
     id: "long",
-    label: "Long (~8 months)",
+    labelKey: "launch.strategy.long",
     leadDays: 240,
     milestones: [
-      { id: "submit", label: "Submit for pre-order", offsetDays: 240 },
-      { id: "verify", label: "Verify approval", offsetDays: 225 },
-      { id: "coverReveal", label: "Cover reveal window", offsetDays: 120, windowEndOffset: 90 },
-      { id: "finishChecklist", label: "Finish remaining checklist", offsetDays: 14 },
-      { id: "deliverIncentives", label: "Deliver pre-order incentives", offsetDays: 1 },
+      { id: "submit", labelKey: "launch.milestone.submit", offsetDays: 240 },
+      { id: "verify", labelKey: "launch.milestone.verify", offsetDays: 225 },
+      { id: "coverReveal", labelKey: "launch.milestone.coverReveal", offsetDays: 120, windowEndOffset: 90 },
+      { id: "finishChecklist", labelKey: "launch.milestone.finishChecklist", offsetDays: 14 },
+      { id: "deliverIncentives", labelKey: "launch.milestone.deliverIncentives", offsetDays: 1 },
     ],
   },
 };
 
 export interface ComputedMilestone {
   id: string;
-  label: string;
+  labelKey: MessageKey;
   date: string;
   /** End date for window milestones. */
   windowEnd?: string;
@@ -96,7 +98,7 @@ export function computeMilestones(
   return STRATEGIES[strategy].milestones.map((m) => {
     const out: ComputedMilestone = {
       id: m.id,
-      label: m.label,
+      labelKey: m.labelKey,
       date: fmt(minusDays(release, m.offsetDays)),
     };
     if (m.windowEndOffset !== undefined) {

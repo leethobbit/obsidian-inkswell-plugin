@@ -7,6 +7,7 @@
 
 import { App, FuzzySuggestModal, Notice, TFile } from "obsidian";
 import { getCodexEntities, writeEntityScope } from "../codex/codex-store";
+import { t } from "../i18n";
 import { FormModal } from "../lib/form-modal";
 import { renderListEditor } from "../lib/list-editor";
 import { tryFileOp } from "../lib/notify";
@@ -39,10 +40,10 @@ export async function promptRenameSeries(
   onRenamed?: (from: string, to: string) => void
 ): Promise<void> {
   const name = await promptText(app, {
-    title: "Rename series",
+    title: t("series.rename.title"),
     value: series.name,
     multiline: false,
-    cta: "Rename",
+    cta: t("common.rename"),
   });
   if (name === null) return;
   if (await renameSeries(app, projects, series.name, name)) onRenamed?.(series.name, name.trim());
@@ -61,8 +62,8 @@ export async function renameSeries(app: App, projects: Project[], from: string, 
   if (plan.mergesInto) {
     const ok = await confirmDestructive(
       app,
-      `A series named “${target}” already exists. Merge “${from}” into it? Book numbers may collide — use Reorder books afterwards.`,
-      "Merge"
+      t("series.rename.mergeConfirm", { target, from }),
+      t("series.rename.merge")
     );
     if (!ok) return false;
   }
@@ -73,8 +74,8 @@ export async function renameSeries(app: App, projects: Project[], from: string, 
       if (f) await writeEntityScope(app, f, { series: target });
     }
     return true;
-  }, "Couldn't rename the series.");
-  if (done) new Notice(plan.mergesInto ? `Merged into “${target}”.` : `Series renamed to “${target}”.`);
+  }, t("series.rename.failed"));
+  if (done) new Notice(plan.mergesInto ? t("series.rename.merged", { target }) : t("series.rename.done", { target }));
   return !!done;
 }
 
@@ -90,17 +91,17 @@ export function addExistingToSeries(
     (p) => !projectSeries(baseDraftFor(projects, p)) && !storyArchived(projects, p)
   );
   if (candidates.length === 0) {
-    new Notice("No standalone project to add — every project is already in a series or archived.");
+    new Notice(t("series.addExisting.none"));
     return;
   }
-  new ProjectSuggestModal(app, candidates, `Add a book to ${series.name}…`, (p) => {
+  new ProjectSuggestModal(app, candidates, t("series.addExisting.placeholder", { series: series.name }), (p) => {
     if (!p) return;
     const base = baseDraftFor(projects, p);
     const f = indexFile(app, base.vaultPath);
     if (!f) return;
     void tryFileOp(
       () => writeSeries(app, f, { name: series.name, order: nextBookOrder(series.books) }),
-      "Couldn't add the book to the series."
+      t("series.addExisting.failed")
     );
   }).open();
 }
@@ -156,10 +157,10 @@ export class ReorderBooksModal extends FormModal {
   }
 
   protected renderForm(contentEl: HTMLElement): void {
-    contentEl.createEl("h3", { text: `Reorder books — ${this.series.name}` });
+    contentEl.createEl("h3", { text: t("series.reorderBooks.heading", { series: this.series.name }) });
     contentEl.createEl("p", {
       cls: "inkswell-stats__muted",
-      text: "Drag to reorder, or use a row's ⋯ menu. Books are renumbered 1, 2, 3… on save, replacing any 0 or 0.5 numbers.",
+      text: t("series.reorderBooks.intro"),
     });
     this.list = contentEl.createDiv();
     this.renderList();
@@ -186,7 +187,7 @@ export class ReorderBooksModal extends FormModal {
     // Membership is story-level: number the base drafts, whatever draft each row shows.
     const bases = this.order.map((b) => baseDraftFor(this.projects, b));
     const writes = planReorder(bases, bases.map((b) => b.vaultPath));
-    await tryFileOp(() => applyWrites(this.app, writes), "Couldn't reorder the books.");
+    await tryFileOp(() => applyWrites(this.app, writes), t("series.reorderBooks.failed"));
   }
 }
 
@@ -207,10 +208,10 @@ export class ReorderSeriesModal extends FormModal {
   }
 
   protected renderForm(contentEl: HTMLElement): void {
-    contentEl.createEl("h3", { text: "Reorder shelves" });
+    contentEl.createEl("h3", { text: t("series.reorderShelves.heading") });
     contentEl.createEl("p", {
       cls: "inkswell-stats__muted",
-      text: "Drag to reorder, or use a row's ⋯ menu. Home and the project switcher show your shelves in this order.",
+      text: t("series.reorderShelves.intro"),
     });
     this.list = contentEl.createDiv();
     this.renderList();
@@ -223,7 +224,7 @@ export class ReorderSeriesModal extends FormModal {
       items: this.order.map((name) => ({ id: name, name })),
       renderRow: (body, item) => {
         // The Standalone shelf rides in the same list as a reserved entry (#67).
-        body.setText(item.name === STANDALONE_SHELF ? "Standalone" : item.name);
+        body.setText(item.name === STANDALONE_SHELF ? t("home.shelf.standalone") : item.name);
       },
       onReorder: (next) => {
         this.order = next.map((x) => x.name);

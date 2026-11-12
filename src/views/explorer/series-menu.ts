@@ -5,6 +5,7 @@
  */
 
 import { App, Menu, TFile } from "obsidian";
+import { t } from "../../i18n";
 import { tryFileOp } from "../../lib/notify";
 import { addCoverMenuItems } from "../../projects/cover-actions";
 import { writeSeries } from "../../projects/index-writer";
@@ -54,14 +55,14 @@ export class SeriesMenu {
     const menu = new Menu();
     menu.addItem((i) =>
       i
-        .setTitle("Rename project")
+        .setTitle(t("home.menu.renameProject"))
         .setIcon("text-cursor-input")
         .onClick(() => this.cb.renameProject(row))
     );
     if (isMultiScene(row.draft)) {
       menu.addItem((i) =>
         i
-          .setTitle("Sort scenes by chapter number…")
+          .setTitle(t("home.menu.sortByChapter"))
           .setIcon("arrow-down-0-1")
           .onClick(() => this.cb.sortByChapter(row))
       );
@@ -77,21 +78,21 @@ export class SeriesMenu {
 
     menu.addItem((i) =>
       i
-        .setTitle(info ? "Series…" : "Add to series…")
+        .setTitle(info ? t("home.menu.series") : t("home.menu.addToSeries"))
         .setIcon("library")
         .onClick(() => new SeriesModal(this.app, projects, project, this.cb.activePath()).open())
     );
     if (info) {
       menu.addItem((i) =>
         i
-          .setTitle("Remove from series")
+          .setTitle(t("home.menu.removeFromSeries"))
           .setIcon("link-2-off")
           .onClick(() => {
             const file = this.indexFile(project);
             if (!file) return;
             void tryFileOp(
               () => writeSeries(this.app, file, null),
-              "Couldn't remove the book from the series."
+              t("home.menu.removeFromSeriesFailed")
             );
           })
       );
@@ -100,7 +101,7 @@ export class SeriesMenu {
     const archived = storyArchived(projects, row);
     menu.addItem((i) =>
       i
-        .setTitle(archived ? "Unarchive project" : "Archive project")
+        .setTitle(archived ? t("home.menu.unarchiveProject") : t("home.menu.archiveProject"))
         .setIcon(archived ? "archive-restore" : "archive")
         .onClick(() => this.cb.archiveProject(row, !archived))
     );
@@ -118,13 +119,13 @@ export class SeriesMenu {
     menu.addSeparator();
     menu.addItem((i) =>
       i
-        .setTitle("Rename series…")
+        .setTitle(t("home.menu.renameSeries"))
         .setIcon("text-cursor-input")
         .onClick(() => void promptRenameSeries(this.app, projects, series, (from, to) => this.cb.seriesRenamed(from, to)))
     );
     menu.addItem((i) =>
       i
-        .setTitle("Reorder books…")
+        .setTitle(t("home.menu.reorderBooks"))
         .setIcon("list-ordered")
         .onClick(() => new ReorderBooksModal(this.app, projects, series).open())
     );
@@ -137,7 +138,7 @@ export class SeriesMenu {
     if (archived < series.books.length) {
       menu.addItem((i) =>
         i
-          .setTitle("Archive series")
+          .setTitle(t("home.menu.archiveSeries"))
           .setIcon("archive")
           .onClick(() => this.cb.archiveSeries(series, true))
       );
@@ -145,7 +146,7 @@ export class SeriesMenu {
     if (archived > 0) {
       menu.addItem((i) =>
         i
-          .setTitle("Unarchive series")
+          .setTitle(t("home.menu.unarchiveSeries"))
           .setIcon("archive-restore")
           .onClick(() => this.cb.archiveSeries(series, false))
       );
@@ -158,7 +159,7 @@ export class SeriesMenu {
     const menu = new Menu();
     menu.addItem((i) =>
       i
-        .setTitle("New project…")
+        .setTitle(t("home.menu.newProject"))
         .setIcon("book-plus")
         .onClick(() => this.cb.newProject())
     );
@@ -169,7 +170,7 @@ export class SeriesMenu {
   private addReorderShelves(menu: Menu): void {
     menu.addItem((i) =>
       i
-        .setTitle("Reorder shelves…")
+        .setTitle(t("home.menu.reorderShelves"))
         .setIcon("arrow-up-down")
         .onClick(() => this.cb.reorderShelves())
     );
@@ -185,7 +186,7 @@ export class SeriesMenu {
   private addBookItems(menu: Menu, series: Series, projects: Project[]): void {
     menu.addItem((i) =>
       i
-        .setTitle("New book in this series…")
+        .setTitle(t("home.menu.newBookInSeries"))
         .setIcon("book-plus")
         .onClick(() =>
           this.cb.newProject({ series: { name: series.name, order: nextBookOrder(series.books) } })
@@ -193,7 +194,7 @@ export class SeriesMenu {
     );
     menu.addItem((i) =>
       i
-        .setTitle("Add existing project…")
+        .setTitle(t("home.menu.addExisting"))
         .setIcon("book-copy")
         .onClick(() => addExistingToSeries(this.app, projects, this.cb.activePath(), series))
     );

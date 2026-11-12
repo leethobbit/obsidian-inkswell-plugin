@@ -40,12 +40,14 @@ export interface MarkerExtra {
 }
 
 /** The shipped markers, in canonical display order. */
+// Labels stay English on purpose: a shipped marker's name must say what it types
+// (the keyword lives in prose and is never translated), and it can't be renamed.
 export const SHIPPED_MARKERS: readonly { id: ShippedMarkerId; label: string; keyword: string }[] = [
-  { id: "todo", label: "TODO", keyword: "TODO" },
-  { id: "research", label: "Research", keyword: "RESEARCH" },
-  { id: "note", label: "Note", keyword: "NOTE" },
-  { id: "dialogue", label: "Dialogue", keyword: "DIALOGUE" },
-  { id: "scene", label: "Scene", keyword: "SCENE" },
+  { id: "todo", label: "TODO", keyword: "TODO" }, // i18n-ignore: marker name = its prose keyword
+  { id: "research", label: "Research", keyword: "RESEARCH" }, // i18n-ignore: marker name = its prose keyword
+  { id: "note", label: "Note", keyword: "NOTE" }, // i18n-ignore: marker name = its prose keyword
+  { id: "dialogue", label: "Dialogue", keyword: "DIALOGUE" }, // i18n-ignore: marker name = its prose keyword
+  { id: "scene", label: "Scene", keyword: "SCENE" }, // i18n-ignore: marker name = its prose keyword
 ];
 
 /** One effective marker: shipped or the writer's own. */

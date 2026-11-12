@@ -40,6 +40,7 @@ import {
   scrollPastEnd,
   tooltips,
 } from "@codemirror/view";
+import { tp } from "../i18n";
 import { MarkKind, toggleInlineMark } from "../lib/inline-format";
 import {
   LinkCandidate,
@@ -232,7 +233,7 @@ class MilestoneMarker extends GutterMarker {
   }
   toDOM(): Node {
     const el = createSpan({ cls: "cm-milestone", text: formatMilestone(this.words) });
-    el.title = `${this.words.toLocaleString()} words`;
+    el.title = tp("common.words", this.words);
     return el;
   }
 }

@@ -179,9 +179,15 @@ export function applyGroupedOverride<X = object>(
 // ---------------------------------------------------------------------------
 
 export interface ListSpec<X = object> {
-  /** Shipped items: ids (and groups) customs may not collide with. */
+  /** Shipped items: ids (and groups) customs may not collide with. Labels are
+   *  the CURRENT display labels — specs back this with a getter so a translated
+   *  label is read when normalizing, never captured at import. */
   shipped: readonly ListItem[];
   shippedGroups?: readonly ListGroup[];
+  /** Stable (English) source labels by id, when the shipped table exposes them.
+   *  A stored label equal to EITHER this or the current shipped label is "not
+   *  renamed", so a locale switch never turns an untouched default into a rename. */
+  sourceLabels?: ReadonlyMap<string, string>;
   allowAdded: boolean;
   allowGroups: boolean;
   allowOrder: boolean;
@@ -213,9 +219,14 @@ export function normalizeListOverride<X = object>(
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
   const rec = raw as Record<string, unknown>;
   const idRe = spec.idRe ?? DEFAULT_ID_RE;
-  const shippedIds = new Set(spec.shipped.map((s) => s.id));
-  const shippedLabels = new Map(spec.shipped.map((s) => [s.id, s.label]));
-  const shippedGroupIds = new Set((spec.shippedGroups ?? []).map((g) => g.id));
+  // Read once: `shipped` / `shippedGroups` may be getters (lazily translated labels).
+  const shippedItems = spec.shipped;
+  const shippedGroups = spec.shippedGroups ?? [];
+  const shippedIds = new Set(shippedItems.map((s) => s.id));
+  const shippedLabels = new Map(shippedItems.map((s) => [s.id, s.label]));
+  const isDefaultLabel = (id: string, label: string): boolean =>
+    shippedLabels.get(id) === label || spec.sourceLabels?.get(id) === label;
+  const shippedGroupIds = new Set(shippedGroups.map((g) => g.id));
   const out: ListOverride<X> = {};
 
   // Groups first: custom group ids are needed to validate added items.
@@ -230,7 +241,7 @@ export function normalizeListOverride<X = object>(
       const label = str(gr["label"]);
       if (!id || !label || seenG.has(id)) continue;
       if (shippedGroupIds.has(id)) {
-        const shipped = (spec.shippedGroups ?? []).find((x) => x.id === id);
+        const shipped = shippedGroups.find((x) => x.id === id);
         if (shipped && shipped.label === label) continue; // equal to shipped → drop
       } else if (!idRe.test(id)) continue;
       seenG.add(id);
@@ -246,12 +257,12 @@ export function normalizeListOverride<X = object>(
   if (renamable && rec["labels"] && typeof rec["labels"] === "object" && !Array.isArray(rec["labels"])) {
     for (const [id, v] of Object.entries(rec["labels"] as Record<string, unknown>)) {
       const label = str(v);
-      if (!label || !shippedIds.has(id) || shippedLabels.get(id) === label) continue;
+      if (!label || !shippedIds.has(id) || isDefaultLabel(id, label)) continue;
       if (spec.uniqueLabels) {
         const lower = label.toLowerCase();
         const clash =
           takenLabels.has(lower) ||
-          spec.shipped.some((s) => s.id !== id && (s.label.toLowerCase() === lower));
+          shippedItems.some((s) => s.id !== id && (s.label.toLowerCase() === lower));
         if (clash) continue;
         takenLabels.add(lower);
       }
@@ -260,7 +271,7 @@ export function normalizeListOverride<X = object>(
   }
   if (Object.keys(labels).length > 0) out.labels = labels;
   if (spec.uniqueLabels) {
-    for (const s of spec.shipped) if (!labels[s.id]) takenLabels.add(s.label.toLowerCase());
+    for (const s of shippedItems) if (!labels[s.id]) takenLabels.add(s.label.toLowerCase());
   }
 
   const knownIds = new Set(shippedIds);
@@ -300,7 +311,7 @@ export function normalizeListOverride<X = object>(
     const extras: Record<string, Partial<X>> = {};
     for (const [id, raw] of Object.entries(rec["extras"] as Record<string, unknown>)) {
       if (!shippedIds.has(id) || !raw || typeof raw !== "object" || Array.isArray(raw)) continue;
-      const shippedItem = spec.shipped.find((s) => s.id === id) as AddedItem<X> | undefined;
+      const shippedItem = shippedItems.find((s) => s.id === id) as AddedItem<X> | undefined;
       if (!shippedItem) continue;
       const shippedExtra = stripCore(shippedItem) as Record<string, unknown>;
       const parsed = spec.parseExtra({ ...shippedExtra, ...(raw as Record<string, unknown>) });

@@ -6,6 +6,7 @@
  */
 
 import { App, Modal, Setting } from "obsidian";
+import { t, tp } from "../i18n";
 import { Project } from "../projects/types";
 import {
   ProjectRenamePlan,
@@ -35,34 +36,32 @@ export class RenameProjectModal extends Modal {
 
   onOpen(): void {
     const { contentEl } = this;
-    contentEl.createEl("h3", { text: "Rename project" });
+    contentEl.createEl("h3", { text: t("view.renameProject.heading") });
     contentEl.createEl("p", {
       cls: "inkswell-stats__muted",
       text:
         this.drafts.length > 1
-          ? `Renames all ${this.drafts.length} drafts of "${this.base.draft.title}".`
-          : "Updates the title everywhere Inkswell records it.",
+          ? t("view.renameProject.allDrafts", { count: this.drafts.length, title: this.base.draft.title })
+          : t("view.renameProject.oneDraft"),
     });
 
-    new Setting(contentEl).setName("Title").addText((t) => {
-      t.setValue(this.title).onChange((v) => {
+    new Setting(contentEl).setName(t("view.renameProject.title")).addText((text) => {
+      text.setValue(this.title).onChange((v) => {
         this.title = v;
         this.validate();
       });
       window.setTimeout(() => {
-        t.inputEl.focus();
-        t.inputEl.select();
+        text.inputEl.focus();
+        text.inputEl.select();
       }, 0);
-      t.inputEl.onkeydown = (e) => {
+      text.inputEl.onkeydown = (e) => {
         if (e.key === "Enter") this.submit();
       };
     });
 
     new Setting(contentEl)
-      .setName("Also rename the folder and notes")
-      .setDesc(
-        "Moves the project folder, index note, and planning note to match the new title. Scenes, codex entries, and the cover keep working either way."
-      )
+      .setName(t("view.renameProject.renameFiles"))
+      .setDesc(t("view.renameProject.renameFilesDesc"))
       .addToggle((tg) =>
         tg.setValue(this.renameFiles).onChange((v) => {
           this.renameFiles = v;
@@ -74,9 +73,9 @@ export class RenameProjectModal extends Modal {
 
     new Setting(contentEl)
       .addButton((b) => {
-        this.cta = b.setButtonText("Rename").setCta().onClick(() => this.submit()).buttonEl;
+        this.cta = b.setButtonText(t("common.rename")).setCta().onClick(() => this.submit()).buttonEl;
       })
-      .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()));
+      .addButton((b) => b.setButtonText(t("common.cancel")).onClick(() => this.close()));
     this.validate();
   }
 
@@ -92,8 +91,10 @@ export class RenameProjectModal extends Modal {
     const moves = (res.folderMove ? 1 : 0) + res.fileMoves.length;
     this.status.setText(
       moves
-        ? `Will move ${moves} ${moves === 1 ? "item" : "items"}${res.folderMove ? ` → ${res.folderMove.to}` : ""}.`
-        : "No files move — only the title changes."
+        ? res.folderMove
+          ? tp("view.renameProject.willMoveTo", moves, { path: res.folderMove.to })
+          : tp("view.renameProject.willMove", moves)
+        : t("view.renameProject.noMoves")
     );
     return res;
   }

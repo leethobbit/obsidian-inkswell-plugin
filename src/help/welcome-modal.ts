@@ -6,20 +6,21 @@
 
 import { App, Modal, setIcon } from "obsidian";
 import type InkswellPlugin from "../../main";
+import { MessageKey, t } from "../i18n";
 
 interface Phase {
   icon: string;
-  name: string;
-  blurb: string;
+  nameKey: MessageKey;
+  blurbKey: MessageKey;
 }
 
 const PHASES: Phase[] = [
-  { icon: "compass", name: "Plan", blurb: "Overview, beat sheet, and story structure." },
-  { icon: "pencil", name: "Write", blurb: "Focused editor with to-do markers." },
-  { icon: "git-compare", name: "Revise", blurb: "Audit, decision log, and sweeps." },
-  { icon: "upload", name: "Publish", blurb: "Compile and launch your book." },
-  { icon: "book-marked", name: "Codex", blurb: "Your story bible, used throughout." },
-  { icon: "bar-chart-3", name: "Track", blurb: "Word counts, streaks, and sprints." },
+  { icon: "compass", nameKey: "welcome.phase.plan.name", blurbKey: "welcome.phase.plan.blurb" },
+  { icon: "pencil", nameKey: "welcome.phase.write.name", blurbKey: "welcome.phase.write.blurb" },
+  { icon: "git-compare", nameKey: "welcome.phase.revise.name", blurbKey: "welcome.phase.revise.blurb" },
+  { icon: "upload", nameKey: "welcome.phase.publish.name", blurbKey: "welcome.phase.publish.blurb" },
+  { icon: "book-marked", nameKey: "welcome.phase.codex.name", blurbKey: "welcome.phase.codex.blurb" },
+  { icon: "bar-chart-3", nameKey: "welcome.phase.track.name", blurbKey: "welcome.phase.track.blurb" },
 ];
 
 export class WelcomeModal extends Modal {
@@ -35,31 +36,22 @@ export class WelcomeModal extends Modal {
     contentEl.empty();
     contentEl.addClass("inkswell-welcome");
 
-    contentEl.createEl("h2", { text: "Welcome to Inkswell" });
-    contentEl.createEl("p", {
-      cls: "inkswell-stats__muted",
-      text:
-        "A complete workbench for novelists — one tab, organised by the phase you're " +
-        "in. Switch phases from the icon rail on the left:",
-    });
+    contentEl.createEl("h2", { text: t("welcome.title") });
+    contentEl.createEl("p", { cls: "inkswell-stats__muted", text: t("welcome.intro") });
 
     const grid = contentEl.createDiv({ cls: "inkswell-welcome__grid" });
     for (const phase of PHASES) {
       const card = grid.createDiv({ cls: "inkswell-welcome__card" });
       setIcon(card.createSpan({ cls: "inkswell-welcome__icon" }), phase.icon);
       const text = card.createDiv({ cls: "inkswell-welcome__text" });
-      text.createSpan({ cls: "inkswell-welcome__name", text: phase.name });
-      text.createSpan({ cls: "inkswell-stats__muted", text: phase.blurb });
+      text.createSpan({ cls: "inkswell-welcome__name", text: t(phase.nameKey) });
+      text.createSpan({ cls: "inkswell-stats__muted", text: t(phase.blurbKey) });
     }
 
-    contentEl.createEl("p", {
-      text:
-        "New to a panel? Look for the “How this works” tip at the top — dismiss it once " +
-        "you've got it. The Help tab in the rail keeps the full guide.",
-    });
+    contentEl.createEl("p", { text: t("welcome.tips") });
 
     const actions = contentEl.createDiv({ cls: "inkswell-welcome__actions" });
-    const start = actions.createEl("button", { cls: "mod-cta", text: "Get started" });
+    const start = actions.createEl("button", { cls: "mod-cta", text: t("welcome.start") });
     start.onclick = () => this.close();
   }
 

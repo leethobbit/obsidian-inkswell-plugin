@@ -15,6 +15,8 @@
  * so re-enabling is lossless.
  */
 
+import type { MessageKey } from "./i18n";
+
 export type FeatureId =
   | "beats"
   | "board"
@@ -27,16 +29,24 @@ export type FeatureId =
   | "tracking"
   | "stream";
 
-/** Grouping label for the Settings → Features section. */
+/** Grouping id for the Customize → Features section (an id, not display text). */
 export type FeatureGroup = "Planning" | "Revision" | "Publishing" | "Writing";
+
+/** Display label key per group (resolve with `t()` at render). */
+export const FEATURE_GROUP_LABEL: Record<FeatureGroup, MessageKey> = {
+  Planning: "feature.group.planning",
+  Revision: "feature.group.revision",
+  Publishing: "feature.group.publishing",
+  Writing: "feature.group.writing",
+};
 
 export interface FeatureDef {
   id: FeatureId;
-  /** Display name (also used in the in-app "Hide <label>" menu). */
-  label: string;
+  /** Display name key (resolve with `t()` at render). */
+  labelKey: MessageKey;
   group: FeatureGroup;
-  /** One-line explanation shown under the Settings toggle. */
-  desc: string;
+  /** One-line explanation shown under the toggle (a key; resolve at render). */
+  descKey: MessageKey;
 }
 
 /**
@@ -48,68 +58,16 @@ export interface FeatureDef {
  * More sheet, status bar, Write toolbar, hero card, and commands).
  */
 export const OPTIONAL_FEATURES: FeatureDef[] = [
-  {
-    id: "beats",
-    label: "Beats",
-    group: "Planning",
-    desc: "The beat-sheet planner (Plan → Beats) and its scene scaffolding.",
-  },
-  {
-    id: "board",
-    label: "Board",
-    group: "Planning",
-    desc: "The Kanban board view of your scenes (Plan → Structure → Board).",
-  },
-  {
-    id: "plot-grid",
-    label: "Plot grid",
-    group: "Planning",
-    desc: "The plotline × chapter matrix (Plan → Structure → Grid) and the scene Plotlines field.",
-  },
-  {
-    id: "audit",
-    label: "Revision audit",
-    group: "Revision",
-    desc: "The revision audit checklists and character-arc tracker (Revise → Audit).",
-  },
-  {
-    id: "analysis",
-    label: "Analysis",
-    group: "Revision",
-    desc: "Readability, word-frequency, and echo analysis (Revise → Analysis).",
-  },
-  {
-    id: "checklist",
-    label: "Publishing checklist",
-    group: "Publishing",
-    desc: "The self-publishing task checklist (Publish → Checklist).",
-  },
-  {
-    id: "launch",
-    label: "Launch planner",
-    group: "Publishing",
-    desc: "The pre-order timeline and launch trackers (Publish → Launch).",
-  },
-  {
-    id: "prompts",
-    label: "Writing prompts",
-    group: "Writing",
-    desc: "The writing-prompt / ideation button on the Write toolbar.",
-  },
-  {
-    id: "stream",
-    label: "Scene stream",
-    group: "Writing",
-    desc: "Write's Stream view: read and edit a book's scenes as one continuous page. Not shown on phones.",
-  },
-  {
-    id: "tracking",
-    label: "Tracking",
-    group: "Writing",
-    desc:
-      "Word goals, writing sprints, the status-bar counter, and the Track dashboard. " +
-      "Words are still logged while hidden, so turning it back on shows the full history.",
-  },
+  { id: "beats", labelKey: "feature.beats.label", group: "Planning", descKey: "feature.beats.desc" },
+  { id: "board", labelKey: "feature.board.label", group: "Planning", descKey: "feature.board.desc" },
+  { id: "plot-grid", labelKey: "feature.plotGrid.label", group: "Planning", descKey: "feature.plotGrid.desc" },
+  { id: "audit", labelKey: "feature.audit.label", group: "Revision", descKey: "feature.audit.desc" },
+  { id: "analysis", labelKey: "feature.analysis.label", group: "Revision", descKey: "feature.analysis.desc" },
+  { id: "checklist", labelKey: "feature.checklist.label", group: "Publishing", descKey: "feature.checklist.desc" },
+  { id: "launch", labelKey: "feature.launch.label", group: "Publishing", descKey: "feature.launch.desc" },
+  { id: "prompts", labelKey: "feature.prompts.label", group: "Writing", descKey: "feature.prompts.desc" },
+  { id: "stream", labelKey: "feature.stream.label", group: "Writing", descKey: "feature.stream.desc" },
+  { id: "tracking", labelKey: "feature.tracking.label", group: "Writing", descKey: "feature.tracking.desc" },
 ];
 
 const OPTIONAL_IDS = new Set<string>(OPTIONAL_FEATURES.map((f) => f.id));

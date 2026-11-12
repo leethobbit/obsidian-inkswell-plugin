@@ -6,6 +6,7 @@
  */
 
 import { App, Notice, Setting } from "obsidian";
+import { formatNumber, t } from "../i18n";
 import { FormModal } from "../lib/form-modal";
 import { WritingChallenge, normalizeChallenge, novemberPreset } from "./challenge";
 
@@ -26,38 +27,41 @@ export class ChallengeModal extends FormModal {
   }
 
   protected renderForm(contentEl: HTMLElement): void {
-    contentEl.createEl("h3", { text: this.editing ? "Edit writing challenge" : "Set up a writing challenge" });
+    contentEl.createEl("h3", {
+      text: this.editing ? t("goal.challenge.titleEdit") : t("goal.challenge.titleNew"),
+    });
     contentEl.createEl("p", {
       cls: "setting-item-description",
-      text:
-        "Counts every word you write in the date range toward the target, in any project — " +
-        "the same words your daily goal counts.",
+      text: t("goal.challenge.intro"),
     });
 
-    new Setting(contentEl).setName("Name").addText((t) =>
-      t.setValue(this.draft.name).onChange((v) => (this.draft.name = v))
+    new Setting(contentEl).setName(t("goal.challenge.name")).addText((text) =>
+      text.setValue(this.draft.name).onChange((v) => (this.draft.name = v))
     );
-    new Setting(contentEl).setName("Start").addText((t) => {
-      t.inputEl.type = "date";
-      t.setValue(this.draft.start).onChange((v) => (this.draft.start = v));
+    new Setting(contentEl).setName(t("goal.challenge.start")).addText((text) => {
+      text.inputEl.type = "date";
+      text.setValue(this.draft.start).onChange((v) => (this.draft.start = v));
     });
-    new Setting(contentEl).setName("End").setDesc("Inclusive.").addText((t) => {
-      t.inputEl.type = "date";
-      t.setValue(this.draft.end).onChange((v) => (this.draft.end = v));
-    });
-    new Setting(contentEl).setName("Target words").addText((t) => {
-      t.inputEl.type = "number";
-      t.inputEl.min = "1";
-      t.setValue(String(this.draft.target)).onChange((v) => (this.draft.target = Number(v)));
+    new Setting(contentEl)
+      .setName(t("goal.challenge.end"))
+      .setDesc(t("goal.challenge.endDesc"))
+      .addText((text) => {
+        text.inputEl.type = "date";
+        text.setValue(this.draft.end).onChange((v) => (this.draft.end = v));
+      });
+    new Setting(contentEl).setName(t("goal.challenge.target")).addText((text) => {
+      text.inputEl.type = "number";
+      text.inputEl.min = "1";
+      text.setValue(String(this.draft.target)).onChange((v) => (this.draft.target = Number(v)));
     });
 
     const buttons = new Setting(contentEl);
-    buttons.addButton((b) => b.setButtonText("Save").setCta().onClick(() => void this.trySubmit()));
+    buttons.addButton((b) => b.setButtonText(t("common.save")).setCta().onClick(() => void this.trySubmit()));
     if (this.editing) {
       buttons.addButton((b) => {
-        b.setButtonText("Clear challenge").onClick(async () => {
+        b.setButtonText(t("goal.challenge.clear")).onClick(async () => {
           await this.save(null);
-          new Notice("Writing challenge cleared.");
+          new Notice(t("goal.challenge.cleared"));
           this.close();
         });
         // Destructive styling via the class directly — setWarning() is deprecated
@@ -65,17 +69,20 @@ export class ChallengeModal extends FormModal {
         b.buttonEl.addClass("mod-warning");
       });
     }
-    buttons.addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()));
+    buttons.addButton((b) => b.setButtonText(t("common.cancel")).onClick(() => this.close()));
   }
 
   protected async submit(): Promise<boolean> {
     const valid = normalizeChallenge(this.draft);
     if (!valid) {
-      new Notice("Check the dates (end on or after start, at most 400 days) and a target above 0.");
+      new Notice(t("goal.challenge.invalid"));
       return false;
     }
     await this.save(valid);
-    new Notice(`Challenge set: ${valid.target.toLocaleString()} words, ${valid.start} to ${valid.end}.`);
+    // Start/end stay ISO day keys, as before (formatDate would change them).
+    new Notice(
+      t("goal.challenge.set", { target: formatNumber(valid.target), start: valid.start, end: valid.end })
+    );
     return true;
   }
 }

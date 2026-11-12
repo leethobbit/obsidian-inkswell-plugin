@@ -12,6 +12,8 @@
 import { App, setIcon } from "obsidian";
 import type InkswellPlugin from "../../main";
 import { featureEnabled } from "../features";
+import { fillTemplate } from "../i18n/dom";
+import { t } from "../i18n";
 import { preserveUi } from "../lib/scroll-preserve";
 import { SectionState } from "../views/panel-kit";
 import { CUSTOMIZE_CATALOG, DEFAULT_SECTION, catalogByGroup, catalogEntry } from "./catalog";
@@ -82,16 +84,16 @@ export class CustomizePanel {
     for (const { group, entries: all } of catalogByGroup()) {
       const entries = all.filter((e) => available.has(e.id));
       if (entries.length === 0) continue;
-      host.createDiv({ cls: "inkswell-customize__group", text: group.label });
+      host.createDiv({ cls: "inkswell-customize__group", text: t(group.labelKey) });
       for (const entry of entries) {
         const row = host.createDiv({ cls: "inkswell-customize__row" });
         row.toggleClass("is-selected", entry.id === this.selected);
         row.setAttribute("role", "button");
         setIcon(row.createSpan({ cls: "inkswell-customize__icon" }), entry.icon);
         const text = row.createDiv({ cls: "inkswell-customize__text" });
-        const name = text.createDiv({ cls: "inkswell-customize__name", text: entry.label });
+        const name = text.createDiv({ cls: "inkswell-customize__name", text: t(entry.labelKey) });
         if (entry.feature && !featureEnabled(disabled, entry.feature)) {
-          name.createSpan({ cls: "inkswell-customize__badge", text: "hidden" });
+          name.createSpan({ cls: "inkswell-customize__badge", text: t("customize.badge.hidden") });
         }
         text.createDiv({
           cls: "inkswell-customize__desc",
@@ -113,18 +115,20 @@ export class CustomizePanel {
 
     const head = host.createDiv({ cls: "inkswell-customize__head" });
     setIcon(head.createSpan({ cls: "inkswell-customize__icon" }), entry.icon);
-    head.createEl("h3", { text: entry.label });
+    head.createEl("h3", { text: t(entry.labelKey) });
 
     if (entry.feature && !featureEnabled(this.plugin.settings.disabledFeatures, entry.feature)) {
       const note = host.createDiv({ cls: "inkswell-customize__hidden-note inkswell-stats__muted" });
-      note.appendText("This feature is currently hidden. ");
-      const link = note.createEl("a", { text: "Turn it on under Features" });
-      link.onclick = (e) => {
-        e.preventDefault();
-        this.open("features");
-        this.softRefresh();
-      };
-      note.appendText(".");
+      fillTemplate(note, t("customize.hiddenFeature"), {
+        link: (parent) => {
+          const link = parent.createEl("a", { text: t("customize.hiddenFeature.link") });
+          link.onclick = (e) => {
+            e.preventDefault();
+            this.open("features");
+            this.softRefresh();
+          };
+        },
+      });
     }
 
     section.render(host.createDiv({ cls: "inkswell-customize__body" }), this.ctx());

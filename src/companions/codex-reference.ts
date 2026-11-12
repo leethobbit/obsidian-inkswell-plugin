@@ -16,7 +16,13 @@ import { detectMentions } from "../codex/codex";
 import { codexSearchMatch } from "../codex/codex-list";
 import { renderEntityCard } from "../codex/entity-card";
 import { entitiesForScene } from "../codex/peek";
-import { CodexEntity, allCategories, categoryLabel } from "../codex/types";
+import {
+  CodexEntity,
+  allCategories,
+  categoryDisplayLabel,
+  categoryDisplayName,
+  categoryDisplayPlural,
+} from "../codex/types";
 import { t, tp } from "../i18n";
 import { tagField } from "../lib/focus-preserve";
 import { stripFrontmatter } from "../lib/frontmatter";
@@ -154,7 +160,10 @@ export class CodexReference {
     for (const cat of allCategories(s.customCategories, s.categoryOverrides)) {
       const group = entities.filter((e) => e.category === cat.id);
       if (group.length === 0) continue;
-      host.createDiv({ cls: "inkswell-companion__group", text: cat.plural || cat.label });
+      host.createDiv({
+        cls: "inkswell-companion__group",
+        text: categoryDisplayPlural(cat) || categoryDisplayLabel(cat),
+      });
       for (const e of [...group].sort((a, b) => a.name.localeCompare(b.name))) this.renderRow(host, e, project);
     }
     const known = new Set(allCategories(s.customCategories, s.categoryOverrides).map((c) => c.id));
@@ -172,7 +181,7 @@ export class CodexReference {
     row.tabIndex = 0;
     const text = row.createDiv({ cls: "inkswell-companion__rowtext" });
     text.createDiv({ cls: "inkswell-companion__rowname", text: e.name });
-    const sub = [categoryLabel(e.category, s.customCategories, s.categoryOverrides)];
+    const sub = [categoryDisplayName(e.category, s.customCategories, s.categoryOverrides)];
     if (info && !info.linked) sub.push(t("companion.codex.mentioned"));
     text.createDiv({ cls: "inkswell-companion__rowsub", text: sub.join(" · ") });
 

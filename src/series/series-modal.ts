@@ -12,6 +12,7 @@
  */
 
 import { App, Notice, Setting, TFile } from "obsidian";
+import { t, tp } from "../i18n";
 import { FormModal } from "../lib/form-modal";
 import { tryFileOp } from "../lib/notify";
 import { writeSeries } from "../projects/index-writer";
@@ -58,15 +59,14 @@ export function renderSeriesFields(
   let orderTouched = false;
 
   new Setting(container)
-    .setName("Series")
-    .setDesc("Group this book with others under one name — pick an existing series or start one.")
+    .setName(t("series.field.name"))
+    .setDesc(t("series.field.desc"))
     .addDropdown((d) => {
-      d.addOption("", "None");
+      d.addOption("", t("common.none"));
       ctx.series.forEach((s, i) => {
-        const n = s.books.length;
-        d.addOption(String(i), `${s.name} (${n} book${n === 1 ? "" : "s"})`);
+        d.addOption(String(i), tp("series.field.option", s.books.length, { name: s.name }));
       });
-      d.addOption(NEW, "New series…");
+      d.addOption(NEW, t("series.field.new"));
       d.setValue(selected);
       d.onChange((v) => {
         selected = v;
@@ -76,22 +76,22 @@ export function renderSeriesFields(
     });
 
   let nameInput!: HTMLInputElement;
-  const nameRow = new Setting(container).setName("New series name").addText((t) => {
-    t.setPlaceholder("e.g. The Lattice Cycle");
-    if (initial && selected === NEW) t.setValue(initial.name);
-    nameInput = t.inputEl;
+  const nameRow = new Setting(container).setName(t("series.field.newName")).addText((text) => {
+    text.setPlaceholder(t("series.field.newNamePlaceholder"));
+    if (initial && selected === NEW) text.setValue(initial.name);
+    nameInput = text.inputEl;
   });
 
   let orderInput!: HTMLInputElement;
   const orderRow = new Setting(container)
-    .setName("Book number")
-    .setDesc("Position in the series. Use 0 or 0.5 for a prequel or novella. Blank = unnumbered (sorts last).")
-    .addText((t) => {
-      orderInput = t.inputEl;
+    .setName(t("series.field.bookNumber"))
+    .setDesc(t("series.field.bookNumberDesc"))
+    .addText((text) => {
+      orderInput = text.inputEl;
       orderInput.type = "number";
       orderInput.min = "0";
       orderInput.step = "any";
-      orderInput.placeholder = "e.g. 2";
+      orderInput.placeholder = t("series.field.bookNumberPlaceholder");
       orderInput.addClass("inkswell-series__ordernum");
       orderInput.oninput = () => (orderTouched = true);
     });
@@ -121,7 +121,7 @@ export function renderSeriesFields(
       if (selected === NEW) {
         name = nameInput.value.trim();
         if (!name) {
-          new Notice("Enter a name for the new series.");
+          new Notice(t("series.field.nameRequired"));
           nameInput.focus();
           return false;
         }
@@ -157,7 +157,7 @@ export class SeriesModal extends FormModal {
   }
 
   protected renderForm(contentEl: HTMLElement): void {
-    contentEl.createEl("h3", { text: "Series" });
+    contentEl.createEl("h3", { text: t("series.modal.heading") });
     contentEl.createEl("p", { cls: "inkswell-stats__muted", text: this.base.draft.title });
     this.fields = renderSeriesFields(contentEl, {
       series: this.series,
@@ -170,6 +170,6 @@ export class SeriesModal extends FormModal {
     if (info === false) return false;
     const f = this.app.vault.getAbstractFileByPath(this.base.vaultPath);
     if (!(f instanceof TFile)) return;
-    await tryFileOp(() => writeSeries(this.app, f, info), "Couldn't update the series.");
+    await tryFileOp(() => writeSeries(this.app, f, info), t("series.modal.failed"));
   }
 }

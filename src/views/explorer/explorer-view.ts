@@ -18,6 +18,7 @@
  */
 
 import { App, TFile, setIcon } from "obsidian";
+import { t, tp } from "../../i18n";
 import { attachRowMenu } from "../../lib/row-menu";
 import { ProjectStats } from "../../projects/project-stats";
 import { ProjectStore } from "../../projects/project-store";
@@ -137,7 +138,7 @@ export class ExplorerPanel {
     container.addClass("inkswell-explorer");
 
     const toolbar = container.createDiv({ cls: "inkswell-explorer__toolbar" });
-    const newBtn = toolbar.createEl("button", { cls: "mod-cta", text: "New project" });
+    const newBtn = toolbar.createEl("button", { cls: "mod-cta", text: t("home.newProject") });
     newBtn.onclick = () => this.plugin.newProject();
 
     const projects = this.store.getProjects();
@@ -150,7 +151,7 @@ export class ExplorerPanel {
       if (unreadable.length === 0) {
         container.createDiv({
           cls: "inkswell-explorer__empty",
-          text: 'No writing projects yet. Click "New project" above to create one (or add a `longform` key to a note\'s frontmatter).',
+          text: t("home.empty"),
         });
       }
       return;
@@ -180,7 +181,7 @@ export class ExplorerPanel {
       const bar = container.createDiv({ cls: "inkswell-explorer__focus" });
       const back = bar.createEl("button", {
         cls: "inkswell-explorer__showall",
-        text: "← All projects",
+        text: t("home.allProjects"),
       });
       back.onclick = () => this.plugin.activeProject.set(null);
 
@@ -212,7 +213,7 @@ export class ExplorerPanel {
     if (shelves.series.length === 0 && shelves.standalone.length === 0 && archived.size > 0) {
       container.createDiv({
         cls: "inkswell-explorer__empty",
-        text: "Every project is archived. Open Archived below to bring one back.",
+        text: t("home.allArchived"),
       });
     }
     if (shelves.series.length === 0) {
@@ -224,7 +225,7 @@ export class ExplorerPanel {
         if (shelf.kind === "series") {
           this.renderShelf(container, shelf.series.name, shelf.series.books, fullOf(shelf.series));
         } else {
-          this.renderShelf(container, "Standalone", shelves.standalone, null);
+          this.renderShelf(container, t("home.shelf.standalone"), shelves.standalone, null);
         }
       }
     }
@@ -255,7 +256,7 @@ export class ExplorerPanel {
     head.tabIndex = 0;
     head.setAttribute("aria-expanded", String(open));
     setIcon(head.createSpan({ cls: "inkswell-archived__chevron" }), open ? "chevron-down" : "chevron-right");
-    head.createSpan({ text: "Archived" });
+    head.createSpan({ text: t("home.archived.heading") });
     head.createSpan({ cls: "inkswell-archived__count", text: String(count) });
     const toggle = () => {
       this.plugin.settings.homeArchivedOpen = !open;
@@ -272,7 +273,7 @@ export class ExplorerPanel {
     if (!open) return;
     for (const s of series) this.renderShelf(sec, s.name, s.books, fullOf(s), false);
     if (standalone.length > 0) {
-      if (series.length > 0) this.renderShelf(sec, "Standalone", standalone, null, false);
+      if (series.length > 0) this.renderShelf(sec, t("home.shelf.standalone"), standalone, null, false);
       else this.renderGrid(sec, standalone, null, false);
     }
   }
@@ -310,10 +311,10 @@ export class ExplorerPanel {
     const ctx = this.cardContext();
     for (const book of books) renderBookCard(grid, book, ctx);
     if (!addGhost) return;
-    const ghost = grid.createDiv({ cls: "inkswell-card inkswell-card--ghost", text: "+ Add book" });
+    const ghost = grid.createDiv({ cls: "inkswell-card inkswell-card--ghost", text: t("home.addBook") });
     ghost.setAttribute("role", "button");
     ghost.tabIndex = 0;
-    ghost.setAttribute("aria-label", series ? `Add a book to ${series.name}` : "Start a new book");
+    ghost.setAttribute("aria-label", series ? t("home.addBook.toSeries", { series: series.name }) : t("home.addBook.new"));
     const activate = (at: { x: number; y: number }): void => {
       if (series) this.seriesMenu.addBookMenu(series).showAtPosition(at);
       else this.plugin.newProject();
@@ -423,22 +424,22 @@ export class ExplorerPanel {
     if (draftCount > 1) {
       const badge = right.createSpan({
         cls: "inkswell-project__drafts",
-        text: `${draftCount} drafts`,
+        text: tp("home.project.drafts", draftCount),
       });
-      badge.setAttribute("aria-label", "This story has multiple drafts — switch in the header");
+      badge.setAttribute("aria-label", t("home.project.draftsHint"));
     }
     const count = right.createSpan({ cls: "inkswell-project__count" });
     if (this.plugin.settings.showWordCounts) {
       void this.stats.projectWords(project).then((w) => {
-        count.setText(`${w.toLocaleString()} words`);
+        count.setText(tp("common.words", w));
       });
     }
     if (isMultiScene(project.draft)) {
       const add = right.createEl("button", {
         cls: "inkswell-project__addscene",
-        text: "+ scene",
+        text: t("home.project.addScene"),
       });
-      add.setAttribute("aria-label", "Create a new scene in this project");
+      add.setAttribute("aria-label", t("home.project.addSceneHint"));
       add.onclick = (e) => {
         e.stopPropagation();
         promptNewScene(this.app, this.store, this.plugin.settings, project, {
@@ -460,7 +461,7 @@ export class ExplorerPanel {
       if (project.scenes.length === 0) {
         list.createDiv({
           cls: "inkswell-explorer__empty",
-          text: "No scenes yet.",
+          text: t("home.project.noScenes"),
         });
       }
     }

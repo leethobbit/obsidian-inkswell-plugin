@@ -23,6 +23,7 @@
 import { EditorView } from "@codemirror/view";
 import { App, EventRef, TAbstractFile, TFile } from "obsidian";
 import { splitFrontmatter } from "../../lib/frontmatter";
+import { t, tp } from "../../i18n";
 import { MarkerSet } from "../../lib/placeholders";
 import { DEFAULT_PX_PER_CHAR, calibrate, estimateHeight } from "../../lib/stream-plan";
 import { countWords } from "../../lib/wordcount";
@@ -311,7 +312,7 @@ export class SceneStream {
     }
     s.wordsEl = head.createSpan({ cls: "inkswell-stream__words" });
     if (s.text !== null) s.wordsEl.setText(wordsText(countWords(s.text)));
-    head.setAttribute("aria-label", `Edit “${s.spec.title}”`);
+    head.setAttribute("aria-label", t("stream.scene.edit", { title: s.spec.title }));
     head.onclick = () => this.opts.onActivate(s.spec.path, "start");
   }
 
@@ -583,5 +584,5 @@ function sameSpec(a: StreamSceneSpec, b: StreamSceneSpec): boolean {
 }
 
 function wordsText(n: number): string {
-  return `${n.toLocaleString()} ${n === 1 ? "word" : "words"}`;
+  return tp("common.words", n);
 }

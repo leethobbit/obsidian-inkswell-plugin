@@ -7,6 +7,7 @@
  */
 
 import { App, FileSystemAdapter } from "obsidian";
+import { t } from "../i18n";
 import { PandocOutput } from "./types";
 
 type ExecFile = (
@@ -20,7 +21,7 @@ function nodeRequire(id: string): unknown {
   // Guarded indirect require: present on desktop (Electron), absent on mobile.
   const req = (window as unknown as { require?: (id: string) => unknown }).require;
   if (typeof req !== "function") {
-    throw new Error("Node APIs unavailable (mobile?) — pandoc export needs desktop.");
+    throw new Error(t("compile.error.noNode"));
   }
   return req(id);
 }
@@ -29,7 +30,7 @@ function nodeRequire(id: string): unknown {
 function basePath(app: App): string {
   const adapter = app.vault.adapter;
   if (!(adapter instanceof FileSystemAdapter)) {
-    throw new Error("Pandoc export requires a local (desktop) vault.");
+    throw new Error(t("compile.error.notLocal"));
   }
   return adapter.getBasePath();
 }
@@ -110,9 +111,9 @@ export function probePandocSupport(): Promise<PandocSupport> {
 /** A user-facing message for a pandoc spawn/run failure. */
 function pandocErrorMessage(err: Error, stderr: string): string {
   if ((err as Error & { code?: string }).code === "ENOENT") {
-    return "pandoc isn't installed or isn't on your PATH. Install it from https://pandoc.org, then restart Obsidian.";
+    return t("compile.error.pandocMissing");
   }
-  return `pandoc failed: ${stderr || err.message}`;
+  return t("compile.error.pandocFailed", { error: stderr || err.message });
 }
 
 /**

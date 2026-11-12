@@ -46,11 +46,11 @@ import {
   selectionInsideWikilink,
 } from "../codex/quick-codex";
 import { QuickCodexModal } from "../codex/quick-codex-modal";
-import { CodexEntity, allCategories, categoryLabel } from "../codex/types";
+import { CodexEntity, allCategories, categoryDisplayName } from "../codex/types";
 import { mentionAt } from "../codex/codex";
 import { entitiesForScene } from "../codex/peek";
 import { wikilinkAt } from "../lib/wikilinks";
-import { t } from "../i18n";
+import { formatNumber, t, tp } from "../i18n";
 import type { MessageKey } from "../i18n/locales/en";
 import { LinkCandidate } from "../lib/link-complete";
 import { featureEnabled } from "../features";
@@ -146,16 +146,16 @@ export interface SceneHighlight {
 
 
 /** Picker description + menu icon per shipped marker; custom markers share a fallback. */
-const SHIPPED_MARKER_UI: Record<ShippedMarkerId, { desc: string; icon: string }> = {
-  todo: { desc: "A generic to-do", icon: "list-todo" },
-  research: { desc: "A fact or detail to look up / verify", icon: "search" },
-  note: { desc: "A note or reminder to yourself", icon: "sticky-note" },
-  dialogue: { desc: "Dialogue to write later", icon: "message-square" },
-  scene: { desc: "A scene to write or expand", icon: "clapperboard" },
+const SHIPPED_MARKER_UI: Record<ShippedMarkerId, { descKey: MessageKey; icon: string }> = {
+  todo: { descKey: "write.marker.todo", icon: "list-todo" },
+  research: { descKey: "write.marker.research", icon: "search" },
+  note: { descKey: "write.marker.note", icon: "sticky-note" },
+  dialogue: { descKey: "write.marker.dialogue", icon: "message-square" },
+  scene: { descKey: "write.marker.scene", icon: "clapperboard" },
 };
-const CUSTOM_MARKER_UI = { desc: "Your marker", icon: "bookmark" };
+const CUSTOM_MARKER_UI: { descKey: MessageKey; icon: string } = { descKey: "write.marker.custom", icon: "bookmark" };
 
-function markerUi(def: MarkerDef): { desc: string; icon: string } {
+function markerUi(def: MarkerDef): { descKey: MessageKey; icon: string } {
   return def.custom ? CUSTOM_MARKER_UI : SHIPPED_MARKER_UI[def.id as ShippedMarkerId] ?? CUSTOM_MARKER_UI;
 }
 
@@ -175,13 +175,13 @@ class TodoPickerModal extends FuzzySuggestModal<MarkerDef> {
     private onPick: (marker: MarkerDef) => void
   ) {
     super(app);
-    this.setPlaceholder("Insert a to-do marker…");
+    this.setPlaceholder(t("write.marker.pickerPlaceholder"));
   }
   getItems(): MarkerDef[] {
     return this.markers;
   }
   getItemText(m: MarkerDef): string {
-    return `${m.label} — ${markerUi(m).desc}`;
+    return t("write.marker.pickerItem", { label: m.label, desc: t(markerUi(m).descKey) });
   }
   onChooseItem(m: MarkerDef): void {
     this.onPick(m);
@@ -196,7 +196,7 @@ class ChapterPickerModal extends FuzzySuggestModal<ChapterStop> {
     private onPick: (stop: ChapterStop) => void
   ) {
     super(app);
-    this.setPlaceholder("Jump to chapter…");
+    this.setPlaceholder(t("write.chapter.jumpPlaceholder"));
   }
   getItems(): ChapterStop[] {
     return this.stops;
@@ -725,7 +725,7 @@ export class WritePanel implements HoverParent {
     const text = doc.slice(range.from, range.to);
     if (!text.trim()) {
       new Notice(
-        mode === "selection" ? "Select the text to move first." : "There's nothing after the cursor to split off."
+        mode === "selection" ? t("write.split.selectFirst") : t("write.split.nothingAfter")
       );
       return;
     }
@@ -735,10 +735,10 @@ export class WritePanel implements HoverParent {
     let title: string | null;
     try {
       title = await promptForText(this.app, {
-        title: mode === "selection" ? "Move selection to a new scene" : "Split scene here",
+        title: mode === "selection" ? t("write.split.titleSelection") : t("write.split.titleCursor"),
         value: "",
         multiline: false,
-        cta: "Create scene",
+        cta: t("write.split.create"),
       });
     } finally {
       this.suppressBlurSave = false;
@@ -760,7 +760,7 @@ export class WritePanel implements HoverParent {
 
     // 2. Remove it here — only if this is still the same editor showing the same text.
     if (this.editor !== view || token !== this.editorToken || view.state.doc.sliceString(range.from, range.to) !== text) {
-      new Notice(`Created “${created.basename}”, but the scene changed meanwhile — the text was left in place too.`);
+      new Notice(t("write.split.changedMeanwhile", { name: created.basename }));
       return;
     }
     this.movedEdit = true;
@@ -769,7 +769,7 @@ export class WritePanel implements HoverParent {
     await this.session?.save();
 
     // 3. Continue in the new scene.
-    new Notice(`Moved ${countWords(text).toLocaleString()} words to “${created.basename}”.`);
+    new Notice(tp("write.split.moved", countWords(text), { name: created.basename }));
     this.selectedScene = created.path;
     this.rerender();
   }
@@ -782,7 +782,7 @@ export class WritePanel implements HoverParent {
     const { from, to } = view.state.selection.main;
     const doc = view.state.doc.toString();
     if (selectionInsideWikilink(doc, from, to)) {
-      new Notice("That's already a link.");
+      new Notice(t("write.codex.alreadyLink"));
       return;
     }
     const seed = seedFromSelection(doc, from, to);
@@ -814,7 +814,7 @@ export class WritePanel implements HoverParent {
         } else {
           target = await tryFileOp(
             () => createEntityForProject(this.app, s, projects, active, def, name),
-            `Couldn't create the ${def.label}.`
+            t("write.codex.createFailed", { category: def.label })
           );
         }
         if (!target) return;
@@ -832,11 +832,11 @@ export class WritePanel implements HoverParent {
                   fm["aliases"] = [...cur, alias];
                 }
               }),
-            "Couldn't add the alias."
+            t("write.codex.aliasFailed")
           );
         }
         if (this.editor !== view || token !== this.editorToken) {
-          new Notice(`Created “${entryFile.basename}”, but the editor changed — link not inserted.`);
+          new Notice(t("write.codex.editorChanged", { name: entryFile.basename }));
           return;
         }
         const now = view.state.doc.toString();
@@ -886,9 +886,7 @@ export class WritePanel implements HoverParent {
       ? this.app.metadataCache.getFirstLinkpathDest(linkpath, file.path)
       : file; // `[[#Heading]]` — same note
     if (!target) {
-      new Notice(
-        `No note named "${linkpath}". Select the name and press Ctrl/Cmd+Shift+C to create a codex entry.`
-      );
+      new Notice(t("write.link.noNote", { name: linkpath }));
       return;
     }
     if (getCodexEntities(this.app).some((e) => e.path === target.path)) {
@@ -911,7 +909,7 @@ export class WritePanel implements HoverParent {
     if (!this.editor) return;
     const linktext = linkAtCursor(this.editor);
     if (!linktext) {
-      new Notice("No link at the cursor.");
+      new Notice(t("write.link.noneAtCursor"));
       return;
     }
     this.openLink(linktext);
@@ -1039,7 +1037,7 @@ export class WritePanel implements HoverParent {
       const wrap = container.createDiv({ cls: "inkswell-write__empty" });
       wrap.createDiv({
         cls: "inkswell-stats__muted",
-        text: 'No multi-scene project yet. Use the "New project" button on Home (or the "New project" command).',
+        text: t("write.empty.noProject"),
       });
       return;
     }
@@ -1322,7 +1320,7 @@ export class WritePanel implements HoverParent {
       for (const p of this.rightPanels) {
         const btn = seg.createEl("button", { cls: "inkswell-viewswitch__btn", text: p.label });
         btn.toggleClass("is-active", p.id === this.activeRightPanel);
-        btn.setAttribute("aria-label", `${p.label} panel`);
+        btn.setAttribute("aria-label", t("write.side.panelLabel", { name: p.label }));
         btn.onclick = () => {
           this.activeRightPanel = p.id;
           this.layout.sidePanel = p.id;
@@ -1382,17 +1380,17 @@ export class WritePanel implements HoverParent {
     // Scene | Stream. Not on phones; hideable like the other optional extras.
     if (this.canStream()) {
       const seg = bar.createDiv({ cls: "inkswell-viewswitch inkswell-write__mode" });
-      const modes: { mode: WriteMode; label: string; hint: string }[] = [
-        { mode: "scene", label: "Scene", hint: "Write one scene at a time" },
-        { mode: "stream", label: "Stream", hint: "Read and edit the whole book as one page" },
+      const modes: { mode: WriteMode; labelKey: MessageKey; hintKey: MessageKey }[] = [
+        { mode: "scene", labelKey: "write.mode.scene", hintKey: "write.mode.sceneHint" },
+        { mode: "stream", labelKey: "write.mode.stream", hintKey: "write.mode.streamHint" },
       ];
       for (const m of modes) {
-        const btn = seg.createEl("button", { cls: "inkswell-viewswitch__btn", text: m.label });
+        const btn = seg.createEl("button", { cls: "inkswell-viewswitch__btn", text: t(m.labelKey) });
         btn.toggleClass("is-active", this.writeMode === m.mode);
-        btn.setAttribute("aria-label", m.hint);
+        btn.setAttribute("aria-label", t(m.hintKey));
         btn.onclick = () => this.setWriteMode(m.mode);
       }
-      attachHideMenu(seg, this.plugin, "stream", "the scene stream");
+      attachHideMenu(seg, this.plugin, "stream", { title: t("write.hide.stream.title"), hidden: t("write.hide.stream.hidden") });
     }
 
     // Sprint group — part of the optional "tracking" feature. A sprint already
@@ -1403,14 +1401,14 @@ export class WritePanel implements HoverParent {
       if (active) {
         sprintGroup.createSpan({
           cls: "inkswell-stats__muted",
-          text: `Sprint: ${active.words}w · ${this.sprints.remainingSec()}s`,
+          text: t("write.sprint.status", { words: active.words, seconds: this.sprints.remainingSec() }),
         });
-        const end = sprintGroup.createEl("button", { text: "End sprint" });
+        const end = sprintGroup.createEl("button", { text: t("write.sprint.end") });
         end.onclick = () => this.sprints.finish();
       } else {
-        const sprint = sprintGroup.createEl("button", { text: "Start sprint" });
+        const sprint = sprintGroup.createEl("button", { text: t("write.sprint.start") });
         sprint.onclick = () => this.plugin.startSprint();
-        attachHideMenu(sprint, this.plugin, "tracking", "tracking");
+        attachHideMenu(sprint, this.plugin, "tracking", { title: t("write.hide.tracking.title"), hidden: t("write.hide.tracking.hidden") });
       }
     }
 
@@ -1421,10 +1419,10 @@ export class WritePanel implements HoverParent {
       const promptGroup = bar.createDiv({
         cls: "inkswell-write__group inkswell-write__group--prompt",
       });
-      const promptBtn = promptGroup.createEl("button", { text: "Prompt" });
+      const promptBtn = promptGroup.createEl("button", { text: t("write.prompt.button") });
       promptBtn.onclick = () => this.openPromptModal();
       // Right-click to hide (turn back on under Customize → Features).
-      attachHideMenu(promptBtn, this.plugin, "prompts", "writing prompts");
+      attachHideMenu(promptBtn, this.plugin, "prompts", { title: t("write.hide.prompts.title"), hidden: t("write.hide.prompts.hidden") });
       const promptEl = promptGroup.createSpan({
         cls: "inkswell-write__prompt",
         text: this.promptText,
@@ -1443,7 +1441,7 @@ export class WritePanel implements HoverParent {
       const insertGroup = bar.createDiv({
         cls: "inkswell-write__group inkswell-write__group--insert",
       });
-      insertGroup.createSpan({ cls: "inkswell-stats__muted", text: "Insert:" });
+      insertGroup.createSpan({ cls: "inkswell-stats__muted", text: t("write.insert.inline") });
       for (const marker of insertableMarkers(this.markers())) {
         const btn = insertGroup.createEl("button", { text: marker.label });
         // Insert WITHOUT stealing focus from the editor. If the button took focus,
@@ -1574,8 +1572,8 @@ export class WritePanel implements HoverParent {
 
     // Start the next scene without leaving Write (#47): appended at the end of
     // the manuscript; a row's menu offers "New scene after this" for elsewhere.
-    const add = nav.createEl("button", { cls: "inkswell-write__addscene", text: "New scene" });
-    add.setAttribute("aria-label", "Create a new scene at the end of this project");
+    const add = nav.createEl("button", { cls: "inkswell-write__addscene", text: t("write.nav.newScene") });
+    add.setAttribute("aria-label", t("write.nav.newSceneHint"));
     add.onclick = () => this.newSceneFromWrite(project);
   }
 
@@ -1630,7 +1628,7 @@ export class WritePanel implements HoverParent {
     const target = this.stream ? firstShown?.() ?? null : null;
     if (target) {
       // Stream: the name jumps there, the chevron still folds the list.
-      head.setAttribute("aria-label", `Jump to ${chapter}`);
+      head.setAttribute("aria-label", t("write.nav.jumpTo", { chapter }));
       chev.onclick = (e) => {
         e.stopPropagation();
         toggle();
@@ -1669,7 +1667,7 @@ export class WritePanel implements HoverParent {
         const menu = new Menu();
         menu.addItem((i) =>
           i
-            .setTitle("New scene after this")
+            .setTitle(t("write.nav.newSceneAfter"))
             .setIcon("file-plus")
             .onClick(() => this.newSceneFromWrite(project, { title: scene.title, file }))
         );
@@ -1718,7 +1716,7 @@ export class WritePanel implements HoverParent {
     const token = ++this.editorToken;
     if (!(file instanceof TFile)) {
       this.currentFile = null;
-      this.emptyState(wrap, "Select a scene to write.");
+      this.emptyState(wrap, t("write.editor.selectScene"));
       return;
     }
     this.currentFile = file;
@@ -1730,7 +1728,7 @@ export class WritePanel implements HoverParent {
     // a collapsed disclosure above the editor (reusing the same Inspector renderer).
     if (isPhone()) {
       const details = wrap.createEl("details", { cls: "inkswell-write__scenemeta" });
-      details.createEl("summary", { text: "Scene details" });
+      details.createEl("summary", { text: t("write.side.panel.scene") });
       this.inspector.render(details.createDiv(), file);
     }
 
@@ -1749,7 +1747,7 @@ export class WritePanel implements HoverParent {
     host.toggleClass("is-manuscript", this.editorPrefs().manuscript);
     this.cmHostEl = host;
     this.mountEditor(host, file, token, {
-      onFailed: () => this.emptyState(wrap, "Couldn't read this scene file."),
+      onFailed: () => this.emptyState(wrap, t("write.editor.readFailed")),
     });
   }
 
@@ -1898,28 +1896,28 @@ export class WritePanel implements HoverParent {
     banner.addClass("is-visible");
     banner.createSpan({
       cls: "inkswell-write__conflicttext",
-      text: "This scene changed on disk while you were editing.",
+      text: t("write.conflict.text"),
     });
     const actions = banner.createDiv({ cls: "inkswell-write__conflictactions" });
-    const loadDisk = actions.createEl("button", { text: "Load disk version" });
+    const loadDisk = actions.createEl("button", { text: t("write.conflict.loadDisk") });
     loadDisk.onclick = () =>
       void session
         .resolveReloadFromDisk()
         .then((backup) => {
-          if (backup) new Notice(`Your unsaved text was backed up to "${backup}".`);
+          if (backup) new Notice(t("write.conflict.unsavedBackedUp", { path: backup }));
         })
-        .catch(() => new Notice("Couldn't resolve the conflict — nothing was changed."));
-    const keepMine = actions.createEl("button", { cls: "mod-cta", text: "Keep my version" });
+        .catch(() => new Notice(t("write.conflict.resolveFailed")));
+    const keepMine = actions.createEl("button", { cls: "mod-cta", text: t("write.conflict.keepMine") });
     keepMine.onclick = () =>
       void session
         .resolveKeepMine()
         .then((backup) => {
-          if (backup) new Notice(`The disk version was backed up to "${backup}".`);
+          if (backup) new Notice(t("write.conflict.diskBackedUp", { path: backup }));
         })
-        .catch(() => new Notice("Couldn't resolve the conflict — nothing was changed."));
+        .catch(() => new Notice(t("write.conflict.resolveFailed")));
     banner.createDiv({
       cls: "inkswell-stats__muted",
-      text: "Either way, the other version is backed up to the “Inkswell conflicts” folder.",
+      text: t("write.conflict.note"),
     });
   }
 
@@ -1975,7 +1973,7 @@ export class WritePanel implements HoverParent {
     const out: LinkCandidate[] = [];
     const seen = new Set<string>();
     for (const e of visible) {
-      const detail = categoryLabel(e.category, s.customCategories, s.categoryOverrides);
+      const detail = categoryDisplayName(e.category, s.customCategories, s.categoryOverrides);
       const pinned = isPinnedIn(e, ctx);
       out.push({ name: e.name, kind: "codex", detail, pinned });
       seen.add(e.name.toLowerCase());
@@ -1988,7 +1986,7 @@ export class WritePanel implements HoverParent {
       if (!scene.path || scene.path === current) continue;
       const base = scene.path.slice(scene.path.lastIndexOf("/") + 1).replace(/\.md$/, "");
       if (seen.has(base.toLowerCase())) continue;
-      out.push({ name: base, kind: "scene", detail: "Scene" });
+      out.push({ name: base, kind: "scene", detail: t("write.link.sceneDetail") });
       seen.add(base.toLowerCase());
     }
     for (const f of this.app.vault.getMarkdownFiles()) {
@@ -2027,7 +2025,7 @@ export class WritePanel implements HoverParent {
   private updateCount(): void {
     if (!this.countEl) return;
     const parts: string[] = [];
-    if (this.editor) parts.push(`${countWords(this.editor.state.doc.toString())} words`);
+    if (this.editor) parts.push(tp("common.words", countWords(this.editor.state.doc.toString())));
     // Mobile layouts have no status bar, so today's progress toward the daily
     // goal would otherwise only be visible in Track (#47).
     const goal = this.plugin.todayTarget();
@@ -2036,7 +2034,7 @@ export class WritePanel implements HoverParent {
       goal > 0 &&
       featureEnabled(this.plugin.settings.disabledFeatures, "tracking")
     ) {
-      parts.push(`today ${this.plugin.tracker.todayWords()}/${goal}`);
+      parts.push(t("write.count.today", { today: this.plugin.tracker.todayWords(), goal }));
     }
     this.countEl.setText(parts.join(" · "));
   }
@@ -2128,11 +2126,11 @@ export class WritePanel implements HoverParent {
    */
   private renderNextUp(container: HTMLElement, project: Project): void {
     const card = container.createDiv({ cls: "inkswell-write__nextup" });
-    card.createSpan({ cls: "inkswell-stats__muted", text: "Next up:" });
+    card.createSpan({ cls: "inkswell-stats__muted", text: t("write.nextUp.label") });
     const input = card.createEl("input", { type: "text", cls: "inkswell-write__nextupinput" });
     tagField(input, "write:next-up");
     input.value = project.inkswell?.nextUp ?? this.plugin.tracker.getNextUp();
-    input.placeholder = "Leave yourself a note for next session…";
+    input.placeholder = t("write.nextUp.placeholder");
     input.onchange = () => void this.saveNextUp(project, input.value);
     // Fold the row into a toolbar button (the row stays in the page, hidden by
     // CSS, so folding never rebuilds the editor below it).
@@ -2148,7 +2146,7 @@ export class WritePanel implements HoverParent {
     this.plugin.selfWrites.mark(index.path);
     const result = await tryFileOp(
       () => updateNextUp(this.app, index, text),
-      "Couldn't save the next-up note."
+      t("write.nextUp.saveFailed")
     );
     // Migrated: retire the legacy device-local copy.
     if (result !== null && this.plugin.tracker.getNextUp()) this.plugin.tracker.setNextUp("");
@@ -2272,7 +2270,7 @@ export class WritePanel implements HoverParent {
     if (this.streamShown.length === 0 || !(f instanceof TFile)) {
       this.currentFile = null;
       stream.showEmpty(
-        this.streamFilter ? "No scenes match this filter." : "This book has no scenes yet."
+        this.streamFilter ? t("stream.empty.noMatch") : t("stream.empty.noScenes")
       );
       return;
     }
@@ -2296,8 +2294,8 @@ export class WritePanel implements HoverParent {
     if (stops.length > 1) {
       const jump = bar.createEl("select", { cls: "dropdown inkswell-stream__jump" });
       tagField(jump, "stream:jump");
-      jump.setAttribute("aria-label", "Jump to a chapter");
-      jump.createEl("option", { text: "Jump to chapter…", value: "" });
+      jump.setAttribute("aria-label", t("stream.jump.label"));
+      jump.createEl("option", { text: t("write.chapter.jumpPlaceholder"), value: "" });
       for (const s of stops) jump.createEl("option", { text: s.title, value: s.path });
       jump.onchange = () => {
         const path = jump.value;
@@ -2306,20 +2304,20 @@ export class WritePanel implements HoverParent {
       };
     }
 
-    const fields: { field: StreamField; label: string }[] = [
-      { field: "chapter", label: "One chapter" },
-      { field: "pov", label: "POV" },
-      { field: "plotline", label: "Plotline" },
-      { field: "character", label: "Character" },
-      { field: "status", label: "Status" },
+    const fields: { field: StreamField; labelKey: MessageKey }[] = [
+      { field: "chapter", labelKey: "stream.filter.chapter" },
+      { field: "pov", labelKey: "stream.filter.pov" },
+      { field: "plotline", labelKey: "stream.filter.plotline" },
+      { field: "character", labelKey: "stream.filter.character" },
+      { field: "status", labelKey: "stream.filter.status" },
     ];
     const usable = fields.filter((f) => filterOptions(rows, f.field).length > 0);
     if (usable.length) {
       const field = bar.createEl("select", { cls: "dropdown" });
       tagField(field, "stream:field");
-      field.setAttribute("aria-label", "Show only scenes with…");
-      field.createEl("option", { text: "All scenes", value: "" });
-      for (const f of usable) field.createEl("option", { text: f.label, value: f.field });
+      field.setAttribute("aria-label", t("stream.filter.label"));
+      field.createEl("option", { text: t("stream.filter.all"), value: "" });
+      for (const f of usable) field.createEl("option", { text: t(f.labelKey), value: f.field });
       field.value = this.streamFilter?.field ?? "";
       field.onchange = () => {
         const chosen = usable.find((f) => f.field === field.value)?.field;
@@ -2331,7 +2329,7 @@ export class WritePanel implements HoverParent {
     if (filter) {
       const value = bar.createEl("select", { cls: "dropdown" });
       tagField(value, "stream:value");
-      value.setAttribute("aria-label", "Filter value");
+      value.setAttribute("aria-label", t("stream.filter.value"));
       const o = this.plugin.settings.listOverrides["scene.status"];
       for (const opt of filterOptions(rows, filter.field)) {
         const label = filter.field === "status" ? statusLabel(opt.value as SceneStatus, o) : opt.label;
@@ -2344,8 +2342,8 @@ export class WritePanel implements HoverParent {
     bar.createSpan({
       cls: "inkswell-stream__count",
       text: filter
-        ? `${shown.length} of ${rows.length} scenes`
-        : `${rows.length} ${rows.length === 1 ? "scene" : "scenes"}`,
+        ? t("stream.count.filtered", { shown: formatNumber(shown.length), total: formatNumber(rows.length) })
+        : tp("common.scenes", rows.length),
     });
   }
 
@@ -2367,7 +2365,7 @@ export class WritePanel implements HoverParent {
       onMounted: () => this.stream?.liveReady(file.path),
       onFailed: () => {
         this.stream?.cancelLive(file.path);
-        new Notice(`Couldn't read “${file.basename}”.`);
+        new Notice(t("stream.readFailed", { name: file.basename }));
       },
     });
   }
@@ -2390,7 +2388,7 @@ export class WritePanel implements HoverParent {
     // reader showing it in place of the file's.
     if (this.session?.state === "conflict") {
       new Notice(
-        `“${this.currentFile?.basename ?? "This scene"}” changed on disk while you were editing — choose a version in its banner first.`
+        t("stream.conflictFirst", { name: this.currentFile?.basename ?? t("stream.thisScene") })
       );
       return;
     }
@@ -2457,14 +2455,14 @@ export class WritePanel implements HoverParent {
     if (!this.stream || !from) return;
     const target = chapterStep(this.streamShown, from, dir);
     if (target) this.stream.scrollToScene(target);
-    else new Notice(dir === 1 ? "This is the last chapter." : "This is the first chapter.");
+    else new Notice(dir === 1 ? t("stream.chapter.last") : t("stream.chapter.first"));
   }
 
   /** Pick a chapter to scroll the stream to (command). */
   promptJumpToChapter(): void {
     const stops = chapterStops(this.streamShown);
     if (!this.stream || stops.length === 0) {
-      new Notice("This book has no chapters to jump to.");
+      new Notice(t("stream.chapter.none"));
       return;
     }
     new ChapterPickerModal(this.app, stops, (s) => this.stream?.scrollToScene(s.path)).open();

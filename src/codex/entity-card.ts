@@ -14,8 +14,8 @@ import { openFileInTab } from "../scenes/scene-actions";
 import { linkAlias, linkTarget } from "./codex";
 import { resolveProfileFields, readProfile } from "./codex-profile";
 import { resolveEntityImage } from "./codex-store";
-import { ProfileField, ProfileValue, isEmptyValue } from "./profile-schema";
-import { CodexEntity, categoryLabel } from "./types";
+import { ProfileField, ProfileValue, fieldLabel, isEmptyValue } from "./profile-schema";
+import { CodexEntity, categoryDisplayName } from "./types";
 
 export interface EntityCardOptions {
   app: App;
@@ -58,7 +58,7 @@ export function renderEntityCard(host: HTMLElement, opts: EntityCardOptions): vo
   title.createDiv({ cls: "inkswell-card__name", text: entity.name });
   title.createDiv({
     cls: "inkswell-card__type",
-    text: categoryLabel(entity.category, settings.customCategories, settings.categoryOverrides),
+    text: categoryDisplayName(entity.category, settings.customCategories, settings.categoryOverrides),
   });
   if (entity.aliases.length > 0) {
     title.createDiv({ cls: "inkswell-card__aliases", text: entity.aliases.join(", ") });
@@ -72,7 +72,7 @@ export function renderEntityCard(host: HTMLElement, opts: EntityCardOptions): vo
     if (isEmptyValue(value)) continue;
     shown += 1;
     const row = rows.createDiv({ cls: "inkswell-card__field" });
-    row.createDiv({ cls: "inkswell-card__label", text: field.label });
+    row.createDiv({ cls: "inkswell-card__label", text: fieldLabel(field) });
     renderValue(row.createDiv({ cls: "inkswell-card__value" }), field, value as ProfileValue, opts);
   }
   if (shown === 0) {

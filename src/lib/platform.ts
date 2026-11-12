@@ -23,6 +23,7 @@
  */
 
 import { Platform, setIcon } from "obsidian";
+import { t } from "../i18n";
 
 /** Body class marking Inkswell's phone layout (see module doc). */
 export const PHONE_BODY_CLASS = "inkswell-phone";
@@ -74,16 +75,16 @@ export function renderPhoneRedirect(
   setIcon(wrap.createDiv({ cls: "inkswell-phone-redirect__icon" }), "monitor");
   wrap.createDiv({
     cls: "inkswell-phone-redirect__title",
-    text: `${surface} needs a larger screen`,
+    text: t("lib.phoneRedirect.title", { surface }),
   });
   wrap.createDiv({
     cls: "inkswell-phone-redirect__body",
-    text: "Open this project on a tablet or desktop for this view. Drafting and your scene list work here on a phone.",
+    text: t("lib.phoneRedirect.body"),
   });
   if (onUseFullLayout) {
     const link = wrap.createEl("a", {
       cls: "inkswell-phone-redirect__link",
-      text: "Not a phone? Use the full layout",
+      text: t("lib.phoneRedirect.useFullLayout"),
     });
     link.onclick = (e) => {
       e.preventDefault();

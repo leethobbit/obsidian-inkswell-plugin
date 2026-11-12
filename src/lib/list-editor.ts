@@ -18,6 +18,7 @@
  */
 
 import { Menu, setIcon } from "obsidian";
+import { t } from "../i18n";
 import { dropIndex, moveItem } from "./list-ops";
 import { attachRowMenu } from "./row-menu";
 
@@ -127,13 +128,13 @@ export function renderListEditor<T extends { id: string }>(
       if (!pinned && index > 0 && !isPinned(items[index - 1])) {
         any = true;
         menu.addItem((i) =>
-          i.setTitle("Move up").setIcon("arrow-up").onClick(() => commit(index, index - 1))
+          i.setTitle(t("lib.listEditor.moveUp")).setIcon("arrow-up").onClick(() => commit(index, index - 1))
         );
       }
       if (!pinned && index < last && !isPinned(items[index + 1])) {
         any = true;
         menu.addItem((i) =>
-          i.setTitle("Move down").setIcon("arrow-down").onClick(() => commit(index, index + 1))
+          i.setTitle(t("lib.listEditor.moveDown")).setIcon("arrow-down").onClick(() => commit(index, index + 1))
         );
       }
       if (opts.extendMenu) {
@@ -145,7 +146,7 @@ export function renderListEditor<T extends { id: string }>(
         if (any) menu.addSeparator();
         menu.addItem((i) =>
           i
-            .setTitle("Remove")
+            .setTitle(t("common.remove"))
             .setIcon("trash")
             .onClick(() => void opts.onRemove?.(item, index))
         );

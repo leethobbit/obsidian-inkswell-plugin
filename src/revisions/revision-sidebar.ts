@@ -11,6 +11,7 @@
  */
 
 import { App, TFile } from "obsidian";
+import { t } from "../i18n";
 import { tryFileOp } from "../lib/notify";
 import { DEFAULT_MARKERS, MarkerSet } from "../lib/placeholders";
 import { ActiveProject, resolveActive } from "../projects/active-project";
@@ -30,7 +31,10 @@ export type RevisionJump = (path: string, from?: number, to?: number) => void;
 
 export class RevisionSidebar implements RightPanel {
   readonly id = "revision";
-  readonly label = "Revision log";
+  /** Read on every render of the switcher, so it follows the active catalog. */
+  get label(): string {
+    return t("revise.sidebar.label");
+  }
 
   private host: HTMLElement | null = null;
   private file: TFile | null = null;
@@ -58,14 +62,14 @@ export class RevisionSidebar implements RightPanel {
     if (!project || !isMultiScene(project.draft)) {
       host.createDiv({
         cls: "inkswell-inspector__empty",
-        text: "Open a multi-scene project to track revision work.",
+        text: t("revise.sidebar.noProject"),
       });
       return;
     }
 
     // Toolbar: log a decision for the current scene + reveal applied ones.
     const bar = host.createDiv({ cls: "inkswell-revsidebar__bar" });
-    const add = bar.createEl("button", { cls: "inkswell-revsidebar__add", text: "Log a decision" });
+    const add = bar.createEl("button", { cls: "inkswell-revsidebar__add", text: t("revise.logDecision") });
     add.onclick = () => new RevisionModal(this.app, project, this.currentSceneTitle(project), "").open();
     const toggle = bar.createEl("label", { cls: "inkswell-revsidebar__toggle" });
     const cb = toggle.createEl("input", { type: "checkbox" });
@@ -74,17 +78,17 @@ export class RevisionSidebar implements RightPanel {
       this.showApplied = cb.checked;
       if (this.host) this.render(this.host, this.file);
     };
-    toggle.createSpan({ text: "Show applied" });
+    toggle.createSpan({ text: t("revise.showApplied") });
 
     const listEl = host.createDiv({ cls: "inkswell-revsidebar__list" });
-    listEl.createDiv({ cls: "inkswell-stats__muted", text: "Scanning scenes…" });
+    listEl.createDiv({ cls: "inkswell-stats__muted", text: t("revise.scanning") });
 
     const token = ++this.token;
     void this.build(project).then((groups) => {
       if (token !== this.token) return; // stale: re-rendered or panel swapped away
       listEl.empty();
       if (groups.length === 0) {
-        listEl.createDiv({ cls: "inkswell-stats__muted", text: "No revision work yet." });
+        listEl.createDiv({ cls: "inkswell-stats__muted", text: t("revise.sidebar.empty") });
         return;
       }
       for (const g of groups) this.renderGroup(listEl, project, g);
@@ -115,11 +119,11 @@ export class RevisionSidebar implements RightPanel {
     const box = parent.createEl("details", { cls: "inkswell-revsidebar__group" });
     box.open = expanded;
     const summary = box.createEl("summary", { cls: "inkswell-revsidebar__scene" });
-    summary.createSpan({ text: g.isCurrent ? `${g.title} — this scene` : g.title });
+    summary.createSpan({ text: g.isCurrent ? t("revise.sidebar.thisScene", { title: g.title }) : g.title });
     if (count > 0) summary.createSpan({ cls: "inkswell-revsidebar__count", text: String(count) });
 
     if (count === 0) {
-      box.createDiv({ cls: "inkswell-stats__muted", text: "Nothing to revise in this scene." });
+      box.createDiv({ cls: "inkswell-stats__muted", text: t("revise.sidebar.sceneEmpty") });
       return;
     }
     renderRevisionGroupItems(box, project, g, this.rowContext(), (path, from, to) =>
@@ -143,7 +147,7 @@ export class RevisionSidebar implements RightPanel {
   ): void {
     void tryFileOp(
       () => persistRevisions(this.app, project, transform),
-      "Couldn't save the revision log."
+      t("revision.saveFailed")
     );
   }
 }

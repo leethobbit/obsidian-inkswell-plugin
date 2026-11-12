@@ -20,7 +20,8 @@ import { deviceFlaggedAsPhone } from "../lib/platform";
 import type { ListOverrides } from "./overridable-lists";
 import { resetHelpState } from "../help/hint";
 import { WelcomeModal } from "../help/welcome-modal";
-import { t } from "../i18n";
+import { MessageKey, PSEUDO_LOCALE, t } from "../i18n";
+import { LOCALE_INFO, LOCALES } from "../i18n/locales";
 
 export interface InkswellSettings {
   /** Default output format offered in the compile dialog. */
@@ -28,6 +29,8 @@ export interface InkswellSettings {
   /** Where a scene clicked in a sidebar companion opens: Inkswell's Write, or
    *  a regular Obsidian tab. Ctrl/Cmd-click always opens a new tab. */
   companionSceneTarget: "write" | "tab";
+  /** Settings → Interface language: "auto" follows Obsidian (reviewed catalogs only), else a locale code. */
+  interfaceLanguage: string;
   /** Show word counts in the explorer. */
   showWordCounts: boolean;
   /** Home: whether the ideas inbox section is expanded (UI state, not a Settings row). */
@@ -176,6 +179,7 @@ export interface InkswellSettings {
 export const DEFAULT_SETTINGS: InkswellSettings = {
   defaultCompileFormat: "md",
   companionSceneTarget: "write",
+  interfaceLanguage: "auto",
   authorName: "",
   authorContact: "",
   showWordCounts: true,
@@ -228,28 +232,21 @@ export const DEFAULT_SETTINGS: InkswellSettings = {
  * prompts, features) is a Customize section, never a Settings row.
  */
 const CUSTOMIZE_ROW = {
-  name: "Customize Inkswell",
-  desc:
-    "Codex types and fields, starter templates, beat structures, scene statuses, writing " +
-    "prompts, checklists, and which features are shown — all edited inside Inkswell.",
-};
+  nameKey: "settings.customize.name",
+  descKey: "settings.customize.desc",
+} as const satisfies { nameKey: MessageKey; descKey: MessageKey };
 
 /** One row, both render paths (gotcha 12). */
 const HIDE_ARCHIVED_ROW = {
-  name: "Hide archived books from their series",
-  desc:
-    "An archived book leaves its series shelf and the series covers on Home, and waits " +
-    "under its series name in the Archived section — handy for short stories you archive " +
-    "once they're out. When off, archived books stay on the series shelf, dimmed.",
-};
+  nameKey: "settings.hideArchived.name",
+  descKey: "settings.hideArchived.desc",
+} as const satisfies { nameKey: MessageKey; descKey: MessageKey };
 
 /** Copy for the one platform-conditional row (shared by both renderers). */
 const LAYOUT_TOGGLE = {
-  name: "Use the full layout on this device",
-  desc:
-    "Obsidian classifies this screen as phone-sized, so Inkswell shows its phone layout and " +
-    "keeps Plan and Publish behind a “needs a larger screen” notice. Turn this on if you're on a tablet.",
-};
+  nameKey: "settings.forceTablet.name",
+  descKey: "settings.forceTablet.desc",
+} as const satisfies { nameKey: MessageKey; descKey: MessageKey };
 
 /** Milestone spacing: 0 = off; anything else at least 100 words (a tag per few words is noise). */
 function normalizeMilestoneWords(raw: unknown): number {
@@ -279,63 +276,42 @@ type WriteEditorToggleKey =
  */
 const WRITE_EDITOR_TOGGLES: {
   key: WriteEditorToggleKey;
-  name: string;
-  desc: string;
+  nameKey: MessageKey;
+  descKey: MessageKey;
 }[] = [
   {
     key: "typewriterMode",
-    name: "Typewriter mode",
-    desc:
-      "Keep the line you're typing on vertically centered in the Write editor, so your eyes stay in one place. " +
-      "Mouse clicks don't recenter. Also available as the command “Toggle typewriter mode (Write editor)”.",
+    nameKey: "settings.typewriterMode.name",
+    descKey: "settings.typewriterMode.desc",
   },
   {
     key: "manuscriptTypography",
-    name: "Manuscript typography",
-    desc:
-      "Book-style layout in the Write editor: paragraphs get a first-line indent (except the first paragraph " +
-      "after a heading or scene break), and headings are centered. Purely visual — your text is unchanged. " +
-      "The font follows Obsidian's Appearance → Text font.",
+    nameKey: "settings.manuscriptTypography.name",
+    descKey: "settings.manuscriptTypography.desc",
   },
   {
     key: "smartDashes",
-    name: "Smart dashes",
-    desc:
-      "In the Write editor, typing -- becomes an en dash (–) and a third - makes an em dash (—). " +
-      "A line of dashes (---) is left alone. Applies only to Inkswell's Write editor, not Obsidian's notes.",
+    nameKey: "settings.smartDashes.name",
+    descKey: "settings.smartDashes.desc",
   },
   {
     key: "smartQuotes",
-    name: "Smart quotes",
-    desc:
-      "Straight quotes typed in the Write editor become curly quotes (“ ” and ‘ ’); apostrophes become ’. " +
-      "Skipped inside code and links.",
+    nameKey: "settings.smartQuotes.name",
+    descKey: "settings.smartQuotes.desc",
   },
   {
     key: "smartEllipsis",
-    name: "Smart ellipsis",
-    desc: "Three periods typed in the Write editor become an ellipsis (…).",
+    nameKey: "settings.smartEllipsis.name",
+    descKey: "settings.smartEllipsis.desc",
   },
 ];
 
-/** Settings-tab copy for the goal category toggles. */
-const CATEGORY_LABELS: Record<WordCategory, { name: string; desc: string }> = {
-  scene: {
-    name: "Manuscript scenes",
-    desc: "Scene files and single-note projects — the manuscript itself.",
-  },
-  planning: {
-    name: "Planning notes",
-    desc: "Each project's planning note (synopsis, plot groundwork, act sketch).",
-  },
-  codex: {
-    name: "Codex notes",
-    desc: "Notes with a codex key (characters, places, lore), wherever they live.",
-  },
-  other: {
-    name: "Other project notes",
-    desc: "The project index note and any other notes inside a project's folder.",
-  },
+/** Settings-tab copy for the goal category toggles (keys; resolved at render). */
+const CATEGORY_LABELS: Record<WordCategory, { nameKey: MessageKey; descKey: MessageKey }> = {
+  scene: { nameKey: "settings.counts.scene.name", descKey: "settings.counts.scene.desc" },
+  planning: { nameKey: "settings.counts.planning.name", descKey: "settings.counts.planning.desc" },
+  codex: { nameKey: "settings.counts.codex.name", descKey: "settings.counts.codex.desc" },
+  other: { nameKey: "settings.counts.other.name", descKey: "settings.counts.other.desc" },
 };
 
 /** Clamp bounds for the numeric fields — shared by the imperative tab
@@ -355,10 +331,6 @@ const NUMERIC_BOUNDS: Partial<
   streakThreshold: { lo: 1, hi: 100000, fallback: 1 },
   milestoneWords: { lo: 0, hi: 10000, fallback: 0 },
 };
-
-const MILESTONE_DESC =
-  "Put a small tag in the Write editor's margin on the line where the scene's running word count " +
-  "passes each multiple of this number (e.g. 500 → tags at 500, 1k, 1.5k…). 0 = off; minimum 100.";
 
 export class InkswellSettingTab extends PluginSettingTab {
   private plugin: InkswellPlugin;
@@ -388,13 +360,27 @@ export class InkswellSettingTab extends PluginSettingTab {
   getSettingDefinitions(): SettingDefinitionItem[] {
     const items: SettingDefinitionItem[] = [
       {
-        name: CUSTOMIZE_ROW.name,
-        desc: CUSTOMIZE_ROW.desc,
+        name: t(CUSTOMIZE_ROW.nameKey),
+        desc: t(CUSTOMIZE_ROW.descKey),
         action: () => this.openCustomize(),
       },
+      ...(hasTranslations()
+        ? [
+            {
+              name: t("settings.interfaceLanguage.name"),
+              desc: t("settings.interfaceLanguage.desc"),
+              control: {
+                type: "dropdown" as const,
+                key: "interfaceLanguage",
+                options: languageOptions(),
+                defaultValue: "auto",
+              },
+            },
+          ]
+        : []),
       {
-        name: "Default compile format",
-        desc: "Format pre-selected when you open the compile dialog.",
+        name: t("settings.defaultCompileFormat.name"),
+        desc: t("settings.defaultCompileFormat.desc"),
         control: {
           type: "dropdown",
           key: "defaultCompileFormat",
@@ -413,27 +399,23 @@ export class InkswellSettingTab extends PluginSettingTab {
         },
       },
       {
-        name: "Show word counts",
-        desc: "Display per-scene and per-project word counts in the explorer.",
+        name: t("settings.showWordCounts.name"),
+        desc: t("settings.showWordCounts.desc"),
         control: { type: "toggle", key: "showWordCounts", defaultValue: true },
       },
       {
-        name: HIDE_ARCHIVED_ROW.name,
-        desc: HIDE_ARCHIVED_ROW.desc,
+        name: t(HIDE_ARCHIVED_ROW.nameKey),
+        desc: t(HIDE_ARCHIVED_ROW.descKey),
         control: { type: "toggle", key: "hideArchivedInSeries", defaultValue: false },
       },
       {
-        name: "Sync writing history across devices",
-        desc:
-          "Words are counted on the device where you type them. Turn this on to keep a " +
-          "small log note per device under your base folder's “Writing log” folder and " +
-          "merge them on Track, so streaks and totals include every device. Your vault's " +
-          "own sync (Obsidian Sync, iCloud, …) carries the notes.",
+        name: t("settings.syncHistory.name"),
+        desc: t("settings.syncHistory.desc"),
         control: { type: "toggle", key: "syncWritingHistory", defaultValue: false },
       },
       {
-        name: "Scene heading level",
-        desc: "Heading level (1–6) for the optional 'prepend title' compile step.",
+        name: t("settings.sceneHeadingLevel.name"),
+        desc: t("settings.sceneHeadingLevel.desc"),
         control: { type: "slider", key: "sceneHeadingLevel", min: 1, max: 6, step: 1 },
       },
     ];
@@ -457,72 +439,66 @@ export class InkswellSettingTab extends PluginSettingTab {
       },
       {
         type: "group",
-        heading: "Write editor",
+        heading: t("settings.writeEditor.heading"),
         items: [
           ...WRITE_EDITOR_TOGGLES.map((o) => ({
-            name: o.name,
-            desc: o.desc,
+            name: t(o.nameKey),
+            desc: t(o.descKey),
             control: { type: "toggle" as const, key: o.key, defaultValue: false },
           })),
-          numberDef("Milestone tags every…", MILESTONE_DESC, "milestoneWords"),
+          numberDef(t("settings.milestoneWords.name"), t("settings.milestoneWords.desc"), "milestoneWords"),
         ],
       },
       {
         type: "group",
-        heading: "Goals & sprints",
+        heading: t("settings.goals.heading"),
         items: [
           {
-            name: "Week starts on",
-            desc: "First day of the week for weekly goals, habit tracking, and the heatmap.",
+            name: t("settings.weekStart.name"),
+            desc: t("settings.weekStart.desc"),
             control: {
               type: "dropdown",
               key: "weekStart",
-              options: { monday: "Monday", sunday: "Sunday" },
+              options: { monday: t("settings.weekStart.monday"), sunday: t("settings.weekStart.sunday") },
               defaultValue: "monday",
             },
           },
-          numberDef("Daily word goal", "Target words per day, shown in the status bar and stats.", "dailyWordGoal"),
-          numberDef("Weekly word goal", "Target words per week (start of week→today).", "weeklyWordGoal"),
-          numberDef("Monthly word goal", "Target words per month (1st→today).", "monthlyWordGoal"),
-          numberDef("Habit: days per week", "How many days a week you aim to write.", "habitDaysPerWeek"),
-          numberDef("Habit: minimum words/day", "Minimum words for a day to count toward the habit.", "habitMinWords"),
-          numberDef("Default sprint length", "Default sprint duration in minutes.", "defaultSprintMinutes"),
-          numberDef("Default sprint word goal", "Word goal pre-filled in the sprint dialog. 0 = no goal.", "defaultSprintWordGoal"),
-          numberDef("Streak threshold", "Minimum words in a day for it to extend your writing streak.", "streakThreshold"),
+          numberDef(t("settings.dailyWordGoal.name"), t("settings.dailyWordGoal.desc"), "dailyWordGoal"),
+          numberDef(t("settings.weeklyWordGoal.name"), t("settings.weeklyWordGoal.desc"), "weeklyWordGoal"),
+          numberDef(t("settings.monthlyWordGoal.name"), t("settings.monthlyWordGoal.desc"), "monthlyWordGoal"),
+          numberDef(t("settings.habitDaysPerWeek.name"), t("settings.habitDaysPerWeek.desc"), "habitDaysPerWeek"),
+          numberDef(t("settings.habitMinWords.name"), t("settings.habitMinWords.desc"), "habitMinWords"),
+          numberDef(t("settings.defaultSprintMinutes.name"), t("settings.defaultSprintMinutes.desc"), "defaultSprintMinutes"),
+          numberDef(t("settings.defaultSprintWordGoal.name"), t("settings.defaultSprintWordGoal.desc"), "defaultSprintWordGoal"),
+          numberDef(t("settings.streakThreshold.name"), t("settings.streakThreshold.desc"), "streakThreshold"),
         ],
       },
       {
         type: "group",
-        heading: "What counts toward goals",
+        heading: t("settings.counts.heading"),
         items: WORD_CATEGORIES.map((cat) => ({
-          name: CATEGORY_LABELS[cat].name,
-          desc: CATEGORY_LABELS[cat].desc,
+          name: t(CATEGORY_LABELS[cat].nameKey),
+          desc: t(CATEGORY_LABELS[cat].descKey),
           control: { type: "toggle" as const, key: `counts:${cat}` },
         })),
       },
       {
         type: "group",
-        heading: "Folders",
+        heading: t("settings.folders.heading"),
         items: [
           {
-            name: "Base folder",
-            desc:
-              "Folder new projects and the shared codex scaffold under. Blank = vault root. " +
-              "This only sets where new content is created — existing projects and codex " +
-              "anywhere in the vault still work.",
-            control: { type: "folder", key: "baseFolder", placeholder: "(vault root)" },
+            name: t("settings.baseFolder.name"),
+            desc: t("settings.baseFolder.desc"),
+            control: { type: "folder", key: "baseFolder", placeholder: t("settings.baseFolder.placeholder") },
           },
           {
-            name: "Codex folder name",
-            desc: "Subfolder name used for codex notes (shared and per-project).",
+            name: t("settings.codexFolder.name"),
+            desc: t("settings.codexFolder.desc"),
             control: { type: "text", key: "codexFolder", defaultValue: "Codex" },
           },
           {
-            name: "Co-locate codex with projects",
-            desc:
-              "Book-scoped entries are created in their project's own codex folder; " +
-              "series and global entries go to the shared base codex. Organization only — " +
-              "visibility is set per-entry by its Scope field, not by where the note lives.",
+            name: t("settings.coLocateCodex.name"),
+            desc: t("settings.coLocateCodex.desc"),
             control: { type: "toggle", key: "coLocateCodex", defaultValue: true },
           },
         ],
@@ -534,11 +510,11 @@ export class InkswellSettingTab extends PluginSettingTab {
     if (deviceFlaggedAsPhone()) {
       items.push({
         type: "group",
-        heading: "Layout",
+        heading: t("settings.layout.heading"),
         items: [
           {
-            name: LAYOUT_TOGGLE.name,
-            desc: LAYOUT_TOGGLE.desc,
+            name: t(LAYOUT_TOGGLE.nameKey),
+            desc: t(LAYOUT_TOGGLE.descKey),
             control: { type: "toggle", key: "forceTabletLayout", defaultValue: false },
           },
         ],
@@ -547,18 +523,16 @@ export class InkswellSettingTab extends PluginSettingTab {
     items.push(
       {
         type: "group",
-        heading: "Help",
+        heading: t("settings.help.heading"),
         items: [
           {
-            name: "Show contextual tips",
-            desc:
-              'Show the dismissible "How this works" callouts at the top of panels. ' +
-              "Tips you dismiss stay hidden until you reset them below.",
+            name: t("settings.showHints.name"),
+            desc: t("settings.showHints.desc"),
             control: { type: "toggle", key: "showHelpHints", defaultValue: true },
           },
           {
-            name: "Reset tips & replay welcome",
-            desc: "Re-enable every dismissed tip and show the welcome screen again.",
+            name: t("settings.resetTips.name"),
+            desc: t("settings.resetTips.desc"),
             action: () => void this.resetTips(),
           },
         ],
@@ -608,6 +582,11 @@ export class InkswellSettingTab extends PluginSettingTab {
       case "companionSceneTarget":
         s.companionSceneTarget = value === "tab" ? "tab" : "write";
         break;
+      case "interfaceLanguage":
+        s.interfaceLanguage = normalizeInterfaceLanguage(value);
+        await this.plugin.saveSettings();
+        this.plugin.applyInterfaceLanguage();
+        return;
       case "authorName":
         s.authorName = typeof value === "string" ? value.trim() : "";
         break;
@@ -692,13 +671,13 @@ export class InkswellSettingTab extends PluginSettingTab {
   /** The "Write editor" section (imperative fallback): editor toggles.
    *  Same table as the declarative group — keep them in lockstep. */
   private renderWriteEditor(containerEl: HTMLElement): void {
-    new Setting(containerEl).setName("Write editor").setHeading();
+    new Setting(containerEl).setName(t("settings.writeEditor.heading")).setHeading();
     for (const o of WRITE_EDITOR_TOGGLES) {
       new Setting(containerEl)
-        .setName(o.name)
-        .setDesc(o.desc)
-        .addToggle((t) =>
-          t.setValue(this.plugin.settings[o.key]).onChange(async (v) => {
+        .setName(t(o.nameKey))
+        .setDesc(t(o.descKey))
+        .addToggle((c) =>
+          c.setValue(this.plugin.settings[o.key]).onChange(async (v) => {
             this.plugin.settings[o.key] = v;
             await this.plugin.saveSettings();
             this.plugin.applyEditorPrefs();
@@ -706,10 +685,10 @@ export class InkswellSettingTab extends PluginSettingTab {
         );
     }
     new Setting(containerEl)
-      .setName("Milestone tags every…")
-      .setDesc(MILESTONE_DESC)
-      .addText((t) =>
-        t.setValue(`${this.plugin.settings.milestoneWords}`).onChange(async (v) => {
+      .setName(t("settings.milestoneWords.name"))
+      .setDesc(t("settings.milestoneWords.desc"))
+      .addText((c) =>
+        c.setValue(`${this.plugin.settings.milestoneWords}`).onChange(async (v) => {
           this.plugin.settings.milestoneWords = normalizeMilestoneWords(v);
           await this.plugin.saveSettings();
           this.plugin.applyEditorPrefs();
@@ -732,7 +711,7 @@ export class InkswellSettingTab extends PluginSettingTab {
   private async resetTips(): Promise<void> {
     await resetHelpState(this.plugin);
     this.plugin.refreshExplorer();
-    new Notice("Tips reset.");
+    new Notice(t("settings.resetTips.done"));
     new WelcomeModal(this.app, this.plugin).open();
   }
 
@@ -746,13 +725,30 @@ export class InkswellSettingTab extends PluginSettingTab {
     containerEl.empty();
 
     new Setting(containerEl)
-      .setName(CUSTOMIZE_ROW.name)
-      .setDesc(CUSTOMIZE_ROW.desc)
-      .addButton((b) => b.setButtonText("Open customize").setCta().onClick(() => this.openCustomize()));
+      .setName(t(CUSTOMIZE_ROW.nameKey))
+      .setDesc(t(CUSTOMIZE_ROW.descKey))
+      .addButton((b) => b.setButtonText(t("settings.customize.button")).setCta().onClick(() => this.openCustomize()));
+
+    if (hasTranslations()) {
+      new Setting(containerEl)
+        .setName(t("settings.interfaceLanguage.name"))
+        .setDesc(t("settings.interfaceLanguage.desc"))
+        .addDropdown((d) =>
+          d
+            .addOptions(languageOptions())
+            .setValue(this.plugin.settings.interfaceLanguage)
+            .onChange(async (v) => {
+              this.plugin.settings.interfaceLanguage = normalizeInterfaceLanguage(v);
+              await this.plugin.saveSettings();
+              this.plugin.applyInterfaceLanguage();
+              this.rerender();
+            })
+        );
+    }
 
     new Setting(containerEl)
-      .setName("Default compile format")
-      .setDesc("Format pre-selected when you open the compile dialog.")
+      .setName(t("settings.defaultCompileFormat.name"))
+      .setDesc(t("settings.defaultCompileFormat.desc"))
       .addDropdown((d) =>
         d
           .addOptions(compileFormatOptions())
@@ -777,8 +773,8 @@ export class InkswellSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Show word counts")
-      .setDesc("Display per-scene and per-project word counts in the explorer.")
+      .setName(t("settings.showWordCounts.name"))
+      .setDesc(t("settings.showWordCounts.desc"))
       .addToggle((t) =>
         t.setValue(this.plugin.settings.showWordCounts).onChange(async (v) => {
           this.plugin.settings.showWordCounts = v;
@@ -788,8 +784,8 @@ export class InkswellSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName(HIDE_ARCHIVED_ROW.name)
-      .setDesc(HIDE_ARCHIVED_ROW.desc)
+      .setName(t(HIDE_ARCHIVED_ROW.nameKey))
+      .setDesc(t(HIDE_ARCHIVED_ROW.descKey))
       .addToggle((t) =>
         t.setValue(this.plugin.settings.hideArchivedInSeries).onChange(async (v) => {
           this.plugin.settings.hideArchivedInSeries = v;
@@ -799,10 +795,8 @@ export class InkswellSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Scene heading level")
-      .setDesc(
-        "Heading level (1–6) for the optional 'prepend title' compile step."
-      )
+      .setName(t("settings.sceneHeadingLevel.name"))
+      .setDesc(t("settings.sceneHeadingLevel.desc"))
       .addSlider((s) =>
         s
           .setLimits(1, 6, 1)
@@ -816,15 +810,15 @@ export class InkswellSettingTab extends PluginSettingTab {
     this.renderManuscript(containerEl);
     this.renderWriteEditor(containerEl);
 
-    new Setting(containerEl).setName("Goals & sprints").setHeading();
+    new Setting(containerEl).setName(t("settings.goals.heading")).setHeading();
 
     new Setting(containerEl)
-      .setName("Week starts on")
-      .setDesc("First day of the week for weekly goals, habit tracking, and the heatmap.")
+      .setName(t("settings.weekStart.name"))
+      .setDesc(t("settings.weekStart.desc"))
       .addDropdown((d) =>
         d
-          .addOption("monday", "Monday")
-          .addOption("sunday", "Sunday")
+          .addOption("monday", t("settings.weekStart.monday"))
+          .addOption("sunday", t("settings.weekStart.sunday"))
           .setValue(this.plugin.settings.weekStart)
           .onChange(async (v) => {
             this.plugin.settings.weekStart = v === "sunday" ? "sunday" : "monday";
@@ -833,8 +827,8 @@ export class InkswellSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Daily word goal")
-      .setDesc("Target words per day, shown in the status bar and stats.")
+      .setName(t("settings.dailyWordGoal.name"))
+      .setDesc(t("settings.dailyWordGoal.desc"))
       .addText((t) =>
         t
           .setValue(`${this.plugin.settings.dailyWordGoal}`)
@@ -846,8 +840,8 @@ export class InkswellSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Weekly word goal")
-      .setDesc("Target words per week (start of week→today).")
+      .setName(t("settings.weeklyWordGoal.name"))
+      .setDesc(t("settings.weeklyWordGoal.desc"))
       .addText((t) =>
         t.setValue(`${this.plugin.settings.weeklyWordGoal}`).onChange(async (v) => {
           this.plugin.settings.weeklyWordGoal = clampInt(v, 0, 1000000, 3500);
@@ -856,8 +850,8 @@ export class InkswellSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Monthly word goal")
-      .setDesc("Target words per month (1st→today).")
+      .setName(t("settings.monthlyWordGoal.name"))
+      .setDesc(t("settings.monthlyWordGoal.desc"))
       .addText((t) =>
         t.setValue(`${this.plugin.settings.monthlyWordGoal}`).onChange(async (v) => {
           this.plugin.settings.monthlyWordGoal = clampInt(v, 0, 10000000, 15000);
@@ -866,8 +860,8 @@ export class InkswellSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Habit: days per week")
-      .setDesc("How many days a week you aim to write.")
+      .setName(t("settings.habitDaysPerWeek.name"))
+      .setDesc(t("settings.habitDaysPerWeek.desc"))
       .addText((t) =>
         t.setValue(`${this.plugin.settings.habitDaysPerWeek}`).onChange(async (v) => {
           this.plugin.settings.habitDaysPerWeek = clampInt(v, 1, 7, 5);
@@ -876,8 +870,8 @@ export class InkswellSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Habit: minimum words/day")
-      .setDesc("Minimum words for a day to count toward the habit.")
+      .setName(t("settings.habitMinWords.name"))
+      .setDesc(t("settings.habitMinWords.desc"))
       .addText((t) =>
         t.setValue(`${this.plugin.settings.habitMinWords}`).onChange(async (v) => {
           this.plugin.settings.habitMinWords = clampInt(v, 1, 100000, 100);
@@ -886,8 +880,8 @@ export class InkswellSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Default sprint length")
-      .setDesc("Default sprint duration in minutes.")
+      .setName(t("settings.defaultSprintMinutes.name"))
+      .setDesc(t("settings.defaultSprintMinutes.desc"))
       .addText((t) =>
         t
           .setValue(`${this.plugin.settings.defaultSprintMinutes}`)
@@ -898,8 +892,8 @@ export class InkswellSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Default sprint word goal")
-      .setDesc("Word goal pre-filled in the sprint dialog. 0 = no goal.")
+      .setName(t("settings.defaultSprintWordGoal.name"))
+      .setDesc(t("settings.defaultSprintWordGoal.desc"))
       .addText((t) =>
         t
           .setValue(`${this.plugin.settings.defaultSprintWordGoal}`)
@@ -910,8 +904,8 @@ export class InkswellSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Streak threshold")
-      .setDesc("Minimum words in a day for it to extend your writing streak.")
+      .setName(t("settings.streakThreshold.name"))
+      .setDesc(t("settings.streakThreshold.desc"))
       .addText((t) =>
         t
           .setValue(`${this.plugin.settings.streakThreshold}`)
@@ -921,20 +915,16 @@ export class InkswellSettingTab extends PluginSettingTab {
           })
       );
 
-    new Setting(containerEl).setName("What counts toward goals").setHeading();
+    new Setting(containerEl).setName(t("settings.counts.heading")).setHeading();
     containerEl.createEl("p", {
       cls: "setting-item-description",
-      text:
-        "Goals, streaks, and sprints only ever count writing in project notes — " +
-        "notes elsewhere in the vault never count. Choose which kinds count. " +
-        "Changing a toggle also re-counts words already written since this " +
-        "option was introduced; older history always counts.",
+      text: t("settings.counts.intro"),
     });
     for (const cat of WORD_CATEGORIES) {
       const label = CATEGORY_LABELS[cat];
       new Setting(containerEl)
-        .setName(label.name)
-        .setDesc(label.desc)
+        .setName(t(label.nameKey))
+        .setDesc(t(label.descKey))
         .addToggle((t) =>
           t
             .setValue(!this.plugin.settings.excludedFromGoals.includes(cat))
@@ -952,18 +942,14 @@ export class InkswellSettingTab extends PluginSettingTab {
         );
     }
 
-    new Setting(containerEl).setName("Folders").setHeading();
+    new Setting(containerEl).setName(t("settings.folders.heading")).setHeading();
 
     new Setting(containerEl)
-      .setName("Base folder")
-      .setDesc(
-        "Folder new projects and the shared codex scaffold under. Blank = vault root. " +
-          "This only sets where new content is created — existing projects and codex " +
-          "anywhere in the vault still work."
-      )
-      .addText((t) =>
-        t
-          .setPlaceholder("(vault root)")
+      .setName(t("settings.baseFolder.name"))
+      .setDesc(t("settings.baseFolder.desc"))
+      .addText((c) =>
+        c
+          .setPlaceholder(t("settings.baseFolder.placeholder"))
           .setValue(this.plugin.settings.baseFolder)
           .onChange(async (v) => {
             this.plugin.settings.baseFolder = trimSlashes(v);
@@ -972,8 +958,8 @@ export class InkswellSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Codex folder name")
-      .setDesc("Subfolder name used for codex notes (shared and per-project).")
+      .setName(t("settings.codexFolder.name"))
+      .setDesc(t("settings.codexFolder.desc"))
       .addText((t) =>
         t
           .setValue(this.plugin.settings.codexFolder)
@@ -984,12 +970,8 @@ export class InkswellSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Co-locate codex with projects")
-      .setDesc(
-        "Book-scoped entries are created in their project's own codex folder; " +
-          "series and global entries go to the shared base codex. Organization only — " +
-          "visibility is set per-entry by its Scope field, not by where the note lives."
-      )
+      .setName(t("settings.coLocateCodex.name"))
+      .setDesc(t("settings.coLocateCodex.desc"))
       .addToggle((t) =>
         t.setValue(this.plugin.settings.coLocateCodex).onChange(async (v) => {
           this.plugin.settings.coLocateCodex = v;
@@ -999,10 +981,10 @@ export class InkswellSettingTab extends PluginSettingTab {
 
     // Mirrors the conditional "Layout" group in getSettingDefinitions().
     if (deviceFlaggedAsPhone()) {
-      new Setting(containerEl).setName("Layout").setHeading();
+      new Setting(containerEl).setName(t("settings.layout.heading")).setHeading();
       new Setting(containerEl)
-        .setName(LAYOUT_TOGGLE.name)
-        .setDesc(LAYOUT_TOGGLE.desc)
+        .setName(t(LAYOUT_TOGGLE.nameKey))
+        .setDesc(t(LAYOUT_TOGGLE.descKey))
         .addToggle((t) =>
           t
             .setValue(this.plugin.settings.forceTabletLayout)
@@ -1010,14 +992,11 @@ export class InkswellSettingTab extends PluginSettingTab {
         );
     }
 
-    new Setting(containerEl).setName("Help").setHeading();
+    new Setting(containerEl).setName(t("settings.help.heading")).setHeading();
 
     new Setting(containerEl)
-      .setName("Show contextual tips")
-      .setDesc(
-        'Show the dismissible "How this works" callouts at the top of panels. ' +
-          "Tips you dismiss stay hidden until you reset them below."
-      )
+      .setName(t("settings.showHints.name"))
+      .setDesc(t("settings.showHints.desc"))
       .addToggle((t) =>
         t.setValue(this.plugin.settings.showHelpHints).onChange(async (v) => {
           this.plugin.settings.showHelpHints = v;
@@ -1027,9 +1006,9 @@ export class InkswellSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Reset tips & replay welcome")
-      .setDesc("Re-enable every dismissed tip and show the welcome screen again.")
-      .addButton((b) => b.setButtonText("Reset").onClick(() => void this.resetTips()));
+      .setName(t("settings.resetTips.name"))
+      .setDesc(t("settings.resetTips.desc"))
+      .addButton((b) => b.setButtonText(t("common.reset")).onClick(() => void this.resetTips()));
   }
 }
 
@@ -1075,6 +1054,31 @@ function clampInt(raw: string, lo: number, hi: number, fallback: number): number
 }
 
 /** Options for "Open scenes from the sidebar in" (both render paths). */
+/** The language picker only appears once a catalog besides English ships. */
+function hasTranslations(): boolean {
+  return Object.keys(LOCALES).length > 1;
+}
+
+/** "auto" or a registered locale code; anything else (a removed locale) → "auto".
+ *  The pseudo-locale (testing aid, never listed) survives so a reload keeps it. */
+export function normalizeInterfaceLanguage(value: unknown): string {
+  return typeof value === "string" &&
+    (value === "auto" || value === PSEUDO_LOCALE || Object.prototype.hasOwnProperty.call(LOCALES, value))
+    ? value
+    : "auto";
+}
+
+/** Same as Obsidian, then every shipped language by its own name; drafts say so. */
+function languageOptions(): Record<string, string> {
+  const out: Record<string, string> = { auto: t("settings.interfaceLanguage.auto") };
+  const codes = Object.keys(LOCALE_INFO).sort((a, b) => LOCALE_INFO[a].name.localeCompare(LOCALE_INFO[b].name));
+  for (const code of codes) {
+    const info = LOCALE_INFO[code];
+    out[code] = info.reviewed ? info.name : t("settings.interfaceLanguage.draft", { name: info.name });
+  }
+  return out;
+}
+
 function companionTargetOptions(): Record<string, string> {
   return {
     write: t("settings.companionSceneTarget.write"),

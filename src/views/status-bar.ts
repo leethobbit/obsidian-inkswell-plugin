@@ -3,6 +3,7 @@
  * is running. Clicking it opens the stats dashboard.
  */
 
+import { t } from "../i18n";
 import { WritingTracker } from "../tracking/writing-tracker";
 import { SprintController } from "../sprints/sprint-controller";
 import type { ChallengeProgress } from "../goals/challenge";
@@ -52,10 +53,10 @@ export class StatusBar {
     const active = this.sprints.getActive();
     if (active) {
       const rem = this.sprints.remainingSec();
-      this.el.setText(`✍ ${active.words}w · ${formatClock(rem)}`);
+      this.el.setText(t("view.statusBar.sprint", { words: active.words, time: formatClock(rem) }));
       this.el.setAttribute(
         "aria-label",
-        `Sprint: ${active.words} words, ${formatClock(rem)} left`
+        t("view.statusBar.sprintLabel", { words: active.words, time: formatClock(rem) })
       );
       return;
     }
@@ -63,19 +64,23 @@ export class StatusBar {
     if (challenge?.phase === "active") {
       // Needed-today replaces the static daily goal while a challenge runs.
       this.el.setText(
-        `✍ ${challenge.today}/${challenge.neededToday} · ${compact(challenge.written)}/${compact(challenge.target)}`
+        `✍ ${challenge.today}/${challenge.neededToday} · ${compact(challenge.written)}/${compact(challenge.target)}` // i18n-ignore: symbols and numbers only
       );
       this.el.setAttribute(
         "aria-label",
-        `Challenge: ${challenge.today} of ${challenge.neededToday} words needed today; ` +
-          `${challenge.written} of ${challenge.target} total (click for stats)`
+        t("view.statusBar.challengeLabel", {
+          today: challenge.today,
+          needed: challenge.neededToday,
+          written: challenge.written,
+          target: challenge.target,
+        })
       );
       return;
     }
     const today = this.tracker.todayWords();
     const goal = this.getGoal();
-    this.el.setText(goal > 0 ? `✍ ${today}/${goal}` : `✍ ${today}`);
-    this.el.setAttribute("aria-label", "Inkswell: words written today (click for stats)");
+    this.el.setText(goal > 0 ? `✍ ${today}/${goal}` : `✍ ${today}`); // i18n-ignore: symbols and numbers only
+    this.el.setAttribute("aria-label", t("view.statusBar.todayLabel"));
   }
 
   destroy(): void {

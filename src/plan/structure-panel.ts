@@ -16,6 +16,7 @@
 
 import { App } from "obsidian";
 import { FeatureId, featureEnabled } from "../features";
+import { MessageKey, t } from "../i18n";
 import { attachHideMenu } from "../lib/hide-menu";
 import { preserveUi } from "../lib/scroll-preserve";
 import { renderHint } from "../help/hint";
@@ -33,12 +34,32 @@ export type StructureView = "tree" | "board" | "grid";
  * `feature` (when set) gates the view behind an optional-feature toggle — Tree is
  * the always-on core view.
  */
-const VIEWS: { id: StructureView; label: string; icon: string; hint: string; feature?: FeatureId }[] =
-  [
-    { id: "tree", label: "Tree", icon: "list-tree", hint: "plan/outline" },
-    { id: "board", label: "Board", icon: "square-kanban", hint: "plan/board", feature: "board" },
-    { id: "grid", label: "Grid", icon: "grid-3x3", hint: "plan/grid", feature: "plot-grid" },
-  ];
+const VIEWS: {
+  id: StructureView;
+  labelKey: MessageKey;
+  ariaKey: MessageKey;
+  icon: string;
+  hint: string;
+  feature?: FeatureId;
+}[] = [
+  { id: "tree", labelKey: "structure.view.tree", ariaKey: "structure.view.tree.aria", icon: "list-tree", hint: "plan/outline" },
+  {
+    id: "board",
+    labelKey: "structure.view.board",
+    ariaKey: "structure.view.board.aria",
+    icon: "square-kanban",
+    hint: "plan/board",
+    feature: "board",
+  },
+  {
+    id: "grid",
+    labelKey: "structure.view.grid",
+    ariaKey: "structure.view.grid.aria",
+    icon: "grid-3x3",
+    hint: "plan/grid",
+    feature: "plot-grid",
+  },
+];
 
 export class StructurePanel {
   private plugin: InkswellPlugin;
@@ -99,12 +120,12 @@ export class StructurePanel {
       const bar = container.createDiv({ cls: "inkswell-structure__bar" });
       const seg = bar.createDiv({ cls: "inkswell-viewswitch" });
       for (const v of views) {
-        const btn = seg.createEl("button", { cls: "inkswell-viewswitch__btn", text: v.label });
+        const btn = seg.createEl("button", { cls: "inkswell-viewswitch__btn", text: t(v.labelKey) });
         btn.toggleClass("is-active", v.id === this.view);
-        btn.setAttribute("aria-label", `${v.label} view`);
+        btn.setAttribute("aria-label", t(v.ariaKey));
         btn.onclick = () => this.setView(v.id);
         // Right-click an optional view to hide it (turn back on under Customize → Features).
-        if (v.feature) attachHideMenu(btn, this.plugin, v.feature, `${v.label} view`);
+        if (v.feature) attachHideMenu(btn, this.plugin, v.feature, t(v.ariaKey));
       }
     }
 

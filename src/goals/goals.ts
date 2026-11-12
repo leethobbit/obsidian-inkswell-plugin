@@ -4,6 +4,7 @@
  * these return.
  */
 
+import { MessageKey, t } from "../i18n";
 import { dateKey } from "../tracking/types";
 
 /** First day of the week for week-scoped math (user setting; "monday" = ISO). */
@@ -246,22 +247,39 @@ export function suggestedDeadlineWeeks(target: number): number {
 export interface DraftZone {
   /** Lower-bound percent through the draft this zone begins at. */
   pct: number;
-  label: string;
-  note: string;
+  labelKey: MessageKey;
+  noteKey: MessageKey;
+  /** Translated when read (never at import: the catalog is picked in onload). */
+  readonly label: string;
+  readonly note: string;
+}
+
+function zone(pct: number, labelKey: MessageKey, noteKey: MessageKey): DraftZone {
+  return {
+    pct,
+    labelKey,
+    noteKey,
+    get label() {
+      return t(labelKey);
+    },
+    get note() {
+      return t(noteKey);
+    },
+  };
 }
 
 export const DRAFT_ZONES: DraftZone[] = [
-  { pct: 0, label: "Starting line", note: "Name why this story excites you, then write fast and forward." },
-  { pct: 10, label: "Catalyst check", note: "Has the inciting incident hit yet? If not, push it now." },
-  { pct: 20, label: "Into Act 2", note: "The hero commits. Keep momentum — don't restart." },
-  { pct: 30, label: "The Muddle", note: "The hardest stretch. Doubt is normal; keep drafting forward." },
-  { pct: 40, label: "Shiny new idea", note: "Tempted by a new project? Log it and finish this draft." },
-  { pct: 50, label: "Halfway", note: "Reconnect with why you started. Push through the midpoint." },
-  { pct: 60, label: "Discipline over inspiration", note: "Write regardless of how it feels today." },
-  { pct: 70, label: "Victory in sight", note: "30% to go. Resist revising — capture ideas and move on." },
-  { pct: 80, label: "Home stretch", note: "Start aiming at the ending. Save revision ideas as fuel." },
-  { pct: 90, label: "Winding down", note: "Stop chasing perfection — there's just where you stop." },
-  { pct: 100, label: "Draft complete", note: "Celebrate. Don't judge it yet — that's Future You's job." },
+  zone(0, "goal.zone.start.label", "goal.zone.start.note"),
+  zone(10, "goal.zone.catalyst.label", "goal.zone.catalyst.note"),
+  zone(20, "goal.zone.act2.label", "goal.zone.act2.note"),
+  zone(30, "goal.zone.muddle.label", "goal.zone.muddle.note"),
+  zone(40, "goal.zone.shiny.label", "goal.zone.shiny.note"),
+  zone(50, "goal.zone.halfway.label", "goal.zone.halfway.note"),
+  zone(60, "goal.zone.discipline.label", "goal.zone.discipline.note"),
+  zone(70, "goal.zone.victory.label", "goal.zone.victory.note"),
+  zone(80, "goal.zone.homeStretch.label", "goal.zone.homeStretch.note"),
+  zone(90, "goal.zone.windingDown.label", "goal.zone.windingDown.note"),
+  zone(100, "goal.zone.complete.label", "goal.zone.complete.note"),
 ];
 
 /** The draft-progress zone for the current word count against a target. */

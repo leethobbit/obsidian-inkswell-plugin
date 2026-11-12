@@ -10,13 +10,21 @@
  */
 
 import { App, setIcon } from "obsidian";
+import { t } from "../i18n";
 import { isDateKey, normalizeDate } from "../lib/date-key";
 import { tagField } from "../lib/focus-preserve";
 import { autosizeTextarea } from "../lib/form-fields";
 import { attachOpenInTab } from "../lib/row-menu";
 import { promptText } from "../scenes/scene-actions";
 import { linkAlias, linkTarget, toLink } from "./codex";
-import { ProfileField, ProfileValue, linkAccepts, linkCategories } from "./profile-schema";
+import {
+  ProfileField,
+  ProfileValue,
+  fieldLabel,
+  fieldPlaceholder,
+  linkAccepts,
+  linkCategories,
+} from "./profile-schema";
 
 export interface ProfileFieldDeps {
   app: App;
@@ -50,13 +58,14 @@ export interface ProfileFieldDeps {
 export function renderProfileFieldControl(control: HTMLElement, deps: ProfileFieldDeps): void {
   const { field, value, tagPrefix } = deps;
   const tag = `${tagPrefix}:${field.key}`;
+  const placeholder = fieldPlaceholder(field);
 
   if (field.type === "text" || field.type === "image") {
-    const t = control.createEl("input", { type: "text" });
-    tagField(t, tag);
-    t.value = typeof value === "string" ? value : "";
-    if (field.placeholder) t.placeholder = field.placeholder;
-    t.onchange = () => deps.saveValue(t.value, false);
+    const input = control.createEl("input", { type: "text" });
+    tagField(input, tag);
+    input.value = typeof value === "string" ? value : "";
+    if (placeholder) input.placeholder = placeholder;
+    input.onchange = () => deps.saveValue(input.value, false);
     return;
   }
   if (field.type === "textarea") {
@@ -64,7 +73,7 @@ export function renderProfileFieldControl(control: HTMLElement, deps: ProfileFie
     tagField(ta, tag);
     ta.rows = 4; // prose fields (motivation, arc, voice…) — autosize grows from here
     ta.value = typeof value === "string" ? value : "";
-    if (field.placeholder) ta.placeholder = field.placeholder;
+    if (placeholder) ta.placeholder = placeholder;
     ta.onchange = () => deps.saveValue(ta.value, false);
     autosizeTextarea(ta);
     return;
@@ -73,15 +82,15 @@ export function renderProfileFieldControl(control: HTMLElement, deps: ProfileFie
     // Saved as a JS number → a bare YAML number, so Bases/Dataview can sort and
     // sum it. A non-numeric stored value shows empty and is only overwritten
     // when the user actually edits the field (onchange).
-    const t = control.createEl("input", {
+    const input = control.createEl("input", {
       type: "number",
       attr: { step: "any", inputmode: "decimal" },
     });
-    tagField(t, tag);
-    t.value = typeof value === "number" ? String(value) : "";
-    if (field.placeholder) t.placeholder = field.placeholder;
-    t.onchange = () => {
-      const s = t.value.trim();
+    tagField(input, tag);
+    input.value = typeof value === "number" ? String(value) : "";
+    if (placeholder) input.placeholder = placeholder;
+    input.onchange = () => {
+      const s = input.value.trim();
       const n = Number(s);
       deps.saveValue(s !== "" && Number.isFinite(n) ? n : "", false);
     };
@@ -98,7 +107,7 @@ export function renderProfileFieldControl(control: HTMLElement, deps: ProfileFie
     const addRow = control.createDiv({ cls: "inkswell-inspector__addrow" });
     const input = addRow.createEl("input", { type: "text" });
     tagField(input, `${tag}-add`);
-    input.placeholder = field.placeholder ?? "Add…";
+    input.placeholder = placeholder ?? t("codex.control.listPlaceholder");
     const commit = () => {
       const v = input.value.trim();
       // Clear before the refresh so the focus-preserving rebuild hands back an
@@ -112,7 +121,7 @@ export function renderProfileFieldControl(control: HTMLElement, deps: ProfileFie
     };
     // Android IMEs often don't deliver an Enter keydown at all (key
     // "Unidentified"/229 while composing) — the button always works.
-    const addBtn = addRow.createEl("button", { text: "Add" });
+    const addBtn = addRow.createEl("button", { text: t("common.add") });
     addBtn.onclick = commit;
     return;
   }
@@ -126,10 +135,10 @@ export function renderProfileFieldControl(control: HTMLElement, deps: ProfileFie
   }
   // A type this build doesn't know (a newer device's spec): plain text keeps
   // the value visible and editable, never a link picker that would rewrite it.
-  const t = control.createEl("input", { type: "text" });
-  tagField(t, tag);
-  t.value = typeof value === "string" || typeof value === "number" ? String(value) : "";
-  t.onchange = () => deps.saveValue(t.value, false);
+  const input = control.createEl("input", { type: "text" });
+  tagField(input, tag);
+  input.value = typeof value === "string" || typeof value === "number" ? String(value) : "";
+  input.onchange = () => deps.saveValue(input.value, false);
 }
 
 /**
@@ -148,13 +157,13 @@ export function renderProfileFieldControl(control: HTMLElement, deps: ProfileFie
 function renderDateControl(control: HTMLElement, deps: ProfileFieldDeps, tag: string): void {
   const stored = typeof deps.value === "string" ? deps.value.trim() : "";
   if (stored && !isDateKey(stored)) {
-    const t = control.createEl("input", { type: "text" });
-    tagField(t, tag);
-    t.value = stored;
-    t.onchange = () => deps.saveValue(normalizeDate(t.value) ?? t.value, false);
+    const input = control.createEl("input", { type: "text" });
+    tagField(input, tag);
+    input.value = stored;
+    input.onchange = () => deps.saveValue(normalizeDate(input.value) ?? input.value, false);
     control.createDiv({
       cls: "inkswell-stats__muted inkswell-inspector__hint",
-      text: "Not a calendar date. Clear it to use the date picker.",
+      text: t("codex.control.notADate"),
     });
     return;
   }
@@ -190,7 +199,7 @@ function renderLinkControl(control: HTMLElement, deps: ProfileFieldDeps): void {
     const row = deps.openLink ? control.createDiv({ cls: "inkswell-codex__linkrow" }) : control;
     const sel = row.createEl("select", { cls: "dropdown" });
     tagField(sel, tag);
-    sel.createEl("option", { text: "— none —", value: "" });
+    sel.createEl("option", { text: t("codex.control.none"), value: "" });
     if (cats.length > 1) {
       // Several types (a place inside a World or a Location): one group each.
       for (const cat of cats) {
@@ -210,7 +219,7 @@ function renderLinkControl(control: HTMLElement, deps: ProfileFieldDeps): void {
       const target = sel.value;
       const go = row.createEl("button", { cls: "clickable-icon inkswell-codex__linkopen" });
       setIcon(go, "arrow-up-right");
-      go.setAttribute("aria-label", `Open ${target}`);
+      go.setAttribute("aria-label", t("codex.control.openLink", { name: target }));
       go.onclick = () => openLink(target, false);
       attachOpenInTab(go, () => openLink(target, true));
     }
@@ -228,7 +237,7 @@ function renderLinkControl(control: HTMLElement, deps: ProfileFieldDeps): void {
       name.addClass("is-followable");
       name.setAttribute("role", "link");
       name.tabIndex = 0;
-      name.setAttribute("aria-label", `Open ${target}`);
+      name.setAttribute("aria-label", t("codex.control.openLink", { name: target }));
       name.onclick = () => openLink(target, false);
       name.onkeydown = (e) => {
         if (e.key === "Enter") openLink(target, false);
@@ -242,17 +251,20 @@ function renderLinkControl(control: HTMLElement, deps: ProfileFieldDeps): void {
       const alias = linkAlias(link);
       const lab = chip.createSpan({
         cls: "inkswell-codex__linklabel",
-        text: alias ? `· ${alias}` : "+ label",
+        text: alias ? `· ${alias}` : t("codex.control.labelAdd"),
       });
       if (!alias) lab.addClass("is-empty");
-      lab.setAttribute("aria-label", alias ? `Change the “${alias}” label` : "Add a label");
+      lab.setAttribute(
+        "aria-label",
+        alias ? t("codex.control.labelChange", { label: alias }) : t("codex.control.labelAddHint")
+      );
       lab.onclick = () => {
         void (async () => {
           const v = await promptText(deps.app, {
-            title: `Relationship to ${target}`,
+            title: t("codex.control.labelPrompt", { name: target }),
             value: alias ?? "",
             multiline: false,
-            cta: "Save",
+            cta: t("common.save"),
           });
           if (v === null) return; // cancelled; "" clears the label
           deps.updateList((cur) => cur.map((c) => (c === link ? toLink(target, v) : c)));
@@ -266,7 +278,8 @@ function renderLinkControl(control: HTMLElement, deps: ProfileFieldDeps): void {
   if (remaining.length > 0) {
     const add = control.createEl("select", { cls: "dropdown" });
     tagField(add, `${tag}-add`);
-    add.createEl("option", { text: `+ add ${field.label.toLowerCase()}`, value: "" });
+    // Lowercased inside the phrase: an English-only trick (known i18n limitation).
+    add.createEl("option", { text: t("codex.control.addLink", { field: fieldLabel(field).toLowerCase() }), value: "" });
     for (const c of remaining) add.createEl("option", { text: c.name, value: c.name });
     add.value = "";
     add.onchange = () => {
@@ -275,7 +288,15 @@ function renderLinkControl(control: HTMLElement, deps: ProfileFieldDeps): void {
       deps.updateList((cur) => (cur.some((l) => linkTarget(l) === name) ? cur : [...cur, toLink(name)]));
     };
   } else if (candidates.length === 0) {
-    const cat = cats.length > 0 ? cats.map((c) => deps.typeLabel(c).toLowerCase()).join(" or ") : "entity";
-    control.createSpan({ cls: "inkswell-stats__muted", text: `No ${cat} entries in codex.` });
+    // Type names lowercased inside the sentence: English-only (known i18n limitation).
+    const text =
+      cats.length > 0
+        ? t("codex.control.noEntries", {
+            types: cats
+              .map((c) => deps.typeLabel(c).toLowerCase())
+              .reduce((first, second) => t("codex.control.typeOr", { first, second })),
+          })
+        : t("codex.control.noEntriesAny");
+    control.createSpan({ cls: "inkswell-stats__muted", text });
   }
 }

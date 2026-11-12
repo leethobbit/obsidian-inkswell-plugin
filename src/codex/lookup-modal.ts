@@ -8,7 +8,7 @@ import { App, SuggestModal } from "obsidian";
 import type InkswellPlugin from "../../main";
 import { t } from "../i18n";
 import { codexSearchMatch } from "./codex-list";
-import { CodexEntity, categoryLabel } from "./types";
+import { CodexEntity, categoryDisplayName } from "./types";
 
 export class CodexLookupModal extends SuggestModal<CodexEntity> {
   constructor(
@@ -35,7 +35,7 @@ export class CodexLookupModal extends SuggestModal<CodexEntity> {
     el.createDiv({ text: entity.name });
     el.createDiv({
       cls: "inkswell-stats__muted",
-      text: categoryLabel(entity.category, s.customCategories, s.categoryOverrides),
+      text: categoryDisplayName(entity.category, s.customCategories, s.categoryOverrides),
     });
   }
 

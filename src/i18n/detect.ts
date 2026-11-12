@@ -20,7 +20,13 @@ export function appLanguage(): string {
   return obsidian.moment.locale().toLowerCase();
 }
 
-/** Resolve and apply the UI locale. Call once, early in `onload`. */
-export function initLocale(): string {
+/**
+ * Resolve and apply the UI locale. Call early in `onload` (before any command
+ * is registered), and again when Settings → Interface language changes.
+ * `preference` is that setting: "auto" (or empty) follows Obsidian's language,
+ * using reviewed catalogs only; any other code is the writer's explicit choice.
+ */
+export function initLocale(preference?: string): string {
+  if (preference && preference !== "auto") return setLocale(preference, { includeUnreviewed: true });
   return setLocale(appLanguage());
 }

@@ -9,6 +9,7 @@
  * `draftTitle` pair. Pure (no Obsidian deps) so it's unit-testable.
  */
 
+import { t } from "../i18n";
 import { Project } from "./types";
 
 export interface Story {
@@ -41,7 +42,7 @@ export function groupIntoStories(projects: Project[]): Story[] {
 export function draftLabel(project: Project, indexInStory: number): string {
   const dt = project.draft.draftTitle;
   if (dt && dt.trim()) return dt.trim();
-  return `Draft ${indexInStory + 1}`;
+  return t("project.draft.positional", { number: indexInStory + 1 });
 }
 
 /** The story owning the active draft (by index path), or null if none matches. */

@@ -11,13 +11,12 @@
  */
 
 import { App, Notice } from "obsidian";
+import { t, tp } from "../i18n";
 import { FormModal } from "../lib/form-modal";
 import { ScopeBook, applyBookPicks, namesBook } from "./codex-scope";
 import { EntityScope } from "./types";
 
 type Kind = "global" | "series" | "books";
-
-const NEED_A_BOOK = "Pick at least one book, or make the entry global.";
 
 /** What Save hands back: a whole new scope, or — when books stay books — the picks. */
 export type ScopeEdit =
@@ -81,10 +80,10 @@ export class ScopeModal extends FormModal {
 
   protected renderForm(contentEl: HTMLElement): void {
     contentEl.addClass("inkswell-scope-modal");
-    contentEl.createEl("h3", { text: `Scope: ${this.opts.entityName}` });
+    contentEl.createEl("h3", { text: t("codex.scope.modal.title", { name: this.opts.entityName }) });
     contentEl.createEl("p", {
       cls: "inkswell-stats__muted",
-      text: "Where this entry shows up in the Codex, its detection in your scenes, and the story bible.",
+      text: t("codex.scope.modal.intro"),
     });
     this.kindsEl = contentEl.createDiv({ cls: "inkswell-viewswitch inkswell-scope__kinds" });
     this.body = contentEl.createDiv({ cls: "inkswell-scope-modal__body" });
@@ -108,14 +107,14 @@ export class ScopeModal extends FormModal {
         this.renderBody();
       };
     };
-    btn("Global", "global", "Visible from every project");
+    btn(t("codex.scope.kind.global"), "global", t("codex.scope.kind.global.hint"));
     // Series/Books only when there's something to point at — or the entry
     // already does (a stale tag still needs a home so it can be changed).
     if (this.opts.series.length > 0 || this.initialKind === "series") {
-      btn("Series", "series", "Shared across every book in a series");
+      btn(t("codex.scope.kind.series"), "series", t("codex.scope.kind.series.hint"));
     }
     if (this.opts.books.length > 0 || this.initialKind === "books") {
-      btn("Books", "books", "Visible only from the books you pick");
+      btn(t("codex.scope.kind.books"), "books", t("codex.scope.kind.books.hint"));
     }
   }
 
@@ -124,7 +123,7 @@ export class ScopeModal extends FormModal {
     if (!body) return;
     body.empty();
     if (this.kind === "global") {
-      body.createDiv({ cls: "inkswell-stats__muted", text: "Visible from every project." });
+      body.createDiv({ cls: "inkswell-stats__muted", text: t("codex.scope.globalBody") });
       return;
     }
     const list = body.createDiv({ cls: "inkswell-scope-modal__list" });
@@ -143,7 +142,7 @@ export class ScopeModal extends FormModal {
         row.createSpan({ text: s.name });
         row.createSpan({
           cls: "inkswell-stats__muted",
-          text: s.books < 0 ? "not found" : `${s.books} book${s.books === 1 ? "" : "s"}`,
+          text: s.books < 0 ? t("codex.scope.seriesNotFound") : tp("codex.scope.bookCount", s.books),
         });
       }
       return;
@@ -155,7 +154,7 @@ export class ScopeModal extends FormModal {
     }));
     const grouped = new Set(groups.flatMap((g) => g.books));
     const rest = this.opts.books.filter((b) => !grouped.has(b));
-    if (rest.length > 0) groups.push({ title: groups.length > 0 ? "Standalone" : null, books: rest });
+    if (rest.length > 0) groups.push({ title: groups.length > 0 ? t("codex.scope.standalone") : null, books: rest });
     for (const g of groups) {
       if (g.books.length === 0) continue;
       if (g.title) list.createDiv({ cls: "inkswell-scope-modal__group", text: g.title });
@@ -168,7 +167,7 @@ export class ScopeModal extends FormModal {
     }
     const stale = this.initialList.filter((v) => this.isStale(v));
     if (stale.length > 0) {
-      list.createDiv({ cls: "inkswell-scope-modal__group", text: "Not found" });
+      list.createDiv({ cls: "inkswell-scope-modal__group", text: t("codex.scope.notFoundGroup") });
       for (const v of stale) {
         this.checkRow(list, v, this.unknown.has(v), (on) => {
           if (on) this.unknown.add(v);
@@ -193,7 +192,7 @@ export class ScopeModal extends FormModal {
     }
     if (this.kind === "series") {
       if (!this.seriesName) {
-        new Notice("Pick a series.");
+        new Notice(t("codex.scope.pickSeries"));
         return false;
       }
       this.opts.onSave({ kind: "replace", scope: { series: this.seriesName } });
@@ -202,7 +201,7 @@ export class ScopeModal extends FormModal {
     const picked = this.opts.books.filter((b) => this.on.has(b));
     if (this.initialKind !== "books") {
       if (picked.length === 0) {
-        new Notice(NEED_A_BOOK);
+        new Notice(t("codex.scope.needBook"));
         return false;
       }
       this.opts.onSave({ kind: "replace", scope: { projects: picked.map((b) => b.value) } });
@@ -216,7 +215,7 @@ export class ScopeModal extends FormModal {
     };
     const preview = applyBookPicks(this.initialList, this.opts.books, picks);
     if (preview.length === 0) {
-      new Notice(NEED_A_BOOK);
+      new Notice(t("codex.scope.needBook"));
       return false;
     }
     this.opts.onSave({ kind: "books", ...picks, preview });

@@ -31,6 +31,7 @@
  */
 
 import { App, Notice, TFile, debounce, Debouncer } from "obsidian";
+import { t } from "../i18n";
 import { splitFrontmatter } from "../lib/frontmatter";
 import { writeConflictBackup } from "../lib/conflict-backup";
 import { Eol, detectEol, sameText, withEol } from "../lib/line-endings";
@@ -307,9 +308,7 @@ export class SceneSession {
   /** Honest failure messaging: name where the text still lives. */
   private async reportSaveFailure(body: string, ctx: SaveContext): Promise<void> {
     if (ctx === "editor-alive") {
-      new Notice(
-        `Inkswell couldn't save "${this.file.basename}". Your text is still in the editor — copy it out if this keeps happening.`
-      );
+      new Notice(t("write.save.failedInEditor", { name: this.file.basename }));
       return;
     }
     // The editor is going away — the old "still in the editor" claim would be a
@@ -317,8 +316,8 @@ export class SceneSession {
     const path = await this.backUpUnsaved(body);
     new Notice(
       path
-        ? `Inkswell couldn't save "${this.file.basename}" — your unsaved text was backed up to "${path}".`
-        : `Inkswell couldn't save "${this.file.basename}" or back it up — the unsaved text was printed to the developer console (Ctrl/Cmd-Shift-I).`
+        ? t("write.save.failedBackedUp", { name: this.file.basename, path })
+        : t("write.save.failedNoBackup", { name: this.file.basename })
     );
   }
 
@@ -341,8 +340,8 @@ export class SceneSession {
     if (path) this.rescued = body;
     new Notice(
       path
-        ? `"${this.file.basename}" changed on disk while you were editing, so Inkswell kept the disk version. Your version was saved to "${path}".`
-        : `"${this.file.basename}" changed on disk while you were editing, and Inkswell couldn't back up your version — it was printed to the developer console (Ctrl/Cmd-Shift-I).`
+        ? t("write.save.conflictBackedUp", { name: this.file.basename, path })
+        : t("write.save.conflictNoBackup", { name: this.file.basename })
     );
   }
 

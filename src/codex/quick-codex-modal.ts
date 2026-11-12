@@ -6,9 +6,10 @@
  */
 
 import { App, Notice, Setting } from "obsidian";
+import { t } from "../i18n";
 import { FormModal } from "../lib/form-modal";
 import { QuickCodexSeed, findExistingEntity, shouldOfferAlias } from "./quick-codex";
-import { CategoryDef, CodexEntity } from "./types";
+import { CategoryDef, CodexEntity, categoryDisplayLabel } from "./types";
 
 export interface QuickCodexResult {
   name: string;
@@ -40,7 +41,7 @@ export class QuickCodexModal extends FormModal {
     private opts: QuickCodexModalOptions
   ) {
     super(app);
-    this.cta = "Create";
+    this.cta = t("common.create");
     this.name = opts.seed?.name ?? "";
     this.categoryId =
       opts.categories.find((c) => c.id === opts.defaultCategoryId)?.id ??
@@ -49,13 +50,13 @@ export class QuickCodexModal extends FormModal {
   }
 
   protected renderForm(contentEl: HTMLElement): void {
-    contentEl.createEl("h3", { text: "New Codex entry" });
+    contentEl.createEl("h3", { text: t("codex.quick.title") });
 
     new Setting(contentEl)
-      .setName("Name")
-      .setDesc("Becomes the note's file name; the link is inserted where the text was.")
-      .addText((t) => {
-        t.setPlaceholder("Beatrice")
+      .setName(t("codex.type.name"))
+      .setDesc(t("codex.quick.name.desc"))
+      .addText((text) => {
+        text.setPlaceholder(t("codex.quick.name.placeholder"))
           .setValue(this.name)
           .onChange((v) => {
             this.name = v;
@@ -64,9 +65,9 @@ export class QuickCodexModal extends FormModal {
       });
 
     new Setting(contentEl)
-      .setName("Type")
+      .setName(t("codex.quick.type"))
       .addDropdown((d) => {
-        for (const c of this.opts.categories) d.addOption(c.id, c.label);
+        for (const c of this.opts.categories) d.addOption(c.id, categoryDisplayLabel(c));
         d.setValue(this.categoryId).onChange((v) => {
           this.categoryId = v;
         });
@@ -74,9 +75,9 @@ export class QuickCodexModal extends FormModal {
 
     const core = this.opts.seed?.core.split(/\r?\n/)[0].trim() ?? "";
     this.aliasSetting = new Setting(contentEl)
-      .setName(`Add “${core}” as an alias`)
-      .setDesc("So the Codex still recognises the wording you used in the scene.")
-      .addToggle((t) => t.setValue(this.addAlias).onChange((v) => (this.addAlias = v)));
+      .setName(t("codex.quick.alias", { text: core }))
+      .setDesc(t("codex.quick.alias.desc"))
+      .addToggle((toggle) => toggle.setValue(this.addAlias).onChange((v) => (this.addAlias = v)));
     this.aliasSetting.settingEl.addClass("inkswell-quickcodex__alias");
 
     this.hintEl = contentEl.createDiv({ cls: "setting-item-description" });
@@ -90,26 +91,29 @@ export class QuickCodexModal extends FormModal {
     this.aliasSetting?.settingEl.toggleClass("is-hidden", !offerAlias);
 
     const existing = findExistingEntity(this.opts.entities, this.name);
-    const label = (id: string) => this.opts.categories.find((c) => c.id === id)?.label ?? id;
+    const label = (id: string) => {
+      const def = this.opts.categories.find((c) => c.id === id);
+      return def ? categoryDisplayLabel(def) : id;
+    };
     if (this.hintEl) {
       this.hintEl.setText(
         existing
-          ? `Matches the existing entry “${existing.name}” (${label(existing.category)}) — the link will point there.`
+          ? t("codex.quick.matches", { name: existing.name, type: label(existing.category) })
           : this.opts.scopeHint
       );
     }
     const cta = this.contentEl.querySelector<HTMLButtonElement>("button.mod-cta");
-    if (cta) cta.setText(existing ? "Link" : "Create");
+    if (cta) cta.setText(existing ? t("codex.quick.link") : t("common.create"));
   }
 
   protected async submit(): Promise<boolean> {
     const name = this.name.trim();
     if (!name) {
-      new Notice("Name is required.");
+      new Notice(t("codex.nameRequired"));
       return false;
     }
     if (!this.categoryId) {
-      new Notice("Choose a Codex type.");
+      new Notice(t("codex.quick.chooseType"));
       return false;
     }
     const seed = this.opts.seed;

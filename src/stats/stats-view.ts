@@ -37,17 +37,28 @@ import { SCENE_STATUSES, readSceneMeta, statusLabel, visibleStatuses } from "../
 import { sprintSeconds, sprintStats, sprintWpm } from "../sprints/sprint-stats";
 import { WritingTracker } from "../tracking/writing-tracker";
 import { dateKey, projectedDaily } from "../tracking/types";
+import { MessageKey, formatDate, formatNumber, t, tp } from "../i18n";
+import { fillTemplate } from "../i18n/dom";
 import type InkswellPlugin from "../../main";
 
 const HEAT_WEEKS = 26;
 const PROJECTION_WINDOW = 14;
 
-const RANGES: { label: string; days: number | null }[] = [
-  { label: "7d", days: 7 },
-  { label: "30d", days: 30 },
-  { label: "90d", days: 90 },
-  { label: "All", days: null },
+/** `tallyBy`'s bucket for scenes with no value: a data key, translated only when shown. */
+const NONE_KEY = "None";
+
+const RANGES: { labelKey: MessageKey; days: number | null }[] = [
+  { labelKey: "stats.range.days7", days: 7 },
+  { labelKey: "stats.range.days30", days: 30 },
+  { labelKey: "stats.range.days90", days: 90 },
+  { labelKey: "stats.range.all", days: null },
 ];
+
+const PACE_KEYS: Record<"ahead" | "on-track" | "behind", MessageKey> = {
+  ahead: "stats.targets.pace.ahead",
+  "on-track": "stats.targets.pace.onTrack",
+  behind: "stats.targets.pace.behind",
+};
 
 export class StatsPanel {
   private app: App;
@@ -93,7 +104,7 @@ export class StatsPanel {
     this.renderDrafts(container);
 
     // Activity: a full-width card on top (its own block, not in the card grid).
-    this.section(container, "activity", "Activity", (body) => {
+    this.section(container, "activity", t("stats.section.activity"), (body) => {
       const cols = body.createDiv({ cls: "inkswell-activity" });
       const chartCol = cols.createDiv({ cls: "inkswell-activity__chart" });
       this.renderHistory(chartCol);
@@ -101,7 +112,7 @@ export class StatsPanel {
       const heatCol = cols.createDiv({ cls: "inkswell-activity__heat" });
       heatCol.createDiv({
         cls: "inkswell-stats__muted inkswell-stats__subhead",
-        text: `Activity (${HEAT_WEEKS} weeks)`,
+        text: tp("stats.activity.heatmap", HEAT_WEEKS),
       });
       this.heatmap(heatCol, daily);
 
@@ -110,8 +121,11 @@ export class StatsPanel {
       body.createDiv({
         cls: "inkswell-stats__muted",
         text: next
-          ? `Next milestone: ${next.toLocaleString()} (${(next - life.totalWords).toLocaleString()} to go)`
-          : "All milestones reached 🎉",
+          ? t("stats.activity.nextMilestone", {
+              milestone: formatNumber(next),
+              remaining: formatNumber(next - life.totalWords),
+            })
+          : t("stats.activity.allMilestones"),
       });
     });
 
@@ -125,34 +139,39 @@ export class StatsPanel {
     const showChallenge =
       !!challenge && !!progress && (progress.phase !== "ended" || showEndedResult(challenge));
     if (challenge && progress && showChallenge) {
-      this.section(grid, "challenge", "Challenge", (body) =>
+      this.section(grid, "challenge", t("stats.section.challenge"), (body) =>
         this.renderChallenge(body, challenge, progress)
       );
     }
-    this.section(grid, "targets", "Project targets", (body) => this.renderTargets(body, daily));
+    this.section(grid, "targets", t("stats.section.targets"), (body) => this.renderTargets(body, daily));
 
-    this.section(grid, "goals", "Goals", (body) => {
+    this.section(grid, "goals", t("stats.section.goals"), (body) => {
       const rings = body.createDiv({ cls: "inkswell-rings" });
-      this.ring(rings, this.tracker.todayWords(), this.plugin.todayTarget(), "Today");
-      this.ring(rings, weekToDateWords(daily, new Date(), s.weekStart), s.weeklyWordGoal, "Week");
-      this.ring(rings, monthToDateWords(daily), s.monthlyWordGoal, "Month");
+      this.ring(rings, this.tracker.todayWords(), this.plugin.todayTarget(), t("stats.goals.today"));
+      this.ring(
+        rings,
+        weekToDateWords(daily, new Date(), s.weekStart),
+        s.weeklyWordGoal,
+        t("stats.goals.week")
+      );
+      this.ring(rings, monthToDateWords(daily), s.monthlyWordGoal, t("stats.goals.month"));
 
       const met = habitDaysMet(daily, s.habitMinWords, new Date(), s.weekStart);
       body.createDiv({
         cls: "inkswell-stats__row",
-        text: `Habit: ${met} / ${s.habitDaysPerWeek} days this week (≥ ${s.habitMinWords} words/day)`,
+        text: t("stats.goals.habit", { met, days: s.habitDaysPerWeek, min: s.habitMinWords }),
       });
 
       const streak = computeStreaks(daily, s.streakThreshold);
       const life = lifetimeRecords(daily);
       body.createDiv({
         cls: "inkswell-stats__row",
-        text: `Current streak ${streak.current} · Longest ${streak.longest}`,
+        text: t("stats.goals.streak", { current: streak.current, longest: streak.longest }),
       });
 
       // Optional daily mood (1–10) — light-touch, never required.
       const moodRow = body.createDiv({ cls: "inkswell-stats__row inkswell-mood" });
-      moodRow.createSpan({ cls: "inkswell-stats__muted", text: "Mood today:" });
+      moodRow.createSpan({ cls: "inkswell-stats__muted", text: t("stats.goals.mood") });
       const todayKey = dateKey(new Date());
       const moodSel = moodRow.createEl("select", { cls: "dropdown" });
       moodSel.createEl("option", { text: "—", value: "" });
@@ -162,7 +181,7 @@ export class StatsPanel {
       if (!showChallenge) {
         const link = body.createEl("a", {
           cls: "inkswell-stats__link",
-          text: "Set up a writing challenge…",
+          text: t("stats.goals.setUpChallenge"),
           href: "#",
         });
         link.onclick = (e) => {
@@ -170,40 +189,48 @@ export class StatsPanel {
           this.plugin.openChallengeModal();
         };
       }
+      // The best day stays an ISO day key, as before (formatDate would change it).
+      const lifeVars = { words: formatNumber(life.totalWords), days: life.daysWritten };
       body.createDiv({
         cls: "inkswell-stats__muted",
-        text:
-          `Total ${life.totalWords.toLocaleString()} words · ${life.daysWritten} days written` +
-          (life.bestDay
-            ? ` · best day ${life.bestDay.words.toLocaleString()} (${life.bestDay.date})`
-            : ""),
+        text: life.bestDay
+          ? t("stats.goals.lifetimeBest", {
+              ...lifeVars,
+              best: formatNumber(life.bestDay.words),
+              date: life.bestDay.date,
+            })
+          : t("stats.goals.lifetime", lifeVars),
       });
     });
 
-    this.section(grid, "sprints", "Sprints", (body) => this.renderSprints(body));
-    this.section(grid, "structure", "Structure", (body) => this.renderStructure(body));
+    this.section(grid, "sprints", t("stats.section.sprints"), (body) => this.renderSprints(body));
+    this.section(grid, "structure", t("stats.section.structure"), (body) => this.renderStructure(body));
   }
 
   /** The challenge card: par-ticked progress, ahead/behind, today's need,
    *  click-to-copy total (for typing into an event site), Edit. */
   private renderChallenge(body: HTMLElement, ch: WritingChallenge, p: ChallengeProgress): void {
-    const n = (v: number) => v.toLocaleString();
+    const n = (v: number) => formatNumber(v);
     const head = body.createDiv({ cls: "inkswell-challenge__head" });
     head.createSpan({ cls: "inkswell-challenge__name", text: ch.name });
     head.createSpan({
       cls: "inkswell-stats__muted",
       text:
         p.phase === "upcoming"
-          ? `Starts in ${p.startsIn} day${p.startsIn === 1 ? "" : "s"}`
+          ? tp("stats.challenge.startsIn", p.startsIn)
           : p.phase === "active"
-            ? `Day ${p.dayIndex} of ${p.totalDays} · ${p.daysLeft} day${p.daysLeft === 1 ? "" : "s"} left`
-            : "Finished",
+            ? tp("stats.challenge.dayOf", p.daysLeft, { day: p.dayIndex, total: p.totalDays })
+            : t("stats.challenge.finished"),
     });
 
     if (p.phase === "upcoming") {
       body.createDiv({
         cls: "inkswell-stats__row",
-        text: `Target ${n(ch.target)} words · ≈${n(Math.ceil(ch.target / p.totalDays))}/day over ${p.totalDays} days`,
+        text: t("stats.challenge.upcomingTarget", {
+          target: n(ch.target),
+          perDay: n(Math.ceil(ch.target / p.totalDays)),
+          days: p.totalDays,
+        }),
       });
     } else {
       const bar = body.createDiv({ cls: "inkswell-progress inkswell-challenge__bar" });
@@ -212,39 +239,53 @@ export class StatsPanel {
       if (p.phase === "active") {
         const tick = bar.createDiv({ cls: "inkswell-challenge__par" });
         tick.setCssProps({ left: pct(p.par) });
-        tick.setAttribute("aria-label", `Par today: ${n(p.par)}`);
+        tick.setAttribute("aria-label", t("stats.challenge.parToday", { par: n(p.par) }));
       }
 
       const nums = body.createDiv({ cls: "inkswell-stats__row" });
       // Click the total to copy it — event sites (e.g. ProWritingAid's) have no
       // Obsidian integration, so the count gets typed in by hand every day.
-      const total = nums.createEl("button", { cls: "inkswell-challenge__total", text: n(p.written) });
-      total.setAttribute("aria-label", "Copy total");
-      total.onclick = () => {
-        void navigator.clipboard.writeText(String(p.written)).then(
-          () => new Notice(`Copied ${n(p.written)}`),
-          () => new Notice("Couldn't copy to the clipboard.")
-        );
-      };
-      nums.createSpan({
-        text: ` / ${n(ch.target)}` + (p.phase === "active" ? ` (par ${n(p.par)})` : ""),
-      });
+      fillTemplate(
+        nums,
+        p.phase === "active"
+          ? t("stats.challenge.totalPar", { target: n(ch.target), par: n(p.par) })
+          : t("stats.challenge.total", { target: n(ch.target) }),
+        {
+          total: (el) => {
+            const total = el.createEl("button", { cls: "inkswell-challenge__total", text: n(p.written) });
+            total.setAttribute("aria-label", t("stats.challenge.copyTotal"));
+            total.onclick = () => {
+              void navigator.clipboard.writeText(String(p.written)).then(
+                () => new Notice(t("stats.challenge.copied", { count: n(p.written) })),
+                () => new Notice(t("stats.challenge.copyFailed"))
+              );
+            };
+          },
+        }
+      );
 
       const status = body.createDiv({ cls: `inkswell-stats__row inkswell-challenge__status is-${p.status}` });
+      // Best days stay ISO day keys, as before (formatDate would change them).
       if (p.phase === "active") {
-        const pace =
-          p.status === "met"
-            ? "Target met 🎉"
-            : p.status === "ahead"
-              ? `Ahead by ${n(p.written - p.par)}`
-              : `Behind by ${n(p.par - p.written)}`;
+        const today = { today: n(p.today), needed: n(p.neededToday) };
         status.setText(
-          p.status === "met" ? pace : `${pace} · Today ${n(p.today)} / ${n(p.neededToday)} needed`
+          p.status === "met"
+            ? t("stats.challenge.met")
+            : p.status === "ahead"
+              ? t("stats.challenge.aheadToday", { ...today, diff: n(p.written - p.par) })
+              : t("stats.challenge.behindToday", { ...today, diff: n(p.par - p.written) })
         );
       } else {
+        const best = p.bestDay ? { best: n(p.bestDay.words), date: p.bestDay.date } : null;
+        const short = n(ch.target - p.written);
         status.setText(
-          (p.status === "met" ? "Target met 🎉" : `${n(ch.target - p.written)} short`) +
-            (p.bestDay ? ` · best day ${n(p.bestDay.words)} (${p.bestDay.date})` : "")
+          p.status === "met"
+            ? best
+              ? t("stats.challenge.metBest", best)
+              : t("stats.challenge.met")
+            : best
+              ? t("stats.challenge.shortBest", { ...best, short })
+              : t("stats.challenge.short", { short })
         );
       }
     }
@@ -253,17 +294,18 @@ export class StatsPanel {
     // (and what gets copied) would be short for a two-device writer.
     if (!this.plugin.settings.syncWritingHistory) {
       const warn = body.createDiv({ cls: "inkswell-stats__muted inkswell-challenge__device" });
-      warn.createSpan({
-        text: "Counting this device only — turn on Sync writing history to include your other devices. ",
+      fillTemplate(warn, t("stats.challenge.deviceOnly"), {
+        link: (el) => {
+          const on = el.createEl("a", { text: t("stats.challenge.deviceOnlyLink"), href: "#" });
+          on.onclick = (e) => {
+            e.preventDefault();
+            void this.plugin.setSyncWritingHistory(true);
+          };
+        },
       });
-      const on = warn.createEl("a", { text: "Turn it on", href: "#" });
-      on.onclick = (e) => {
-        e.preventDefault();
-        void this.plugin.setSyncWritingHistory(true);
-      };
     }
 
-    const edit = body.createEl("button", { cls: "inkswell-challenge__edit", text: "Edit" });
+    const edit = body.createEl("button", { cls: "inkswell-challenge__edit", text: t("common.edit") });
     edit.onclick = () => this.plugin.openChallengeModal();
   }
 
@@ -297,19 +339,19 @@ export class StatsPanel {
     const project = resolveActive(projects, this.plugin.activeProject.get());
 
     const row = parent.createDiv({ cls: "inkswell-stats__overview" });
-    const words = this.card(row, "type", "…", "Words");
-    this.card(row, "file-text", project ? `${project.scenes.length}` : "—", "Scenes");
-    const read = this.card(row, "book-open", "…", "Read time");
-    this.card(row, "pencil", this.tracker.todayWords().toLocaleString(), "Today");
+    const words = this.card(row, "type", "…", t("stats.card.words"));
+    this.card(row, "file-text", project ? `${project.scenes.length}` : "—", t("stats.card.scenes"));
+    const read = this.card(row, "book-open", "…", t("stats.card.readTime"));
+    this.card(row, "pencil", formatNumber(this.tracker.todayWords()), t("stats.card.today"));
 
     if (project) {
       void this.stats.projectWords(project).then((w) => {
-        words.setText(w.toLocaleString());
+        words.setText(formatNumber(w));
         read.setText(formatReadTime(w));
       });
     } else {
       words.setText("0");
-      read.setText("0m");
+      read.setText(formatReadTime(0));
     }
   }
 
@@ -338,7 +380,7 @@ export class StatsPanel {
     host.empty();
     const toggle = host.createDiv({ cls: "inkswell-stats__rangetoggle" });
     for (const r of RANGES) {
-      const b = toggle.createEl("button", { text: r.label });
+      const b = toggle.createEl("button", { text: t(r.labelKey) });
       b.toggleClass("is-active", this.chartRange === r.days);
       b.onclick = () => {
         this.chartRange = r.days;
@@ -350,17 +392,18 @@ export class StatsPanel {
     const max = Math.max(1, ...series.map((p) => p.words));
     const chart = host.createDiv({ cls: "inkswell-chart" });
     if (series.length === 0) {
-      host.createDiv({ cls: "inkswell-stats__muted", text: "No writing logged yet." });
+      host.createDiv({ cls: "inkswell-stats__muted", text: t("stats.chart.empty") });
       return;
     }
+    // Dates stay ISO day keys here, as before (formatDate would change them).
     for (const p of series) {
       const col = chart.createDiv({ cls: "inkswell-chart__col" });
       col.createDiv({ cls: "inkswell-chart__bar" }).style.height = `${(p.words / max) * 100}%`;
-      col.setAttribute("aria-label", `${p.date}: ${p.words.toLocaleString()} words`);
+      col.setAttribute("aria-label", tp("stats.chart.bar", p.words, { date: p.date }));
     }
     const cap = host.createDiv({ cls: "inkswell-stats__muted inkswell-chart__caption" });
     cap.createSpan({ text: series[0].date });
-    cap.createSpan({ text: `max ${max.toLocaleString()}/day` });
+    cap.createSpan({ text: t("stats.chart.max", { max: formatNumber(max) }) });
     cap.createSpan({ text: series[series.length - 1].date });
   }
 
@@ -371,45 +414,54 @@ export class StatsPanel {
     if (st.count === 0) {
       body.createDiv({
         cls: "inkswell-stats__muted",
-        text: "No sprints yet. Start one from Write or the command palette.",
+        text: t("stats.sprints.empty"),
       });
       return;
     }
 
     body.createDiv({
       cls: "inkswell-stats__row",
-      text: `${st.count} sprints · ${st.totalWords.toLocaleString()} words · ${Math.round(st.avgWpm)} wpm avg`,
+      text: tp("stats.sprints.summary", st.count, {
+        words: formatNumber(st.totalWords),
+        wpm: Math.round(st.avgWpm),
+      }),
     });
+    const best = { words: formatNumber(st.bestWords), wpm: Math.round(st.bestWpm) };
     body.createDiv({
       cls: "inkswell-stats__muted",
       text:
-        `Best ${st.bestWords.toLocaleString()} words · ${Math.round(st.bestWpm)} wpm peak` +
-        (st.goalCount > 0
-          ? ` · goals ${st.goalsMet}/${st.goalCount} (${Math.round(st.hitRate * 100)}%)`
-          : ""),
+        st.goalCount > 0
+          ? t("stats.sprints.bestGoals", {
+              ...best,
+              met: st.goalsMet,
+              total: st.goalCount,
+              pct: Math.round(st.hitRate * 100),
+            })
+          : t("stats.sprints.best", best),
     });
 
     const list = body.createDiv({ cls: "inkswell-sprintlist" });
     const head = list.createDiv({
       cls: "inkswell-sprint-row inkswell-sprint-row--head",
     });
-    head.createSpan({ cls: "inkswell-sprint__date", text: "Date" });
-    head.createSpan({ cls: "inkswell-sprint__num", text: "Words" });
-    head.createSpan({ cls: "inkswell-sprint__num", text: "wpm" });
-    head.createSpan({ cls: "inkswell-sprint__num", text: "Time" });
-    head.createSpan({ cls: "inkswell-sprint__goal", text: "Goal" });
+    head.createSpan({ cls: "inkswell-sprint__date", text: t("stats.sprints.col.date") });
+    head.createSpan({ cls: "inkswell-sprint__num", text: t("stats.sprints.col.words") });
+    head.createSpan({ cls: "inkswell-sprint__num", text: t("stats.sprints.col.wpm") });
+    head.createSpan({ cls: "inkswell-sprint__num", text: t("stats.sprints.col.time") });
+    head.createSpan({ cls: "inkswell-sprint__goal", text: t("stats.sprints.col.goal") });
 
     for (const r of records.slice(-8).reverse()) {
       const rowEl = list.createDiv({ cls: "inkswell-sprint-row" });
       rowEl.createSpan({
         cls: "inkswell-sprint__date",
-        text: new Date(r.start).toLocaleDateString(),
+        // `{}` = Intl's default numeric date, what toLocaleDateString() printed.
+        text: formatDate(r.start, {}),
       });
-      rowEl.createSpan({ cls: "inkswell-sprint__num", text: `${r.words.toLocaleString()}` });
+      rowEl.createSpan({ cls: "inkswell-sprint__num", text: formatNumber(r.words) });
       rowEl.createSpan({ cls: "inkswell-sprint__num", text: `${Math.round(sprintWpm(r))}` });
       rowEl.createSpan({
         cls: "inkswell-sprint__num",
-        text: `${Math.round(sprintSeconds(r) / 60)}m`,
+        text: t("stats.minutesShort", { minutes: Math.round(sprintSeconds(r) / 60) }),
       });
       // Goal cell is always rendered (blank when no goal) so columns align.
       const goal = rowEl.createSpan({ cls: "inkswell-sprint__goal" });
@@ -426,7 +478,7 @@ export class StatsPanel {
     const projects = this.store.getProjects().filter((p) => p.draft.format === "scenes");
     const project = resolveActive(projects, this.plugin.activeProject.get());
     if (!project) {
-      body.createDiv({ cls: "inkswell-stats__muted", text: "No multi-scene projects." });
+      body.createDiv({ cls: "inkswell-stats__muted", text: t("stats.structure.noProjects") });
       return;
     }
 
@@ -436,7 +488,7 @@ export class StatsPanel {
       return f instanceof TFile ? readSceneMeta(this.app, f) : ({});
     });
 
-    body.createDiv({ cls: "inkswell-stats__muted", text: "By status" });
+    body.createDiv({ cls: "inkswell-stats__muted", text: t("stats.structure.byStatus") });
     const statusOverride = this.plugin.settings.listOverrides["scene.status"];
     const statusOrder = visibleStatuses(statusOverride).map((s) => s.id);
     this.tallyBars(body, tallyBy(metas.map((m) => m.status), statusOrder), (k) =>
@@ -446,16 +498,16 @@ export class StatsPanel {
     // when no scene names a POV, so single-POV drafts see no noise.
     const povs = metas.map((m) => m.pov?.trim() || undefined);
     if (povs.some((p) => p)) {
-      body.createDiv({ cls: "inkswell-stats__muted", text: "By POV" });
+      body.createDiv({ cls: "inkswell-stats__muted", text: t("stats.structure.byPov") });
       const povTally = tallyBy(povs);
       const povOrder = povTally
-        .filter((t) => t.key !== "None")
+        .filter((tally) => tally.key !== NONE_KEY)
         .sort((a, b) => b.count - a.count)
-        .map((t) => t.key);
+        .map((tally) => tally.key);
       this.tallyBars(body, tallyBy(povs, povOrder));
     }
 
-    body.createDiv({ cls: "inkswell-stats__muted", text: "By act" });
+    body.createDiv({ cls: "inkswell-stats__muted", text: t("stats.structure.byAct") });
     // Order acts by first appearance in manuscript order (metas is in scene
     // order), matching the Board and the compile group-by-chapter step — not
     // alphabetically, which mis-sorts spelled-out acts.
@@ -463,7 +515,7 @@ export class StatsPanel {
     const actOrder = [...new Set(acts.filter((a): a is string => !!a))];
     this.tallyBars(body, tallyBy(acts, actOrder));
 
-    body.createDiv({ cls: "inkswell-stats__muted", text: "By chapter" });
+    body.createDiv({ cls: "inkswell-stats__muted", text: t("stats.structure.byChapter") });
     // One bar per chapter as it runs through the manuscript, never per chapter
     // string: two chapters may share a name (#58).
     const runs = chapterRuns(
@@ -471,7 +523,7 @@ export class StatsPanel {
       project.inkswell?.chapters
     );
     const chapterTallies = runs.runs.map((r) => ({ key: r.title, count: r.indices.length }));
-    if (runs.unassigned.length > 0) chapterTallies.push({ key: "None", count: runs.unassigned.length });
+    if (runs.unassigned.length > 0) chapterTallies.push({ key: NONE_KEY, count: runs.unassigned.length });
     this.tallyBars(body, chapterTallies);
 
     // Read-only mirror of any per-chapter word targets (managed in Plan → Structure).
@@ -489,7 +541,7 @@ export class StatsPanel {
       ...planned.map((p) => ({ cfg: p.cfg, paths: [] as Array<string | null> })),
     ].filter((r) => r.cfg?.targetWords);
     if (rows.length === 0) return;
-    body.createDiv({ cls: "inkswell-stats__muted", text: "Chapter targets" });
+    body.createDiv({ cls: "inkswell-stats__muted", text: t("stats.structure.chapterTargets") });
     for (const { cfg, paths } of rows) {
       const target = cfg?.targetWords ?? 0;
       let words = 0;
@@ -499,7 +551,7 @@ export class StatsPanel {
       this.progressBar(row, words, target);
       row.createSpan({
         cls: "inkswell-tally__count",
-        text: `${words.toLocaleString()} / ${target.toLocaleString()}`,
+        text: `${formatNumber(words)} / ${formatNumber(target)}`,
       });
     }
   }
@@ -525,20 +577,20 @@ export class StatsPanel {
       .map((d, storyIndex) => ({ d, storyIndex, t: this.createdMs(d) }))
       .sort((a, b) => a.t - b.t);
 
-    this.section(container, "drafts", "Drafts", (body) => {
+    this.section(container, "drafts", t("stats.section.drafts"), (body) => {
       body.createDiv({
         cls: "inkswell-stats__muted",
-        text: `Comparing ${story.drafts.length} drafts of "${story.title}" (Δ vs the first draft).`,
+        text: tp("stats.drafts.comparing", story.drafts.length, { title: story.title }),
       });
 
       const table = body.createDiv({ cls: "inkswell-drafttable" });
       const head = table.createDiv({ cls: "inkswell-draft-row inkswell-draft-row--head" });
-      head.createSpan({ cls: "inkswell-draft__label", text: "Draft" });
-      head.createSpan({ cls: "inkswell-draft__num", text: "Words" });
-      head.createSpan({ cls: "inkswell-draft__num", text: "Δ" });
-      head.createSpan({ cls: "inkswell-draft__num", text: "Scenes" });
-      head.createSpan({ cls: "inkswell-draft__mix", text: "Status mix" });
-      head.createSpan({ cls: "inkswell-draft__num", text: "Age" });
+      head.createSpan({ cls: "inkswell-draft__label", text: t("stats.drafts.col.draft") });
+      head.createSpan({ cls: "inkswell-draft__num", text: t("stats.drafts.col.words") });
+      head.createSpan({ cls: "inkswell-draft__num", text: "Δ" }); // i18n-ignore: symbol
+      head.createSpan({ cls: "inkswell-draft__num", text: t("stats.drafts.col.scenes") });
+      head.createSpan({ cls: "inkswell-draft__mix", text: t("stats.drafts.col.statusMix") });
+      head.createSpan({ cls: "inkswell-draft__num", text: t("stats.drafts.col.age") });
 
       const wordCells: HTMLElement[] = [];
       const deltaCells: HTMLElement[] = [];
@@ -559,14 +611,14 @@ export class StatsPanel {
       void Promise.all(ordered.map(({ d }) => this.stats.projectWords(d))).then((counts) => {
         const base = counts[0];
         counts.forEach((w, i) => {
-          wordCells[i].setText(w.toLocaleString());
+          wordCells[i].setText(formatNumber(w));
           if (i === 0) {
             deltaCells[i].setText("—");
             return;
           }
           const delta = w - base;
           deltaCells[i].setText(
-            delta === 0 ? "±0" : `${delta > 0 ? "+" : "−"}${Math.abs(delta).toLocaleString()}`
+            delta === 0 ? "±0" : `${delta > 0 ? "+" : "−"}${formatNumber(Math.abs(delta))}`
           );
           deltaCells[i].toggleClass("is-up", delta > 0);
           deltaCells[i].toggleClass("is-down", delta < 0);
@@ -578,7 +630,7 @@ export class StatsPanel {
   /** A compact stacked bar of a draft's scene statuses (revision progress at a glance). */
   private statusMix(host: HTMLElement, project: Project): void {
     if (!isMultiScene(project.draft)) {
-      host.createSpan({ cls: "inkswell-stats__muted", text: "single note" });
+      host.createSpan({ cls: "inkswell-stats__muted", text: t("stats.drafts.singleNote") });
       return;
     }
     const statuses = project.scenes.map((s) => {
@@ -593,16 +645,16 @@ export class StatsPanel {
       return;
     }
     const bar = host.createDiv({ cls: "inkswell-mixbar" });
-    for (const t of tallies) {
-      const isStatus = SCENE_STATUSES.includes(t.key as never);
+    for (const tally of tallies) {
+      const isStatus = SCENE_STATUSES.includes(tally.key as never);
       const seg = bar.createDiv({
         cls: isStatus
-          ? `inkswell-mixbar__seg inkswell-status--${t.key}`
+          ? `inkswell-mixbar__seg inkswell-status--${tally.key}`
           : "inkswell-mixbar__seg inkswell-mixbar__seg--none",
       });
-      seg.style.flexGrow = `${t.count}`;
-      const label = isStatus ? statusLabel(t.key as never, statusOverride) : t.key;
-      seg.setAttribute("aria-label", `${t.count} ${label}`);
+      seg.style.flexGrow = `${tally.count}`;
+      const label = isStatus ? statusLabel(tally.key as never, statusOverride) : displayKey(tally.key);
+      seg.setAttribute("aria-label", t("stats.drafts.mixSegment", { count: tally.count, label }));
     }
   }
 
@@ -620,11 +672,9 @@ export class StatsPanel {
     const ms = new Date(created).getTime();
     if (Number.isNaN(ms)) return "—";
     const days = Math.floor((Date.now() - ms) / 86_400_000);
-    if (days <= 0) return "today";
-    if (days === 1) return "1 day";
-    if (days < 30) return `${days} days`;
-    const months = Math.floor(days / 30);
-    return months === 1 ? "1 mo" : `${months} mo`;
+    if (days <= 0) return t("stats.drafts.age.today");
+    if (days < 30) return tp("stats.drafts.age.days", days);
+    return tp("stats.drafts.age.months", Math.floor(days / 30));
   }
 
   private renderTargets(body: HTMLElement, daily: Record<string, number>): void {
@@ -646,7 +696,7 @@ export class StatsPanel {
     if (withTargets.length === 0) {
       body.createDiv({
         cls: "inkswell-stats__muted",
-        text: "No project word targets set. Use the 'Set word target' command.",
+        text: t("stats.targets.empty"),
       });
       return;
     }
@@ -660,15 +710,20 @@ export class StatsPanel {
       void this.stats.projectWords(counted).then((words) => {
         const p = projectFinish(words, target, rate);
         this.progressBar(row, words, target);
+        const progress = { words: formatNumber(words), target: formatNumber(target) };
         if (p.done) {
-          detail.setText(`${words.toLocaleString()} / ${target.toLocaleString()} — target met 🎉`);
+          detail.setText(t("stats.targets.met", progress));
         } else {
-          const eta =
-            p.daysToFinish === null
-              ? "no recent writing"
-              : `~${p.daysToFinish} day(s) at ${Math.round(rate)}/day`;
+          const remaining = formatNumber(p.remaining);
           detail.setText(
-            `${words.toLocaleString()} / ${target.toLocaleString()} — ${p.remaining.toLocaleString()} left, ${eta}`
+            p.daysToFinish === null
+              ? t("stats.targets.noRecent", { ...progress, remaining })
+              : t("stats.targets.eta", {
+                  ...progress,
+                  remaining,
+                  days: p.daysToFinish,
+                  rate: Math.round(rate),
+                })
           );
         }
 
@@ -685,16 +740,19 @@ export class StatsPanel {
           );
           if (pace.status !== "met" && pace.status !== "no-deadline") {
             const badge = row.createDiv({ cls: `inkswell-pace inkswell-pace--${pace.status}` });
-            const label =
-              pace.status === "ahead" ? "Ahead" : pace.status === "on-track" ? "On track" : "Behind";
             badge.setText(
-              `${label} · need ~${pace.requiredRate.toLocaleString()}/writing-day · ${pace.calendarDays} days left (avg ${Math.round(rate)}/day over ${PROJECTION_WINDOW} days)`
+              t(PACE_KEYS[pace.status], {
+                rate: formatNumber(pace.requiredRate),
+                days: pace.calendarDays,
+                avg: Math.round(rate),
+                window: PROJECTION_WINDOW,
+              })
             );
           }
         } else if (!p.done) {
           row.createDiv({
             cls: "inkswell-stats__muted",
-            text: `Set a deadline (≈${suggestedDeadlineWeeks(target)} weeks suggested) for pace tracking.`,
+            text: t("stats.targets.suggestDeadline", { weeks: suggestedDeadlineWeeks(target) }),
           });
         }
 
@@ -703,7 +761,7 @@ export class StatsPanel {
         if (ms.zone) {
           row.createDiv({
             cls: "inkswell-stats__muted inkswell-stats__zone",
-            text: `${ms.pct}% · ${ms.zone.label} — ${ms.zone.note}`,
+            text: t("stats.targets.zone", { pct: ms.pct, label: ms.zone.label, note: ms.zone.note }),
           });
         }
       });
@@ -717,14 +775,14 @@ export class StatsPanel {
     tallies: { key: string; count: number }[],
     label: (k: string) => string = (k) => k
   ): void {
-    const max = Math.max(1, ...tallies.map((t) => t.count));
+    const max = Math.max(1, ...tallies.map((tally) => tally.count));
     const wrap = parent.createDiv({ cls: "inkswell-tally" });
-    for (const t of tallies) {
+    for (const tally of tallies) {
       const row = wrap.createDiv({ cls: "inkswell-tally__row" });
-      row.createSpan({ cls: "inkswell-tally__label", text: label(t.key) });
+      row.createSpan({ cls: "inkswell-tally__label", text: displayKey(label(tally.key)) });
       const bar = row.createDiv({ cls: "inkswell-tally__bar" });
-      bar.createDiv({ cls: "inkswell-tally__fill" }).style.width = `${(t.count / max) * 100}%`;
-      row.createSpan({ cls: "inkswell-tally__count", text: `${t.count}` });
+      bar.createDiv({ cls: "inkswell-tally__fill" }).style.width = `${(tally.count / max) * 100}%`;
+      row.createSpan({ cls: "inkswell-tally__count", text: `${tally.count}` });
     }
   }
 
@@ -733,11 +791,14 @@ export class StatsPanel {
     const wrap = parent.createDiv({ cls: "inkswell-ring" });
     const dial = wrap.createDiv({ cls: "inkswell-ring__dial" });
     dial.style.setProperty("--pct", `${pct}`);
-    dial.createDiv({ cls: "inkswell-ring__hole", text: `${pct}%` });
+    dial.createDiv({ cls: "inkswell-ring__hole", text: t("stats.ring.percent", { pct }) });
     wrap.createDiv({ cls: "inkswell-ring__label", text: label });
     wrap.createDiv({
       cls: "inkswell-ring__sub",
-      text: `${value.toLocaleString()}${max > 0 ? ` / ${max.toLocaleString()}` : ""}`,
+      text:
+        max > 0
+          ? t("stats.ring.ofMax", { value: formatNumber(value), max: formatNumber(max) })
+          : formatNumber(value),
     });
   }
 
@@ -755,8 +816,13 @@ export class StatsPanel {
       const colEl = grid.createDiv({ cls: "inkswell-heat__col" });
       for (const cell of col) {
         const c = colEl.createDiv({ cls: `inkswell-heat__cell lvl-${heatLevel(cell.words, max)}` });
-        c.setAttribute("aria-label", `${cell.key}: ${cell.words} words`);
+        c.setAttribute("aria-label", tp("stats.chart.bar", cell.words, { date: cell.key }));
       }
     }
   }
+}
+
+/** A tally key as shown: `tallyBy`'s none bucket reads as the translated "None". */
+function displayKey(key: string): string {
+  return key === NONE_KEY ? t("common.none") : key;
 }

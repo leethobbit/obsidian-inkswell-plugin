@@ -6,6 +6,7 @@
  */
 
 import { App, FuzzySuggestModal, TFile } from "obsidian";
+import { t } from "../i18n";
 
 export const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp", "avif", "bmp", "svg"];
 
@@ -43,7 +44,7 @@ export async function writeImageBinary(app: App, path: string, file: File): Prom
 /** Fuzzy-pick an image already in the vault. Resolves with the file, or null if dismissed. */
 export function pickVaultImage(
   app: App,
-  placeholder = "Choose an image from the vault…"
+  placeholder = t("lib.images.pickPlaceholder")
 ): Promise<TFile | null> {
   return new Promise((resolve) => {
     new ImageSuggestModal(app, placeholder, resolve).open();

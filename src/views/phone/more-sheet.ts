@@ -6,6 +6,7 @@
  * larger screen" redirect when tapped). Bar destinations aren't repeated here.
  */
 import { Menu } from "obsidian";
+import { t } from "../../i18n";
 import { Destination, InkswellMode, destinationEnabled, phoneMoreDestinations } from "../nav-model";
 
 export function openMoreSheet(
@@ -16,7 +17,7 @@ export function openMoreSheet(
   disabledFeatures: readonly string[] = []
 ): void {
   const menu = new Menu();
-  menu.addItem((i) => i.setTitle("Capture idea").setIcon("plus").onClick(() => onCapture()));
+  menu.addItem((i) => i.setTitle(t("phone.more.captureIdea")).setIcon("plus").onClick(() => onCapture()));
   const all = phoneMoreDestinations();
   const usable = all.usable.filter((d) => destinationEnabled(d, disabledFeatures));
   const redirected = all.redirected.filter((d) => destinationEnabled(d, disabledFeatures));

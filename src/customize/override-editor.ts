@@ -13,6 +13,7 @@
  */
 
 import { Menu, Notice } from "obsidian";
+import { MessageKey, t } from "../i18n";
 import {
   AddedItem,
   EffectiveGroup,
@@ -32,6 +33,24 @@ import { LIST_META, OverridableListId } from "../settings/overridable-lists";
 import * as ops from "./override-ops";
 import type { SectionCtx } from "./section";
 
+/** The item nouns an override editor can name (each maps to whole-phrase keys). */
+export type OverrideNoun = "task" | "checkpoint" | "field" | "status" | "marker" | "prompt";
+
+/** Per-noun copy: one key per phrase, never a noun spliced into a sentence. */
+const NOUN_KEYS: Record<OverrideNoun, { empty: MessageKey; add: MessageKey; title: MessageKey; aria: MessageKey }> = {
+  task: { empty: "list.task.empty", add: "list.task.add", title: "list.task.new", aria: "list.task.aria" },
+  checkpoint: {
+    empty: "list.checkpoint.empty",
+    add: "list.checkpoint.add",
+    title: "list.checkpoint.new",
+    aria: "list.checkpoint.aria",
+  },
+  field: { empty: "list.field.empty", add: "list.field.add", title: "list.field.new", aria: "list.field.aria" },
+  status: { empty: "list.status.empty", add: "list.status.add", title: "list.status.new", aria: "list.status.aria" },
+  marker: { empty: "list.marker.empty", add: "list.marker.add", title: "list.marker.new", aria: "list.marker.aria" },
+  prompt: { empty: "list.prompt.empty", add: "list.prompt.add", title: "list.prompt.new", aria: "list.prompt.aria" },
+};
+
 export interface OverrideEditorOptions<X> {
   listId: OverridableListId;
   spec: ListSpec<X>;
@@ -47,8 +66,8 @@ export interface OverrideEditorOptions<X> {
   renderExtra?(body: HTMLElement, item: EffectiveItem<X>, patch: (p: Partial<AddedItem<X>>) => void): void;
   /** Build a new custom item (the label is asked for here; return extras). Null cancels. */
   newItemExtra?(): Promise<X | null> | X | null;
-  /** Noun for buttons/prompts, e.g. "checkpoint", "prompt", "task". */
-  noun: string;
+  /** Noun for buttons/prompts, e.g. "checkpoint", "prompt", "task" (picks the copy keys). */
+  noun: OverrideNoun;
   intro?: string;
   /** Ask before removing a custom item (default: remove at once). */
   confirmRemove?(item: EffectiveItem<X>): Promise<boolean>;
@@ -105,10 +124,15 @@ export function renderOverrideEditor<X extends object>(
     for (const g of groups) renderGroup(host, ctx, opts, o, g, groups, save);
     if (opts.allowAddGroup) {
       const foot = host.createDiv({ cls: "inkswell-listedit__foot" });
-      const add = foot.createEl("button", { text: "Add group…" });
+      const add = foot.createEl("button", { text: t("list.addGroup") });
       add.type = "button";
       add.onclick = async () => {
-        const label = await promptText(ctx.app, { title: "New group", value: "", multiline: false, cta: "Add" });
+        const label = await promptText(ctx.app, {
+          title: t("list.newGroup"),
+          value: "",
+          multiline: false,
+          cta: t("common.add"),
+        });
         if (!label?.trim()) return;
         save(ops.addGroup(o, { id: newListItemId(meta.groupPrefix ?? "pg"), label: label.trim() }));
       };
@@ -138,21 +162,21 @@ function renderGroup<X extends object>(
   card.addEventListener("toggle", () => ctx.cards.setOpen(`${opts.listId}:${g.id}`, card.open));
   const summary = card.createEl("summary", { cls: "inkswell-customize__groupsum" });
   summary.createSpan({ text: g.label });
-  if (g.hidden) summary.createSpan({ cls: "inkswell-customize__badge", text: "hidden" });
-  if (g.custom) summary.createSpan({ cls: "inkswell-customize__badge", text: "yours" });
+  if (g.hidden) summary.createSpan({ cls: "inkswell-customize__badge", text: t("customize.badge.hidden") });
+  if (g.custom) summary.createSpan({ cls: "inkswell-customize__badge", text: t("customize.badge.yours") });
   const body = card.createDiv({ cls: "inkswell-customize__cardbody" });
 
   // Group header controls: rename + hide/show (+ remove for custom groups).
   const head = body.createDiv({ cls: "inkswell-customize__grouphead" });
   const name = taggedInput(head, `customize:${opts.listId}:group:${g.id}`, { type: "text" });
   name.value = g.label;
-  name.setAttribute("aria-label", "Group name");
+  name.setAttribute("aria-label", t("list.groupName"));
   name.onchange = () => save(ops.setGroupLabel(o, g.id, name.value, shipped?.label));
-  const hide = head.createEl("button", { text: g.hidden ? "Show group" : "Hide group" });
+  const hide = head.createEl("button", { text: g.hidden ? t("list.showGroup") : t("list.hideGroup") });
   hide.type = "button";
   hide.onclick = () => save(ops.setGroupHidden(o, g.id, !g.hidden));
   if (g.custom) {
-    const rm = head.createEl("button", { text: "Remove group" });
+    const rm = head.createEl("button", { text: t("list.removeGroup") });
     rm.type = "button";
     rm.onclick = () => {
       if (g.items.some((i) => !i.custom)) return; // can't happen — shipped items never sit in custom groups
@@ -181,6 +205,7 @@ function renderItems<X extends object>(
 ): void {
   const { listId, spec } = opts;
   const meta = LIST_META[listId];
+  const nounKeys = NOUN_KEYS[opts.noun];
   const prefix = `customize:${listId}${groupId ? `:${groupId}` : ""}`;
 
   renderListEditor<EffectiveItem<X>>(host, {
@@ -188,7 +213,7 @@ function renderItems<X extends object>(
     keyPrefix: prefix,
     dragType: `inkswell/customize-${listId}`,
     reorderable: spec.allowOrder,
-    emptyText: `No ${opts.noun}s here yet.`,
+    emptyText: t(nounKeys.empty),
     rowClass: (it) => `${it.hidden ? "is-hidden" : ""} ${it.custom ? "is-custom" : ""}`.trim() || undefined,
     locked: (it) => !it.custom,
     renderRow(el, it) {
@@ -200,27 +225,30 @@ function renderItems<X extends object>(
       } else {
         const label = taggedInput(el, `${prefix}:label:${it.id}`, { type: "text" });
         label.value = it.label;
-        label.setAttribute("aria-label", `${opts.noun} label`);
+        label.setAttribute("aria-label", t(nounKeys.aria));
         label.onchange = () => save(ops.setItemLabel(o, it.id, label.value, it.shippedLabel));
       }
       if (!fixed && it.shippedLabel && it.shippedLabel !== it.label) {
-        el.createSpan({ cls: "inkswell-stats__muted inkswell-customize__was", text: `was “${it.shippedLabel}”` });
+        el.createSpan({
+          cls: "inkswell-stats__muted inkswell-customize__was",
+          text: t("list.wasLabel", { label: it.shippedLabel }),
+        });
       }
-      if (it.custom) el.createSpan({ cls: "inkswell-customize__badge", text: "yours" });
-      if (it.hidden) el.createSpan({ cls: "inkswell-customize__badge", text: "hidden" });
+      if (it.custom) el.createSpan({ cls: "inkswell-customize__badge", text: t("customize.badge.yours") });
+      if (it.hidden) el.createSpan({ cls: "inkswell-customize__badge", text: t("customize.badge.hidden") });
       opts.renderExtra?.(el, it, (p) => save(ops.patchItem(o, it.id, p)));
     },
     extendMenu(menu: Menu, it) {
       menu.addItem((i) =>
         i
-          .setTitle(it.hidden ? "Show" : "Hide")
+          .setTitle(it.hidden ? t("list.show") : t("list.hide"))
           .setIcon(it.hidden ? "eye" : "eye-off")
           .onClick(() => save(ops.setItemHidden(o, it.id, !it.hidden)))
       );
       if (spec.allowRename !== false && it.shippedLabel && it.shippedLabel !== it.label) {
         menu.addItem((i) =>
           i
-            .setTitle("Restore shipped name")
+            .setTitle(t("list.restoreName"))
             .setIcon("rotate-ccw")
             .onClick(() => save(ops.setItemLabel(o, it.id, it.shippedLabel ?? "", it.shippedLabel)))
         );
@@ -233,20 +261,19 @@ function renderItems<X extends object>(
         if (opts.confirmRemove && !(await opts.confirmRemove(it))) return;
         save(ops.removeItem(o, it.id));
         new Notice(
-          opts.removeNotice?.(it) ??
-            `Removed "${it.label}". Anything already ticked under it stays in your notes.`
+          opts.removeNotice?.(it) ?? t("list.removed", { label: it.label })
         );
       })();
     },
     add: opts.allowAdd
       ? {
-          label: `Add ${opts.noun}…`,
+          label: t(nounKeys.add),
           action: async () => {
             const label = await promptText(ctx.app, {
-              title: `New ${opts.noun}`,
+              title: t(nounKeys.title),
               value: "",
               multiline: false,
-              cta: "Add",
+              cta: t("common.add"),
             });
             if (!label?.trim()) return;
             const extra = opts.newItemExtra ? await opts.newItemExtra() : ({} as X);
@@ -274,7 +301,7 @@ function resetOption<X>(
 ): { label: string; action(): void } | undefined {
   if (!o) return undefined;
   return {
-    label: "Reset to Inkswell's defaults",
+    label: t("list.resetDefaults"),
     action: () => void persist(ctx, listId, undefined, spec, onSaved),
   };
 }

@@ -11,6 +11,7 @@
  */
 
 import { App, TFile } from "obsidian";
+import { t } from "../i18n";
 import { tryFileOp } from "../lib/notify";
 import { Series } from "../series/series";
 import { writeArchived } from "./index-writer";
@@ -55,7 +56,9 @@ export function setStoryArchived(
     draftPaths([project], projects),
     archived,
     mark,
-    archived ? `Couldn't archive "${project.draft.title}".` : `Couldn't unarchive "${project.draft.title}".`
+    archived
+      ? t("project.archive.projectFailed", { title: project.draft.title })
+      : t("project.archive.unarchiveProjectFailed", { title: project.draft.title })
   );
 }
 
@@ -72,6 +75,8 @@ export function setSeriesArchived(
     draftPaths(series.books, projects),
     archived,
     mark,
-    archived ? `Couldn't archive the "${series.name}" series.` : `Couldn't unarchive the "${series.name}" series.`
+    archived
+      ? t("project.archive.seriesFailed", { series: series.name })
+      : t("project.archive.unarchiveSeriesFailed", { series: series.name })
   );
 }

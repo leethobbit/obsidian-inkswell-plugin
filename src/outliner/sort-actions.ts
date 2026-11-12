@@ -6,6 +6,7 @@
  */
 
 import { App, Notice, TFile } from "obsidian";
+import { formatNumber, t } from "../i18n";
 import { tryFileOp } from "../lib/notify";
 import { updateScenes } from "../projects/index-writer";
 import { Project, isMultiScene } from "../projects/types";
@@ -20,7 +21,7 @@ export async function sortProjectByChapter(
   project: Project
 ): Promise<void> {
   if (!isMultiScene(project.draft)) {
-    new Notice("Sorting by chapter applies to multi-scene projects.");
+    new Notice(t("outline.sort.multiSceneOnly"));
     return;
   }
   const chapterOf = (title: string): string | undefined => {
@@ -30,17 +31,21 @@ export async function sortProjectByChapter(
   };
   const current = project.draft.scenes;
   if (sortScenesByChapter(current, chapterOf) === current) {
-    new Notice("Scenes are already in chapter order.");
+    new Notice(t("outline.sort.alreadySorted"));
     return;
   }
   const numbered = current.filter((s) => parseChapterNumber(chapterOf(s.title)) !== null).length;
   const unnumbered = current.length - numbered;
   const ok = await confirmDestructive(
     app,
-    `Reorder ${current.length} scenes by chapter number? ${numbered} carry a number` +
-      (unnumbered > 0 ? `; the other ${unnumbered} keep their order at the end.` : ".") +
-      " This replaces the current manuscript order (nothing is deleted).",
-    "Reorder"
+    unnumbered > 0
+      ? t("outline.sort.confirmPartial", {
+          total: formatNumber(current.length),
+          numbered: formatNumber(numbered),
+          unnumbered: formatNumber(unnumbered),
+        })
+      : t("outline.sort.confirm", { total: formatNumber(current.length), numbered: formatNumber(numbered) }),
+    t("outline.sort.reorder")
   );
   if (!ok) return;
   const index = app.vault.getAbstractFileByPath(project.vaultPath);
@@ -48,7 +53,7 @@ export async function sortProjectByChapter(
   plugin.selfWrites.mark(index.path);
   const done = await tryFileOp(
     () => updateScenes(app, index, (cur) => sortScenesByChapter(cur, chapterOf)),
-    "Couldn't reorder the scenes."
+    t("outline.sort.failed")
   );
-  if (done !== null) new Notice("Scenes reordered by chapter number.");
+  if (done !== null) new Notice(t("outline.sort.done"));
 }

@@ -6,6 +6,7 @@
  */
 
 import { FeatureId, featureEnabled } from "../features";
+import { MessageKey, t } from "../i18n";
 
 /** Top-level phase destinations. */
 export type InkswellMode =
@@ -20,9 +21,18 @@ export type InkswellMode =
   | "customize"
   | "help";
 
-export interface SubTab {
+/**
+ * Labels are stored as message keys (this table is built at import time, before
+ * the catalog is chosen); `label` is a getter that translates on every read, so
+ * callers read it at render time and always get the current language.
+ */
+interface Labelled {
+  labelKey: MessageKey;
+  readonly label: string;
+}
+
+export interface SubTab extends Labelled {
   id: string;
-  label: string;
   /** Optional-feature id gating this tab; absent = always shown (core). */
   feature?: FeatureId;
 }
@@ -34,7 +44,9 @@ export interface PhonePlacement {
   /** Left→right (bar) / top→bottom (sheet) ordering within the slot. */
   order: number;
   /** Phone label override (e.g. Home reads as "Scenes" on the bar). */
-  label?: string;
+  labelKey?: MessageKey;
+  /** The override, translated on read (undefined when there is none). */
+  readonly label?: string;
   /** Sub-tab a phone tap should land on (e.g. Revise → todos). */
   subtab?: string;
 }
@@ -51,9 +63,8 @@ export interface PhonePlacement {
  */
 export type RailGroup = "hub" | "pipeline" | "insight" | "tools";
 
-export interface Destination {
+export interface Destination extends Labelled {
   id: InkswellMode;
-  label: string;
   icon: string;
   subtabs?: SubTab[];
   /** Which rail group this destination belongs to (drives dividers + footer). */
@@ -67,100 +78,121 @@ export interface Destination {
   feature?: FeatureId;
 }
 
+/** Add the translate-on-read `label` getter for an entry's `labelKey`. */
+function labelled<T extends { labelKey?: MessageKey }>(entry: T): T & { readonly label: string } {
+  return Object.defineProperty(entry, "label", {
+    enumerable: true,
+    get: (): string | undefined => (entry.labelKey ? t(entry.labelKey) : undefined),
+  }) as T & { readonly label: string };
+}
+
+type DestinationSpec = Omit<Destination, "label" | "subtabs" | "phone"> & {
+  subtabs?: Omit<SubTab, "label">[];
+  phone?: Omit<PhonePlacement, "label">;
+};
+
+function destination(spec: DestinationSpec): Destination {
+  const { subtabs, phone, ...rest } = spec;
+  const dest: Destination = labelled({ ...rest });
+  if (subtabs) dest.subtabs = subtabs.map((s) => labelled({ ...s }));
+  if (phone) dest.phone = labelled({ ...phone });
+  return dest;
+}
+
 export const DESTINATIONS: Destination[] = [
   // Hub — the entry point.
-  {
+  destination({
     id: "home",
-    label: "Home",
+    labelKey: "nav.home",
     icon: "home",
     group: "hub",
-    phone: { slot: "bar", order: 2, label: "Scenes" },
-  },
+    phone: { slot: "bar", order: 2, labelKey: "nav.home.phone" },
+  }),
   // Pipeline — the writing lifecycle, in order.
-  {
+  destination({
     id: "plan",
-    label: "Plan",
+    labelKey: "nav.plan",
     icon: "compass",
     group: "pipeline",
     subtabs: [
-      { id: "overview", label: "Overview" },
-      { id: "beats", label: "Beats", feature: "beats" },
-      { id: "structure", label: "Structure" },
+      { id: "overview", labelKey: "nav.tab.overview" },
+      { id: "beats", labelKey: "nav.tab.beats", feature: "beats" },
+      { id: "structure", labelKey: "nav.tab.structure" },
     ],
     phone: { slot: "more", order: 5 },
     phoneRedirect: true,
-  },
-  { id: "write", label: "Write", icon: "pencil", group: "pipeline", phone: { slot: "bar", order: 1 } },
-  {
+  }),
+  destination({ id: "write", labelKey: "nav.write", icon: "pencil", group: "pipeline", phone: { slot: "bar", order: 1 } }),
+  destination({
     id: "revise",
-    label: "Revise",
+    labelKey: "nav.revise",
     icon: "git-compare",
     group: "pipeline",
     subtabs: [
-      { id: "audit", label: "Audit", feature: "audit" },
+      { id: "audit", labelKey: "nav.tab.audit", feature: "audit" },
       // The merged worklist: inline prose markers + logged decisions in one
       // scene-grouped view (the old separate Log subtab folded into it).
-      { id: "todos", label: "Revision log" },
-      { id: "analysis", label: "Analysis", feature: "analysis" },
+      { id: "todos", labelKey: "nav.tab.revisionLog" },
+      { id: "analysis", labelKey: "nav.tab.analysis", feature: "analysis" },
     ],
     // Only the revision-log slice is phone-usable; the sheet row jumps straight to it.
-    phone: { slot: "more", order: 2, label: "Revision log", subtab: "todos" },
-  },
-  {
+    phone: { slot: "more", order: 2, labelKey: "nav.tab.revisionLog", subtab: "todos" },
+  }),
+  destination({
     id: "publish",
-    label: "Publish",
+    labelKey: "nav.publish",
     icon: "upload",
     group: "pipeline",
     subtabs: [
-      { id: "compile", label: "Compile" },
-      { id: "checklist", label: "Checklist", feature: "checklist" },
-      { id: "launch", label: "Launch", feature: "launch" },
+      { id: "compile", labelKey: "nav.tab.compile" },
+      { id: "checklist", labelKey: "nav.tab.checklist", feature: "checklist" },
+      { id: "launch", labelKey: "nav.tab.launch", feature: "launch" },
     ],
     phone: { slot: "more", order: 6 },
     phoneRedirect: true,
-  },
+  }),
   // Insight — reference material consulted across any pipeline phase.
-  {
+  destination({
     id: "codex",
-    label: "Codex",
+    labelKey: "nav.codex",
     icon: "book-marked",
     group: "insight",
     phone: { slot: "bar", order: 3 },
-  },
-  {
+  }),
+  destination({
     id: "track",
-    label: "Track",
+    labelKey: "nav.track",
     icon: "bar-chart-3",
     group: "insight",
     phone: { slot: "more", order: 1 },
     feature: "tracking",
-  },
+  }),
   // Tools — occasional utilities, floated to the bottom of the rail.
-  {
+  destination({
     id: "search",
-    label: "Search",
+    labelKey: "nav.search",
     icon: "search",
     group: "tools",
     phone: { slot: "more", order: 4 },
-  },
+  }),
   // Shape-of-the-tool customization (types, fields, templates, structures,
   // checklists, prompts, features). No sub-tabs: the panel carries its own
   // catalog. Multi-pane editors → redirected on phones.
-  {
+  destination({
     id: "customize",
-    label: "Customize",
+    labelKey: "nav.customize",
     icon: "sliders-horizontal",
     group: "tools",
     phone: { slot: "more", order: 7 },
     phoneRedirect: true,
-  },
-  {
+  }),
+  destination({
     id: "help",
-    label: "Help",
+    labelKey: "nav.help",
     icon: "help-circle",
     group: "tools",
     phone: { slot: "more", order: 3 },
-  },
+  }),
 ];
 
 /** Rail group order — the sequence of contiguous group runs in DESTINATIONS. */

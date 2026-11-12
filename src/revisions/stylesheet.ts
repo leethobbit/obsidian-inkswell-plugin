@@ -9,14 +9,17 @@
  * canonical "Regime") are caught.
  */
 
+import type { MessageKey } from "../i18n";
+
 export type StyleKind = "spelling" | "name" | "term" | "number" | "format";
 
-export const STYLE_KINDS: { id: StyleKind; label: string }[] = [
-  { id: "spelling", label: "Spelling" },
-  { id: "name", label: "Name" },
-  { id: "term", label: "Term" },
-  { id: "number", label: "Number" },
-  { id: "format", label: "Format" },
+/** Display labels are catalog keys, resolved with `t()` at render. */
+export const STYLE_KINDS: { id: StyleKind; labelKey: MessageKey }[] = [
+  { id: "spelling", labelKey: "audit.styleKind.spelling" },
+  { id: "name", labelKey: "audit.styleKind.name" },
+  { id: "term", labelKey: "audit.styleKind.term" },
+  { id: "number", labelKey: "audit.styleKind.number" },
+  { id: "format", labelKey: "audit.styleKind.format" },
 ];
 
 export interface StyleEntry {

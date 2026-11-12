@@ -6,6 +6,7 @@
  */
 
 import { App, Modal, Setting } from "obsidian";
+import { t } from "../i18n";
 
 export interface NewDraftResult {
   newName: string;
@@ -15,7 +16,7 @@ export interface NewDraftResult {
 
 export class NewDraftModal extends Modal {
   private newName = "";
-  private originalName = "Draft 1";
+  private originalName = "Draft 1"; // i18n-ignore: vault text (stored draft title)
   private result: NewDraftResult | null = null;
 
   constructor(
@@ -28,39 +29,39 @@ export class NewDraftModal extends Modal {
 
   onOpen(): void {
     const { contentEl } = this;
-    contentEl.createEl("h3", { text: `New draft of "${this.opts.title}"` });
+    contentEl.createEl("h3", { text: t("drafts.new.heading", { title: this.opts.title }) });
     contentEl.createEl("p", {
       cls: "inkswell-stats__muted",
-      text: "Copies the manuscript and all planning so you can revise the copy freely. The original is untouched.",
+      text: t("drafts.new.intro"),
     });
 
-    new Setting(contentEl).setName("New draft name").addText((t) => {
-      t.setPlaceholder("Editor pass").onChange((v) => (this.newName = v));
-      window.setTimeout(() => t.inputEl.focus(), 0);
-      t.inputEl.onkeydown = (e) => {
+    new Setting(contentEl).setName(t("drafts.new.name")).addText((text) => {
+      text.setPlaceholder(t("drafts.new.namePlaceholder")).onChange((v) => (this.newName = v));
+      window.setTimeout(() => text.inputEl.focus(), 0);
+      text.inputEl.onkeydown = (e) => {
         if (e.key === "Enter") this.submit();
       };
     });
 
     if (this.opts.isFirstSplit) {
       new Setting(contentEl)
-        .setName("Name for the current draft")
-        .setDesc("Your existing manuscript becomes a named draft.")
-        .addText((t) =>
-          t.setValue(this.originalName).onChange((v) => (this.originalName = v))
+        .setName(t("drafts.new.currentName"))
+        .setDesc(t("drafts.new.currentNameDesc"))
+        .addText((text) =>
+          text.setValue(this.originalName).onChange((v) => (this.originalName = v))
         );
     }
 
     new Setting(contentEl)
-      .addButton((b) => b.setButtonText("Create draft").setCta().onClick(() => this.submit()))
-      .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()));
+      .addButton((b) => b.setButtonText(t("drafts.new.create")).setCta().onClick(() => this.submit()))
+      .addButton((b) => b.setButtonText(t("common.cancel")).onClick(() => this.close()));
   }
 
   private submit(): void {
     if (!this.newName.trim()) return;
     this.result = {
       newName: this.newName.trim(),
-      originalName: this.originalName.trim() || "Draft 1",
+      originalName: this.originalName.trim() || "Draft 1", // i18n-ignore: vault text (stored draft title)
     };
     this.close();
   }

@@ -10,6 +10,7 @@
  */
 
 import { App, Notice, Setting } from "obsidian";
+import { t } from "../i18n";
 import { FormModal } from "../lib/form-modal";
 import { slugify } from "../lib/slug";
 import {
@@ -34,7 +35,7 @@ export class BeatTemplateModal extends FormModal {
   constructor(app: App, opts: BeatTemplateModalOptions) {
     super(app);
     this.opts = opts;
-    this.cta = opts.existing ? "Save" : "Add";
+    this.cta = opts.existing ? t("common.save") : t("common.add");
     this.name = opts.existing?.name ?? "";
     this.lines = opts.existing ? serializeBeatLines(opts.existing.beats) : "";
   }
@@ -42,31 +43,27 @@ export class BeatTemplateModal extends FormModal {
   protected renderForm(contentEl: HTMLElement): void {
     const { existing } = this.opts;
     contentEl.createEl("h3", {
-      text: existing ? "Edit beat template" : "Add beat template",
+      text: existing ? t("beats.tplModal.editTitle") : t("beats.tplModal.addTitle"),
     });
 
     let idLine: HTMLElement | null = null;
 
     new Setting(contentEl)
-      .setName("Name")
-      .setDesc("Shown in the beat-sheet template picker, e.g. “Ten Things”.")
-      .addText((t) => {
-        t.setValue(this.name).onChange((v) => {
+      .setName(t("beats.tplModal.name"))
+      .setDesc(t("beats.tplModal.name.desc"))
+      .addText((text) => {
+        text.setValue(this.name).onChange((v) => {
           this.name = v;
           if (idLine && !existing) {
             const slug = slugify(this.name);
-            idLine.setText(slug ? `Stored as template: ${slug}` : "");
+            idLine.setText(slug ? t("beats.tplModal.storedAs", { slug }) : "");
           }
         });
       });
 
     const beats = new Setting(contentEl)
-      .setName("Beats")
-      .setDesc(
-        "One beat per line: “Name”, “Name | purpose”, or “25% | Name | purpose” to pin " +
-          "where the beat sits in the book (unpinned beats spread evenly). Beat names key " +
-          "your saved notes — renaming a line starts that beat fresh; reordering is safe."
-      );
+      .setName(t("beats.tplModal.beats"))
+      .setDesc(t("beats.tplModal.beats.desc"));
     beats.settingEl.addClass("inkswell-tplmodal__beats");
     const area = beats.controlEl.createEl("textarea", {
       cls: "inkswell-tplmodal__lines",
@@ -77,28 +74,26 @@ export class BeatTemplateModal extends FormModal {
 
     idLine = contentEl.createDiv({ cls: "setting-item-description" });
     if (existing) {
-      idLine.setText(
-        `template: ${existing.id} (fixed — the id is written into project notes using it)`
-      );
+      idLine.setText(t("beats.tplModal.fixedId", { id: existing.id }));
     } else {
       const slug = slugify(this.name);
-      idLine.setText(slug ? `Stored as template: ${slug}` : "");
+      idLine.setText(slug ? t("beats.tplModal.storedAs", { slug }) : "");
     }
   }
 
   protected async submit(): Promise<boolean> {
     const name = this.name.trim();
     if (!name) {
-      new Notice("Name is required.");
+      new Notice(t("beats.tplModal.nameRequired"));
       return false;
     }
     const id = this.opts.existing?.id ?? slugify(name);
     if (!id || !/^[a-z]/.test(id)) {
-      new Notice("Name must start with a letter.");
+      new Notice(t("beats.tplModal.nameLetter"));
       return false;
     }
     if (!this.opts.existing && this.opts.takenIds.includes(id)) {
-      new Notice(`A beat template "${id}" already exists.`);
+      new Notice(t("beats.tplModal.exists", { id }));
       return false;
     }
     const parsed = parseBeatLines(this.lines);

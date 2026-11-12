@@ -14,7 +14,8 @@ import { App, Notice, Setting, TFile } from "obsidian";
 import { awaitCacheUpdate, writeTemplateFields } from "../codex/codex-template-io";
 import { PLACE_PARENT_TYPES } from "../codex/places";
 import { ProfileField } from "../codex/profile-schema";
-import { allCategories } from "../codex/types";
+import { allCategories, categoryDisplayLabel } from "../codex/types";
+import { t } from "../i18n";
 import { FormModal } from "../lib/form-modal";
 import { renderListEditor } from "../lib/list-editor";
 import { tryFileOp } from "../lib/notify";
@@ -69,12 +70,12 @@ export function renderFieldSpecEditor(body: HTMLElement, ctx: SectionCtx, opts: 
   const rows = held ?? rowsFromFields([...opts.fields]);
 
   const save = async (next: FieldRow[]): Promise<void> => {
-    const file = template ?? (await tryFileOp(() => opts.ensureTemplate(), "Couldn't create the template note."));
+    const file = template ?? (await tryFileOp(() => opts.ensureTemplate(), t("customize.fields.createTemplateFailed")));
     if (!file) return;
     ctx.markSelfWrite(file.path);
     const written = await tryFileOp(
       () => writeTemplateFields(app, file, rowsToSpec(next, opts.defaultLabel), opts.specKey, opts.reserved),
-      "Couldn't save the fields."
+      t("customize.fields.saveFailed")
     );
     if (written === null) return;
     pending.set(file.path, next);
@@ -98,8 +99,8 @@ export function renderFieldSpecEditor(body: HTMLElement, ctx: SectionCtx, opts: 
     renderRow(el, row, index) {
       const label = taggedInput(el, `${prefix}:label:${row.key}`, { type: "text" });
       label.value = row.label;
-      label.placeholder = "Label";
-      label.setAttribute("aria-label", `Label for ${row.key}`);
+      label.placeholder = t("customize.fields.labelPlaceholder");
+      label.setAttribute("aria-label", t("customize.fields.labelAria", { key: row.key }));
       label.onchange = () => update(index, { label: label.value });
 
       el.createSpan({ cls: "inkswell-customize__key", text: row.key });
@@ -108,7 +109,7 @@ export function renderFieldSpecEditor(body: HTMLElement, ctx: SectionCtx, opts: 
       const kinds = opts.kinds.includes(row.kind) ? opts.kinds : [...opts.kinds, row.kind];
       for (const k of kinds) kind.createEl("option", { text: FIELD_KIND_LABELS[k], value: k });
       kind.value = row.kind;
-      kind.setAttribute("aria-label", `Type of ${row.key}`);
+      kind.setAttribute("aria-label", t("customize.fields.kindAria", { key: row.key }));
       kind.onchange = () => {
         const next = kind.value as FieldKind;
         const patch: Partial<FieldRow> = { kind: next };
@@ -119,20 +120,27 @@ export function renderFieldSpecEditor(body: HTMLElement, ctx: SectionCtx, opts: 
 
       if (row.kind === "links" || row.kind === "link") {
         const restrict = taggedSelect(el, `${prefix}:cat:${row.key}`, { cls: "dropdown" });
-        restrict.createEl("option", { text: "Any type", value: "" });
+        restrict.createEl("option", { text: t("customize.fields.anyType"), value: "" });
         const all = types();
-        for (const c of all) restrict.createEl("option", { text: c.label, value: c.id });
+        for (const c of all) restrict.createEl("option", { text: categoryDisplayLabel(c), value: c.id });
         // Several types, comma-joined: the place-nesting pair is always offered
         // (#66 — a place inside a World or another Location), and any other
         // stored combination gets an option so it round-trips untouched.
-        const labelOf = (id: string) => all.find((c) => c.id === id)?.label ?? id;
+        const labelOf = (id: string) => {
+          const def = all.find((c) => c.id === id);
+          return def ? categoryDisplayLabel(def) : id;
+        };
         const combos = new Set([PLACE_PARENT_TYPES]);
         if (row.linkCategory?.includes(",")) combos.add(row.linkCategory);
         for (const combo of combos) {
-          restrict.createEl("option", { text: combo.split(",").map(labelOf).join(" or "), value: combo });
+          const text = combo
+            .split(",")
+            .map(labelOf)
+            .reduce((first, second) => t("customize.fields.typeEither", { first, second }));
+          restrict.createEl("option", { text, value: combo });
         }
         restrict.value = row.linkCategory ?? "";
-        restrict.setAttribute("aria-label", `Restrict ${row.key} to a type`);
+        restrict.setAttribute("aria-label", t("customize.fields.restrictAria", { key: row.key }));
         restrict.onchange = () => update(index, { linkCategory: restrict.value || undefined });
       }
       if (row.kind === "links") {
@@ -140,13 +148,13 @@ export function renderFieldSpecEditor(body: HTMLElement, ctx: SectionCtx, opts: 
         const cb = wrap.createEl("input", { type: "checkbox" });
         cb.checked = !!row.labeled;
         cb.onchange = () => update(index, { labeled: cb.checked || undefined });
-        wrap.appendText(" Per-link labels");
+        wrap.appendText(` ${t("customize.fields.perLinkLabels")}`);
       }
     },
     onReorder: (next) => save(next),
     onRemove: (item) => save(rows.filter((r) => r.id !== item.id)),
     add: {
-      label: "Add field…",
+      label: t("customize.fields.add"),
       action: () =>
         new AddFieldModal(app, {
           existingKeys: rows.map((r) => r.key),
@@ -166,7 +174,7 @@ export function renderFieldSpecEditor(body: HTMLElement, ctx: SectionCtx, opts: 
               ctx.markSelfWrite(template.path);
               const done = await tryFileOp(
                 () => writeTemplateFields(app, template, [], opts.specKey, opts.reserved),
-                "Couldn't reset the fields."
+                t("customize.fields.resetFailed")
               );
               if (done === null) return;
               pending.delete(template.path);
@@ -203,23 +211,23 @@ class AddFieldModal extends FormModal {
     private opts: AddFieldOptions
   ) {
     super(app);
-    this.cta = "Add";
+    this.cta = t("common.add");
   }
 
   protected renderForm(contentEl: HTMLElement): void {
-    contentEl.createEl("h3", { text: "Add field" });
+    contentEl.createEl("h3", { text: t("customize.addField.title") });
     new Setting(contentEl)
-      .setName("Label")
+      .setName(t("customize.addField.label"))
       .setDesc(this.opts.labelDesc)
-      .addText((t) =>
-        t.setPlaceholder("e.g. Birth date").onChange((v) => {
+      .addText((c) =>
+        c.setPlaceholder(t("customize.addField.labelPlaceholder")).onChange((v) => {
           this.label = v;
           this.refreshKeyLine();
         })
       );
     this.keyLine = contentEl.createDiv({ cls: "setting-item-description" });
     this.refreshKeyLine();
-    new Setting(contentEl).setName("Kind").addDropdown((d) => {
+    new Setting(contentEl).setName(t("customize.addField.kind")).addDropdown((d) => {
       for (const k of this.opts.kinds) d.addOption(k, FIELD_KIND_LABELS[k]);
       d.setValue(this.kind).onChange((v) => (this.kind = v as FieldKind));
     });
@@ -227,8 +235,8 @@ class AddFieldModal extends FormModal {
     const options = this.opts.catalog?.(new Set(this.opts.existingKeys)) ?? [];
     if (options.length > 0) {
       new Setting(contentEl)
-        .setName("Or add one of Inkswell's built-in fields")
-        .setDesc("Keeps its label and picker — a bestiary can borrow Relationships, for example.")
+        .setName(t("customize.addField.builtin.name"))
+        .setDesc(t("customize.addField.builtin.desc"))
         .addDropdown((d) => {
           d.addOption("", "—");
           for (const o of options) d.addOption(o.value, o.label);
@@ -243,7 +251,11 @@ class AddFieldModal extends FormModal {
     // A non-blank label that derives no key starts with a digit or symbol —
     // say so live rather than on submit.
     this.keyLine.setText(
-      key ? `Stored as ${key}` : this.label.trim() ? "Start the label with a letter." : ""
+      key
+        ? t("customize.addField.storedAs", { key })
+        : this.label.trim()
+          ? t("customize.fields.startWithLetter")
+          : ""
     );
   }
 

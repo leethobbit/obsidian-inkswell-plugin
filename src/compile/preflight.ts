@@ -6,6 +6,7 @@
  * stripped first, exactly as the compile does, so they never false-flag.
  */
 
+import { t } from "../i18n";
 import { htmlTagRe } from "../lib/html-tags";
 import { DEFAULT_MARKERS, MarkerSet, findUnknownMarkers, scanPlaceholders } from "../lib/placeholders";
 import { stripFrontmatter } from "../lib/frontmatter";
@@ -113,36 +114,26 @@ export function preflight(scenes: SceneText[], markers: MarkerSet = DEFAULT_MARK
     findings.push({ rule, label, count: total, scenes: [...m.keys()] });
   };
 
-  fromMap("tabs", "Tab characters — set indents in the publishing tool, not with tabs", tabs);
-  fromMap("double-space", "Double spaces — collapse to single spaces", doubleSpace);
-  fromMap(
-    "html",
-    "Raw HTML tags — alignment blocks (<p align>, <center>) become Word styles when that step is on; other tags won't survive into DOCX",
-    html
-  );
-  fromMap("page-break", "Manual page breaks — let the chapter style handle breaks", pagebreak);
+  // Labels are UI (shown in the Compile panel only, never written to a note).
+  // Marker syntax and step ids are placeholders: they stay verbatim in every language.
+  fromMap("tabs", t("compile.preflight.rule.tabs"), tabs);
+  fromMap("double-space", t("compile.preflight.rule.doubleSpace"), doubleSpace);
+  fromMap("html", t("compile.preflight.rule.html"), html);
+  fromMap("page-break", t("compile.preflight.rule.pageBreak"), pagebreak);
   fromMap(
     "todos",
-    "Unresolved to-do markers ([TODO], [NOTE], your own…) — resolve them or the 'remove-todos' step will drop them",
+    t("compile.preflight.rule.todos", { todo: "[TODO]", note: "[NOTE]", step: "remove-todos" }),
     todos
   );
-  fromMap(
-    "unknown-markers",
-    "Possible to-do markers Inkswell doesn't recognize — they'd stay in the manuscript. Fix the spelling, or add the word under Customize → To-do markers",
-    unknownMarkers
-  );
+  fromMap("unknown-markers", t("compile.preflight.rule.unknownMarkers"), unknownMarkers);
   const unknownFinding = findings.find((f) => f.rule === "unknown-markers");
   if (unknownFinding) unknownFinding.detail = [...unknownKeywords].map((k) => `[${k}: …]`).join("  ·  ");
-  fromMap(
-    "embeds",
-    "Embedded notes (![[…]]) — the 'flatten-links' step drops them; paste the text in if it belongs in the manuscript",
-    embeds
-  );
+  fromMap("embeds", t("compile.preflight.rule.embeds", { step: "flatten-links" }), embeds);
 
   if (empty.length > 0) {
     findings.push({
       rule: "empty",
-      label: "Empty scenes — nothing to compile",
+      label: t("compile.preflight.rule.empty"),
       count: empty.length,
       scenes: empty,
     });
@@ -151,7 +142,7 @@ export function preflight(scenes: SceneText[], markers: MarkerSet = DEFAULT_MARK
   if (styles.size > 1) {
     findings.push({
       rule: "scene-break",
-      label: "Mixed scene-break markers — standardize on one",
+      label: t("compile.preflight.rule.sceneBreak"),
       count: styles.size,
       scenes: [],
       detail: [...styles].join("  ·  "),

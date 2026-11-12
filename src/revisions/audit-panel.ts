@@ -18,7 +18,7 @@
  */
 
 import { App, TFile } from "obsidian";
-import { t, tp } from "../i18n";
+import { MessageKey, t, tp } from "../i18n";
 import { preserveFocus, tagField } from "../lib/focus-preserve";
 import { stripFrontmatter } from "../lib/frontmatter";
 import { tryFileOp } from "../lib/notify";
@@ -68,7 +68,7 @@ import {
   storyCheckpoints,
 } from "./audit";
 import type { ListOverrides } from "../settings/overridable-lists";
-import { readSceneAudit } from "./audit-meta";
+import { SceneVerdict, readSceneAudit } from "./audit-meta";
 import { OPENING_LABEL, OpeningType, classifyOpening, flagOpeningRuns } from "./openings";
 import {
   ChecklistItem,
@@ -79,6 +79,13 @@ import {
   stateProgress,
   tierState,
 } from "./checklist";
+
+/** Lift-out verdict (stored value) → its badge text (lowercase in English). */
+const VERDICT_BADGE: Record<SceneVerdict, MessageKey> = {
+  keep: "revise.verdict.keep",
+  cut: "revise.verdict.cut",
+  merge: "revise.verdict.merge",
+};
 
 export class AuditPanel {
   private app: App;
@@ -412,7 +419,7 @@ export class AuditPanel {
     if (audit.verdict) {
       summary.createSpan({
         cls: `inkswell-audit__verdict inkswell-audit__verdict--${audit.verdict}`,
-        text: audit.verdict,
+        text: t(VERDICT_BADGE[audit.verdict]),
       });
     }
 
@@ -746,7 +753,7 @@ export class AuditPanel {
     variants.placeholder = t("audit.style.avoid");
     const kind = form.createEl("select", { cls: "dropdown" });
     tagField(kind, "audit:style-kind");
-    for (const k of STYLE_KINDS) kind.createEl("option", { text: k.label, value: k.id });
+    for (const k of STYLE_KINDS) kind.createEl("option", { text: t(k.labelKey), value: k.id });
     const add = form.createEl("button", { text: t("audit.style.add") });
     add.onclick = () => {
       const canonical = canon.value.trim();
@@ -804,7 +811,7 @@ export class AuditPanel {
     }
     for (const g of groups) {
       const header = results.createDiv({ cls: "inkswell-todos__scene" });
-      header.setText(`${g.title} (${g.hits.length})`);
+      header.setText(t("audit.style.group", { title: g.title, count: g.hits.length }));
       header.setAttribute("aria-label", t("audit.style.open", { title: g.title }));
       header.onclick = () => this.jump(g.file.path);
       for (const h of g.hits) {

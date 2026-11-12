@@ -10,19 +10,37 @@ import {
   RESERVED_FIELD_KEYS,
   defaultFieldLabel,
 } from "../codex/profile-schema";
+import { t } from "../i18n";
 
 /** The kinds a writer picks from (single link is its own kind for clarity). */
 export type FieldKind = "text" | "textarea" | "number" | "date" | "list" | "image" | "links" | "link";
 
-export const FIELD_KIND_LABELS: Record<FieldKind, string> = {
-  text: "Text",
-  textarea: "Long text",
-  number: "Number",
-  date: "Date",
-  list: "List",
-  image: "Image",
-  links: "Links",
-  link: "Single link",
+/** Display label per kind. Getters: each read translates (never at import). */
+export const FIELD_KIND_LABELS: Readonly<Record<FieldKind, string>> = {
+  get text() {
+    return t("customize.fieldKind.text");
+  },
+  get textarea() {
+    return t("customize.fieldKind.textarea");
+  },
+  get number() {
+    return t("customize.fieldKind.number");
+  },
+  get date() {
+    return t("customize.fieldKind.date");
+  },
+  get list() {
+    return t("customize.fieldKind.list");
+  },
+  get image() {
+    return t("customize.fieldKind.image");
+  },
+  get links() {
+    return t("customize.fieldKind.links");
+  },
+  get link() {
+    return t("customize.fieldKind.link");
+  },
 };
 
 /** Dropdown order. Kept in sync with FIELD_KIND_LABELS by a test. */
@@ -110,11 +128,11 @@ export function isValidNewKey(
   if (!k) {
     return {
       ok: false,
-      reason: label.trim() ? "Start the label with a letter." : "Enter a label.",
+      reason: label.trim() ? t("customize.fields.startWithLetter") : t("customize.fields.enterLabel"),
     };
   }
-  if (reserved.has(k)) return { ok: false, reason: `"${k}" is managed by Inkswell.` };
-  if (existing.includes(k)) return { ok: false, reason: `"${k}" is already a field.` };
-  if (!KEY_RE.test(k)) return { ok: false, reason: "Use letters and numbers (no spaces or symbols)." };
+  if (reserved.has(k)) return { ok: false, reason: t("customize.fields.reserved", { key: k }) };
+  if (existing.includes(k)) return { ok: false, reason: t("customize.fields.duplicate", { key: k }) };
+  if (!KEY_RE.test(k)) return { ok: false, reason: t("customize.fields.badKey") };
   return { ok: true };
 }

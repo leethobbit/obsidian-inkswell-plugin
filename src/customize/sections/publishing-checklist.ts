@@ -5,6 +5,7 @@
  * the index note keyed by task id, so hiding never loses them.
  */
 
+import { t, tp } from "../../i18n";
 import { PUBLISHING_CHECKLIST, PublishingExtra } from "../../publishing/checklist-def";
 import { SPEC_PUBLISHING } from "../../settings/overridable-lists";
 import { renderOverrideEditor } from "../override-editor";
@@ -16,10 +17,19 @@ export const publishingChecklistSection: CustomizeSection = {
   describe(plugin) {
     const o = plugin.settings.listOverrides.publishing;
     const total = PUBLISHING_CHECKLIST.reduce((n, p) => n + p.tasks.length, 0);
-    if (!o) return `${PUBLISHING_CHECKLIST.length} phases · ${total} tasks (defaults)`;
+    if (!o) {
+      return t("customize.publishing.defaults", {
+        phases: tp("customize.publishing.phases", PUBLISHING_CHECKLIST.length),
+        tasks: tp("customize.publishing.tasks", total),
+      });
+    }
     const mine = o.added?.length ?? 0;
     const hidden = (o.hidden?.length ?? 0) + (o.hiddenGroups?.length ?? 0);
-    return [`${mine} yours`, hidden ? `${hidden} hidden` : ""].filter(Boolean).join(" · ") || "Customized";
+    return (
+      [tp("customize.summary.yours", mine), hidden ? tp("customize.summary.hidden", hidden) : ""]
+        .filter(Boolean)
+        .join(" · ") || t("customize.summary.customized")
+    );
   },
 
   render(host, ctx) {
@@ -39,16 +49,13 @@ export const publishingChecklistSection: CustomizeSection = {
       allowAdd: true,
       allowAddGroup: true,
       noun: "task",
-      intro:
-        "Publish → Checklist, phase by phase. Hide phases or tasks that don't apply to your " +
-        "route, rename any, reorder, and add your own. Ticks are stored per project under the " +
-        "task's id, so nothing you've already checked is lost when you hide or rename.",
+      intro: t("customize.publishing.intro"),
       renderExtra(el, it, patch) {
         const wrap = el.createEl("label", { cls: "inkswell-customize__check" });
         const cb = wrap.createEl("input", { type: "checkbox" });
         cb.checked = !!it.extra.optional;
         cb.onchange = () => patch({ optional: cb.checked });
-        wrap.appendText(" Optional");
+        wrap.appendText(` ${t("customize.publishing.optional")}`);
       },
     });
   },

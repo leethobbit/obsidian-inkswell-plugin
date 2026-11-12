@@ -6,6 +6,7 @@
  */
 
 import { Component, Notice } from "obsidian";
+import { t } from "../i18n";
 import { WritingLogData, SprintRecord } from "../tracking/types";
 import { WritingTracker } from "../tracking/writing-tracker";
 
@@ -56,7 +57,7 @@ export class SprintController extends Component {
 
   start(durationMin: number, goal: number | null = null): void {
     if (this.active) {
-      new Notice("A sprint is already running.");
+      new Notice(t("sprint.alreadyRunning"));
       return;
     }
     this.active = {
@@ -72,7 +73,11 @@ export class SprintController extends Component {
     });
     this.endTimer = window.setTimeout(() => this.finish(), this.active.durationSec * 1000);
     this.tickTimer = window.setInterval(() => this.emit(), 1000);
-    new Notice(`Sprint started: ${durationMin} min${goal ? `, goal ${goal} words` : ""}`);
+    new Notice(
+      goal
+        ? t("sprint.startedGoal", { minutes: durationMin, goal })
+        : t("sprint.started", { minutes: durationMin })
+    );
     this.emit();
   }
 
@@ -80,7 +85,7 @@ export class SprintController extends Component {
   cancel(): void {
     if (!this.active) return;
     this.teardown();
-    new Notice("Sprint cancelled.");
+    new Notice(t("sprint.cancelled"));
     this.emit();
   }
 
@@ -104,9 +109,13 @@ export class SprintController extends Component {
     this.teardown();
     if (!opts?.silent) {
       const metGoal = a.goal != null && a.words >= a.goal;
+      const vars = { words: a.words, goal: a.goal ?? 0 };
       new Notice(
-        `Sprint complete! ${a.words} words` +
-          (a.goal ? ` (goal ${a.goal}${metGoal ? " ✓" : ""})` : "")
+        !a.goal
+          ? t("sprint.complete", vars)
+          : metGoal
+            ? t("sprint.completeGoalMet", vars)
+            : t("sprint.completeGoal", vars)
       );
     }
     this.emit();

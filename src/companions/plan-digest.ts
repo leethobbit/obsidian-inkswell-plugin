@@ -11,6 +11,7 @@
 import { Component, MarkdownRenderer, TFile } from "obsidian";
 import { t, tp } from "../i18n";
 import { attachOpenInTab } from "../lib/row-menu";
+import { beatBlurb, beatName } from "../outliner/beat-templates";
 import { resolveTemplate, synthesizeBeats } from "../outliner/custom-templates";
 import { findPlanningNote } from "../plan/planning-note";
 import { Project } from "../projects/types";
@@ -98,11 +99,11 @@ export class PlanDigest {
           for (const { beat, assignment } of here) {
             const row = host.createDiv({ cls: "inkswell-companion__beat" });
             const head = row.createDiv({ cls: "inkswell-companion__beathead" });
-            head.createSpan({ text: beat.name });
+            head.createSpan({ text: beatName(sheet?.template, beat) });
             if (assignment.done) head.createSpan({ cls: "inkswell-companion__done", text: t("companion.plan.done") });
             const note = assignment.note?.trim();
             if (note) row.createDiv({ cls: "inkswell-companion__beatnote", text: note });
-            else if (beat.blurb) row.createDiv({ cls: "inkswell-companion__beatblurb", text: beat.blurb });
+            else if (beat.blurb) row.createDiv({ cls: "inkswell-companion__beatblurb", text: beatBlurb(sheet?.template, beat) });
           }
         });
       }

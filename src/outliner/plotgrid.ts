@@ -13,6 +13,7 @@
  * to one row per scene.
  */
 
+import { t } from "../i18n";
 import type { SceneStatus } from "../scenes/scene-meta";
 import { buildOutline, sceneSlotForChapter } from "./outline";
 import { StructureGroup, distinctInOrder } from "./structure";
@@ -132,7 +133,7 @@ export function removePlotlineTag(
   title: string
 ): string[] | null {
   const cur = tags ?? [];
-  return cur.includes(title) ? cur.filter((t) => t !== title) : null;
+  return cur.includes(title) ? cur.filter((tag) => tag !== title) : null;
 }
 
 /**
@@ -147,8 +148,8 @@ export function renamePlotlineTag(
   const cur = tags ?? [];
   if (oldTitle === newTitle || !cur.includes(oldTitle)) return null;
   const next = cur
-    .map((t) => (t === oldTitle ? newTitle : t))
-    .filter((t, i, arr) => arr.indexOf(t) === i);
+    .map((tag) => (tag === oldTitle ? newTitle : tag))
+    .filter((tag, i, arr) => arr.indexOf(tag) === i);
   return next;
 }
 
@@ -224,7 +225,7 @@ export function buildPlotGrid(
   const cfg = configured ?? [];
   const cfgTitles = new Set(cfg.map((p) => p.title));
   const orphanTitles = distinctInOrder(scenes.flatMap((s) => s.plotlines ?? [])).filter(
-    (t) => !cfgTitles.has(t)
+    (tag) => !cfgTitles.has(tag)
   );
   const columns: Plotline[] = [
     ...cfg,
@@ -282,7 +283,7 @@ export function buildPlotGrid(
         .filter((s): s is PlotGridScene => !!s);
       looseRows.push({
         key: "unassigned",
-        label: "No chapter",
+        label: t("grid.row.noChapter"),
         kind: "unassigned",
         chapterTitle: "",
         chapterId: null,

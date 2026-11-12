@@ -11,6 +11,7 @@
  * module load, or settings changes won't propagate.
  */
 
+import { MessageKey, t } from "../i18n";
 import { SLUG_RE, slugify } from "../lib/slug";
 
 /** The seven permanent built-in categories (never removable; ids never change). */
@@ -45,14 +46,16 @@ export type CategoryOverride = Partial<Pick<CategoryDef, "label" | "plural" | "i
 /** Per-built-in display overrides, keyed by built-in id. */
 export type CategoryOverrides = Partial<Record<BuiltinCodexCategory, CategoryOverride>>;
 
+// `label` / `plural` are DATA (English in every locale): the label names the
+// type's template note. Render through categoryDisplayLabel / categoryDisplayPlural.
 export const CODEX_CATEGORIES: (CategoryDef & { id: BuiltinCodexCategory })[] = [
-  { id: "character", label: "Character", plural: "Characters", icon: "user" },
-  { id: "location", label: "Location", plural: "Locations", icon: "map-pin" },
-  { id: "world", label: "World", plural: "Worlds", icon: "globe" },
-  { id: "faction", label: "Faction", plural: "Factions", icon: "users" },
-  { id: "item", label: "Item", plural: "Items", icon: "package" },
-  { id: "event", label: "Event", plural: "Events", icon: "calendar" },
-  { id: "concept", label: "Concept", plural: "Concepts", icon: "sparkles" },
+  { id: "character", label: "Character", plural: "Characters", icon: "user" }, // i18n-ignore: data
+  { id: "location", label: "Location", plural: "Locations", icon: "map-pin" }, // i18n-ignore: data
+  { id: "world", label: "World", plural: "Worlds", icon: "globe" }, // i18n-ignore: data
+  { id: "faction", label: "Faction", plural: "Factions", icon: "users" }, // i18n-ignore: data
+  { id: "item", label: "Item", plural: "Items", icon: "package" }, // i18n-ignore: data
+  { id: "event", label: "Event", plural: "Events", icon: "calendar" }, // i18n-ignore: data
+  { id: "concept", label: "Concept", plural: "Concepts", icon: "sparkles" }, // i18n-ignore: data
 ];
 
 export function isBuiltinCategory(v: unknown): v is BuiltinCodexCategory {
@@ -92,6 +95,54 @@ export function categoryLabel(
   overrides: CategoryOverrides = {}
 ): string {
   return allCategories(customs, overrides).find((c) => c.id === id)?.label ?? id;
+}
+
+/**
+ * Translated display names for the built-ins. DISPLAY ONLY: a category's
+ * `label` is data (it names the type's template note, `<Label>.md`), so every
+ * path, template and lookup keeps using `cat.label`; render sites use
+ * {@link categoryDisplayLabel} / {@link categoryDisplayPlural}.
+ */
+const BUILTIN_DISPLAY: Record<BuiltinCodexCategory, { label: MessageKey; plural: MessageKey }> = {
+  character: { label: "codex.category.character", plural: "codex.category.character.plural" },
+  location: { label: "codex.category.location", plural: "codex.category.location.plural" },
+  world: { label: "codex.category.world", plural: "codex.category.world.plural" },
+  faction: { label: "codex.category.faction", plural: "codex.category.faction.plural" },
+  item: { label: "codex.category.item", plural: "codex.category.item.plural" },
+  event: { label: "codex.category.event", plural: "codex.category.event.plural" },
+  concept: { label: "codex.category.concept", plural: "codex.category.concept.plural" },
+};
+
+/**
+ * The name to SHOW for a category: a built-in's translated name while the user
+ * hasn't renamed it, else the stored label (a rename or a custom type). Never
+ * use the result as a file name, template name or lookup key.
+ */
+export function categoryDisplayLabel(def: CategoryDef): string {
+  const shipped = defaultBuiltinDef(def.id);
+  if (shipped && isBuiltinCategory(def.id) && def.label === shipped.label) {
+    return t(BUILTIN_DISPLAY[def.id].label);
+  }
+  return def.label;
+}
+
+/** The plural to SHOW for a category (see {@link categoryDisplayLabel}). */
+export function categoryDisplayPlural(def: CategoryDef): string {
+  const shipped = defaultBuiltinDef(def.id);
+  if (shipped && isBuiltinCategory(def.id) && def.plural === shipped.plural) {
+    return t(BUILTIN_DISPLAY[def.id].plural);
+  }
+  return def.plural;
+}
+
+/** {@link categoryLabel} for display: the translated name of an un-renamed built-in. */
+export function categoryDisplayName(
+  id: string,
+  customs: CategoryDef[] = [],
+  overrides: CategoryOverrides = {}
+): string {
+  const def = allCategories(customs, overrides).find((c) => c.id === id);
+  return def ? categoryDisplayLabel(def) : id;
 }
 
 /**
