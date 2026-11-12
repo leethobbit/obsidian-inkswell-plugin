@@ -13,6 +13,7 @@
  */
 
 import { App, Menu, Notice, TFile, setIcon } from "obsidian";
+import { MessageKey, formatNumber, t, tp } from "../i18n";
 import { numberRepeats } from "../lib/labels";
 import { tryFileOp } from "../lib/notify";
 import { tagScroller } from "../lib/scroll-preserve";
@@ -45,13 +46,13 @@ import { COLORS } from "../scenes/scene-meta-form";
 import { EmptyStateAction, renderEmptyState, renderEmptyStateAction } from "../views/panel-kit";
 import type InkswellPlugin from "../../main";
 
-const COLOR_NAMES: Record<string, string> = {
-  "#e06c75": "Red",
-  "#e5c07b": "Yellow",
-  "#98c379": "Green",
-  "#56b6c2": "Teal",
-  "#61afef": "Blue",
-  "#c678dd": "Purple",
+const COLOR_NAMES: Record<string, MessageKey> = {
+  "#e06c75": "grid.color.red",
+  "#e5c07b": "grid.color.yellow",
+  "#98c379": "grid.color.green",
+  "#56b6c2": "grid.color.teal",
+  "#61afef": "grid.color.blue",
+  "#c678dd": "grid.color.purple",
 };
 
 /** Auto-switch to Compact when the grid is this big (Plottr Small-zoom precedent). */
@@ -104,7 +105,7 @@ export class PlotGridPanel {
     const projects = this.store.getProjects().filter((p) => p.draft.format === "scenes");
     const project = resolveActive(projects, this.active.get());
     if (!project || !isMultiScene(project.draft)) {
-      renderEmptyState(container, "The plot grid applies to multi-scene projects.");
+      renderEmptyState(container, t("grid.multiSceneOnly"));
       return;
     }
     this.project = project;
@@ -172,29 +173,23 @@ export class PlotGridPanel {
 
   private renderOnboarding(container: HTMLElement): void {
     const noScenes = (this.project?.scenes.length ?? 0) === 0;
-    const text =
-      "Track subplots and arcs across your chapters. Columns are plotlines; " +
-      "cells are the scenes that advance them — so the grid always matches the manuscript." +
-      (noScenes ? " You have no scenes yet — Beats → Scaffold scenes is the fastest start." : "");
+    const text = noScenes ? t("grid.onboarding.noScenes") : t("grid.onboarding");
     const actions: EmptyStateAction[] = [
-      { label: "Create your first plotline", cta: true, onClick: () => void this.addPlotline() },
+      { label: t("grid.createFirstPlotline"), cta: true, onClick: () => void this.addPlotline() },
     ];
-    if (noScenes) actions.push({ label: "Go to Beats", onClick: () => void this.plugin.openBeats() });
+    if (noScenes) actions.push({ label: t("plan.goToBeats"), onClick: () => void this.plugin.openBeats() });
     renderEmptyStateAction(container, text, actions);
   }
 
   private renderToolbar(root: HTMLElement, grid: PlotGrid): void {
     const bar = root.createDiv({ cls: "inkswell-plotgrid__toolbar" });
-    const add = bar.createEl("button", { text: "New plotline" });
-    add.setAttribute("aria-label", "Create a new plotline");
+    const add = bar.createEl("button", { text: t("grid.newPlotline") });
+    add.setAttribute("aria-label", t("grid.newPlotline.aria"));
     add.onclick = () => void this.addPlotline();
 
     const compact = this.isCompact(grid);
-    const zoom = bar.createEl("button", { text: compact ? "Detail" : "Compact" });
-    zoom.setAttribute(
-      "aria-label",
-      compact ? "Show scene cards in cells" : "Show cells as compact presence dots"
-    );
+    const zoom = bar.createEl("button", { text: compact ? t("grid.detail") : t("grid.compact") });
+    zoom.setAttribute("aria-label", compact ? t("grid.detail.aria") : t("grid.compact.aria"));
     zoom.onclick = () => {
       this.compactOverride = !compact;
       this.rerender();
@@ -203,7 +198,7 @@ export class PlotGridPanel {
     if (this.focus) {
       const col = grid.columns.find((c) => c.id === this.focus);
       const chip = bar.createSpan({ cls: "inkswell-chip inkswell-plotgrid__focuschip" });
-      chip.createSpan({ text: `Focused: ${col?.title ?? ""}` });
+      chip.createSpan({ text: t("grid.focused", { name: col?.title ?? "" }) });
       const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
       x.onclick = () => {
         this.focus = null;
@@ -224,10 +219,10 @@ export class PlotGridPanel {
         dot.style.backgroundColor = v.col.color;
       }
       const label = head.createSpan({ cls: "inkswell-plotgrid__coltitle", text: v.col.title });
-      head.createSpan({ cls: "inkswell-plotgrid__colcount", text: String(grid.totals[v.idx]) });
+      head.createSpan({ cls: "inkswell-plotgrid__colcount", text: formatNumber(grid.totals[v.idx]) });
       if (isOrphanPlotline(v.col)) {
-        head.setAttribute("title", "Tag found on scenes but not in your plotline list");
-        head.createSpan({ cls: "inkswell-stats__muted", text: " (untracked)" });
+        head.setAttribute("title", t("grid.orphan.tooltip"));
+        head.createSpan({ cls: "inkswell-stats__muted", text: t("grid.orphan.untracked") });
       }
       // Click the title to focus the column (click again on the chip to clear).
       label.onclick = () => {
@@ -286,35 +281,35 @@ export class PlotGridPanel {
     const menu = new Menu();
     if (isOrphanPlotline(col)) {
       menu.addItem((i) =>
-        i.setTitle("Add to plotlines").setIcon("plus").onClick(() => {
+        i.setTitle(t("grid.menu.addToPlotlines")).setIcon("plus").onClick(() => {
           this.persist((cur) => upsertPlotline(cur, { title: col.title }));
         })
       );
       menu.addItem((i) =>
-        i.setTitle("Remove tag from all scenes…").setIcon("trash").onClick(() => {
+        i.setTitle(t("grid.menu.removeTagEverywhere")).setIcon("trash").onClick(() => {
           void this.stripTagEverywhere(col.title);
         })
       );
       return menu;
     }
     menu.addItem((i) =>
-      i.setTitle(this.focus === col.id ? "Clear focus" : "Focus").setIcon("eye").onClick(() => {
+      i.setTitle(this.focus === col.id ? t("grid.menu.clearFocus") : t("grid.menu.focus")).setIcon("eye").onClick(() => {
         this.focus = this.focus === col.id ? null : col.id;
         this.rerender();
       })
     );
-    menu.addItem((i) => i.setTitle("Rename…").setIcon("pencil").onClick(() => void this.renamePlotline(col)));
+    menu.addItem((i) => i.setTitle(t("grid.menu.rename")).setIcon("pencil").onClick(() => void this.renamePlotline(col)));
     menu.addSeparator();
     for (const c of COLORS) {
       menu.addItem((i) =>
-        i.setTitle(`Color: ${COLOR_NAMES[c] ?? c}`).setChecked(col.color === c).onClick(() => {
+        i.setTitle(t("grid.menu.color", { color: c in COLOR_NAMES ? t(COLOR_NAMES[c]) : c })).setChecked(col.color === c).onClick(() => {
           this.persist((cur) => upsertPlotline(cur, { id: col.id, title: col.title, color: c }));
         })
       );
     }
     if (col.color) {
       menu.addItem((i) =>
-        i.setTitle("Clear color").onClick(() => {
+        i.setTitle(t("grid.menu.clearColor")).onClick(() => {
           this.persist((cur) => upsertPlotline(cur, { id: col.id, title: col.title, color: "" }));
         })
       );
@@ -325,7 +320,7 @@ export class PlotGridPanel {
     const idx = cfg.findIndex((p) => p.id === col.id);
     if (idx > 0) {
       menu.addItem((i) =>
-        i.setTitle("Move left").setIcon("arrow-left").onClick(() => {
+        i.setTitle(t("grid.menu.moveLeft")).setIcon("arrow-left").onClick(() => {
           const anchorId = cfg[idx - 1].id; // menu-time anchor; move applies to current
           this.persist((cur) => movePlotline(cur, col.id, anchorId, false));
         })
@@ -333,13 +328,13 @@ export class PlotGridPanel {
     }
     if (idx >= 0 && idx < cfg.length - 1) {
       menu.addItem((i) =>
-        i.setTitle("Move right").setIcon("arrow-right").onClick(() => {
+        i.setTitle(t("grid.menu.moveRight")).setIcon("arrow-right").onClick(() => {
           const anchorId = cfg[idx + 1].id; // menu-time anchor; move applies to current
           this.persist((cur) => movePlotline(cur, col.id, anchorId, true));
         })
       );
     }
-    menu.addItem((i) => i.setTitle("Delete…").setIcon("trash").onClick(() => void this.deletePlotline(col)));
+    menu.addItem((i) => i.setTitle(t("grid.menu.delete")).setIcon("trash").onClick(() => void this.deletePlotline(col)));
     return menu;
   }
 
@@ -369,7 +364,7 @@ export class PlotGridPanel {
       if (n > 0) {
         const dot = cell.createSpan({ cls: "inkswell-plotgrid__dot" });
         if (v.col.color) dot.style.backgroundColor = v.col.color;
-        cell.createSpan({ cls: "inkswell-plotgrid__aggcount", text: String(n) });
+        cell.createSpan({ cls: "inkswell-plotgrid__aggcount", text: formatNumber(n) });
       }
     }
   }
@@ -394,8 +389,8 @@ export class PlotGridPanel {
       const chev = label.createSpan({ cls: "inkswell-plotgrid__chev" });
       setIcon(chev, isExpanded ? "chevron-down" : "chevron-right");
       label.createSpan({ text: row.label });
-      if (row.kind === "planned") label.createSpan({ cls: "inkswell-stats__muted", text: " planned" });
-      else label.createSpan({ cls: "inkswell-plotgrid__rowcount", text: String(row.scenes.length) });
+      if (row.kind === "planned") label.createSpan({ cls: "inkswell-stats__muted", text: t("grid.row.planned") });
+      else label.createSpan({ cls: "inkswell-plotgrid__rowcount", text: formatNumber(row.scenes.length) });
       label.onclick = () => {
         if (this.expanded.has(row.key)) this.expanded.delete(row.key);
         else this.expanded.add(row.key);
@@ -469,7 +464,7 @@ export class PlotGridPanel {
       this.renderChip(cell, scene, v.col);
     } else if (scene.path) {
       const toggle = cell.createEl("button", { cls: "inkswell-plotgrid__toggle", text: "+" });
-      toggle.setAttribute("aria-label", `Add "${scene.title}" to ${v.col.title}`);
+      toggle.setAttribute("aria-label", t("grid.toggle.aria", { scene: scene.title, plotline: v.col.title }));
       toggle.onclick = () => void this.moveMembership(scene.path!, null, v.col.title, null);
     }
     // Chips dragged onto a per-scene cell still mean "move that membership here".
@@ -516,11 +511,11 @@ export class PlotGridPanel {
   /** The "+" affordance in a chapter cell: new stub scene here, or tag an existing one. */
   private renderCellAdd(cell: HTMLElement, row: PlotGridRow, col: Plotline): void {
     const btn = cell.createEl("button", { cls: "inkswell-plotgrid__add", text: "+" });
-    btn.setAttribute("aria-label", `Add a scene to ${col.title} in ${row.label}`);
+    btn.setAttribute("aria-label", t("grid.cellAdd.aria", { plotline: col.title, chapter: row.label }));
     btn.onclick = (e) => {
       const menu = new Menu();
       menu.addItem((i) =>
-        i.setTitle("New scene here…").setIcon("plus").onClick(() => {
+        i.setTitle(t("grid.menu.newSceneHere")).setIcon("plus").onClick(() => {
           if (!this.project) return;
           // The plan-a-future-beat flow: an idea-status stub lands in the right
           // chapter and plotline in one step (works in planned chapters too).
@@ -543,7 +538,7 @@ export class PlotGridPanel {
       if (candidates.length > 0) menu.addSeparator();
       for (const s of candidates) {
         menu.addItem((i) =>
-          i.setTitle(`Add: ${s.title}`).onClick(() => {
+          i.setTitle(t("grid.menu.addScene", { name: s.title })).onClick(() => {
             void this.moveMembership(s.path!, null, col.title, null);
           })
         );
@@ -560,7 +555,7 @@ export class PlotGridPanel {
     });
     menu.addSeparator();
     menu.addItem((i) =>
-      i.setTitle(`Remove from "${col.title}"`).setIcon("x").onClick(() => {
+      i.setTitle(t("grid.menu.removeFrom", { name: col.title })).setIcon("x").onClick(() => {
         void this.moveMembership(scene.path!, col.title, null, null);
       })
     );
@@ -569,7 +564,7 @@ export class PlotGridPanel {
       if (other.title === col.title || (scene.plotlines ?? []).includes(other.title)) continue;
       if (isOrphanPlotline(other)) continue;
       menu.addItem((i) =>
-        i.setTitle(`Add to: ${other.title}`).onClick(() => {
+        i.setTitle(t("grid.menu.addTo", { name: other.title })).onClick(() => {
           void this.moveMembership(scene.path!, null, other.title, null);
         })
       );
@@ -581,7 +576,7 @@ export class PlotGridPanel {
       rows.forEach((r, k) => {
         if (r.scenes.some((s) => s.path === scene.path)) return;
         menu.addItem((i) =>
-          i.setTitle(`Move to chapter: ${labels[k]}`).onClick(() => {
+          i.setTitle(t("grid.menu.moveToChapter", { name: labels[k] })).onClick(() => {
             void this.moveMembership(scene.path!, null, null, r);
           })
         );
@@ -668,7 +663,7 @@ export class PlotGridPanel {
     this.mark(file.path);
     void tryFileOp(
       () => updatePlotlines(this.app, file, transform),
-      "Couldn't save the plotlines."
+      t("grid.saveFailed")
     );
   }
 
@@ -715,7 +710,7 @@ export class PlotGridPanel {
         : undefined;
     if (Object.keys(patch).length > 0) {
       this.mark(file.path);
-      await tryFileOp(() => writeSceneMeta(this.app, file, patch), "Couldn't move the scene.");
+      await tryFileOp(() => writeSceneMeta(this.app, file, patch), t("grid.moveFailed"));
     }
     if (intoChapter !== undefined) await this.moveToChapter(path, intoChapter);
   }
@@ -734,27 +729,27 @@ export class PlotGridPanel {
 
   private async addPlotline(): Promise<void> {
     const name = await promptText(this.app, {
-      title: "New plotline",
+      title: t("grid.newPlotline"),
       value: "",
       multiline: false,
-      cta: "Add",
+      cta: t("common.add"),
     });
-    const t = name?.trim();
-    if (!t) return;
-    this.persist((cur) => upsertPlotline(cur, { title: t }));
+    const title = name?.trim();
+    if (!title) return;
+    this.persist((cur) => upsertPlotline(cur, { title }));
   }
 
   private async renamePlotline(col: Plotline): Promise<void> {
     const input = await promptText(this.app, {
-      title: "Rename plotline",
+      title: t("grid.renamePlotline"),
       value: col.title,
       multiline: false,
-      cta: "Rename",
+      cta: t("common.rename"),
     });
-    const t = input?.trim();
-    if (!t || t === col.title) return;
-    if (this.configured().some((p) => p.id !== col.id && p.title === t)) {
-      new Notice(`A plotline named "${t}" already exists.`);
+    const title = input?.trim();
+    if (!title || title === col.title) return;
+    if (this.configured().some((p) => p.id !== col.id && p.title === title)) {
+      new Notice(t("grid.plotlineExists", { name: title }));
       return;
     }
     const file = this.indexFile();
@@ -765,7 +760,7 @@ export class PlotGridPanel {
         if (!s.path) continue;
         const f = this.app.vault.getAbstractFileByPath(s.path);
         if (!(f instanceof TFile)) continue;
-        const next = renamePlotlineTag(readSceneMeta(this.app, f).plotlines, col.title, t);
+        const next = renamePlotlineTag(readSceneMeta(this.app, f).plotlines, col.title, title);
         if (next) {
           this.mark(f.path);
           await writeSceneMeta(this.app, f, { plotlines: next });
@@ -773,9 +768,9 @@ export class PlotGridPanel {
       }
       this.mark(file.path);
       await updatePlotlines(this.app, file, (cur) =>
-        upsertPlotline(cur, { id: col.id, title: t })
+        upsertPlotline(cur, { id: col.id, title })
       );
-    }, "Couldn't rename the plotline.");
+    }, t("grid.renameFailed"));
   }
 
   private async deletePlotline(col: Plotline): Promise<void> {
@@ -783,8 +778,8 @@ export class PlotGridPanel {
     const ok = await confirmDelete(
       this.app,
       count > 0
-        ? `Delete plotline "${col.title}"? Its tag will be removed from ${count} scene(s) — scene files are kept.`
-        : `Delete plotline "${col.title}"?`
+        ? tp("grid.deletePlotline.withScenes", count, { name: col.title })
+        : t("grid.deletePlotline", { name: col.title })
     );
     if (!ok) return;
     const file = this.indexFile();
@@ -793,7 +788,7 @@ export class PlotGridPanel {
       await this.stripTag(col.title);
       this.mark(file.path);
       await updatePlotlines(this.app, file, (cur) => removePlotline(cur, col.id));
-    }, "Couldn't delete the plotline.");
+    }, t("grid.deleteFailed"));
   }
 
   /** Orphan-column cleanup: strip the tag from every scene (no config change). */
@@ -801,10 +796,10 @@ export class PlotGridPanel {
     const count = this.taggedScenes(title).length;
     const ok = await confirmDelete(
       this.app,
-      `Remove the "${title}" tag from ${count} scene(s)? Scene files are kept.`
+      tp("grid.removeTagEverywhere.confirm", count, { name: title })
     );
     if (!ok) return;
-    await tryFileOp(() => this.stripTag(title), "Couldn't remove the tag.");
+    await tryFileOp(() => this.stripTag(title), t("grid.removeTagFailed"));
   }
 
   private taggedScenes(title: string): TFile[] {

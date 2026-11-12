@@ -7,12 +7,11 @@
  */
 
 import { App } from "obsidian";
+import { t, tp } from "../i18n";
 import { FormModal } from "../lib/form-modal";
 import { ScaffoldAnalysis } from "./scaffold";
 
 class ScaffoldConfirmModal extends FormModal {
-  protected cta = "Scaffold";
-
   constructor(
     app: App,
     private analysis: ScaffoldAnalysis,
@@ -20,18 +19,18 @@ class ScaffoldConfirmModal extends FormModal {
     private resolve: (ok: boolean) => void
   ) {
     super(app);
+    this.cta = t("structure.scaffold.cta");
   }
 
   protected renderForm(contentEl: HTMLElement): void {
     const a = this.analysis;
-    contentEl.createEl("h3", { text: "Scaffold structure" });
+    contentEl.createEl("h3", { text: t("structure.scaffold.title") });
 
     contentEl.createEl("p", {
       cls: "inkswell-stats__muted",
       text: a.structured
-        ? `This will build the full ${this.templateLabel} structure — new files are created in "${a.folder}":`
-        : "This project already has acts or chapters, so your outline won't be touched — " +
-          "only the missing placeholder scenes are created:",
+        ? t("structure.scaffold.introStructured", { template: this.templateLabel, folder: a.folder })
+        : t("structure.scaffold.introScenesOnly"),
     });
 
     const box = contentEl.createDiv({ cls: "inkswell-scaffold-preview" });
@@ -50,9 +49,9 @@ class ScaffoldConfirmModal extends FormModal {
         box.createDiv({ cls: "inkswell-scaffold-preview__act", text: lastAct });
       }
       const row = box.createDiv({ cls: "inkswell-scaffold-preview__row" });
-      row.createSpan({ text: `${item.chapterTitle} — ${item.title}` });
+      row.createSpan({ text: t("structure.scaffold.row", { chapter: item.chapterTitle ?? "", scene: item.title }) });
       if (item.exists) {
-        row.createSpan({ cls: "inkswell-scaffold-preview__note", text: "file exists — adopted" });
+        row.createSpan({ cls: "inkswell-scaffold-preview__note", text: t("structure.scaffold.adopted") });
       }
     }
   }
@@ -67,18 +66,21 @@ class ScaffoldConfirmModal extends FormModal {
     if (skipped > 0) {
       box.createDiv({
         cls: "inkswell-scaffold-preview__note",
-        text: `${skipped} scene${skipped === 1 ? "" : "s"} already exist and will be skipped.`,
+        text: tp("structure.scaffold.skipped", skipped),
       });
     }
   }
 
   private summary(): string {
     const a = this.analysis;
-    const parts = [`${a.newScenes} new scene${a.newScenes === 1 ? "" : "s"}`];
+    const parts = [tp("structure.scaffold.summary.newScenes", a.newScenes)];
     if (a.structured && a.plan) {
-      parts.push(`${a.plan.chapters.length} chapters`, `${a.plan.acts.length} acts`);
+      parts.push(
+        tp("structure.scaffold.summary.chapters", a.plan.chapters.length),
+        tp("structure.scaffold.summary.acts", a.plan.acts.length)
+      );
     }
-    if (a.willLink > 0) parts.push(`${a.willLink} beats linked to their scenes`);
+    if (a.willLink > 0) parts.push(tp("structure.scaffold.summary.linked", a.willLink));
     return parts.join(" · ");
   }
 

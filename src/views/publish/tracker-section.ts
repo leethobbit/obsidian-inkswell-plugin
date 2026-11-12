@@ -8,6 +8,7 @@
  * overwrite each other (the stale-snapshot data-loss class).
  */
 
+import { t } from "../../i18n";
 import { tagField } from "../../lib/focus-preserve";
 
 export type ColType = "text" | "number" | "checkbox" | "select" | "date";
@@ -51,11 +52,11 @@ export function renderTrackerSection(host: HTMLElement, cfg: TrackerConfig): voi
     const el = host.createDiv({ cls: "inkswell-tracker__row" });
     for (const col of cfg.columns) renderCell(el, col, row, cfg);
     const del = el.createSpan({ cls: "inkswell-chip__x", text: "×" });
-    del.setAttribute("aria-label", "Remove row");
+    del.setAttribute("aria-label", t("publish.tracker.removeRow"));
     del.onclick = () => cfg.onRemove(row.id);
   }
 
-  const add = host.createEl("button", { text: cfg.addLabel ?? "+ Add" });
+  const add = host.createEl("button", { text: cfg.addLabel ?? t("publish.tracker.add") });
   add.onclick = () => cfg.onAdd(cfg.newRow());
 }
 

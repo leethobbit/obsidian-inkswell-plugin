@@ -9,8 +9,9 @@
  */
 
 import { App, Notice, Setting, getIconIds, setIcon } from "obsidian";
+import { t } from "../i18n";
 import { FormModal } from "../lib/form-modal";
-import { CategoryDef, slugifyCategoryId } from "./types";
+import { CategoryDef, defaultPlural, slugifyCategoryId } from "./types";
 
 export interface CategoryModalOptions {
   /** The type being edited (its CURRENT display for a built-in), or null to add a new one. */
@@ -33,7 +34,7 @@ export class CategoryModal extends FormModal {
   constructor(app: App, opts: CategoryModalOptions) {
     super(app);
     this.opts = opts;
-    this.cta = opts.existing ? "Save" : "Add";
+    this.cta = opts.existing ? t("common.save") : t("common.add");
     this.label = opts.existing?.label ?? "";
     this.plural = opts.existing?.plural ?? "";
     this.icon = opts.existing?.icon ?? "box";
@@ -43,54 +44,55 @@ export class CategoryModal extends FormModal {
     const { existing, builtin } = this.opts;
     contentEl.createEl("h3", {
       text: builtin
-        ? "Edit codex type"
+        ? t("codex.type.title.edit")
         : existing
-          ? "Edit custom codex type"
-          : "Add custom codex type",
+          ? t("codex.type.title.editCustom")
+          : t("codex.type.title.add"),
     });
 
     let pluralInput: HTMLInputElement | null = null;
     let idLine: HTMLElement | null = null;
 
+    // The label shown here is the stored one (it names the template note, so a
+    // built-in's stays English); the plural default is the stored `<name>s` rule.
     new Setting(contentEl)
-      .setName("Name")
+      .setName(t("codex.type.name"))
       .setDesc(
         builtin
-          ? `Singular display name. Entries keep codex: ${builtin.id}, and the original ` +
-            `${builtin.label}.md template keeps working until a note named after the new name exists.`
+          ? t("codex.type.name.descBuiltin", { id: builtin.id, template: `${builtin.label}.md` })
           : existing
-            ? "Also names the type's template note — renaming means the old template note is no longer used."
-            : "Singular display name, e.g. “Creature”. Also names the type's template note."
+            ? t("codex.type.name.descCustom")
+            : t("codex.type.name.descNew")
       )
-      .addText((t) => {
-        t.setValue(this.label).onChange((v) => {
+      .addText((text) => {
+        text.setValue(this.label).onChange((v) => {
           this.label = v;
           if (pluralInput) pluralInput.placeholder = v.trim() ? `${v.trim()}s` : "";
           if (idLine && !existing) {
             const slug = slugifyCategoryId(this.label);
-            idLine.setText(slug ? `Stored as codex: ${slug}` : "");
+            idLine.setText(slug ? t("codex.type.storedAs", { id: slug }) : "");
           }
         });
       });
 
     new Setting(contentEl)
-      .setName("Plural")
-      .setDesc("Group heading in the Codex list. Blank = name + “s”.")
-      .addText((t) => {
-        pluralInput = t.inputEl;
-        t.setPlaceholder(this.label.trim() ? `${this.label.trim()}s` : "")
+      .setName(t("codex.type.plural"))
+      .setDesc(t("codex.type.plural.desc"))
+      .addText((text) => {
+        pluralInput = text.inputEl;
+        text.setPlaceholder(this.label.trim() ? `${this.label.trim()}s` : "")
           .setValue(this.plural)
           .onChange((v) => (this.plural = v));
       });
 
     new Setting(contentEl)
-      .setName("Icon")
-      .setDesc("Lucide icon name — e.g. “dog”, “crown”, “scroll”.")
-      .addText((t) => {
+      .setName(t("codex.type.icon"))
+      .setDesc(t("codex.type.icon.desc"))
+      .addText((text) => {
         const preview = createSpan({ cls: "inkswell-catmodal__preview" });
-        t.inputEl.after(preview);
+        text.inputEl.after(preview);
         setIcon(preview, this.icon);
-        t.setValue(this.icon).onChange((v) => {
+        text.setValue(this.icon).onChange((v) => {
           this.icon = v;
           // Live preview; an unknown name just renders empty, which is safe.
           setIcon(preview, v.trim());
@@ -99,12 +101,12 @@ export class CategoryModal extends FormModal {
 
     idLine = contentEl.createDiv({ cls: "setting-item-description" });
     if (builtin) {
-      idLine.setText(`codex: ${builtin.id} (built-in — the id never changes)`);
+      idLine.setText(t("codex.type.idBuiltin", { id: builtin.id }));
     } else if (existing) {
-      idLine.setText(`codex: ${existing.id} (fixed — the id is written into existing notes)`);
+      idLine.setText(t("codex.type.idFixed", { id: existing.id }));
     } else {
       const slug = slugifyCategoryId(this.label);
-      idLine.setText(slug ? `Stored as codex: ${slug}` : "");
+      idLine.setText(slug ? t("codex.type.storedAs", { id: slug }) : "");
     }
 
     // Built-in with a customized display: one click back to the shipped look.
@@ -116,10 +118,10 @@ export class CategoryModal extends FormModal {
         existing.icon !== builtin.icon)
     ) {
       new Setting(contentEl)
-        .setName("Reset to default")
+        .setName(t("codex.type.reset"))
         .setDesc(`${builtin.label} / ${builtin.plural} / ${builtin.icon}`)
         .addButton((b) =>
-          b.setButtonText("Reset").onClick(() => {
+          b.setButtonText(t("common.reset")).onClick(() => {
             void (async () => {
               await this.opts.onSubmit({ ...builtin });
               this.close();
@@ -132,20 +134,20 @@ export class CategoryModal extends FormModal {
   protected async submit(): Promise<boolean> {
     const label = this.label.trim();
     if (!label) {
-      new Notice("Name is required.");
+      new Notice(t("codex.nameRequired"));
       return false;
     }
     const id = this.opts.existing?.id ?? slugifyCategoryId(label);
     if (!id) {
-      new Notice("Name must contain letters or numbers.");
+      new Notice(t("codex.type.nameNoLetters"));
       return false;
     }
     if (!this.opts.existing && this.opts.takenIds.includes(id)) {
-      new Notice(`A codex type "${id}" already exists.`);
+      new Notice(t("codex.type.idTaken", { id }));
       return false;
     }
     if (this.opts.takenLabels.includes(label.toLowerCase())) {
-      new Notice("A Codex type with that name already exists (template notes are named by it).");
+      new Notice(t("codex.type.labelTaken"));
       return false;
     }
     const icon = this.icon.trim() || "box";
@@ -153,10 +155,10 @@ export class CategoryModal extends FormModal {
     // bare name — accept either form.
     const ids = getIconIds();
     if (!ids.includes(icon) && !ids.includes(`lucide-${icon}`)) {
-      new Notice(`"${icon}" isn't a known icon name.`);
+      new Notice(t("codex.type.unknownIcon", { icon }));
       return false;
     }
-    const plural = this.plural.trim() || `${label}s`;
+    const plural = this.plural.trim() || defaultPlural(label);
     await this.opts.onSubmit({ id, label, plural, icon });
     return true;
   }

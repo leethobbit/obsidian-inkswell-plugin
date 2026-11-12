@@ -2210,6 +2210,45 @@ body.is-mobile .inkswell-idea .inkswell-rowmenu {
   color: var(--text-faint);
   font-style: italic;
 }
+/* Following a link field (#74): click the name in a chip, or the open button
+   beside a single pick (Inside, Owner). */
+.inkswell-codex__linktarget.is-followable {
+  cursor: pointer;
+}
+.inkswell-codex__linktarget.is-followable:hover,
+.inkswell-codex__linktarget.is-followable:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+.inkswell-codex__linkrow {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+}
+.inkswell-codex__linkrow select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* Linked files (#74): a file-type icon on each chip; a dashed chip is a link
+   to a file that doesn't exist. */
+.inkswell-codex__fileicon {
+  display: inline-flex;
+  color: var(--text-muted);
+}
+.inkswell-codex__fileicon svg {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+}
+.inkswell-codex__file:focus-visible {
+  box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+  outline: none;
+}
+.inkswell-codex__file.is-missing {
+  background-color: transparent;
+  border: 1px dashed var(--background-modifier-border-hover);
+  color: var(--text-faint);
+  cursor: help;
+}
 
 /* Quick Codex dialog: the alias row only applies when the typed name differs
    from the selected text. (.setting-item is display:flex, so the hidden
@@ -2419,18 +2458,137 @@ body.inkswell-phone .inkswell-write__cm .cm-milestone-gutter {
     background: transparent;
   }
 }
+/* The side column. Its width is the writer's (dragged, kept per device in
+   --inkswell-write-side-w) or this default; the cap keeps the prose readable
+   when the window is narrowed after a wide drag. */
 .inkswell-write__inspector {
-  width: 260px;
+  width: var(--inkswell-write-side-w, 260px);
+  max-width: 60%;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-left: 1px solid var(--background-modifier-border);
 }
-/* Right-column panel slot: a fixed switcher over a scrolling content area. */
+/* The divider between the editor and the side column: a 1px line with a wider
+   invisible grab area, so it reads as a border until you reach for it. */
+.inkswell-write__resizer {
+  position: relative;
+  flex: none;
+  width: 1px;
+  background: var(--background-modifier-border);
+  cursor: col-resize;
+  touch-action: none;
+}
+.inkswell-write__resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  width: 9px;
+  z-index: 1;
+}
+.inkswell-write__resizer:hover,
+.inkswell-write__resizer.is-dragging,
+.inkswell-write__resizer:focus-visible {
+  background: var(--interactive-accent);
+  box-shadow: 0 0 0 1px var(--interactive-accent);
+  outline: none;
+}
+.inkswell-write.is-side-collapsed .inkswell-write__inspector,
+.inkswell-write.is-side-collapsed .inkswell-write__resizer {
+  display: none;
+}
+.inkswell-write__sidetoggle,
+.inkswell-write__focustoggle,
+.inkswell-write__nextupbtn {
+  flex: none;
+}
+/* The scene list, hidden by the writer. Phones keep it: there it's a drawer. */
+body:not(.inkswell-phone) .inkswell-write.is-nav-collapsed .inkswell-write__nav {
+  display: none;
+}
+/* "Next up", folded into its toolbar button. The row stays in the page so
+   folding never rebuilds the editor below it. */
+.inkswell-write.is-nextup-folded .inkswell-write__nextup {
+  display: none;
+}
+.inkswell-write__nextupfold {
+  flex: none;
+}
+.inkswell-write__nextupbtn {
+  position: relative;
+}
+.inkswell-write__nextupbtn.has-note::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--interactive-accent);
+}
+/* The editor's menu has a toolbar button only where there's no right-click. */
+.inkswell-write__actionsmenu {
+  display: none;
+  flex: none;
+}
+body.is-mobile .inkswell-write__actionsmenu {
+  display: inline-flex;
+}
+/* Touch targets for the toolbar's icon buttons, matching the scene-list button. */
+body.is-mobile .inkswell-write__actionsmenu,
+body.is-mobile .inkswell-write__focustoggle,
+body.is-mobile .inkswell-write__nextupbtn,
+body.is-mobile .inkswell-write__nextupfold {
+  min-width: 44px;
+  min-height: 44px;
+}
+/* Phones: the word count goes last, so the buttons stay together on the first
+   row and only the count wraps under them. */
+body.inkswell-phone .inkswell-write__count {
+  order: 1;
+}
+/* Focus mode: only the editor and the toolbar. The class sits on the host
+   because the rail and the project header are outside the Write panel. Each
+   hidden thing keeps its own setting, so leaving focus puts it all back. */
+.inkswell-host.is-write-focus > .inkswell-rail,
+.inkswell-host.is-write-focus .inkswell-host__header,
+.inkswell-host.is-write-focus .inkswell-bottombar,
+.inkswell-host.is-write-focus .inkswell-hint,
+.inkswell-host.is-write-focus .inkswell-write__nav,
+.inkswell-host.is-write-focus .inkswell-write__backdrop,
+.inkswell-host.is-write-focus .inkswell-write__resizer,
+.inkswell-host.is-write-focus .inkswell-write__inspector,
+.inkswell-host.is-write-focus .inkswell-write__nextup,
+.inkswell-host.is-write-focus .inkswell-write__scenemeta,
+.inkswell-host.is-write-focus .inkswell-write__navtoggle,
+.inkswell-host.is-write-focus .inkswell-write__sidetoggle,
+.inkswell-host.is-write-focus .inkswell-write__nextupbtn {
+  display: none;
+}
+/* Right-column panel slot: a fixed switcher over a scrolling content area. The
+   switcher fills the column and its tabs share the width, so four fit at the
+   narrowest setting. */
 .inkswell-write__insptabs {
   flex-shrink: 0;
   padding: var(--size-4-2) var(--size-4-2) 0;
+}
+.inkswell-write__insptabs .inkswell-viewswitch {
+  display: flex;
+}
+.inkswell-write__insptabs .inkswell-viewswitch__btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--size-4-1) var(--size-2-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The Codex and Plan panels (the companions' bodies, hosted in Write). */
+.inkswell-write__reference {
+  padding: var(--size-4-2) var(--size-4-3) var(--size-4-6);
 }
 .inkswell-write__inspcontent {
   flex: 1;
@@ -3940,7 +4098,7 @@ body.is-mobile .inkswell-write__nav {
   width: clamp(132px, 20vw, 200px);
 }
 body.is-mobile .inkswell-write__inspector {
-  width: clamp(196px, 26vw, 260px);
+  width: var(--inkswell-write-side-w, clamp(196px, 26vw, 260px));
 }
 body.is-mobile .inkswell-inspector-col {
   width: clamp(208px, 28vw, 280px);
@@ -4044,8 +4202,10 @@ body.is-phone:not(.inkswell-phone) .inkswell-host__main {
 /* --- Phone: Write collapses to a single column. The scene navigator slides in
        as a drawer (toggled from the topbar); the inspector is hidden (its data
        lives in the scene's metadata / the Home inspector). --- */
+/* The scene-list toggle: a plain icon button on desktop and tablet (it hides
+   the column), a 44px drawer button on phones (below). */
 .inkswell-write__navtoggle {
-  display: none;
+  flex: none;
 }
 .inkswell-write__backdrop {
   display: none;
@@ -4058,7 +4218,9 @@ body.inkswell-phone .inkswell-write__navtoggle {
   min-height: 44px;
   margin-right: auto;
 }
-body.inkswell-phone .inkswell-write__inspector {
+body.inkswell-phone .inkswell-write__inspector,
+body.inkswell-phone .inkswell-write__resizer,
+body.inkswell-phone .inkswell-write__sidetoggle {
   display: none;
 }
 /* The writing-prompt control doesn't earn its width on a phone (and crowded the
@@ -4844,4 +5006,332 @@ body.inkswell-phone .inkswell-codex__toolbar input[type="search"] {
 .inkswell-scaffold-preview__note {
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
+}
+
+/* ── Codex card (peek + Codex companion) ─────────────────────────────── */
+.inkswell-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+  min-width: 0;
+}
+.inkswell-card__head {
+  display: flex;
+  gap: var(--size-4-2);
+  align-items: flex-start;
+}
+.inkswell-card__portrait {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: var(--radius-s);
+  flex: none;
+}
+.inkswell-card--full .inkswell-card__portrait {
+  width: 88px;
+  height: 88px;
+}
+.inkswell-card__title {
+  min-width: 0;
+}
+.inkswell-card__name {
+  font-weight: var(--font-semibold);
+  font-size: var(--font-ui-medium);
+  overflow-wrap: anywhere;
+}
+.inkswell-card__type,
+.inkswell-card__aliases {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-card__fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-1);
+}
+.inkswell-card__label {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-card__value {
+  font-size: var(--font-ui-small);
+  overflow-wrap: anywhere;
+}
+.inkswell-card__value.is-prose {
+  white-space: pre-wrap;
+}
+.inkswell-card--compact .inkswell-card__value.is-prose {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.inkswell-card__link {
+  color: var(--text-accent);
+  cursor: pointer;
+}
+.inkswell-card__link:hover,
+.inkswell-card__link:focus-visible {
+  text-decoration: underline;
+}
+.inkswell-card__linklabel {
+  color: var(--text-muted);
+}
+.inkswell-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-2);
+}
+
+/* ── Peek popover ──────────────────────────────────────────────────────── */
+.inkswell-peek {
+  position: fixed;
+  left: var(--inkswell-peek-left, 0);
+  top: var(--inkswell-peek-top, 0);
+  z-index: var(--layer-popover);
+  width: min(320px, calc(100vw - 12px));
+  max-height: min(420px, calc(100vh - 12px));
+  overflow-y: auto;
+  padding: var(--size-4-3);
+  background: var(--background-primary);
+  border: var(--border-width) solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-s);
+}
+.inkswell-peek__back {
+  width: auto;
+  margin-bottom: var(--size-4-2);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-chip.is-peekable {
+  cursor: pointer;
+}
+.inkswell-chip.is-peekable:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+}
+
+/* ── Sidebar companions ────────────────────────────────────────────────── */
+.inkswell-companion {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+.inkswell-companion__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-3);
+  border-bottom: var(--border-width) solid var(--background-modifier-border);
+}
+.inkswell-companion__title {
+  font-weight: var(--font-semibold);
+  font-size: var(--font-ui-small);
+}
+.inkswell-companion__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--size-4-2) var(--size-4-3) var(--size-4-6);
+}
+.inkswell-companion__empty {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  padding: var(--size-4-2) 0;
+}
+.inkswell-companion__section {
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-companion__section > summary {
+  cursor: pointer;
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+  padding: var(--size-4-1) 0;
+}
+.inkswell-companion__sectionbody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.inkswell-companion__group {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+  margin: var(--size-4-2) 0 2px;
+}
+.inkswell-companion__search {
+  width: 100%;
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-companion__row,
+.inkswell-companion__scenerow {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-1) var(--size-4-2);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  min-width: 0;
+}
+.inkswell-companion__row:hover,
+.inkswell-companion__row:focus-visible,
+.inkswell-companion__scenerow:hover,
+.inkswell-companion__scenerow:focus-visible {
+  background: var(--background-modifier-hover);
+}
+.inkswell-companion__rowtext {
+  flex: 1;
+  min-width: 0;
+}
+.inkswell-companion__rowname,
+.inkswell-companion__scenetitle {
+  font-size: var(--font-ui-small);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inkswell-companion__scenetitle {
+  flex: 1;
+}
+.inkswell-companion__rowsub {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+.inkswell-companion__keep {
+  opacity: 0;
+  flex: none;
+}
+.inkswell-companion__row:hover .inkswell-companion__keep,
+.inkswell-companion__keep:focus-visible,
+.inkswell-companion__keep.is-active {
+  opacity: 1;
+}
+.is-mobile .inkswell-companion__keep {
+  opacity: 1;
+}
+.inkswell-companion__back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  width: auto;
+  margin-bottom: var(--size-4-2);
+  font-size: var(--font-ui-smaller);
+}
+.inkswell-companion__book {
+  font-weight: var(--font-semibold);
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-companion__scenerow.is-current,
+.inkswell-companion__scene.is-current {
+  background: var(--background-modifier-active-hover);
+}
+.inkswell-companion__scenerow.is-missing {
+  color: var(--text-faint);
+  cursor: default;
+}
+.inkswell-companion__scenerow.is-indent-1 {
+  padding-left: var(--size-4-5);
+}
+.inkswell-companion__scenerow.is-indent-2 {
+  padding-left: var(--size-4-8);
+}
+.inkswell-companion__scenerow.is-indent-3 {
+  padding-left: var(--size-4-12);
+}
+.inkswell-companion__scene {
+  padding: var(--size-4-1) var(--size-4-2);
+  border-radius: var(--radius-s);
+}
+.inkswell-companion__scenename {
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-medium);
+}
+.inkswell-companion__scenename.is-link {
+  cursor: pointer;
+  color: var(--text-accent);
+}
+.inkswell-companion__synopsis {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  white-space: pre-wrap;
+}
+.inkswell-companion__synopsis.is-empty {
+  color: var(--text-faint);
+  font-style: italic;
+}
+.inkswell-companion__beat {
+  padding: var(--size-4-1) 0;
+}
+.inkswell-companion__beathead {
+  display: flex;
+  gap: var(--size-4-2);
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-medium);
+}
+.inkswell-companion__done {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-success);
+}
+.inkswell-companion__beatnote,
+.inkswell-companion__beatblurb {
+  font-size: var(--font-ui-smaller);
+  white-space: pre-wrap;
+}
+.inkswell-companion__beatblurb {
+  color: var(--text-faint);
+}
+.inkswell-companion__labelled {
+  margin-bottom: var(--size-4-2);
+  font-size: var(--font-ui-small);
+}
+.inkswell-companion__label {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+.inkswell-companion__noteactions {
+  margin-bottom: var(--size-4-2);
+}
+.inkswell-companion__note {
+  font-size: var(--font-ui-small);
+}
+.inkswell-companion__note.is-folded {
+  max-height: 24em;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, black 80%, transparent);
+}
+.inkswell-companion__more {
+  margin-top: var(--size-4-1);
+}
+.inkswell-companion-pick {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+.inkswell-companion-pick__icon {
+  display: inline-flex;
+  color: var(--text-muted);
+}
+
+/* The full view dragged into a sidebar shows only the notice. */
+.inkswell-host.is-in-sidebar > :not(.inkswell-sidebar-notice) {
+  display: none;
+}
+.inkswell-sidebar-notice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+  padding: var(--size-4-4);
+}
+.inkswell-sidebar-notice__title {
+  font-weight: var(--font-semibold);
+}
+.inkswell-sidebar-notice button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--size-4-2);
+}
+.inkswell-sidebar-notice__icon {
+  display: inline-flex;
+  order: -1;
 }

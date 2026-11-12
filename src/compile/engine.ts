@@ -15,6 +15,7 @@ import {
   TFile,
   normalizePath,
 } from "obsidian";
+import { t } from "../i18n";
 import type { MarkerSet } from "../lib/placeholders";
 import { Project, isMultiScene } from "../projects/types";
 import { chapterRuns } from "../outliner/outline";
@@ -74,7 +75,8 @@ export async function runCompile(
 ): Promise<CompileResult> {
   const scenes = await loadScenes(app, project);
   if (scenes.length === 0) {
-    throw new Error("No scenes with content to compile.");
+    // Shown to the writer in the "Compile failed" notice, so it's translated here.
+    throw new Error(t("compile.error.noScenes"));
   }
   const manuscript = assembleManuscript(scenes, config, undefined, opts.markers);
 
@@ -150,7 +152,7 @@ async function writeOutput(
     return existing;
   }
   if (existing) {
-    throw new Error(`Can't write "${path}" — a folder with that name exists.`);
+    throw new Error(t("compile.error.folderExists", { path }));
   }
   return app.vault.create(path, content);
 }
@@ -179,7 +181,7 @@ async function writeBinaryOutput(
     return existing;
   }
   if (existing) {
-    throw new Error(`Can't write "${path}" — a folder with that name exists.`);
+    throw new Error(t("compile.error.folderExists", { path }));
   }
   return app.vault.createBinary(path, data);
 }

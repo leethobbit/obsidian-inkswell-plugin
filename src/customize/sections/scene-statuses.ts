@@ -4,6 +4,7 @@
  * add or remove one — see the storage decision in SCHEMA.md §B.
  */
 
+import { t, tp } from "../../i18n";
 import { SCENE_STATUSES, sceneStatuses, statusLabel } from "../../scenes/scene-meta";
 import { SPEC_SCENE_STATUS } from "../../settings/overridable-lists";
 import { renderOverrideEditor } from "../override-editor";
@@ -14,14 +15,14 @@ export const sceneStatusesSection: CustomizeSection = {
 
   describe(plugin) {
     const o = plugin.settings.listOverrides["scene.status"];
-    if (!o) return "Idea → Final (defaults)";
+    if (!o) return t("customize.statuses.defaults");
     const hidden = sceneStatuses(o).filter((s) => s.hidden).length;
     const renamed = Object.keys(o.labels ?? {}).length;
     const parts: string[] = [];
-    if (renamed) parts.push(`${renamed} renamed`);
-    if (hidden) parts.push(`${hidden} hidden`);
-    if (o.order?.length) parts.push("reordered");
-    return parts.join(" · ") || "Customized";
+    if (renamed) parts.push(tp("customize.summary.renamed", renamed));
+    if (hidden) parts.push(tp("customize.summary.hidden", hidden));
+    if (o.order?.length) parts.push(t("customize.summary.reordered"));
+    return parts.join(" · ") || t("customize.summary.customized");
   },
 
   render(host, ctx) {
@@ -31,11 +32,7 @@ export const sceneStatusesSection: CustomizeSection = {
       shipped: SCENE_STATUSES.map((s) => ({ id: s, label: statusLabel(s) })),
       allowAdd: false,
       noun: "status",
-      intro:
-        "Rename a status to match your process (“Draft 1”, “Polish”, “Locked”), hide the ones " +
-        "you don't use, and set the order the Board and pickers show them in. Scenes keep their " +
-        "stored value either way, so this is safe to change mid-book; a scene on a hidden status " +
-        "still shows it, marked hidden. New statuses can't be added in this version.",
+      intro: t("customize.statuses.intro"),
     });
   },
 };

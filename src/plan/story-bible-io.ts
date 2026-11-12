@@ -13,6 +13,7 @@ import { getCodexEntities, resolveEntityImage } from "../codex/codex-store";
 import { readProfile, resolveProfileFields } from "../codex/codex-profile";
 import { filterToScope, scopeContextForProject } from "../codex/codex-scope";
 import { CodexEntity, allCategories } from "../codex/types";
+import { t } from "../i18n";
 import { writeConflictBackup } from "../lib/conflict-backup";
 import { mergeBeats } from "../outliner/beats";
 import { DEFAULT_TEMPLATE, TEMPLATE_META } from "../outliner/beat-templates";
@@ -61,6 +62,7 @@ export function codexGroups(
     .filter((g) => g.entities.length > 0);
   const known = new Set(cats.map((c) => c.id));
   const orphans = entities.filter((e) => !known.has(e.category));
+  // i18n-ignore: vault text (heads the note's codex section)
   if (orphans.length) groups.push({ id: UNCATEGORIZED, label: "Uncategorized", entities: orphans });
   return groups;
 }
@@ -87,9 +89,9 @@ export function codexEntryData(plugin: InkswellPlugin, entity: CodexEntity): Cod
 }
 
 function templateName(id: string | undefined, plugin: InkswellPlugin): string {
-  const custom = plugin.settings.customBeatTemplates.find((t) => t.id === id);
+  const custom = plugin.settings.customBeatTemplates.find((tpl) => tpl.id === id);
   if (custom) return custom.name;
-  const meta = TEMPLATE_META.find((t) => t.id === (id ?? DEFAULT_TEMPLATE));
+  const meta = TEMPLATE_META.find((m) => m.id === (id ?? DEFAULT_TEMPLATE));
   return meta ? meta.label.replace(/\s*\(\d+\)$/, "") : id ?? "Beat sheet";
 }
 
@@ -165,8 +167,8 @@ export async function writeStoryBible(app: App, project: Project, content: strin
     if (!current.slice(0, 300).includes(STORY_BIBLE_MARKER)) {
       const ok = await confirmDestructive(
         app,
-        `"${path}" already exists and wasn't made by Inkswell. Replace it with the story bible? Its current text is saved to a backup note first.`,
-        "Replace"
+        t("plan.bible.replaceConfirm", { path }),
+        t("plan.bible.replace")
       );
       if (!ok) return null;
       await writeConflictBackup(app, existing.basename, "disk version", current);

@@ -6,6 +6,7 @@
  */
 
 import { App, Modal, Notice, Setting } from "obsidian";
+import { t } from "../i18n";
 import { Project } from "../projects/types";
 import { persistRevisions, upsertDecision } from "./revisions";
 import {
@@ -54,34 +55,33 @@ export class RevisionModal extends Modal {
   onOpen(): void {
     const { contentEl } = this;
     contentEl.createEl("h3", {
-      text: this.existing ? "Edit revision decision" : "Log a revision decision",
+      text: this.existing ? t("revision.modal.editTitle") : t("revision.modal.logTitle"),
     });
     contentEl.createEl("p", {
       cls: "inkswell-revision__hint",
-      text: "Note the change and keep writing forward — apply it later during revision.",
+      text: t("revision.modal.hint"),
     });
 
     new Setting(contentEl)
-      .setName("Decision")
-      .setDesc('e.g. "From now on, the brother is dead."')
-      .addTextArea((t) => {
-        t.setValue(this.text).onChange((v) => (this.text = v));
-        t.inputEl.rows = 3;
-        t.inputEl.addClass("inkswell-revision__input");
-        window.setTimeout(() => t.inputEl.focus(), 0);
+      .setName(t("revision.modal.decision"))
+      .setDesc(t("revision.modal.decisionDesc"))
+      .addTextArea((ta) => {
+        ta.setValue(this.text).onChange((v) => (this.text = v));
+        ta.inputEl.rows = 3;
+        ta.inputEl.addClass("inkswell-revision__input");
+        window.setTimeout(() => ta.inputEl.focus(), 0);
       });
 
     new Setting(contentEl)
-      .setName("Type")
+      .setName(t("revision.modal.type"))
       .setDesc(
-        "Continuity decisions read 'from now on…'; others are issues to fix later. " +
-          "For research questions or missing scenes, drop a [RESEARCH: ] or [SCENE: ] " +
-          "marker in the prose instead — it marks the exact spot."
+        // The marker syntax stays verbatim in every language: it's matched in prose.
+        t("revision.modal.typeDesc", { research: "[RESEARCH: ]", scene: "[SCENE: ]" })
       )
       .addDropdown((d) => {
         // Offered types only — plus this decision's own legacy type when editing,
         // so a saved research/new-scene decision never silently changes type.
-        for (const t of typeChoices(this.existing?.type)) d.addOption(t.id, t.label);
+        for (const c of typeChoices(this.existing?.type)) d.addOption(c.id, c.label);
         d.setValue(this.type).onChange((v) => (this.type = v as RevisionType));
       });
 
@@ -94,10 +94,10 @@ export class RevisionModal extends Modal {
     // projects (a single-scene project has nothing to anchor to).
     if (this.project.scenes.length > 0) {
       new Setting(contentEl)
-        .setName("Anchor")
-        .setDesc("Tie this decision to a scene, or make it project-wide.")
+        .setName(t("revision.modal.anchor"))
+        .setDesc(t("revision.modal.anchorDesc"))
         .addDropdown((d) => {
-          d.addOption("", "Whole project");
+          d.addOption("", t("revision.wholeProject"));
           for (const s of this.project.scenes) d.addOption(s.title, s.title);
           d.setValue(this.sceneTitle ?? "").onChange((v) => (this.sceneTitle = v || null));
         });
@@ -105,7 +105,7 @@ export class RevisionModal extends Modal {
 
     new Setting(contentEl).addButton((b) =>
       b
-        .setButtonText(this.existing ? "Save changes" : "Log decision")
+        .setButtonText(this.existing ? t("revision.modal.saveChanges") : t("revision.modal.log"))
         .setCta()
         .onClick(() => this.save())
     );
@@ -114,7 +114,7 @@ export class RevisionModal extends Modal {
   private async save(): Promise<void> {
     const text = this.text.trim();
     if (!text) {
-      new Notice("Enter a decision first.");
+      new Notice(t("revision.modal.empty"));
       return;
     }
     const decision: RevisionDecision = {
@@ -130,7 +130,7 @@ export class RevisionModal extends Modal {
     // Upsert by id against the CURRENT stored list — this modal can sit open
     // for a long time, so its construction-time snapshot must never be written.
     await persistRevisions(this.app, this.project, (cur) => upsertDecision(cur, decision));
-    new Notice(this.existing ? "Revision decision updated." : "Revision decision logged.");
+    new Notice(this.existing ? t("revision.modal.updated") : t("revision.modal.logged"));
     this.close();
   }
 

@@ -9,6 +9,7 @@
  * misclassify — which is why the result is overridable per scene (`revOpening`).
  */
 
+import { t } from "../i18n";
 import { stripMarkdown } from "../lib/wordcount";
 
 export type OpeningType = "dialogue" | "action" | "thought" | "reflection" | "unknown";
@@ -21,12 +22,22 @@ export const OPENING_TYPES: OpeningType[] = [
   "unknown",
 ];
 
+/** Display labels, looked up through `t()` on every read (never at import —
+ *  the catalog is picked in onload). The type ids are what scenes store. */
 export const OPENING_LABEL: Record<OpeningType, string> = {
-  action: "Action",
-  dialogue: "Dialogue",
-  thought: "Thought",
-  reflection: "Reflection",
-  unknown: "—",
+  get action() {
+    return t("audit.opening.action");
+  },
+  get dialogue() {
+    return t("audit.opening.dialogue");
+  },
+  get thought() {
+    return t("audit.opening.thought");
+  },
+  get reflection() {
+    return t("audit.opening.reflection");
+  },
+  unknown: "—", // i18n-ignore: symbol
 };
 
 // A small bank of physical/motion verbs. Presence early in the first sentence is

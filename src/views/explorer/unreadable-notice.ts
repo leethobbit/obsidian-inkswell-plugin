@@ -6,14 +6,15 @@
  */
 
 import { App, TFile } from "obsidian";
+import { t, tp } from "../../i18n";
 import type { UnreadableIndex } from "../../projects/unreadable-index";
 import { openScene } from "../../scenes/scene-actions";
 
 function reasonText(item: UnreadableIndex): string {
-  if (item.reason === "longform") return "Its longform properties have no format and no scene list.";
+  if (item.reason === "longform") return t("home.unreadable.reason.longform");
   return item.line
-    ? `Its properties have a formatting error near line ${item.line}.`
-    : "Its properties have a formatting error.";
+    ? t("home.unreadable.reason.line", { line: item.line })
+    : t("home.unreadable.reason.generic");
 }
 
 export function renderUnreadableNotice(
@@ -22,24 +23,21 @@ export function renderUnreadableNotice(
   items: readonly UnreadableIndex[]
 ): void {
   if (items.length === 0) return;
-  const one = items.length === 1;
   const box = parent.createDiv({ cls: "inkswell-unreadable" });
   box.createDiv({
     cls: "inkswell-unreadable__head",
-    text: one ? "Inkswell can't read 1 book" : `Inkswell can't read ${items.length} books`,
+    text: tp("home.unreadable.head", items.length),
   });
   box.createDiv({
     cls: "inkswell-unreadable__summary",
-    text: one
-      ? "Its index note has a problem, so the book is hidden until it's fixed. Your scenes are untouched: fix the properties at the top of the note, or restore an earlier version of it, and the book comes back."
-      : "Their index notes have a problem, so these books are hidden until they're fixed. Your scenes are untouched: fix the properties at the top of each note, or restore an earlier version, and the book comes back.",
+    text: tp("home.unreadable.summary", items.length),
   });
   for (const item of items) {
     const row = box.createDiv({ cls: "inkswell-unreadable__row" });
     const text = row.createDiv({ cls: "inkswell-unreadable__text" });
     text.createDiv({ cls: "inkswell-unreadable__name", text: item.path.replace(/\.md$/i, "") });
     text.createDiv({ cls: "inkswell-unreadable__reason", text: reasonText(item) });
-    const open = row.createEl("button", { text: "Open note" });
+    const open = row.createEl("button", { text: t("home.unreadable.open") });
     open.onclick = () => {
       const file = app.vault.getAbstractFileByPath(item.path);
       if (file instanceof TFile) openScene(app, file);

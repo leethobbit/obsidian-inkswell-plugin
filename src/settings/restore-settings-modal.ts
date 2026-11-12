@@ -12,6 +12,7 @@
 import { App, SuggestModal } from "obsidian";
 import { BackupSnapshot } from "../lib/data-backup";
 import { settingsSummary } from "../lib/stored-data";
+import { t } from "../i18n";
 
 export class RestoreSettingsModal extends SuggestModal<BackupSnapshot> {
   constructor(
@@ -20,7 +21,7 @@ export class RestoreSettingsModal extends SuggestModal<BackupSnapshot> {
     private onChoose: (backup: BackupSnapshot) => void
   ) {
     super(app);
-    this.setPlaceholder("Restore settings from the backup of…");
+    this.setPlaceholder(t("settings.restore.placeholder"));
   }
 
   getSuggestions(query: string): BackupSnapshot[] {

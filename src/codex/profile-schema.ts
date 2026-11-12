@@ -8,6 +8,7 @@
  * prose. Keys not in a category's schema are preserved on write (never clobbered).
  */
 
+import { MessageKey, t } from "../i18n";
 import { normalizeDate } from "../lib/date-key";
 import { PLACE_PARENT_TYPES } from "./places";
 import { BuiltinCodexCategory, isBuiltinCategory } from "./types";
@@ -24,9 +25,16 @@ export type ProfileFieldType =
 export interface ProfileField {
   /** Frontmatter key (camelCase, matches scene-meta convention). */
   key: string;
+  /** Stored label: English for a shipped field (data — template notes, story
+   *  bible, `codex-fields` diffs compare it). Show {@link fieldLabel} instead. */
   label: string;
+  /** Shipped fields: the label's translation key (dropped when a template
+   *  relabels the field). Read through {@link fieldLabel}. */
+  labelKey?: MessageKey;
   type: ProfileFieldType;
   placeholder?: string;
+  /** Shipped fields: the placeholder's translation key ({@link fieldPlaceholder}). */
+  placeholderKey?: MessageKey;
   /** For `links`: restrict the picker to this category (undefined = any) —
    *  or several, comma-separated (`world,location`; ids never contain commas).
    *  Test with {@link linkAccepts}, never `===`. */
@@ -48,6 +56,18 @@ export interface ProfileField {
   hideWhenEmpty?: boolean;
 }
 
+/** The label to SHOW for a field: a shipped field's translation, else its stored label. */
+export function fieldLabel(field: Pick<ProfileField, "label" | "labelKey">): string {
+  return field.labelKey ? t(field.labelKey) : field.label;
+}
+
+/** The placeholder to SHOW for a field (translated for shipped fields), if any. */
+export function fieldPlaceholder(
+  field: Pick<ProfileField, "placeholder" | "placeholderKey">
+): string | undefined {
+  return field.placeholderKey ? t(field.placeholderKey) : field.placeholder;
+}
+
 /** The type ids a link field's `linkCategory` names ([] = any type). */
 export function linkCategories(field: Pick<ProfileField, "linkCategory">): string[] {
   return (field.linkCategory ?? "")
@@ -62,12 +82,18 @@ export function linkAccepts(field: Pick<ProfileField, "linkCategory">, category:
   return cats.length === 0 || cats.includes(category);
 }
 
+// Shipped field tables. `label` / `placeholder` are DATA, English in every locale
+// (template notes, the story bible and `codex-fields` diffs read `label`); the UI
+// shows them through fieldLabel / fieldPlaceholder, which read the *Key twins.
+
 /** Shared first field: alternative names (matches Obsidian's `aliases`). */
 const ALIASES: ProfileField = {
   key: "aliases",
-  label: "Aliases",
+  label: "Aliases", // i18n-ignore: data
+  labelKey: "codex.field.aliases",
   type: "list",
-  placeholder: "Alternative name",
+  placeholder: "Alternative name", // i18n-ignore: data
+  placeholderKey: "codex.field.aliases.placeholder",
 };
 
 /**
@@ -75,7 +101,7 @@ const ALIASES: ProfileField = {
  * Rendered at the top of the Codex detail pane, not in the field list. A
  * `codex-fields` template drops it like any other field unless listed.
  */
-const IMAGE: ProfileField = { key: "image", label: "Image", type: "image" };
+const IMAGE: ProfileField = { key: "image", label: "Image", labelKey: "codex.field.image", type: "image" }; // i18n-ignore: data
 
 /**
  * Category-specific fields (excluding the shared `aliases`, which is prepended
@@ -83,83 +109,88 @@ const IMAGE: ProfileField = { key: "image", label: "Image", type: "image" };
  */
 const CATEGORY_FIELDS: Record<BuiltinCodexCategory, ProfileField[]> = {
   character: [
-    { key: "role", label: "Role", type: "text", placeholder: "Protagonist, mentor…" },
+    { key: "role", label: "Role", labelKey: "codex.field.role", type: "text", placeholder: "Protagonist, mentor…", placeholderKey: "codex.field.role.placeholder" }, // i18n-ignore: data
     {
       key: "function",
-      label: "Narrative function",
+      label: "Narrative function", // i18n-ignore: data
+      labelKey: "codex.field.function",
       type: "text",
-      placeholder: "e.g. Stands in the hero's way",
+      placeholder: "e.g. Stands in the hero's way", // i18n-ignore: data
+      placeholderKey: "codex.field.function.placeholder",
     },
     {
       key: "memorableTrait",
-      label: "Memorable trait",
+      label: "Memorable trait", // i18n-ignore: data
+      labelKey: "codex.field.memorableTrait",
       type: "text",
-      placeholder: "A distinctive 'thing'",
+      placeholder: "A distinctive 'thing'", // i18n-ignore: data
+      placeholderKey: "codex.field.memorableTrait.placeholder",
     },
-    { key: "age", label: "Age", type: "text" },
-    { key: "gender", label: "Gender", type: "text" },
-    { key: "occupation", label: "Occupation", type: "text" },
-    { key: "traits", label: "Traits", type: "textarea", placeholder: "Defining qualities" },
-    { key: "motivation", label: "Motivation", type: "textarea", placeholder: "What they want" },
-    { key: "flaw", label: "Flaw", type: "text" },
-    { key: "appearance", label: "Appearance", type: "textarea" },
-    { key: "backstory", label: "Backstory", type: "textarea" },
-    { key: "arc", label: "Arc", type: "textarea", placeholder: "How they change" },
+    { key: "age", label: "Age", labelKey: "codex.field.age", type: "text" }, // i18n-ignore: data
+    { key: "gender", label: "Gender", labelKey: "codex.field.gender", type: "text" }, // i18n-ignore: data
+    { key: "occupation", label: "Occupation", labelKey: "codex.field.occupation", type: "text" }, // i18n-ignore: data
+    { key: "traits", label: "Traits", labelKey: "codex.field.traits", type: "textarea", placeholder: "Defining qualities", placeholderKey: "codex.field.traits.placeholder" }, // i18n-ignore: data
+    { key: "motivation", label: "Motivation", labelKey: "codex.field.motivation", type: "textarea", placeholder: "What they want", placeholderKey: "codex.field.motivation.placeholder" }, // i18n-ignore: data
+    { key: "flaw", label: "Flaw", labelKey: "codex.field.flaw", type: "text" }, // i18n-ignore: data
+    { key: "appearance", label: "Appearance", labelKey: "codex.field.appearance", type: "textarea" }, // i18n-ignore: data
+    { key: "backstory", label: "Backstory", labelKey: "codex.field.backstory", type: "textarea" }, // i18n-ignore: data
+    { key: "arc", label: "Arc", labelKey: "codex.field.arc", type: "textarea", placeholder: "How they change", placeholderKey: "codex.field.arc.placeholder" }, // i18n-ignore: data
     {
       key: "relationships",
-      label: "Relationships",
+      label: "Relationships", // i18n-ignore: data
+      labelKey: "codex.field.relationships",
       type: "links",
       linkCategory: "character",
       labeled: true,
     },
   ],
   location: [
-    { key: "type", label: "Type", type: "text", placeholder: "City, fortress, forest…" },
+    { key: "type", label: "Type", labelKey: "codex.field.type", type: "text", placeholder: "City, fortress, forest…", placeholderKey: "codex.field.type.placeholder.location" }, // i18n-ignore: data
     // Places nest (#66): a location sits inside a world OR another location
     // (World › The North › Winterfell). Same `parent` key as before, so a
     // location already pointing at its world reads unchanged.
-    { key: "parent", label: "Inside", type: "links", linkCategory: PLACE_PARENT_TYPES, single: true },
+    { key: "parent", label: "Inside", labelKey: "codex.field.parent", type: "links", linkCategory: PLACE_PARENT_TYPES, single: true }, // i18n-ignore: data
     // Superseded by nesting; still shown wherever a region was already written.
-    { key: "region", label: "Region", type: "text", hideWhenEmpty: true },
-    { key: "climate", label: "Climate", type: "text" },
-    { key: "population", label: "Population", type: "text" },
-    { key: "atmosphere", label: "Atmosphere", type: "textarea" },
-    { key: "significance", label: "Significance", type: "textarea" },
-    { key: "history", label: "History", type: "textarea" },
+    { key: "region", label: "Region", labelKey: "codex.field.region", type: "text", hideWhenEmpty: true }, // i18n-ignore: data
+    { key: "climate", label: "Climate", labelKey: "codex.field.climate", type: "text" }, // i18n-ignore: data
+    { key: "population", label: "Population", labelKey: "codex.field.population", type: "text" }, // i18n-ignore: data
+    { key: "atmosphere", label: "Atmosphere", labelKey: "codex.field.atmosphere", type: "textarea" }, // i18n-ignore: data
+    { key: "significance", label: "Significance", labelKey: "codex.field.significance", type: "textarea" }, // i18n-ignore: data
+    { key: "history", label: "History", labelKey: "codex.field.history", type: "textarea" }, // i18n-ignore: data
   ],
   world: [
-    { key: "geography", label: "Geography", type: "textarea" },
-    { key: "culture", label: "Culture", type: "textarea" },
-    { key: "politics", label: "Politics", type: "textarea" },
-    { key: "magicTech", label: "Magic / Tech", type: "textarea" },
-    { key: "religion", label: "Religion", type: "textarea" },
-    { key: "economy", label: "Economy", type: "textarea" },
-    { key: "history", label: "History", type: "textarea" },
+    { key: "geography", label: "Geography", labelKey: "codex.field.geography", type: "textarea" }, // i18n-ignore: data
+    { key: "culture", label: "Culture", labelKey: "codex.field.culture", type: "textarea" }, // i18n-ignore: data
+    { key: "politics", label: "Politics", labelKey: "codex.field.politics", type: "textarea" }, // i18n-ignore: data
+    { key: "magicTech", label: "Magic / Tech", labelKey: "codex.field.magicTech", type: "textarea" }, // i18n-ignore: data
+    { key: "religion", label: "Religion", labelKey: "codex.field.religion", type: "textarea" }, // i18n-ignore: data
+    { key: "economy", label: "Economy", labelKey: "codex.field.economy", type: "textarea" }, // i18n-ignore: data
+    { key: "history", label: "History", labelKey: "codex.field.history", type: "textarea" }, // i18n-ignore: data
   ],
   faction: [
-    { key: "type", label: "Type", type: "text", placeholder: "Guild, kingdom, cult…" },
-    { key: "leadership", label: "Leadership", type: "links", linkCategory: "character" },
-    { key: "size", label: "Size", type: "text" },
-    { key: "territory", label: "Territory", type: "links", linkCategory: "location" },
-    { key: "goal", label: "Goal", type: "textarea" },
-    { key: "allies", label: "Allies", type: "links", linkCategory: "faction" },
-    { key: "enemies", label: "Enemies", type: "links", linkCategory: "faction" },
+    { key: "type", label: "Type", labelKey: "codex.field.type", type: "text", placeholder: "Guild, kingdom, cult…", placeholderKey: "codex.field.type.placeholder.faction" }, // i18n-ignore: data
+    { key: "leadership", label: "Leadership", labelKey: "codex.field.leadership", type: "links", linkCategory: "character" }, // i18n-ignore: data
+    { key: "size", label: "Size", labelKey: "codex.field.size", type: "text" }, // i18n-ignore: data
+    { key: "territory", label: "Territory", labelKey: "codex.field.territory", type: "links", linkCategory: "location" }, // i18n-ignore: data
+    { key: "goal", label: "Goal", labelKey: "codex.field.goal", type: "textarea" }, // i18n-ignore: data
+    { key: "allies", label: "Allies", labelKey: "codex.field.allies", type: "links", linkCategory: "faction" }, // i18n-ignore: data
+    { key: "enemies", label: "Enemies", labelKey: "codex.field.enemies", type: "links", linkCategory: "faction" }, // i18n-ignore: data
   ],
   item: [
-    { key: "type", label: "Type", type: "text", placeholder: "Weapon, relic, document…" },
-    { key: "owner", label: "Owner", type: "links", linkCategory: "character", single: true },
-    { key: "significance", label: "Significance", type: "textarea" },
+    { key: "type", label: "Type", labelKey: "codex.field.type", type: "text", placeholder: "Weapon, relic, document…", placeholderKey: "codex.field.type.placeholder.item" }, // i18n-ignore: data
+    { key: "owner", label: "Owner", labelKey: "codex.field.owner", type: "links", linkCategory: "character", single: true }, // i18n-ignore: data
+    { key: "significance", label: "Significance", labelKey: "codex.field.significance", type: "textarea" }, // i18n-ignore: data
   ],
   event: [
-    { key: "date", label: "Date", type: "text", placeholder: "In-world date" },
-    { key: "participants", label: "Participants", type: "links", linkCategory: "character" },
-    { key: "outcome", label: "Outcome", type: "textarea" },
+    { key: "date", label: "Date", labelKey: "codex.field.date", type: "text", placeholder: "In-world date", placeholderKey: "codex.field.date.placeholder" }, // i18n-ignore: data
+    { key: "participants", label: "Participants", labelKey: "codex.field.participants", type: "links", linkCategory: "character" }, // i18n-ignore: data
+    { key: "outcome", label: "Outcome", labelKey: "codex.field.outcome", type: "textarea" }, // i18n-ignore: data
   ],
   concept: [
-    { key: "type", label: "Type", type: "text", placeholder: "Magic, tech, religion…" },
-    { key: "rules", label: "Rules", type: "textarea" },
-    { key: "limitations", label: "Limitations", type: "textarea" },
-    { key: "significance", label: "Significance", type: "textarea" },
+    { key: "type", label: "Type", labelKey: "codex.field.type", type: "text", placeholder: "Magic, tech, religion…", placeholderKey: "codex.field.type.placeholder.concept" }, // i18n-ignore: data
+    { key: "rules", label: "Rules", labelKey: "codex.field.rules", type: "textarea" }, // i18n-ignore: data
+    { key: "limitations", label: "Limitations", labelKey: "codex.field.limitations", type: "textarea" }, // i18n-ignore: data
+    { key: "significance", label: "Significance", labelKey: "codex.field.significance", type: "textarea" }, // i18n-ignore: data
   ],
 };
 
@@ -171,15 +202,17 @@ const CATEGORY_FIELDS: Record<BuiltinCodexCategory, ProfileField[]> = {
  * (writeProfile only manages schema keys).
  */
 const GENERIC_FIELDS: ProfileField[] = [
-  { key: "type", label: "Type", type: "text", placeholder: "What kind of entry this is" },
-  { key: "description", label: "Description", type: "textarea" },
+  { key: "type", label: "Type", labelKey: "codex.field.type", type: "text", placeholder: "What kind of entry this is", placeholderKey: "codex.field.type.placeholder.generic" }, // i18n-ignore: data
+  { key: "description", label: "Description", labelKey: "codex.field.description", type: "textarea" }, // i18n-ignore: data
   {
     key: "significance",
-    label: "Significance",
+    label: "Significance", // i18n-ignore: data
+    labelKey: "codex.field.significance",
     type: "textarea",
-    placeholder: "Why it matters to the story",
+    placeholder: "Why it matters to the story", // i18n-ignore: data
+    placeholderKey: "codex.field.significance.placeholder.generic",
   },
-  { key: "related", label: "Related entries", type: "links" },
+  { key: "related", label: "Related entries", labelKey: "codex.field.related", type: "links" }, // i18n-ignore: data
 ];
 
 /** The category's default (shipped) fields, excluding the shared `aliases`:
@@ -264,9 +297,9 @@ export function parseFieldSpec(
       if (hintRaw.trim()) spec.type = hintRaw.trim();
     } else if (hintRaw && typeof hintRaw === "object" && !Array.isArray(hintRaw)) {
       const rec = hintRaw as Record<string, unknown>;
-      const t = rec["type"];
+      const ty = rec["type"];
       const l = rec["label"];
-      if (typeof t === "string" && t.trim()) spec.type = t.trim();
+      if (typeof ty === "string" && ty.trim()) spec.type = ty.trim();
       if (typeof l === "string" && l.trim()) spec.label = l.trim();
     }
     out.push(spec);
@@ -308,12 +341,19 @@ function resolveSpecField(category: string, entry: FieldSpec): ProfileField {
     : { key: entry.key, label: humanizeKey(entry.key), type: "text" };
   // A field the template lists by name is wanted — always shown.
   delete base.hideWhenEmpty;
-  if (entry.label) base.label = entry.label;
+  if (entry.label && entry.label !== base.label) {
+    base.label = entry.label;
+    delete base.labelKey; // the writer's own label is shown as written
+  }
   if (!entry.type) return base;
   const hint = parseTypeHint(entry.type);
   if (!hint) return base;
   const next: ProfileField = { key: base.key, label: base.label, type: hint.type };
-  if (base.placeholder && hint.type !== "links") next.placeholder = base.placeholder;
+  if (base.labelKey) next.labelKey = base.labelKey;
+  if (base.placeholder && hint.type !== "links") {
+    next.placeholder = base.placeholder;
+    if (base.placeholderKey) next.placeholderKey = base.placeholderKey;
+  }
   if (hint.type === "links") {
     if (hint.linkCategory) next.linkCategory = hint.linkCategory;
     if (hint.single) next.single = true;

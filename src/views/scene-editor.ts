@@ -26,6 +26,7 @@ import {
   RangeSet,
   StateEffect,
   StateField,
+  Text,
 } from "@codemirror/state";
 import {
   Decoration,
@@ -39,6 +40,7 @@ import {
   scrollPastEnd,
   tooltips,
 } from "@codemirror/view";
+import { tp } from "../i18n";
 import { MarkKind, toggleInlineMark } from "../lib/inline-format";
 import {
   LinkCandidate,
@@ -231,7 +233,7 @@ class MilestoneMarker extends GutterMarker {
   }
   toDOM(): Node {
     const el = createSpan({ cls: "cm-milestone", text: formatMilestone(this.words) });
-    el.title = `${this.words.toLocaleString()} words`;
+    el.title = tp("common.words", this.words);
     return el;
   }
 }
@@ -386,14 +388,21 @@ export function insertPlaceholder(view: EditorView, marker: Pick<MarkerDef, "key
 
 /** Host callbacks a shortcut or editor event may need beyond the editor itself. */
 export interface EditorShortcutHooks {
-  /** Log a revision issue for the open scene (Mod-Shift-L). */
+  /** Log a revision decision for the open scene (Mod-Shift-L). */
   onLogIssue?: () => void;
+  /** Right-click (or a long press) in the text: the host shows the editor's menu. */
+  onContextMenu?: (e: MouseEvent) => void;
   /** Create a codex entry from the selection / word at the cursor (Mod-Shift-C). */
   onQuickCodex?: () => void;
   /** Follow a wikilink (Mod-click on it, or the open-link command). */
   onOpenLink?: (linktext: string) => void;
   /** The pointer entered a rendered wikilink (drives Obsidian's Page Preview). */
   onHoverLink?: (e: MouseEvent, el: HTMLElement, linktext: string) => void;
+  /** The pointer moved with Ctrl/Cmd held (or Ctrl/Cmd went down over the text):
+   *  the host may show a Codex peek for the name under it. */
+  onPeek?: (e: MouseEvent, view: EditorView) => void;
+  /** The pointer left the text, or moved without Ctrl/Cmd: an open peek may close. */
+  onPeekEnd?: () => void;
   /** The live to-do marker set (shortcuts skip a hidden marker). Default: shipped. */
   getMarkers?: () => MarkerSet;
 }
@@ -515,10 +524,16 @@ export interface SceneEditorOptions {
   onLogIssue?: () => void;
   /** Fired by the Mod-Shift-C shortcut to create a codex entry from the selection. */
   onQuickCodex?: () => void;
+  /** Right-click (or a long press) in the text: the host shows the editor's menu. */
+  onContextMenu?: (e: MouseEvent) => void;
   /** Fired by Mod-click on a rendered wikilink. */
   onOpenLink?: (linktext: string) => void;
   /** Fired when the pointer enters a rendered wikilink. */
   onHoverLink?: (e: MouseEvent, el: HTMLElement, linktext: string) => void;
+  /** Ctrl/Cmd-move over the text (the Codex peek). */
+  onPeek?: (e: MouseEvent, view: EditorView) => void;
+  /** The pointer left the text or Ctrl/Cmd is up. */
+  onPeekEnd?: () => void;
   /**
    * Live smart-typography rules, read on every candidate keystroke (so a
    * Settings change applies without rebuilding the editor). Omit to disable.
@@ -540,6 +555,23 @@ export interface SceneEditorOptions {
    * when it did.
    */
   onBoundary?: (dir: "prev" | "next", x: number | null) => boolean;
+  /**
+   * Where the writer was the last time this scene was open (see
+   * src/views/editor-place.ts), asked for with the new document's length so
+   * the answer can be fitted to it. The editor is created already there: no
+   * transaction, so nothing lands in the undo history and typewriter mode
+   * doesn't recenter.
+   */
+  restore?: (docLength: number) => EditorRestore | null;
+}
+
+/** A selection and scroll position to create the editor with. */
+export interface EditorRestore {
+  anchor: number;
+  head: number;
+  /** `view.scrollSnapshot()` from the retired editor, or a `scrollIntoView`
+   *  effect; omit where the editor doesn't scroll itself (the stream). */
+  scrollTo?: StateEffect<unknown>;
 }
 
 /**
@@ -577,10 +609,20 @@ function boundaryKeys(onBoundary: NonNullable<SceneEditorOptions["onBoundary"]>)
 /** Create a manuscript editor bound to `parent`, seeded with `doc`. */
 export function createSceneEditor(opts: SceneEditorOptions): EditorView {
   const inStream = !!opts.onBoundary;
+  // The last pointer position over the text, so pressing Ctrl/Cmd while
+  // already resting on a name peeks without having to move the mouse.
+  let lastMove: MouseEvent | null = null;
+  const isMod = (e: MouseEvent | KeyboardEvent) => e.ctrlKey || e.metaKey;
+  // Split exactly as CodeMirror would, so the length handed to `restore` is
+  // the editor's own (a CRLF in the file is one character here, gotcha 10).
+  const doc = Text.of(opts.doc.split(/\r\n?|\n/));
+  const restore = opts.restore?.(doc.length) ?? null;
   return new EditorView({
     parent: opts.parent,
+    scrollTo: restore?.scrollTo,
     state: EditorState.create({
-      doc: opts.doc,
+      doc,
+      selection: restore ? EditorSelection.single(restore.anchor, restore.head) : undefined,
       extensions: [
         history(),
         // Editor-local shortcuts (see EDITOR_SHORTCUTS — the Write panel binds
@@ -629,9 +671,30 @@ export function createSceneEditor(opts: SceneEditorOptions): EditorView {
             opts.onOpenLink?.(el.dataset["link"] ?? "");
             return true;
           },
+          contextmenu: (e) => {
+            if (!opts.onContextMenu) return false;
+            e.preventDefault();
+            opts.onContextMenu(e);
+            return true;
+          },
           mouseover: (e) => {
             const el = linkElementAt(e.target);
             if (el) opts.onHoverLink?.(e, el, el.dataset["link"] ?? "");
+            return false;
+          },
+          mousemove: (e, view) => {
+            lastMove = e;
+            if (isMod(e)) opts.onPeek?.(e, view);
+            else opts.onPeekEnd?.();
+            return false;
+          },
+          mouseleave: () => {
+            lastMove = null;
+            opts.onPeekEnd?.();
+            return false;
+          },
+          keydown: (e, view) => {
+            if ((e.key === "Control" || e.key === "Meta") && lastMove) opts.onPeek?.(lastMove, view);
             return false;
           },
         }),

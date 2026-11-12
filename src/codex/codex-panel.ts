@@ -8,15 +8,20 @@
  */
 
 import { App, Menu, Notice, TFile, normalizePath, setIcon } from "obsidian";
-import { extensionFor, pickVaultImage, writeImageBinary } from "../lib/images";
-import { attachRowMenu } from "../lib/row-menu";
+import { formatNumber, lowerInSentence, t, tp } from "../i18n";
+import { fillTemplate } from "../i18n/dom";
+import { extensionFor, isImage, pickVaultImage, writeImageBinary } from "../lib/images";
+import { attachOpenInTab, attachRowMenu } from "../lib/row-menu";
 import { preserveFocus, tagField } from "../lib/focus-preserve";
 import {
   confirmDelete,
+  openFileInTab,
   openScene,
   openSceneOnModClick,
   promptText,
 } from "../scenes/scene-actions";
+import { linkedFiles } from "./linked-files";
+import { canvasesLinkingTo, nearMatch, noteLinks } from "./linked-files-io";
 import {
   BookAppearances,
   appearancesForEntity,
@@ -55,19 +60,29 @@ import { codexEntryText } from "../plan/story-bible";
 import { renderProfileFieldControl } from "./profile-field-controls";
 import { codexEntryData } from "../plan/story-bible-io";
 import { readProfile, resolveProfileFields, writeProfile } from "./codex-profile";
-import { Profile, ProfileField, isEmptyValue } from "./profile-schema";
+import { Profile, ProfileField, RESERVED_FIELD_KEYS, fieldLabel, isEmptyValue } from "./profile-schema";
 import {
   CategoryDef,
   CodexEntity,
   EntityScope,
   allCategories,
-  categoryLabel,
+  categoryDisplayLabel,
+  categoryDisplayName,
+  categoryDisplayPlural,
 } from "./types";
 import { openCategoryEditor } from "./category-actions";
 import { Project } from "../projects/types";
 import { groupIntoSeries, orderSeries } from "../series/series";
 import { archivedStoryTitles, baseDraftFor } from "../projects/stories";
 import type InkswellPlugin from "../../main";
+
+/** Icon for a linked file's chip, by the view Obsidian opens it in. */
+function fileIcon(file: TFile): string {
+  if (file.extension === "canvas") return "layout-dashboard";
+  if (file.extension === "md") return "file-text";
+  if (isImage(file)) return "image";
+  return "file";
+}
 
 export class CodexPanel {
   private app: App;
@@ -103,7 +118,7 @@ export class CodexPanel {
   onSelect?: (path: string) => boolean;
   /**
    * Open a scene in Write (never as a raw note), optionally flashing a body hit.
-   * Wired by the host to the same cross-panel navigation Search/To-dos use, so an
+   * Wired by the host to the same cross-panel navigation Search and the revision log use, so an
    * "Appears in" link lands in the manuscript editor rather than Obsidian's file.
    */
   onOpenInWrite?: (path: string, highlight?: SceneHighlight) => void;
@@ -119,10 +134,11 @@ export class CodexPanel {
     return allCategories(s.customCategories, s.categoryOverrides);
   }
 
-  /** Display label for a category id, honoring renames and custom types. */
+  /** Display label for a category id, honoring renames and custom types (translated
+   *  for an un-renamed built-in: display only, never a file or template name). */
   private label(id: string): string {
     const s = this.plugin.settings;
-    return categoryLabel(id, s.customCategories, s.categoryOverrides);
+    return categoryDisplayName(id, s.customCategories, s.categoryOverrides);
   }
 
   /** The active project (the vantage point for scoping), or null. */
@@ -156,7 +172,7 @@ export class CodexPanel {
     const bar = container.createDiv({ cls: "inkswell-codex__toolbar" });
     const searchInput = bar.createEl("input", {
       type: "search",
-      placeholder: "Search codex…",
+      placeholder: t("codex.search"),
     });
     tagField(searchInput, "codex:search");
     searchInput.value = this.search;
@@ -171,10 +187,10 @@ export class CodexPanel {
     // archived" shows those too. With no active project, "In scope" is moot.
     const active = this.activeProject();
     const scopeSel = bar.createEl("select", { cls: "dropdown" });
-    const inScope = scopeSel.createEl("option", { text: "In scope", value: "scope" });
+    const inScope = scopeSel.createEl("option", { text: t("codex.filter.inScope"), value: "scope" });
     inScope.disabled = !active;
-    scopeSel.createEl("option", { text: "All projects", value: "all" });
-    scopeSel.createEl("option", { text: "Include archived", value: "archived" });
+    scopeSel.createEl("option", { text: t("codex.filter.allProjects"), value: "all" });
+    scopeSel.createEl("option", { text: t("codex.filter.includeArchived"), value: "archived" });
     scopeSel.value = this.showAll || !active ? (this.includeArchived ? "archived" : "all") : "scope";
     scopeSel.onchange = () => {
       this.showAll = scopeSel.value !== "scope";
@@ -195,12 +211,12 @@ export class CodexPanel {
       this.categoryFilter = "";
     }
     const catSel = bar.createEl("select", { cls: "dropdown" });
-    catSel.setAttribute("aria-label", "Show one type");
-    catSel.createEl("option", { text: "All types", value: "" });
+    catSel.setAttribute("aria-label", t("codex.filter.typeLabel"));
+    catSel.createEl("option", { text: t("codex.filter.allTypes"), value: "" });
     for (const c of cats) {
-      catSel.createEl("option", { text: c.plural, value: c.id });
+      catSel.createEl("option", { text: categoryDisplayPlural(c), value: c.id });
     }
-    catSel.createEl("option", { text: "New type…", value: NEW_TYPE });
+    catSel.createEl("option", { text: t("codex.filter.newType"), value: NEW_TYPE });
     catSel.value = this.categoryFilter;
     // Picking "New type…" opens the add dialog instead of being a selection; the
     // select snaps back so cancel leaves the current filter active.
@@ -213,7 +229,7 @@ export class CodexPanel {
       this.categoryFilter = catSel.value;
       this.renderList();
     };
-    const newBtn = bar.createEl("button", { cls: "mod-cta", text: "New" });
+    const newBtn = bar.createEl("button", { cls: "mod-cta", text: t("codex.new") });
     // New entries inherit the active project's scope: its series if it belongs to
     // one, else the book itself. With no active project they are created global.
     const projects = this.plugin.store.getProjects();
@@ -221,17 +237,17 @@ export class CodexPanel {
     newBtn.setAttribute("aria-label", describeCreateScope(createScope));
     const create = async (def: CategoryDef) => {
       const name = await promptText(this.app, {
-        title: `New ${def.label}`,
+        title: t("codex.new.title", { type: categoryDisplayLabel(def) }),
         value: "",
         multiline: false,
-        cta: "Create",
+        cta: t("common.create"),
       });
       if (!name) return;
       // The same pipeline Quick Codex (Write editor) uses — scope, folder
       // (the story's, never a draft copy's), and template resolution live there.
       const file = await tryFileOp(
         () => createEntityForProject(this.app, this.plugin.settings, projects, active, def, name),
-        `Couldn't create the ${def.label}.`
+        t("codex.new.failed", { type: categoryDisplayLabel(def) })
       );
       if (file) {
         this.selectedPath = file.path;
@@ -246,7 +262,7 @@ export class CodexPanel {
       }
       const menu = new Menu();
       for (const c of this.categories()) {
-        menu.addItem((i) => i.setTitle(c.label).setIcon(c.icon).onClick(() => void create(c)));
+        menu.addItem((i) => i.setTitle(categoryDisplayLabel(c)).setIcon(c.icon).onClick(() => void create(c)));
       }
       menu.showAtMouseEvent(e);
     };
@@ -311,25 +327,27 @@ export class CodexPanel {
       // archived books — say so instead of claiming the codex is empty.
       const hiddenByArchive = !inScope && !this.includeArchived && getCodexEntities(this.app).length > scoped.length;
       if (filterDef && !q) {
+        // Lowercased inside the sentence (kept capitalised in German).
+        const types = lowerInSentence(categoryDisplayPlural(filterDef));
         list.createDiv({
           cls: "inkswell-stats__muted",
           text: inScope
-            ? `No ${filterDef.plural.toLowerCase()} in scope. Create one, or switch to “All projects”.`
+            ? t("codex.empty.typeInScope", { types })
             : hiddenByArchive
-              ? `No ${filterDef.plural.toLowerCase()} outside archived books. Pick “Include archived” to see theirs.`
-              : `No ${filterDef.plural.toLowerCase()} yet. Create one above.`,
+              ? t("codex.empty.typeArchived", { types })
+              : t("codex.empty.typeNone", { types }),
         });
         return;
       }
       list.createDiv({
         cls: "inkswell-stats__muted",
         text: q
-          ? "No matching codex entries."
+          ? t("codex.empty.noMatch")
           : inScope
-            ? "No codex entries in scope. Create one, or switch to “All projects”."
+            ? t("codex.empty.inScope")
             : hiddenByArchive
-              ? "Every codex entry belongs to an archived book. Pick “Include archived” to see them."
-              : "No codex entries yet. Create one above.",
+              ? t("codex.empty.archived")
+              : t("codex.empty.none"),
       });
       return;
     }
@@ -337,7 +355,9 @@ export class CodexPanel {
     for (const cat of cats) {
       const entries = shown.filter((e) => e.category === cat.id);
       if (entries.length === 0) continue;
-      list.createEl("h4", { text: `${cat.plural} (${entries.length})` });
+      list.createEl("h4", {
+        text: t("codex.group.heading", { types: categoryDisplayPlural(cat), count: formatNumber(entries.length) }),
+      });
       // Places nest (#66): an indented, foldable tree — flat while searching,
       // so every match shows whatever it sits inside.
       if (cat.id === PLACE_CATEGORY && !q) this.renderPlaceTree(list, cat.icon, entries, bookCtx);
@@ -349,7 +369,7 @@ export class CodexPanel {
     const known = new Set(cats.map((c) => c.id));
     const orphans = shown.filter((e) => !known.has(e.category));
     if (orphans.length > 0) {
-      list.createEl("h4", { text: `Uncategorized (${orphans.length})` });
+      list.createEl("h4", { text: t("codex.group.uncategorized", { count: formatNumber(orphans.length) }) });
       this.renderRows(list, "circle-help", orphans, bookCtx, matchedBy);
     }
   }
@@ -431,7 +451,12 @@ export class CodexPanel {
       if (place.childCount > 0) {
         setIcon(chev, place.collapsed ? "chevron-right" : "chevron-down");
         chev.setAttribute("role", "button");
-        chev.setAttribute("aria-label", place.collapsed ? `Show places inside ${entity.name}` : `Hide places inside ${entity.name}`);
+        chev.setAttribute(
+          "aria-label",
+          place.collapsed
+            ? t("codex.place.show", { name: entity.name })
+            : t("codex.place.hide", { name: entity.name })
+        );
         chev.onclick = (e) => {
           e.stopPropagation(); // fold only — don't also select the row
           if (place.collapsed) this.collapsedPlaces.delete(entity.path);
@@ -443,7 +468,7 @@ export class CodexPanel {
     setIcon(row.createSpan({ cls: "inkswell-codex__icon" }), icon);
     row.createSpan({ cls: "inkswell-codex__name", text: entity.name });
     if (pinned) {
-      const pin = row.createSpan({ cls: "inkswell-codex__pin", attr: { "aria-label": "Pinned in this book" } });
+      const pin = row.createSpan({ cls: "inkswell-codex__pin", attr: { "aria-label": t("codex.pin.pinned") } });
       setIcon(pin, "pin");
     }
     if (place?.collapsed && place.childCount > 0) {
@@ -469,20 +494,20 @@ export class CodexPanel {
     attachRowMenu(row, row, () => {
       const menu = new Menu();
       menu.addItem((i) =>
-        i.setTitle("Open note").setIcon("file-text").onClick(() => openScene(this.app, file))
+        i.setTitle(t("card.openNote")).setIcon("file-text").onClick(() => openScene(this.app, file))
       );
       menu.addItem((i) =>
-        i.setTitle("Copy as text").setIcon("copy").onClick(() => this.copyAsText(entity))
+        i.setTitle(t("codex.menu.copyAsText")).setIcon("copy").onClick(() => this.copyAsText(entity))
       );
       menu.addItem((i) =>
-        i.setTitle("Rename…").setIcon("pencil").onClick(() => this.rename(file))
+        i.setTitle(t("codex.menu.rename")).setIcon("pencil").onClick(() => this.rename(file))
       );
       // Pins are per book: offered for entries the open book can see (and to
       // undo a pin on one it no longer can).
       if (bookCtx && (pinned || isEntityVisible(entity, bookCtx))) {
         menu.addItem((i) =>
           i
-            .setTitle(pinned ? "Unpin from this book" : "Pin in this book")
+            .setTitle(pinned ? t("codex.pin.unpin") : t("codex.pin.pin"))
             .setIcon(pinned ? "pin-off" : "pin")
             .onClick(() => this.setPinned(file, !pinned))
         );
@@ -490,14 +515,14 @@ export class CodexPanel {
       if (entity.category === PLACE_CATEGORY || entity.category === "world") {
         menu.addItem((i) =>
           i
-            .setTitle("New place inside…")
+            .setTitle(t("codex.place.newInside"))
             .setIcon("map-pin")
             .onClick(() => this.newPlaceInside(entity, file))
         );
       }
       menu.addSeparator();
       menu.addItem((i) =>
-        i.setTitle("Delete").setIcon("trash").onClick(() => this.remove(file, entity.name))
+        i.setTitle(t("common.delete")).setIcon("trash").onClick(() => this.remove(file, entity.name))
       );
       return menu;
     });
@@ -520,7 +545,7 @@ export class CodexPanel {
       const cached = awaitCacheUpdate(this.app, file);
       const done = await tryFileOp(
         () => updateEntityPins(this.app, file, (cur) => (pin ? withPin(cur, ctx, key) : withoutPin(cur, ctx))),
-        pin ? "Couldn't pin it." : "Couldn't unpin it."
+        pin ? t("codex.pin.pinFailed") : t("codex.pin.unpinFailed")
       );
       if (done === null) return;
       await cached;
@@ -534,8 +559,8 @@ export class CodexPanel {
     const data = codexEntryData(this.plugin, entity);
     if (!data) return;
     void navigator.clipboard.writeText(codexEntryText(data, { title: true })).then(
-      () => new Notice(`Copied ${entity.name}`),
-      () => new Notice("Couldn't copy to the clipboard.")
+      () => new Notice(t("codex.copy.done", { name: entity.name })),
+      () => new Notice(t("codex.copy.failed"))
     );
   }
 
@@ -552,7 +577,7 @@ export class CodexPanel {
     if (!entity || !(file instanceof TFile)) {
       host.createDiv({
         cls: "inkswell-inspector__empty",
-        text: "Select a codex entry to edit its profile.",
+        text: t("codex.detail.empty"),
       });
       return;
     }
@@ -589,7 +614,7 @@ export class CodexPanel {
         });
       }
     }
-    const openBtn = meta.createEl("button", { text: "Open note" });
+    const openBtn = meta.createEl("button", { text: t("card.openNote") });
     openBtn.onclick = () => openScene(this.app, file);
 
     this.renderScopeField(host, file, entity);
@@ -609,33 +634,39 @@ export class CodexPanel {
     const src = host.createDiv({ cls: "inkswell-codex__fields-src inkswell-stats__muted" });
     const customize = () => void this.plugin.openCustomize("codex-types", entity.category);
     if (template) {
-      src.appendText("Fields from ");
-      const link = src.createEl("a", { text: template.name });
-      link.onclick = (e) => {
-        e.preventDefault();
-        customize();
-      };
-      src.appendText(" · ");
-      const note = src.createEl("a", { text: "open note" });
-      note.onclick = (e) => {
-        e.preventDefault();
-        openScene(this.app, template);
-      };
+      fillTemplate(src, t("codex.detail.fieldsFrom"), {
+        template: (el) => {
+          const link = el.createEl("a", { text: template.name });
+          link.onclick = (e) => {
+            e.preventDefault();
+            customize();
+          };
+        },
+        openNote: (el) => {
+          const note = el.createEl("a", { text: t("codex.detail.openNoteLink") });
+          note.onclick = (e) => {
+            e.preventDefault();
+            openScene(this.app, template);
+          };
+        },
+      });
     } else {
-      const link = src.createEl("a", { text: "Customize fields…" });
+      const link = src.createEl("a", { text: t("codex.detail.customizeFields") });
       link.onclick = (e) => {
         e.preventDefault();
         customize();
       };
     }
 
+    this.renderLinkedFiles(host, file, fields, entities);
+
     // Read-only: scenes that mention this entity (body text) or link it explicitly
     // (characters/location frontmatter). Computed automatically — see scenesForEntity.
     // Async (reads scene bodies), so render a placeholder and fill when it resolves;
     // the token drops the result if the pane re-rendered or another entry was picked.
     const token = ++this.appearsToken;
-    this.field(host, "Appears in", (control) => {
-      control.createSpan({ cls: "inkswell-stats__muted", text: "Scanning scenes…" });
+    this.field(host, t("codex.appears.label"), (control) => {
+      control.createSpan({ cls: "inkswell-stats__muted", text: t("codex.appears.scanning") });
       void appearancesForEntity(
         this.app,
         this.plugin.store.getProjects(),
@@ -645,20 +676,19 @@ export class CodexPanel {
         if (token !== this.appearsToken) return;
         control.empty();
         if (books.length === 0) {
-          control.createSpan({ cls: "inkswell-stats__muted", text: "No scenes mention this yet." });
+          control.createSpan({ cls: "inkswell-stats__muted", text: t("codex.appears.none") });
           return;
         }
         // Grouped by book (a series character reads per book), scenes in
         // manuscript order. Linked scenes (named in the scene's metadata) are
         // filled chips; text-only mentions are outlined (#44 — a name dropped
         // in dialogue isn't a presence). POV scenes carry a tag.
-        const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
         const counts = (b: BookAppearances): string => {
           const mentioned = b.scenes.length - b.linkedCount;
           const parts = [
-            b.linkedCount > 0 ? `linked in ${plural(b.linkedCount, "scene")}` : null,
-            mentioned > 0 ? `mentioned in ${plural(mentioned, "scene")}` : null,
-            b.povCount > 0 ? `POV in ${b.povCount}` : null,
+            b.linkedCount > 0 ? tp("codex.appears.linked", b.linkedCount) : null,
+            mentioned > 0 ? tp("codex.appears.mentioned", mentioned) : null,
+            b.povCount > 0 ? t("codex.appears.pov", { count: formatNumber(b.povCount) }) : null,
           ];
           return parts.filter((x): x is string => x !== null).join(" · ");
         };
@@ -666,8 +696,9 @@ export class CodexPanel {
           const group = control.createDiv({ cls: "inkswell-codex__refbook" });
           const head = group.createDiv({ cls: "inkswell-codex__refhead inkswell-stats__muted" });
           if (books.length > 1) {
-            head.createSpan({ cls: "inkswell-codex__refbook-title", text: book.title });
-            head.appendText(` — ${counts(book)}`);
+            fillTemplate(head, t("codex.appears.bookHead", { counts: counts(book) }), {
+              book: (el) => el.createSpan({ cls: "inkswell-codex__refbook-title", text: book.title }),
+            });
           } else {
             head.setText(counts(book));
           }
@@ -675,13 +706,11 @@ export class CodexPanel {
           for (const s of book.scenes) {
             const ref = wrap.createSpan({ cls: "inkswell-chip", text: s.file.basename });
             ref.addClass(s.linked ? "is-linked" : "is-mentioned");
-            let hint = s.linked
-              ? "Linked in the scene's metadata (characters / location / POV)"
-              : "Mentioned in the scene's text only";
+            let hint = s.linked ? t("codex.appears.linkedHint") : t("codex.appears.mentionedHint");
             if (s.pov) {
               ref.addClass("is-pov");
-              hint = `POV scene · ${hint}`;
-              ref.prepend(createSpan({ cls: "inkswell-codex__povtag", text: "POV" }));
+              hint = s.linked ? t("codex.appears.povLinkedHint") : t("codex.appears.povMentionedHint");
+              ref.prepend(createSpan({ cls: "inkswell-codex__povtag", text: t("codex.appears.povTag") }));
             }
             ref.setAttribute("aria-label", hint);
             ref.onclick = () => void this.openReferencingScene(s.file, entity);
@@ -691,7 +720,7 @@ export class CodexPanel {
         if (books.some((b) => b.linkedCount > 0 && b.linkedCount < b.scenes.length)) {
           control.createDiv({
             cls: "inkswell-codex__reflegend inkswell-stats__muted",
-            text: "Filled = linked in scene metadata · outlined = mentioned in the text",
+            text: t("codex.appears.legend"),
           });
         }
       });
@@ -735,20 +764,20 @@ export class CodexPanel {
     const image = resolveEntityImage(this.app, raw, file.path);
     const box = head.createDiv({ cls: "inkswell-codex__portrait" });
     box.setAttribute("role", "button");
-    box.setAttribute("aria-label", image ? "Change image" : "Add image");
+    box.setAttribute("aria-label", image ? t("codex.image.change") : t("codex.image.add"));
     if (image) {
       const img = box.createEl("img", { cls: "inkswell-codex__portrait-img" });
       img.src = this.app.vault.getResourcePath(image);
-      img.alt = `${entity.name} image`;
+      img.alt = t("codex.image.alt", { name: entity.name });
     } else {
       box.addClass("is-empty");
       if (raw) {
         box.addClass("is-missing");
-        box.setAttribute("title", `Image not found: ${raw}`);
+        box.setAttribute("title", t("codex.image.notFoundPath", { path: raw }));
       }
       box.createSpan({
         cls: "inkswell-codex__portrait-placeholder",
-        text: raw ? "Image not found" : "+ Add image",
+        text: raw ? t("codex.image.notFound") : t("codex.image.addPlaceholder"),
       });
     }
 
@@ -756,7 +785,7 @@ export class CodexPanel {
       this.plugin.selfWrites.mark(file.path);
       await tryFileOp(
         () => writeProfile(this.app, file, fields, { [field.key]: value }),
-        "Couldn't save the image."
+        t("codex.image.saveFailed")
       );
       this.refreshPanes();
     };
@@ -764,18 +793,18 @@ export class CodexPanel {
       const menu = new Menu();
       menu.addItem((i) =>
         i
-          .setTitle("Choose from vault…")
+          .setTitle(t("codex.image.choose"))
           .setIcon("image")
           .onClick(() => {
             void (async () => {
-              const picked = await pickVaultImage(this.app, `Choose an image for ${entity.name}…`);
+              const picked = await pickVaultImage(this.app, t("codex.image.choosePrompt", { name: entity.name }));
               if (picked) await save(picked.path);
             })();
           })
       );
       menu.addItem((i) =>
         i
-          .setTitle("Upload…")
+          .setTitle(t("codex.image.upload"))
           .setIcon("upload")
           .onClick(() => this.uploadImage(file, save))
       );
@@ -783,7 +812,7 @@ export class CodexPanel {
         menu.addSeparator();
         menu.addItem((i) =>
           i
-            .setTitle("Remove image")
+            .setTitle(t("codex.image.remove"))
             .setIcon("trash")
             .onClick(() => void save(""))
         );
@@ -806,7 +835,7 @@ export class CodexPanel {
         );
         const written = await tryFileOp(
           () => writeImageBinary(this.app, dest, picked),
-          "Couldn't save the image file."
+          t("codex.image.fileSaveFailed")
         );
         if (written) await save(written.path);
       })();
@@ -820,7 +849,7 @@ export class CodexPanel {
    * build World › Region › City without retyping containers.
    */
   private renderPlacesInside(host: HTMLElement, file: TFile, entity: CodexEntity, entities: CodexEntity[]): void {
-    this.field(host, "Places inside", (control) => {
+    this.field(host, t("codex.place.insideLabel"), (control) => {
       const inside = placesInside(entity, entities);
       if (inside.length > 0) {
         const chips = control.createDiv({ cls: "inkswell-inspector__chips" });
@@ -829,7 +858,7 @@ export class CodexPanel {
           chip.onclick = () => this.select(place.path);
         }
       }
-      const add = control.createEl("button", { text: "New place inside…" });
+      const add = control.createEl("button", { text: t("codex.place.newInside") });
       add.onclick = () => this.newPlaceInside(entity, file);
     });
   }
@@ -839,23 +868,23 @@ export class CodexPanel {
   private newPlaceInside(container: CodexEntity, containerFile: TFile): void {
     void (async () => {
       const name = await promptText(this.app, {
-        title: `New place inside ${container.name}`,
+        title: t("codex.place.newTitle", { name: container.name }),
         value: "",
         multiline: false,
-        cta: "Create",
+        cta: t("common.create"),
       });
       if (!name?.trim()) return;
       const created = await tryFileOp(
         () => createPlaceInside(this.app, this.plugin.settings, container, containerFile, name),
-        "Couldn't create the place."
+        t("codex.place.createFailed")
       );
       if (created === null) return; // tryFileOp already said why
       if (created === "taken") {
-        new Notice(`There's already a note named “${name.trim()}” beside ${container.name}.`);
+        new Notice(t("codex.place.taken", { name: name.trim(), container: container.name }));
         return;
       }
       if (created === "invalid") {
-        new Notice("That name can't be used as a file name.");
+        new Notice(t("codex.invalidName"));
         return;
       }
       // The list and breadcrumb read `parent` from the metadata cache, which
@@ -886,7 +915,7 @@ export class CodexPanel {
       this.plugin.selfWrites.mark(file.path);
       await tryFileOp(
         () => writeProfile(this.app, file, fields, { [field.key]: value }),
-        "Couldn't save the profile field."
+        t("codex.detail.fieldSaveFailed")
       );
     };
     // Re-render the detail after structural edits (chips, alias/parent changes
@@ -896,19 +925,24 @@ export class CodexPanel {
       this.refreshPanes();
     };
 
-    this.field(host, field.label, (control) =>
+    // Scope the candidates to what THIS entity can see: a series/project-
+    // scoped character only links entities in its own scope (+ globals); a
+    // global entity is unconstrained. Never itself.
+    const inScope = (): CodexEntity[] => {
+      const ctx = scopeContextForEntity(entity, this.plugin.store.getProjects());
+      const visible = ctx ? filterToScope(entities, ctx) : entities;
+      return visible.filter((e) => e.path !== entity.path);
+    };
+
+    this.field(host, fieldLabel(field), (control) =>
       renderProfileFieldControl(control, {
         app: this.app,
         field,
         value: profile[field.key],
-        // Scope the candidates to what THIS entity can see: a series/project-
-        // scoped character only links entities in its own scope (+ globals); a
-        // global entity is unconstrained. Never itself.
-        candidates: () => {
-          const ctx = scopeContextForEntity(entity, this.plugin.store.getProjects());
-          const inScope = ctx ? filterToScope(entities, ctx) : entities;
-          return inScope.filter((e) => e.path !== entity.path);
-        },
+        candidates: inScope,
+        // Following a link resolves the name the way picking it did: the entry
+        // this one can see first (two series may each have an "Anna").
+        openLink: (target, newTab) => this.followEntryLink(target, file, inScope(), newTab),
         // A place can't sit inside anything that's inside it (#66) — the loop guard.
         exclude:
           field.key === "parent" && entity.category === PLACE_CATEGORY
@@ -925,6 +959,101 @@ export class CodexPanel {
         },
       })
     );
+  }
+
+  /**
+   * Follow a link field's value (#74): select that entry in the Codex, or with
+   * Ctrl/Cmd-click open its note in a tab. The name resolves to an entry this
+   * one can see first, else the way Obsidian resolves the wikilink.
+   */
+  private followEntryLink(target: string, from: TFile, visible: CodexEntity[], newTab: boolean): void {
+    const path =
+      visible.find((e) => e.name === target)?.path ??
+      this.app.metadataCache.getFirstLinkpathDest(target, from.path)?.path;
+    const dest = path ? this.app.vault.getAbstractFileByPath(path) : null;
+    if (!(dest instanceof TFile)) {
+      new Notice(t("codex.link.noNote", { name: target }));
+      return;
+    }
+    if (!newTab && getCodexEntities(this.app).some((e) => e.path === dest.path)) this.select(dest.path);
+    else openFileInTab(this.app, dest);
+  }
+
+  /**
+   * "Linked files" (#74): what the entry's note links to besides other codex
+   * entries (a mood-board canvas, a PDF, a research note) and the canvases
+   * holding its card, each a chip that opens it. Derived from the writer's own
+   * links (note text, any property, a canvas), so Obsidian keeps it current
+   * when a linked file is renamed.
+   */
+  private renderLinkedFiles(
+    host: HTMLElement,
+    file: TFile,
+    fields: ProfileField[],
+    entities: CodexEntity[]
+  ): void {
+    const shownKeys = new Set<string>(RESERVED_FIELD_KEYS);
+    for (const f of fields) if (f.type === "links" || f.type === "image") shownKeys.add(f.key);
+    const codexPaths = new Set(entities.map((e) => e.path));
+    const linked = linkedFiles(noteLinks(this.app, file), {
+      self: file.path,
+      shownKeys,
+      isCodexEntry: (p) => codexPaths.has(p),
+      linkedFrom: canvasesLinkingTo(this.app, file),
+    });
+    this.field(host, t("codex.files.label"), (control) => {
+      if (linked.length === 0) {
+        control.createDiv({
+          cls: "inkswell-stats__muted",
+          text: t("codex.files.none"),
+        });
+        return;
+      }
+      const chips = control.createDiv({ cls: "inkswell-inspector__chips" });
+      for (const lf of linked) {
+        const target = lf.path ? this.app.vault.getAbstractFileByPath(lf.path) : null;
+        if (!(target instanceof TFile)) {
+          // A link to nothing: say why, on hover and on tap (phones have no
+          // hover). The usual cause is a canvas or PDF linked without its
+          // extension, which Obsidian reads as a note that doesn't exist.
+          const near = nearMatch(this.app, lf.linkpath);
+          const why = near
+            ? t("codex.files.missingNear", { link: lf.linkpath, file: near.name })
+            : t("codex.files.missing", { link: lf.linkpath });
+          const chip = chips.createSpan({
+            cls: "inkswell-chip inkswell-codex__file is-missing",
+            text: lf.linkpath,
+          });
+          chip.setAttribute("aria-label", why);
+          chip.onclick = () => new Notice(why);
+          continue;
+        }
+        const chip = chips.createSpan({ cls: "inkswell-chip inkswell-chip--link inkswell-codex__file" });
+        setIcon(chip.createSpan({ cls: "inkswell-codex__fileicon" }), fileIcon(target));
+        // A note by its name (as links read); other files with their extension,
+        // so "Moodboard.canvas" and a broken "Moodboard" link don't look alike.
+        chip.createSpan({ text: target.extension === "md" ? target.basename : target.name });
+        chip.setAttribute("role", "link");
+        chip.tabIndex = 0;
+        chip.setAttribute("aria-label", target.path);
+        const open = () => this.openLinkedFile(target);
+        chip.onclick = open;
+        chip.onkeydown = (e) => {
+          if (e.key === "Enter") open();
+        };
+        // Ctrl/Cmd-click: always Obsidian's own view, even for a scene.
+        attachOpenInTab(chip, () => openFileInTab(this.app, target));
+      }
+    });
+  }
+
+  /** A linked scene opens in Write (like "Appears in"); any other file in Obsidian's own view for it. */
+  private openLinkedFile(target: TFile): void {
+    if (this.onOpenInWrite && this.plugin.store.findSceneByPath(target.path)) {
+      this.onOpenInWrite(target.path);
+      return;
+    }
+    openFileInTab(this.app, target);
   }
 
   private field(parent: HTMLElement, label: string, build: (host: HTMLElement) => void): void {
@@ -978,14 +1107,14 @@ export class CodexPanel {
       })();
     };
 
-    this.field(host, "Scope", (control) => {
+    this.field(host, t("codex.scope.label"), (control) => {
       const row = control.createDiv({ cls: "inkswell-scope__summary" });
       row.createSpan({
         cls: "inkswell-scope__text",
         text: scopeSummary(scope, books, (name) => series.find((s) => s.name === name)?.books ?? null),
       });
-      const change = row.createEl("button", { text: "Change…" });
-      change.setAttribute("aria-label", `Change where “${entity.name}” is visible`);
+      const change = row.createEl("button", { text: t("codex.scope.change") });
+      change.setAttribute("aria-label", t("codex.scope.changeLabel", { name: entity.name }));
       change.onclick = () => {
         // Defaults when the user switches kind: the active story's series/book wins.
         const active = this.activeProject();
@@ -1013,15 +1142,15 @@ export class CodexPanel {
 
   private async rename(file: TFile): Promise<void> {
     const next = await promptText(this.app, {
-      title: "Rename codex entry",
+      title: t("codex.rename.title"),
       value: file.basename,
       multiline: false,
-      cta: "Rename",
+      cta: t("common.rename"),
     });
     if (next === null) return;
     const safe = sanitizeSegment(next);
     if (!safe) {
-      if (next.trim()) new Notice("That name can't be used as a file name.");
+      if (next.trim()) new Notice(t("codex.invalidName"));
       return;
     }
     if (safe === file.basename) return;
@@ -1030,7 +1159,7 @@ export class CodexPanel {
     if (this.app.vault.getAbstractFileByPath(path)) return;
     const ok = await tryFileOp(
       () => this.app.fileManager.renameFile(file, path),
-      `Couldn't rename "${file.basename}".`
+      t("codex.rename.failed", { name: file.basename })
     );
     if (ok === null) return;
     if (this.selectedPath === file.path) this.selectedPath = path;
@@ -1038,9 +1167,9 @@ export class CodexPanel {
   }
 
   private async remove(file: TFile, name: string): Promise<void> {
-    const ok = await confirmDelete(this.app, `Delete codex entry "${name}"? It will be moved to trash.`);
+    const ok = await confirmDelete(this.app, t("codex.delete.confirm", { name }));
     if (!ok) return;
-    const done = await tryFileOp(() => this.app.fileManager.trashFile(file), `Couldn't delete "${name}".`);
+    const done = await tryFileOp(() => this.app.fileManager.trashFile(file), t("codex.delete.failed", { name }));
     if (done === null) return;
     if (this.selectedPath === file.path) this.selectedPath = null;
     this.refreshPanes();

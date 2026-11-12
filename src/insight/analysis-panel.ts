@@ -5,6 +5,7 @@
  */
 
 import { App, TFile } from "obsidian";
+import { formatNumber, t } from "../i18n";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
 import { Project } from "../projects/types";
@@ -29,12 +30,12 @@ export class AnalysisPanel {
     const projects = this.store.getProjects().filter((p) => p.draft.format === "scenes");
     const project = resolveActive(projects, this.active.get());
     if (!project) {
-      container.createDiv({ cls: "inkswell-stats__muted", text: "No multi-scene projects." });
+      container.createDiv({ cls: "inkswell-stats__muted", text: t("insight.analysis.noProjects") });
       return;
     }
 
     const results = container.createDiv({ cls: "inkswell-analysis__results" });
-    results.createDiv({ cls: "inkswell-stats__muted", text: "Analyzing manuscript…" });
+    results.createDiv({ cls: "inkswell-stats__muted", text: t("insight.analysis.analyzing") });
     void this.analyze(results, project);
   }
 
@@ -52,64 +53,72 @@ export class AnalysisPanel {
     results.empty();
 
     if (!text.trim()) {
-      results.createDiv({ cls: "inkswell-stats__muted", text: "No scene text to analyze." });
+      results.createDiv({ cls: "inkswell-stats__muted", text: t("insight.analysis.noText") });
       return;
     }
 
     const r = readability(text);
     const read = results.createDiv({ cls: "inkswell-stats__section" });
-    read.createEl("h4", { text: "Readability" });
+    read.createEl("h4", { text: t("insight.analysis.readability") });
     read.createDiv({
       cls: "inkswell-stats__row",
-      text: `Grade ${r.grade} · Reading ease ${r.ease}`,
+      text: t("insight.analysis.grade", { grade: r.grade, ease: r.ease }),
     });
     read.createDiv({
       cls: "inkswell-stats__muted",
-      text: `${r.words.toLocaleString()} words · ${r.sentences.toLocaleString()} sentences · ${(r.words / r.sentences).toFixed(1)} words/sentence`,
+      text: t("insight.analysis.counts", {
+        words: formatNumber(r.words),
+        sentences: formatNumber(r.sentences),
+        perSentence: (r.words / r.sentences).toFixed(1),
+      }),
     });
 
     const freqSec = results.createDiv({ cls: "inkswell-stats__section" });
-    freqSec.createEl("h4", { text: "Most-used words" });
+    freqSec.createEl("h4", { text: t("insight.analysis.mostUsed") });
     const chips = freqSec.createDiv({ cls: "inkswell-analysis__chips" });
     for (const f of wordFrequency(text, 20)) {
-      chips.createSpan({ cls: "inkswell-chip", text: `${f.word} ${f.count}` });
+      chips.createSpan({ cls: "inkswell-chip", text: `${f.word} ${formatNumber(f.count)}` });
     }
 
     const echoSec = results.createDiv({ cls: "inkswell-stats__section" });
-    echoSec.createEl("h4", { text: "Echoes (repeated phrases)" });
+    echoSec.createEl("h4", { text: t("insight.analysis.echoes") });
     const echoes = findEchoes(text, 3, 2, 15);
     if (echoes.length === 0) {
-      echoSec.createDiv({ cls: "inkswell-stats__muted", text: "No repeated 3-word phrases found." });
+      echoSec.createDiv({ cls: "inkswell-stats__muted", text: t("insight.analysis.noEchoes") });
     } else {
       for (const e of echoes) {
         echoSec.createDiv({
           cls: "inkswell-stats__row",
-          text: `“${e.phrase}” ×${e.count}`,
+          text: t("insight.analysis.echo", { phrase: e.phrase, count: formatNumber(e.count) }),
         });
       }
     }
 
     // Composition — paragraph mix + per-scene balance flags. Honest about limits.
     const compSec = results.createDiv({ cls: "inkswell-stats__section" });
-    compSec.createEl("h4", { text: "Scene composition" });
+    compSec.createEl("h4", { text: t("insight.analysis.composition") });
     compSec.createDiv({
       cls: "inkswell-stats__muted",
-      text: "Heuristic: paragraphs classified as dialogue / interiority / narration (description + action are merged, not split).",
+      text: t("insight.analysis.compositionHint"),
     });
     const overall = compositionProfile(text);
     const pct = (r: number) => `${Math.round(r * 100)}%`;
     compSec.createDiv({
       cls: "inkswell-stats__row",
-      text: `Dialogue ${pct(overall.ratios.dialogue)} · Interiority ${pct(overall.ratios.interiority)} · Narration ${pct(overall.ratios.narration)}`,
+      text: t("insight.analysis.mix", {
+        dialogue: pct(overall.ratios.dialogue),
+        interiority: pct(overall.ratios.interiority),
+        narration: pct(overall.ratios.narration),
+      }),
     });
     const flagged = bodies
       .map((s) => ({ title: s.title, flags: compositionProfile(s.body).flags }))
       .filter((s) => s.flags.length > 0);
     if (flagged.length === 0) {
-      compSec.createDiv({ cls: "inkswell-stats__muted", text: "No scene-level balance flags." });
+      compSec.createDiv({ cls: "inkswell-stats__muted", text: t("insight.analysis.noFlags") });
     } else {
       for (const s of flagged) {
-        compSec.createDiv({ cls: "inkswell-stats__row", text: `${s.title}: ${s.flags.join(" ")}` });
+        compSec.createDiv({ cls: "inkswell-stats__row", text: t("insight.analysis.sceneFlags", { title: s.title, flags: s.flags.join(" ") }) });
       }
     }
   }

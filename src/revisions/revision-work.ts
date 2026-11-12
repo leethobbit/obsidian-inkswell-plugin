@@ -9,6 +9,7 @@
  * has outstanding work, in manuscript order. No Obsidian imports → unit-testable.
  */
 
+import { t } from "../i18n";
 import { DEFAULT_MARKERS, GapHit, MarkerSet, markerLabel } from "../lib/placeholders";
 import { decisionType } from "./decisions";
 import { REVISION_TYPES, RevisionDecision, RevisionType } from "./types";
@@ -80,7 +81,7 @@ export function buildRevisionGroups(
   if (projectDecisions.length > 0) {
     out.push({
       key: PROJECT_GROUP_KEY,
-      title: "Whole project",
+      title: t("revision.wholeProject"),
       path: null,
       isCurrent: false,
       todos: [],
@@ -98,7 +99,7 @@ export function buildRevisionGroups(
   return out;
 }
 
-// ---- Unified filter for the merged Revise → To-dos panel -------------------
+// ---- Unified filter for the merged Revise → Revision log panel -------------------
 // One chip row filters across both facets: inline marker kinds and logged
 // decision types. Pure so chip building and filtering are unit-testable.
 
@@ -143,7 +144,7 @@ export function buildWorkChips(
 
   const chips: WorkChip[] = [
     {
-      label: "All",
+      label: t("revision.chip.all"),
       filter: { facet: "all" },
       count: markerTotal + decisions.length,
       decision: false,

@@ -5,6 +5,7 @@
  */
 
 import { App, TFile } from "obsidian";
+import { MessageKey, t, tp } from "../../i18n";
 import { preserveFocus, tagField } from "../../lib/focus-preserve";
 import { tryFileOp } from "../../lib/notify";
 import { resolveActive } from "../../projects/active-project";
@@ -26,10 +27,10 @@ import {
 } from "../../publishing/publishing-data";
 import type InkswellPlugin from "../../../main";
 
-const FORMATS: { key: "ebook" | "paperback" | "hardcover"; label: string }[] = [
-  { key: "ebook", label: "eBook" },
-  { key: "paperback", label: "Paperback" },
-  { key: "hardcover", label: "Hardcover" },
+const FORMATS: { key: "ebook" | "paperback" | "hardcover"; labelKey: MessageKey }[] = [
+  { key: "ebook", labelKey: "checklist.meta.format.ebook" },
+  { key: "paperback", labelKey: "checklist.meta.format.paperback" },
+  { key: "hardcover", labelKey: "checklist.meta.format.hardcover" },
 ];
 
 export class ChecklistPanel {
@@ -61,7 +62,7 @@ export class ChecklistPanel {
 
     const active = resolveActive(this.store.getProjects(), this.plugin.activeProject.get());
     if (!active) {
-      container.createDiv({ cls: "inkswell-stats__muted", text: "No project selected." });
+      container.createDiv({ cls: "inkswell-stats__muted", text: t("publish.noProject") });
       return;
     }
     // Publishing metadata/checklist describe the BOOK, not one draft — read and
@@ -77,16 +78,17 @@ export class ChecklistPanel {
     const overall = overallProgress(data, phases);
     container.createDiv({
       cls: "inkswell-stats__muted",
-      text: `Self-publishing checklist — ${overall.done}/${overall.total} tasks done`,
+      text: t("checklist.progress", { done: overall.done, total: overall.total }),
     });
 
-    this.section(container, "pub-metadata", "Book metadata", (host) =>
+    this.section(container, "pub-metadata", t("checklist.section.metadata"), (host) =>
       this.renderMetadata(host, project, file)
     );
 
     for (const phase of phases) {
       const p = phaseProgress(data, phase.id, phases);
-      this.section(container, `pub-${phase.id}`, `${phase.label} (${p.done}/${p.total})`, (host) => {
+      const title = t("checklist.phaseTitle", { label: phase.label, done: p.done, total: p.total });
+      this.section(container, `pub-${phase.id}`, title, (host) => {
         const state = data?.checklist?.[phase.id] ?? {};
         for (const task of phase.tasks) this.renderTask(host, file, phase.id, task, state[task.id]);
       });
@@ -122,10 +124,10 @@ export class ChecklistPanel {
     tagField(cb, `pub:task:${phaseId}:${task.id}:done`);
     cb.checked = !!state?.done;
     cb.onchange = () => this.saveTask(file, phaseId, task.id, { done: cb.checked });
-    label.createSpan({ text: task.label + (task.optional ? " (optional)" : "") });
+    label.createSpan({ text: task.optional ? t("checklist.optional", { label: task.label }) : task.label });
 
     if (task.deepLink === "compile") {
-      const link = row.createEl("button", { cls: "inkswell-publishing__link", text: "Open Compile →" });
+      const link = row.createEl("button", { cls: "inkswell-publishing__link", text: t("checklist.openCompile") });
       link.onclick = () => void this.plugin.openInkswell("publish", undefined, "compile");
     }
 
@@ -137,7 +139,7 @@ export class ChecklistPanel {
     const notes = row.createEl("input", { type: "text", cls: "inkswell-publishing__notes" });
     tagField(notes, `pub:task:${phaseId}:${task.id}:notes`);
     notes.value = state?.notes ?? "";
-    notes.placeholder = "notes…";
+    notes.placeholder = t("checklist.notesPlaceholder");
     notes.onchange = () => this.saveTask(file, phaseId, task.id, { notes: notes.value });
   }
 
@@ -163,7 +165,7 @@ export class ChecklistPanel {
           if (Object.keys(phase).length === 0) delete checklist[phaseId];
           if (Object.keys(checklist).length === 0) delete pub.checklist;
         }),
-      "Couldn't save the checklist task."
+      t("checklist.saveTaskFailed")
     );
   }
 
@@ -171,25 +173,30 @@ export class ChecklistPanel {
 
   private renderMetadata(host: HTMLElement, project: Project, file: TFile): void {
     const m = project.inkswell?.publishing?.metadata ?? {};
-    const text = (label: string, value: string | undefined, save: (v: string) => void, ph = "") => {
+    // `field` is a stable id for the focus-preserve tag; the visible label is translated.
+    const text = (field: string, label: string, value: string | undefined, save: (v: string) => void, ph = "") => {
       const f = host.createDiv({ cls: "inkswell-inspector__field" });
       f.createDiv({ cls: "inkswell-inspector__label", text: label });
       const input = f.createDiv({ cls: "inkswell-inspector__control" }).createEl("input", { type: "text" });
-      tagField(input, `pub:meta:${label}`);
+      tagField(input, `pub:meta:${field}`);
       input.value = value ?? "";
       if (ph) input.placeholder = ph;
       input.onchange = () => save(input.value);
       return input;
     };
 
-    text("Title", m.title, (v) => this.saveMeta(file, { title: v }));
-    text("Subtitle", m.subtitle, (v) => this.saveMeta(file, { subtitle: v }));
+    text("title", t("checklist.meta.title"), m.title, (v) => this.saveMeta(file, { title: v }));
+    text("subtitle", t("checklist.meta.subtitle"), m.subtitle, (v) => this.saveMeta(file, { subtitle: v }));
     const seriesName = projectSeries(project)?.name;
-    text("Series title", m.seriesTitle ?? seriesName, (v) => this.saveMeta(file, { seriesTitle: v }), seriesName ?? "");
-    text("Tagline", m.tagline, (v) => this.saveMeta(file, { tagline: v }), "One-line hook");
+    text("seriesTitle", t("checklist.meta.seriesTitle"), m.seriesTitle ?? seriesName, (v) =>
+      this.saveMeta(file, { seriesTitle: v }), seriesName ?? ""
+    );
+    text("tagline", t("checklist.meta.tagline"), m.tagline, (v) =>
+      this.saveMeta(file, { tagline: v }), t("checklist.meta.taglinePlaceholder")
+    );
 
     const blurbF = host.createDiv({ cls: "inkswell-inspector__field" });
-    blurbF.createDiv({ cls: "inkswell-inspector__label", text: "Back blurb" });
+    blurbF.createDiv({ cls: "inkswell-inspector__label", text: t("checklist.meta.blurb") });
     const blurb = blurbF.createDiv({ cls: "inkswell-inspector__control" }).createEl("textarea", {
       cls: "inkswell-inspector__textarea",
     });
@@ -198,31 +205,37 @@ export class ChecklistPanel {
     blurb.value = m.blurb ?? "";
     blurb.onchange = () => this.saveMeta(file, { blurb: blurb.value });
 
-    text("Genre", m.genre, (v) => this.saveMeta(file, { genre: v }));
-    text("Subgenres", (m.subgenres ?? []).join(", "), (v) =>
-      this.saveMeta(file, { subgenres: splitList(v) }), "comma-separated"
+    text("genre", t("checklist.meta.genre"), m.genre, (v) => this.saveMeta(file, { genre: v }));
+    text("subgenres", t("checklist.meta.subgenres"), (m.subgenres ?? []).join(", "), (v) =>
+      this.saveMeta(file, { subgenres: splitList(v) }), t("checklist.meta.commaSeparated")
     );
-    text("Target reader", m.targetReader, (v) => this.saveMeta(file, { targetReader: v }));
+    text("targetReader", t("checklist.meta.targetReader"), m.targetReader, (v) =>
+      this.saveMeta(file, { targetReader: v })
+    );
 
-    const kwInput = text("Keywords", (m.keywords ?? []).join(", "), (v) =>
-      this.saveMeta(file, { keywords: splitList(v) }), "7–10 recommended, comma-separated"
+    const kwInput = text("keywords", t("checklist.meta.keywords"), (m.keywords ?? []).join(", "), (v) =>
+      this.saveMeta(file, { keywords: splitList(v) }), t("checklist.meta.keywordsPlaceholder")
     );
     const kwHint = host.createDiv({ cls: "inkswell-stats__muted" });
     const updateKwHint = () => {
       const n = splitList(kwInput.value).length;
-      kwHint.setText(`${n} keyword${n === 1 ? "" : "s"} ${keywordsInBand(splitList(kwInput.value)) ? "✓" : "(aim for 7–10)"}`);
+      kwHint.setText(
+        keywordsInBand(splitList(kwInput.value))
+          ? tp("checklist.meta.keywordsInBand", n)
+          : tp("checklist.meta.keywordsOutOfBand", n)
+      );
     };
     updateKwHint();
     kwInput.addEventListener("input", updateKwHint);
 
-    text("Main category (BISAC)", m.categories?.main, (v) =>
+    text("mainCategory", t("checklist.meta.mainCategory"), m.categories?.main, (v) =>
       this.saveCategories(file, { main: v })
     );
-    text("Sub-categories", (m.categories?.sub ?? []).join(", "), (v) =>
-      this.saveCategories(file, { sub: splitList(v) }), "≤3, comma-separated"
+    text("subCategories", t("checklist.meta.subCategories"), (m.categories?.sub ?? []).join(", "), (v) =>
+      this.saveCategories(file, { sub: splitList(v) }), t("checklist.meta.subCategoriesPlaceholder")
     );
     if (m.categories && !categoriesOk(m.categories)) {
-      host.createDiv({ cls: "inkswell-stats__muted", text: "Categories: set 1 main + up to 3 sub." });
+      host.createDiv({ cls: "inkswell-stats__muted", text: t("checklist.meta.categoriesHint") });
     }
 
     // KU exclusivity.
@@ -232,10 +245,10 @@ export class ChecklistPanel {
     tagField(ku, "pub:meta:ku");
     ku.checked = !!m.kuExclusive;
     ku.onchange = () => this.saveMeta(file, { kuExclusive: ku.checked });
-    kuLabel.createSpan({ text: "Kindle Unlimited exclusive (Amazon-only eBook)" });
+    kuLabel.createSpan({ text: t("checklist.meta.ku") });
 
     // Formats × price + ISBN.
-    host.createDiv({ cls: "inkswell-audit__grouplabel", text: "Formats" });
+    host.createDiv({ cls: "inkswell-audit__grouplabel", text: t("checklist.meta.formats") });
     for (const f of FORMATS) {
       const info = m.formats?.[f.key] ?? {};
       const row = host.createDiv({ cls: "inkswell-publishing__format" });
@@ -243,15 +256,15 @@ export class ChecklistPanel {
       const enabled = en.createEl("input", { type: "checkbox" });
       tagField(enabled, `pub:fmt:${f.key}:enabled`);
       enabled.checked = !!info.enabled;
-      en.createSpan({ text: f.label });
+      en.createSpan({ text: t(f.labelKey) });
       const price = row.createEl("input", { type: "number", cls: "inkswell-publishing__price" });
       tagField(price, `pub:fmt:${f.key}:price`);
       price.value = info.price != null ? String(info.price) : "";
-      price.placeholder = "price";
+      price.placeholder = t("checklist.meta.price");
       const isbn = row.createEl("input", { type: "text", cls: "inkswell-publishing__isbn" });
       tagField(isbn, `pub:fmt:${f.key}:isbn`);
       isbn.value = info.isbn ?? "";
-      isbn.placeholder = "ISBN";
+      isbn.placeholder = t("checklist.meta.isbn");
       // All three cells are read live from the DOM at commit time; only THIS
       // format's entry is replaced — sibling formats merge against current
       // metadata inside the write (saveFormat), never the render-time `m`.
@@ -275,7 +288,7 @@ export class ChecklistPanel {
           const pub = raw as PublishingData;
           pub.metadata = { ...(pub.metadata ?? {}), ...patch };
         }),
-      "Couldn't save the book metadata."
+      t("checklist.meta.saveFailed")
     );
   }
 
@@ -293,7 +306,7 @@ export class ChecklistPanel {
           const meta = pub.metadata ?? (pub.metadata = {});
           meta.categories = { ...meta.categories, ...patch };
         }),
-      "Couldn't save the book metadata."
+      t("checklist.meta.saveFailed")
     );
   }
 
@@ -311,7 +324,7 @@ export class ChecklistPanel {
           const meta = pub.metadata ?? (pub.metadata = {});
           meta.formats = { ...meta.formats, [key]: info };
         }),
-      "Couldn't save the book metadata."
+      t("checklist.meta.saveFailed")
     );
   }
 }

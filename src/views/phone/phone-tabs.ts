@@ -4,6 +4,7 @@
  * replaces the desktop icon rail (which is hidden via CSS).
  */
 import { setIcon } from "obsidian";
+import { t } from "../../i18n";
 import { InkswellMode, phoneBarDestinations } from "../nav-model";
 
 export { phoneTabForMode } from "../nav-model";
@@ -31,8 +32,8 @@ export function buildBottomBar(parent: HTMLElement, handlers: BottomBarHandlers)
   more.type = "button";
   more.dataset.tab = "more";
   setIcon(more.createSpan({ cls: "inkswell-bottombar__icon" }), "more-horizontal");
-  more.createSpan({ cls: "inkswell-bottombar__label", text: "More" });
-  more.setAttribute("aria-label", "More");
+  more.createSpan({ cls: "inkswell-bottombar__label", text: t("phone.bar.more") });
+  more.setAttribute("aria-label", t("phone.bar.more"));
   more.onclick = (e) => handlers.onMore(e);
   return bar;
 }

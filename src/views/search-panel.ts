@@ -5,7 +5,7 @@
  * a body hit to jump to it in Write and flash it (synopsis hits open the scene
  * without a flash, since the synopsis isn't in the editor document).
  *
- * Structurally a sibling of the revision to-dos panel (revisions/work-panel.ts): read each
+ * Structurally a sibling of the revision-log panel (revisions/work-panel.ts): read each
  * scene body via `cachedRead`, run a pure scanner, group + jump-to-scene. The one
  * addition is an mtime-keyed body cache so re-running a query across a large scope
  * doesn't re-read every file. This panel is read-only; find & replace is layered
@@ -13,6 +13,7 @@
  */
 
 import { App, Notice, TFile } from "obsidian";
+import { MessageKey, t, tp } from "../i18n";
 import { tagField } from "../lib/focus-preserve";
 import { ActiveProject, resolveActive } from "../projects/active-project";
 import { ProjectStore } from "../projects/project-store";
@@ -49,11 +50,11 @@ export interface SearchPanelCallbacks {
 
 type SearchScope = "draft" | "story" | "series" | "vault";
 
-const SCOPE_LABELS: Record<SearchScope, string> = {
-  draft: "This draft",
-  story: "Whole story",
-  series: "Whole series",
-  vault: "Whole vault",
+const SCOPE_LABELS: Record<SearchScope, MessageKey> = {
+  draft: "search.scope.draft",
+  story: "search.scope.story",
+  series: "search.scope.series",
+  vault: "search.scope.vault",
 };
 
 /** A cap so a broad vault query can't build an unbounded DOM; surfaced in the UI. */
@@ -124,7 +125,7 @@ export class SearchPanel {
 
     const projects = this.store.getProjects().filter((p) => p.draft.format === "scenes");
     if (!resolveActive(projects, this.active.get())) {
-      renderEmptyState(container, "No multi-scene project to search yet.");
+      renderEmptyState(container, t("search.empty.noProject"));
       return;
     }
 
@@ -148,7 +149,7 @@ export class SearchPanel {
     const top = bar.createDiv({ cls: "inkswell-search__row" });
     const scopeSel = top.createEl("select", { cls: "dropdown inkswell-search__scope" });
     for (const s of ["draft", "story", "series", "vault"] as SearchScope[]) {
-      scopeSel.createEl("option", { text: SCOPE_LABELS[s], value: s });
+      scopeSel.createEl("option", { text: t(SCOPE_LABELS[s]), value: s });
     }
     scopeSel.value = this.scope;
     scopeSel.onchange = () => {
@@ -159,7 +160,7 @@ export class SearchPanel {
     const input = top.createEl("input", {
       type: "text",
       cls: "inkswell-search__query",
-      attr: { placeholder: `Search ${sceneCount} scene${sceneCount === 1 ? "" : "s"}…` },
+      attr: { placeholder: tp("search.query.placeholder", sceneCount) },
     });
     tagField(input, "search:query");
     input.value = this.query;
@@ -174,28 +175,28 @@ export class SearchPanel {
     const repl = replaceRow.createEl("input", {
       type: "text",
       cls: "inkswell-search__replace",
-      attr: { placeholder: "Replace with… (leave empty to delete)" },
+      attr: { placeholder: t("search.replace.placeholder") },
     });
     tagField(repl, "search:replace");
     repl.value = this.replacement;
     repl.oninput = () => {
       this.replacement = repl.value;
     };
-    this.replaceBtn = replaceRow.createEl("button", { text: "Replace all…" });
+    this.replaceBtn = replaceRow.createEl("button", { text: t("search.replace.button") });
     this.replaceBtn.onclick = () => this.promptReplace();
     this.updateReplaceBtn();
 
     // Match-option toggles.
     const opts = bar.createDiv({ cls: "inkswell-search__row inkswell-search__opts" });
-    this.checkbox(opts, "Match case", this.caseSensitive, (v) => {
+    this.checkbox(opts, t("search.option.matchCase"), this.caseSensitive, (v) => {
       this.caseSensitive = v;
       void this.runScan();
     });
-    this.checkbox(opts, "Whole word", this.wholeWord, (v) => {
+    this.checkbox(opts, t("search.option.wholeWord"), this.wholeWord, (v) => {
       this.wholeWord = v;
       void this.runScan();
     });
-    this.checkbox(opts, "Include archived", this.filters.includeInactive, (v) => {
+    this.checkbox(opts, t("search.option.includeArchived"), this.filters.includeInactive, (v) => {
       this.filters.includeInactive = v;
       void this.runScan();
     });
@@ -204,7 +205,7 @@ export class SearchPanel {
     const filterRow = bar.createDiv({ cls: "inkswell-search__row inkswell-search__filters" });
     this.filterSelect(
       filterRow,
-      "Status",
+      t("search.filter.status"),
       visibleStatuses(this.cb.getListOverrides?.()["scene.status"]).map((s) => ({
         value: s.id,
         label: s.label,
@@ -217,7 +218,7 @@ export class SearchPanel {
     );
     this.filterSelect(
       filterRow,
-      "POV",
+      t("search.filter.pov"),
       options.povs.map((v) => ({ value: v, label: v })),
       this.filters.pov?.[0],
       (v) => {
@@ -227,7 +228,7 @@ export class SearchPanel {
     );
     this.filterSelect(
       filterRow,
-      "Chapter",
+      t("search.filter.chapter"),
       options.chapters.map((v) => ({ value: v, label: v })),
       this.filters.chapter?.[0],
       (v) => {
@@ -237,7 +238,7 @@ export class SearchPanel {
     );
     this.filterSelect(
       filterRow,
-      "Plotline",
+      t("search.filter.plotline"),
       options.plotlines.map((v) => ({ value: v, label: v })),
       this.filters.plotline?.[0],
       (v) => {
@@ -247,7 +248,7 @@ export class SearchPanel {
     );
     this.filterSelect(
       filterRow,
-      "Character",
+      t("search.filter.character"),
       options.characters.map((v) => ({ value: v, label: stripLink(v) })),
       this.filters.character?.[0],
       (v) => {
@@ -282,7 +283,7 @@ export class SearchPanel {
     const wrap = parent.createDiv({ cls: "inkswell-search__filter" });
     wrap.createSpan({ cls: "inkswell-search__filterlabel", text: label });
     const sel = wrap.createEl("select", { cls: "dropdown" });
-    sel.createEl("option", { text: "Any", value: "" });
+    sel.createEl("option", { text: t("search.filter.any"), value: "" });
     for (const v of values) sel.createEl("option", { text: v.label, value: v.value });
     sel.value = selected ?? "";
     sel.onchange = () => onChange(sel.value);
@@ -477,10 +478,7 @@ export class SearchPanel {
     this.updateReplaceBtn();
     if (!this.listEl) return;
     this.listEl.empty();
-    renderEmptyState(
-      this.listEl,
-      "Type to search your manuscript, or set a filter to list matching scenes."
-    );
+    renderEmptyState(this.listEl, t("search.empty.prompt"));
   }
 
   private renderList(): void {
@@ -489,24 +487,27 @@ export class SearchPanel {
     this.listEl.empty();
 
     if (this.results.length === 0) {
-      renderEmptyState(this.listEl, "No matches.");
+      renderEmptyState(this.listEl, t("search.empty.noMatches"));
       return;
     }
 
     const totalMatches = this.results.reduce((n, g) => n + g.matches.length, 0);
     const summary = this.query.trim()
-      ? `${totalMatches} match${totalMatches === 1 ? "" : "es"} in ${this.results.length} of ${this.scanned} scene${this.scanned === 1 ? "" : "s"}`
-      : `${this.results.length} scene${this.results.length === 1 ? "" : "s"} match the filters`;
+      ? t("search.summary.matches", {
+          matches: tp("search.summary.matchCount", totalMatches),
+          scenes: tp("search.summary.ofScenes", this.scanned, { shown: this.results.length }),
+        })
+      : tp("search.summary.filtered", this.results.length);
     const head = this.listEl.createDiv({ cls: "inkswell-stats__muted", text: summary });
     if (this.capped) {
-      head.setText(`${summary} — showing the first ${RESULT_CAP}; refine your query.`);
+      head.setText(t("search.summary.capped", { summary, cap: RESULT_CAP }));
     }
 
     for (const g of this.results) {
       const header = this.listEl.createDiv({ cls: "inkswell-search__scene" });
-      header.createSpan({ text: `${g.title}${g.matches.length ? ` (${g.matches.length})` : ""}` });
+      header.createSpan({ text: `${g.title}${g.matches.length ? ` (${g.matches.length})` : ""}` }); // i18n-ignore: name and count only
       if (g.inactive) {
-        header.createSpan({ cls: "inkswell-search__badge", text: "archived" });
+        header.createSpan({ cls: "inkswell-search__badge", text: t("search.result.archived") });
       }
       header.onclick = () => this.cb.onOpenInWrite(g.path);
       openSceneOnModClick(header, this.app, g.path);
@@ -514,15 +515,18 @@ export class SearchPanel {
       for (const m of g.matches) {
         const row = this.listEl.createDiv({ cls: "inkswell-search__hit" });
         if (m.target === "synopsis") {
-          row.createSpan({ cls: "inkswell-search__badge inkswell-search__badge--synopsis", text: "synopsis" });
+          row.createSpan({
+            cls: "inkswell-search__badge inkswell-search__badge--synopsis",
+            text: t("search.result.synopsis"),
+          });
         } else {
-          row.createSpan({ cls: "inkswell-search__line", text: `L${m.line}` });
+          row.createSpan({ cls: "inkswell-search__line", text: t("search.result.line", { line: m.line }) });
         }
         row.createSpan({ cls: "inkswell-search__text", text: m.excerpt });
         row.onclick = () => {
           if (m.target === "synopsis") {
             this.cb.onOpenInWrite(g.path);
-            new Notice("That match is in the scene’s synopsis, not the manuscript body.");
+            new Notice(t("search.result.synopsisNotice"));
           } else {
             this.cb.onOpenInWrite(g.path, { from: m.from, to: m.to, verify: m.text });
           }
@@ -566,7 +570,7 @@ export class SearchPanel {
         replace: this.replacement,
         matches,
         scenes,
-        scopeLabel: this.scope === "series" ? "series" : "vault",
+        scope: this.scope === "series" ? "series" : "vault",
         needsAck,
       },
       () => void this.executeReplace()
@@ -630,9 +634,9 @@ export class SearchPanel {
     // Let an open editor bound to a changed scene reload from disk.
     this.cb.afterReplace(changedPaths);
 
-    const parts = [`Replaced ${replaced} in ${changedPaths.length} scene${changedPaths.length === 1 ? "" : "s"}`];
-    if (skipped.length) parts.push(`${skipped.length} skipped`);
-    if (failed.length) parts.push(`${failed.length} failed`);
+    const parts = [tp("search.replace.done", changedPaths.length, { replaced })];
+    if (skipped.length) parts.push(t("search.replace.skipped", { count: skipped.length }));
+    if (failed.length) parts.push(t("search.replace.failed", { count: failed.length }));
     new Notice(parts.join(" · "));
     if (skipped.length || failed.length) {
       console.warn("[Inkswell] Replace — skipped:", skipped, "failed:", failed);
@@ -658,42 +662,47 @@ class ReplaceConfirmModal extends FormModal {
       replace: string;
       matches: number;
       scenes: number;
-      scopeLabel: string;
+      scope: "series" | "vault";
       needsAck: boolean;
     },
     private onConfirm: () => void
   ) {
     super(app);
-    this.cta = "Replace all";
+    this.cta = t("search.confirm.cta");
   }
 
   protected renderForm(el: HTMLElement): void {
-    el.createEl("h3", { text: "Replace across scenes" });
+    el.createEl("h3", { text: t("search.confirm.heading") });
     el.createEl("p", {
-      text: `Replace ${this.opts.matches} occurrence${this.opts.matches === 1 ? "" : "s"} in ${this.opts.scenes} scene${this.opts.scenes === 1 ? "" : "s"}.`,
+      text: t("search.confirm.summary", {
+        occurrences: tp("search.confirm.occurrences", this.opts.matches),
+        scenes: tp("common.scenes", this.opts.scenes),
+      }),
     });
     const table = el.createDiv({ cls: "inkswell-search__confirm" });
-    table.createDiv({ text: `Find: “${this.opts.find}”` });
+    table.createDiv({ text: t("search.confirm.find", { find: this.opts.find }) });
     table.createDiv({
-      text: this.opts.replace ? `Replace: “${this.opts.replace}”` : "Replace: (delete)",
+      text: this.opts.replace
+        ? t("search.confirm.replace", { replace: this.opts.replace })
+        : t("search.confirm.replaceDelete"),
     });
     el.createEl("p", {
       cls: "inkswell-stats__muted",
-      text: "Applies to scene prose only (never frontmatter). This can't be undone across files.",
+      text: t("search.confirm.scopeNote"),
     });
     if (this.opts.needsAck) {
       const label = el.createEl("label", { cls: "inkswell-search__ack" });
       const box = label.createEl("input", { type: "checkbox" });
       box.onchange = () => (this.ack = box.checked);
       label.createSpan({
-        text: ` I understand this edits ${this.opts.scenes} scenes across the whole ${this.opts.scopeLabel}.`,
+        text: ` ${t(this.opts.scope === "series" ? "search.confirm.ack.series" : "search.confirm.ack.vault", { count: this.opts.scenes })}`,
       });
     }
   }
 
   protected submit(): boolean | void {
     if (this.opts.needsAck && !this.ack) {
-      new Notice("Tick the confirmation box to run a whole-" + this.opts.scopeLabel + " replace.");
+      new Notice(t(this.opts.scope === "series" ? "search.confirm.tick.series" : "search.confirm.tick.vault"));
       return false;
     }
     this.onConfirm();

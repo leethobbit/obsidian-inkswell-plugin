@@ -6,6 +6,7 @@
  */
 
 import { App, Modal, Setting, TFile } from "obsidian";
+import { t } from "../i18n";
 import { commitFocusedField } from "../lib/focus-preserve";
 import { Project } from "../projects/types";
 import { openScene } from "./scene-actions";
@@ -33,7 +34,7 @@ export class EditSceneModal extends Modal {
 
   onOpen(): void {
     const { contentEl } = this;
-    contentEl.createEl("h3", { text: `Edit scene — ${this.file.basename}` });
+    contentEl.createEl("h3", { text: t("scene.edit.heading", { name: this.file.basename }) });
     // Reuse the inspector classes so the field rows pick up existing styles.
     const form = contentEl.createDiv({ cls: "inkswell-inspector inkswell-edit-scene" });
     renderSceneMetaFields(
@@ -51,7 +52,7 @@ export class EditSceneModal extends Modal {
 
     new Setting(contentEl)
       .addButton((b) =>
-        b.setButtonText("Open in tab").onClick(() => {
+        b.setButtonText(t("scene.openInTab")).onClick(() => {
           this.close();
           openScene(this.app, this.file);
         })
@@ -60,14 +61,14 @@ export class EditSceneModal extends Modal {
         // Cross-panel jump to the in-plugin Write editor (only when wired).
         if (this.plugin) {
           s.addButton((b) =>
-            b.setButtonText("Open in Write").onClick(() => {
+            b.setButtonText(t("scene.edit.openInWrite")).onClick(() => {
               this.close();
               this.plugin?.openSceneInWrite(this.file.path);
             })
           );
         }
       })
-      .addButton((b) => b.setButtonText("Done").setCta().onClick(() => this.close()));
+      .addButton((b) => b.setButtonText(t("common.done")).setCta().onClick(() => this.close()));
   }
 
   onClose(): void {

@@ -10,10 +10,11 @@
  */
 
 import { App, Menu, Notice, Setting } from "obsidian";
+import { t, tp } from "../../i18n";
 import { FormModal } from "../../lib/form-modal";
 import { renderListEditor } from "../../lib/list-editor";
 import { slugify } from "../../lib/slug";
-import { BEAT_TEMPLATES, BeatDef, TEMPLATE_META } from "../../outliner/beat-templates";
+import { BEAT_TEMPLATES, BeatDef, TEMPLATE_META, templateLabel } from "../../outliner/beat-templates";
 import { BeatTemplateModal } from "../../outliner/beat-template-modal";
 import {
   BeatTemplateDef,
@@ -42,7 +43,9 @@ export const beatTemplatesSection: CustomizeSection = {
 
   describe(plugin) {
     const n = plugin.settings.customBeatTemplates.length;
-    return `${TEMPLATE_META.length} built-in${n > 0 ? ` · ${n} yours` : ""}`;
+    const parts = [tp("customize.summary.builtIn", TEMPLATE_META.length)];
+    if (n > 0) parts.push(tp("customize.summary.yours", n));
+    return parts.join(" · ");
   },
 
   render(host, ctx) {
@@ -59,51 +62,50 @@ function renderList(host: HTMLElement, ctx: SectionCtx): void {
   const { app, plugin } = ctx;
   host.createEl("p", {
     cls: "inkswell-stats__muted",
-    text:
-      "Beat structures for Plan → Beats. Built-ins can't change, but duplicating one gives you " +
-      "an editable copy. Your templates appear in the picker in the order below.",
+    text: t("customize.beats.intro"),
   });
 
-  new Setting(host).setName("Built-in").setHeading();
+  new Setting(host).setName(t("customize.beats.builtIn")).setHeading();
   const builtins = host.createDiv({ cls: "inkswell-customize__items" });
   for (const meta of TEMPLATE_META) {
     const row = builtins.createDiv({ cls: "inkswell-customize__item is-static" });
     const text = row.createDiv({ cls: "inkswell-customize__text" });
-    text.createDiv({ cls: "inkswell-customize__name", text: builtinName(meta.label) });
+    // Display: the translated name. Duplicating copies the English data (below).
+    text.createDiv({ cls: "inkswell-customize__name", text: builtinName(templateLabel(meta)) });
     text.createDiv({
       cls: "inkswell-customize__desc",
-      text: `${BEAT_TEMPLATES[meta.id]?.length ?? 0} beats · template: ${meta.id}`,
+      text: tp("customize.beats.rowDesc", BEAT_TEMPLATES[meta.id]?.length ?? 0, { id: meta.id }),
     });
-    const dup = row.createEl("button", { text: "Duplicate as custom" });
+    const dup = row.createEl("button", { text: t("customize.beats.duplicateAsCustom") });
     dup.type = "button";
     dup.onclick = () => void duplicate(ctx, builtinName(meta.label), BEAT_TEMPLATES[meta.id] ?? []);
   }
 
-  new Setting(host).setName("Yours").setHeading();
+  new Setting(host).setName(t("customize.beats.yours")).setHeading();
   const customs = plugin.settings.customBeatTemplates;
   renderListEditor<BeatTemplateDef>(host, {
     items: customs,
     keyPrefix: "customize:beat-templates",
     dragType: "inkswell/customize-beat-templates",
-    emptyText: "No templates of your own yet — duplicate a built-in or start a new one.",
+    emptyText: t("customize.beats.empty"),
     renderRow(el, tpl) {
       const text = el.createDiv({ cls: "inkswell-customize__text inkswell-customize__clickable" });
       text.createDiv({ cls: "inkswell-customize__name", text: tpl.name });
       text.createDiv({
         cls: "inkswell-customize__desc",
-        text: `${tpl.beats.length} beats · template: ${tpl.id}`,
+        text: tp("customize.beats.rowDesc", tpl.beats.length, { id: tpl.id }),
       });
       text.onclick = () => ctx.setTarget(tpl.id);
-      const edit = el.createEl("button", { text: "Edit beats" });
+      const edit = el.createEl("button", { text: t("customize.beats.editBeats") });
       edit.type = "button";
       edit.onclick = () => ctx.setTarget(tpl.id);
     },
     extendMenu(menu: Menu, tpl) {
       menu.addItem((i) =>
-        i.setTitle("Edit beats").setIcon("pencil").onClick(() => ctx.setTarget(tpl.id))
+        i.setTitle(t("customize.beats.editBeats")).setIcon("pencil").onClick(() => ctx.setTarget(tpl.id))
       );
       menu.addItem((i) =>
-        i.setTitle("Duplicate").setIcon("copy").onClick(() => void duplicate(ctx, tpl.name, tpl.beats))
+        i.setTitle(t("customize.beats.duplicate")).setIcon("copy").onClick(() => void duplicate(ctx, tpl.name, tpl.beats))
       );
     },
     onReorder: (next) => reorderBeatTemplates(plugin, next).then(() => ctx.rerender()),
@@ -112,7 +114,7 @@ function renderList(host: HTMLElement, ctx: SectionCtx): void {
         if (done) ctx.rerender();
       }),
     add: {
-      label: "New template…",
+      label: t("customize.beats.newTemplate"),
       action: () =>
         new BeatTemplateModal(app, {
           existing: null,
@@ -129,7 +131,7 @@ function renderList(host: HTMLElement, ctx: SectionCtx): void {
 async function duplicate(ctx: SectionCtx, name: string, beats: readonly BeatDef[]): Promise<void> {
   const def = duplicateAsCustom(name, beats, ctx.plugin.settings.customBeatTemplates);
   await saveBeatTemplate(ctx.plugin, def);
-  new Notice(`Created "${def.name}".`);
+  new Notice(t("customize.beats.created", { name: def.name }));
   ctx.setTarget(def.id);
 }
 
@@ -139,22 +141,22 @@ async function duplicate(ctx: SectionCtx, name: string, beats: readonly BeatDef[
 
 function renderTemplate(host: HTMLElement, ctx: SectionCtx, id: string): void {
   const { app, plugin } = ctx;
-  const back = host.createEl("a", { cls: "inkswell-customize__back", text: "‹ Beat templates" });
+  const back = host.createEl("a", { cls: "inkswell-customize__back", text: t("customize.beats.back") });
   back.onclick = (e) => {
     e.preventDefault();
     ctx.setTarget(null);
   };
 
-  const tpl = plugin.settings.customBeatTemplates.find((t) => t.id === id);
+  const tpl = plugin.settings.customBeatTemplates.find((x) => x.id === id);
   if (!tpl) {
-    host.createDiv({ cls: "inkswell-stats__muted", text: "That template no longer exists." });
+    host.createDiv({ cls: "inkswell-stats__muted", text: t("customize.beats.gone") });
     return;
   }
 
   const head = host.createDiv({ cls: "inkswell-customize__typehead" });
   head.createEl("h4", { text: tpl.name });
-  head.createSpan({ cls: "inkswell-stats__muted", text: `template: ${tpl.id}` });
-  const rename = head.createEl("button", { text: "Rename…" });
+  head.createSpan({ cls: "inkswell-stats__muted", text: t("customize.beats.idLine", { id: tpl.id }) });
+  const rename = head.createEl("button", { text: t("customize.beats.rename") });
   rename.type = "button";
   rename.onclick = () =>
     new RenameTemplateModal(app, tpl.name, async (name) => {
@@ -164,10 +166,7 @@ function renderTemplate(host: HTMLElement, ctx: SectionCtx, id: string): void {
 
   host.createEl("p", {
     cls: "inkswell-stats__muted",
-    text:
-      "Beats in book order. \"At %\" is where the beat sits in the manuscript. A beat's name is its " +
-      "key: renaming one starts its saved notes fresh (rename it back to recover them); reordering " +
-      "and rewording the purpose are always safe.",
+    text: t("customize.beats.pageIntro"),
   });
 
   const beats = [...tpl.beats].sort((a, b) => a.position - b.position);
@@ -191,12 +190,12 @@ function renderTemplate(host: HTMLElement, ctx: SectionCtx, id: string): void {
     items: beats,
     keyPrefix: prefix,
     dragType: `inkswell/customize-beats-${tpl.id}`,
-    emptyText: "No beats yet.",
+    emptyText: t("customize.beats.noBeats"),
     renderRow(el, beat, index) {
       const name = taggedInput(el, `${prefix}:name:${beat.id}`, { type: "text" });
       name.value = beat.name;
-      name.placeholder = "Beat name";
-      name.setAttribute("aria-label", "Beat name");
+      name.placeholder = t("customize.beats.namePlaceholder");
+      name.setAttribute("aria-label", t("customize.beats.nameAria"));
       name.onchange = () =>
         commitRows(beats.map((b, i) => (i === index ? { ...b, name: name.value } : b)));
 
@@ -205,7 +204,7 @@ function renderTemplate(host: HTMLElement, ctx: SectionCtx, id: string): void {
       at.max = "100";
       at.step = "1";
       at.value = String(Math.round(beat.position * 1000) / 10);
-      at.setAttribute("aria-label", "Position in the book, percent");
+      at.setAttribute("aria-label", t("customize.beats.atAria"));
       at.onchange = () => {
         const n = Number(at.value);
         const position = Number.isFinite(n) ? Math.min(100, Math.max(0, n)) / 100 : beat.position;
@@ -215,8 +214,8 @@ function renderTemplate(host: HTMLElement, ctx: SectionCtx, id: string): void {
 
       const blurb = taggedInput(el, `${prefix}:blurb:${beat.id}`, { type: "text" });
       blurb.value = beat.blurb;
-      blurb.placeholder = "Purpose (optional)";
-      blurb.setAttribute("aria-label", "Beat purpose");
+      blurb.placeholder = t("customize.beats.purposePlaceholder");
+      blurb.setAttribute("aria-label", t("customize.beats.purposeAria"));
       blurb.onchange = () => void save(beats.map((b, i) => (i === index ? { ...b, blurb: blurb.value } : b)));
     },
     onReorder: (next) => {
@@ -232,13 +231,13 @@ function renderTemplate(host: HTMLElement, ctx: SectionCtx, id: string): void {
     },
     onRemove: (beat) => {
       if (beats.length <= 1) {
-        new Notice("A template needs at least one beat.");
+        new Notice(t("customize.beats.needOne"));
         return;
       }
       return save(beats.filter((b) => b.id !== beat.id));
     },
     add: {
-      label: "Add beat…",
+      label: t("customize.beats.addBeat"),
       action: () =>
         new AddBeatModal(app, (name, blurb) =>
           commitRows([...beats, { name, blurb, position: null }])
@@ -248,11 +247,11 @@ function renderTemplate(host: HTMLElement, ctx: SectionCtx, id: string): void {
 
   // Escape hatch / import path: the line grammar, applied as a whole.
   const details = host.createEl("details", { cls: "inkswell-customize__card" });
-  details.createEl("summary", { text: "Edit as text…" });
+  details.createEl("summary", { text: t("customize.beats.editAsText") });
   const body = details.createDiv({ cls: "inkswell-customize__cardbody" });
   body.createDiv({
     cls: "inkswell-stats__muted",
-    text: "One beat per line: “Name”, “Name | purpose”, or “25% | Name | purpose”. Apply replaces the list above.",
+    text: t("customize.beats.textHelp"),
   });
   const area = body.createEl("textarea", {
     cls: "inkswell-tplbody__text",
@@ -260,7 +259,7 @@ function renderTemplate(host: HTMLElement, ctx: SectionCtx, id: string): void {
   });
   area.value = serializeBeatLines(beats);
   const actions = body.createDiv({ cls: "inkswell-tplbody__actions" });
-  const apply = actions.createEl("button", { cls: "mod-cta", text: "Apply" });
+  const apply = actions.createEl("button", { cls: "mod-cta", text: t("customize.beats.apply") });
   apply.type = "button";
   apply.onclick = () => {
     const parsed = parseBeatLines(area.value);
@@ -284,26 +283,30 @@ class AddBeatModal extends FormModal {
     private onAdd: (name: string, blurb: string) => void
   ) {
     super(app);
-    this.cta = "Add";
+    this.cta = t("common.add");
   }
   protected renderForm(contentEl: HTMLElement): void {
-    contentEl.createEl("h3", { text: "Add beat" });
+    contentEl.createEl("h3", { text: t("customize.beats.addModal.title") });
     new Setting(contentEl)
-      .setName("Name")
-      .setDesc("Also the beat's key (slugified).")
-      .addText((t) => t.setPlaceholder("e.g. Midpoint").onChange((v) => (this.name = v)));
+      .setName(t("customize.beats.addModal.name"))
+      .setDesc(t("customize.beats.addModal.nameDesc"))
+      .addText((c) =>
+        c.setPlaceholder(t("customize.beats.addModal.namePlaceholder")).onChange((v) => (this.name = v))
+      );
     new Setting(contentEl)
-      .setName("Purpose")
-      .addText((t) => t.setPlaceholder("Optional one-liner").onChange((v) => (this.blurb = v)));
+      .setName(t("customize.beats.addModal.purpose"))
+      .addText((c) =>
+        c.setPlaceholder(t("customize.beats.addModal.purposePlaceholder")).onChange((v) => (this.blurb = v))
+      );
   }
   protected submit(): boolean {
     const name = this.name.trim();
     if (!name) {
-      new Notice("Name is required.");
+      new Notice(t("customize.beats.nameRequired"));
       return false;
     }
     if (!slugify(name)) {
-      new Notice("Name must contain letters or numbers.");
+      new Notice(t("customize.beats.nameNeedsChars"));
       return false;
     }
     this.onAdd(name, this.blurb.trim());
@@ -322,16 +325,16 @@ class RenameTemplateModal extends FormModal {
     this.name = current;
   }
   protected renderForm(contentEl: HTMLElement): void {
-    contentEl.createEl("h3", { text: "Rename template" });
+    contentEl.createEl("h3", { text: t("customize.beats.renameModal.title") });
     new Setting(contentEl)
-      .setName("Name")
-      .setDesc("Display name only — the template id (and every project using it) is unchanged.")
-      .addText((t) => t.setValue(this.name).onChange((v) => (this.name = v)));
+      .setName(t("customize.beats.renameModal.name"))
+      .setDesc(t("customize.beats.renameModal.nameDesc"))
+      .addText((c) => c.setValue(this.name).onChange((v) => (this.name = v)));
   }
   protected async submit(): Promise<boolean> {
     const name = this.name.trim();
     if (!name) {
-      new Notice("Name is required.");
+      new Notice(t("customize.beats.nameRequired"));
       return false;
     }
     await this.onRename(name);

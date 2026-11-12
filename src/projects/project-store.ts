@@ -19,6 +19,7 @@ import {
   normalizePath,
   parseYaml,
 } from "obsidian";
+import { t } from "../i18n";
 import { tryFileOp } from "../lib/notify";
 import { parseDraft } from "./draft-serialization";
 import { renameSceneInIndex } from "./index-writer";
@@ -170,7 +171,7 @@ export class ProjectStore extends Component {
       // current state (no window where beats point at a dead title).
       await tryFileOp(
         () => renameSceneInIndex(this.app, indexFile, plan.oldTitle, plan.newTitle),
-        `Couldn't update the project index for the renamed scene "${plan.newTitle}".`
+        t("project.rename.sceneIndexFailed", { title: plan.newTitle })
       );
     }
   }

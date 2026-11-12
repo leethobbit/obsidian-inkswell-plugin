@@ -14,6 +14,7 @@
  */
 
 import { App, TFile } from "obsidian";
+import { t, tp } from "../../i18n";
 import { tryFileOp } from "../../lib/notify";
 import {
   removeSceneFromIndex,
@@ -31,11 +32,6 @@ import {
 } from "../../projects/rename-heal";
 import { addScene } from "../../projects/scene-tree";
 import { Project, isMultiScene } from "../../projects/types";
-
-/** "1 scene" / "2 scenes" — naive count + noun pluralization. */
-function plural(n: number, noun: string): string {
-  return `${n} ${noun}${n === 1 ? "" : "s"}`;
-}
 
 export class ReconcileBanner {
   private app: App;
@@ -74,10 +70,13 @@ export class ReconcileBanner {
     const { missing, orphans, autoMatch } = suggestions;
 
     const box = section.createDiv({ cls: "inkswell-reconcile" });
-    box.createDiv({ cls: "inkswell-reconcile__head", text: "Scene files out of sync" });
+    box.createDiv({ cls: "inkswell-reconcile__head", text: t("home.reconcile.head") });
     box.createDiv({
       cls: "inkswell-reconcile__summary",
-      text: `${plural(missing.length, "scene")} missing · ${plural(orphans.length, "unindexed file")} in this folder.`,
+      text: t("home.reconcile.summary", {
+        missing: tp("home.reconcile.missing", missing.length),
+        unindexed: tp("home.reconcile.unindexed", orphans.length),
+      }),
     });
 
     // Unambiguous 1:1 — offer the single obvious relink and stop.
@@ -85,31 +84,31 @@ export class ReconcileBanner {
       const row = box.createDiv({ cls: "inkswell-reconcile__row" });
       row.createSpan({
         cls: "inkswell-reconcile__label",
-        text: `“${autoMatch.oldTitle}” looks renamed to “${autoMatch.newBasename}”.`,
+        text: t("home.reconcile.renamed", { oldTitle: autoMatch.oldTitle, newName: autoMatch.newBasename }),
       });
-      const btn = row.createEl("button", { cls: "mod-cta", text: "Relink" });
+      const btn = row.createEl("button", { cls: "mod-cta", text: t("home.reconcile.relink") });
       btn.onclick = () => void this.relink(project, autoMatch.oldTitle, autoMatch.newBasename);
       return;
     }
 
     for (const title of missing) {
       const row = box.createDiv({ cls: "inkswell-reconcile__row" });
-      row.createSpan({ cls: "inkswell-reconcile__label", text: `Missing: ${title}` });
+      row.createSpan({ cls: "inkswell-reconcile__label", text: t("home.reconcile.missingItem", { title }) });
       if (orphans.length > 0) {
         const sel = row.createEl("select", { cls: "dropdown" });
         for (const o of orphans) sel.createEl("option", { text: o, value: o });
-        const relink = row.createEl("button", { text: "Relink to…" });
+        const relink = row.createEl("button", { text: t("home.reconcile.relinkTo") });
         relink.onclick = () => void this.relink(project, title, sel.value);
       }
-      const rm = row.createEl("button", { text: "Remove from project" });
+      const rm = row.createEl("button", { text: t("home.reconcile.remove") });
       rm.onclick = () => void this.removeFromProject(project, title);
     }
     for (const basename of orphans) {
       const row = box.createDiv({ cls: "inkswell-reconcile__row" });
-      row.createSpan({ cls: "inkswell-reconcile__label", text: `Unindexed: ${basename}` });
-      const add = row.createEl("button", { text: "Add as scene" });
+      row.createSpan({ cls: "inkswell-reconcile__label", text: t("home.reconcile.unindexedItem", { name: basename }) });
+      const add = row.createEl("button", { text: t("home.reconcile.addAsScene") });
       add.onclick = () => void this.addAsScene(project, basename);
-      const ign = row.createEl("button", { text: "Ignore" });
+      const ign = row.createEl("button", { text: t("home.reconcile.ignore") });
       ign.onclick = () => void this.ignoreFile(project, basename);
     }
   }
@@ -125,7 +124,7 @@ export class ReconcileBanner {
     // compute here) — a partial mark never covers and would only linger.
     await tryFileOp(
       () => renameSceneInIndex(this.app, file, oldTitle, newBasename),
-      "Couldn't relink the scene."
+      t("home.reconcile.relinkFailed")
     );
   }
 
@@ -137,7 +136,7 @@ export class ReconcileBanner {
     this.markWrite(file.path);
     await tryFileOp(
       () => removeSceneFromIndex(this.app, file, title),
-      "Couldn't remove the scene from the project."
+      t("home.scene.removeFailed")
     );
   }
 
@@ -148,7 +147,7 @@ export class ReconcileBanner {
     // also names that path — a partial mark never covers (see relink note).
     await tryFileOp(
       () => updateScenes(this.app, file, (scenes) => addScene(scenes, basename)),
-      "Couldn't add the scene."
+      t("home.reconcile.addFailed")
     );
   }
 
@@ -166,7 +165,7 @@ export class ReconcileBanner {
             ? { ...d, ignoredFiles: [...d.ignoredFiles, basename] }
             : d
         ),
-      "Couldn't ignore the file."
+      t("home.reconcile.ignoreFailed")
     );
   }
 

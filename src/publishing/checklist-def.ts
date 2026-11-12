@@ -5,6 +5,7 @@
  * task at an existing Inkswell surface instead of duplicating it.
  */
 
+import { MessageKey, t } from "../i18n";
 import { ListOverride, applyGroupedOverride } from "../lib/list-override";
 
 export interface ChecklistTaskDef {
@@ -48,111 +49,146 @@ export function publishingChecklist(override?: ListOverride<PublishingExtra>): C
     }));
 }
 
+/**
+ * A shipped task whose label is looked up through `t()` on every read, never at
+ * import (the catalog is picked in onload). Ids stay the stored keys; consumers
+ * (resolver, Customize, overridable-lists) keep reading `.label`.
+ */
+function task(id: string, key: MessageKey, extra: Omit<ChecklistTaskDef, "id" | "label"> = {}): ChecklistTaskDef {
+  return {
+    id,
+    get label() {
+      return t(key);
+    },
+    ...extra,
+  };
+}
+
 export const PUBLISHING_CHECKLIST: ChecklistPhaseDef[] = [
   {
     id: "writing",
-    label: "Writing",
-    tasks: [{ id: "draft", label: "Write the first draft" }],
+    get label() {
+      return t("checklist.phase.writing");
+    },
+    tasks: [task("draft", "checklist.task.draft")],
   },
   {
     id: "editing",
-    label: "Editing",
+    get label() {
+      return t("checklist.phase.editing");
+    },
     tasks: [
-      { id: "selfEdit", label: "Complete self-edits" },
-      { id: "critique", label: "Work with a critique partner", optional: true },
-      { id: "beta", label: "Work with beta readers", optional: true },
-      { id: "preflight", label: "Run the pre-export check", deepLink: "compile" },
-      { id: "hireEditor", label: "Hire an editor" },
-      { id: "incorporate", label: "Incorporate editorial feedback" },
+      task("selfEdit", "checklist.task.selfEdit"),
+      task("critique", "checklist.task.critique", { optional: true }),
+      task("beta", "checklist.task.beta", { optional: true }),
+      task("preflight", "checklist.task.preflight", { deepLink: "compile" }),
+      task("hireEditor", "checklist.task.hireEditor"),
+      task("incorporate", "checklist.task.incorporate"),
     ],
   },
   {
     id: "foundational",
-    label: "Foundational decisions",
+    get label() {
+      return t("checklist.phase.foundational");
+    },
     tasks: [
-      { id: "genre", label: "Determine genre & subgenres" },
-      { id: "targetReader", label: "Define target reader profile" },
-      { id: "authorName", label: "Choose author name (legal or pen name)" },
-      { id: "business", label: "Set up an author business", optional: true },
-      { id: "budget", label: "Build a budget for this book" },
+      task("genre", "checklist.task.genre"),
+      task("targetReader", "checklist.task.targetReader"),
+      task("authorName", "checklist.task.authorName"),
+      task("business", "checklist.task.business", { optional: true }),
+      task("budget", "checklist.task.budget"),
     ],
   },
   {
     id: "building",
-    label: "Building the book",
+    get label() {
+      return t("checklist.phase.building");
+    },
     tasks: [
-      { id: "metadata", label: "Fill out the book metadata worksheet" },
-      { id: "formats", label: "Select formats (eBook / paperback / hardcover)" },
-      { id: "frontMatter", label: "Create front matter" },
-      { id: "backMatter", label: "Create back matter" },
+      task("metadata", "checklist.task.metadata"),
+      task("formats", "checklist.task.formats"),
+      task("frontMatter", "checklist.task.frontMatter"),
+      task("backMatter", "checklist.task.backMatter"),
     ],
   },
   {
     id: "cover",
-    label: "Cover design",
+    get label() {
+      return t("checklist.phase.cover");
+    },
     tasks: [
-      { id: "comps", label: "Research comparison covers" },
-      { id: "designer", label: "Research & hire a cover designer" },
-      { id: "finalize", label: "Finalize covers for each format" },
+      task("comps", "checklist.task.comps"),
+      task("designer", "checklist.task.designer"),
+      task("finalize", "checklist.task.finalize"),
     ],
   },
   {
     id: "formatting",
-    label: "Formatting",
+    get label() {
+      return t("checklist.phase.formatting");
+    },
     tasks: [
-      { id: "method", label: "Choose a formatting method" },
-      { id: "interior", label: "Finalize interior styles", deepLink: "compile" },
-      { id: "referenceDoc", label: "Generate the reference doc (Word styling)", deepLink: "compile" },
-      { id: "finalFiles", label: "Produce final files per format" },
+      task("method", "checklist.task.method"),
+      task("interior", "checklist.task.interior", { deepLink: "compile" }),
+      task("referenceDoc", "checklist.task.referenceDoc", { deepLink: "compile" }),
+      task("finalFiles", "checklist.task.finalFiles"),
     ],
   },
   {
     id: "prepare",
-    label: "Prepare for publication",
+    get label() {
+      return t("checklist.phase.prepare");
+    },
     tasks: [
-      { id: "platforms", label: "Select publishing platforms" },
-      { id: "releaseDate", label: "Choose a release date" },
-      { id: "preorder", label: "Decide on a pre-order" },
-      { id: "pricing", label: "Finalize pricing per format" },
-      { id: "isbns", label: "Obtain ISBNs" },
-      { id: "keywords", label: "Determine keywords" },
-      { id: "categories", label: "Determine categories (BISAC)" },
+      task("platforms", "checklist.task.platforms"),
+      task("releaseDate", "checklist.task.releaseDate"),
+      task("preorder", "checklist.task.preorder"),
+      task("pricing", "checklist.task.pricing"),
+      task("isbns", "checklist.task.isbns"),
+      task("keywords", "checklist.task.keywords"),
+      task("categories", "checklist.task.categories"),
     ],
   },
   {
     id: "publishing",
-    label: "Publishing",
+    get label() {
+      return t("checklist.phase.publishing");
+    },
     tasks: [
-      { id: "accounts", label: "Set up platform account(s)" },
-      { id: "upload", label: "Upload metadata, content, cover & files" },
-      { id: "proof", label: "Review proof(s)" },
-      { id: "approve", label: "Approve proof(s)" },
-      { id: "submit", label: "Submit for approval / release" },
+      task("accounts", "checklist.task.accounts"),
+      task("upload", "checklist.task.upload"),
+      task("proof", "checklist.task.proof"),
+      task("approve", "checklist.task.approve"),
+      task("submit", "checklist.task.submit"),
     ],
   },
   {
     id: "marketingFoundations",
-    label: "Marketing foundations",
+    get label() {
+      return t("checklist.phase.marketingFoundations");
+    },
     tasks: [
-      { id: "website", label: "Set up an author website" },
-      { id: "newsletter", label: "Create an author newsletter" },
-      { id: "social", label: "Set up social media" },
-      { id: "goodreads", label: "Build a Goodreads author page" },
+      task("website", "checklist.task.website"),
+      task("newsletter", "checklist.task.newsletter"),
+      task("social", "checklist.task.social"),
+      task("goodreads", "checklist.task.goodreads"),
     ],
   },
   {
     id: "marketing",
-    label: "Marketing",
+    get label() {
+      return t("checklist.phase.marketing");
+    },
     tasks: [
-      { id: "arcs", label: "Distribute ARCs" },
-      { id: "preorderCampaign", label: "Run a pre-order campaign" },
-      { id: "giveaway", label: "Run a giveaway", optional: true },
-      { id: "coverReveal", label: "Cover reveal", optional: true },
-      { id: "launchParty", label: "Launch party / event", optional: true },
-      { id: "pricePromo", label: "Price promotion", optional: true },
-      { id: "bookbub", label: "BookBub / deal-site promotion", optional: true },
-      { id: "ads", label: "Paid advertising", optional: true },
-      { id: "swaps", label: "Newsletter swaps", optional: true },
+      task("arcs", "checklist.task.arcs"),
+      task("preorderCampaign", "checklist.task.preorderCampaign"),
+      task("giveaway", "checklist.task.giveaway", { optional: true }),
+      task("coverReveal", "checklist.task.coverReveal", { optional: true }),
+      task("launchParty", "checklist.task.launchParty", { optional: true }),
+      task("pricePromo", "checklist.task.pricePromo", { optional: true }),
+      task("bookbub", "checklist.task.bookbub", { optional: true }),
+      task("ads", "checklist.task.ads", { optional: true }),
+      task("swaps", "checklist.task.swaps", { optional: true }),
     ],
   },
 ];

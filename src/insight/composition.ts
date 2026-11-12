@@ -12,6 +12,7 @@
  * the limits; do not present "narration" as pure description.
  */
 
+import { t } from "../i18n";
 import { stripMarkdown } from "../lib/wordcount";
 
 export type ParaClass = "dialogue" | "interiority" | "narration";
@@ -21,10 +22,10 @@ const INTERIORITY_RE =
 
 /** Classify a single paragraph. Dialogue wins, then interiority, else narration. */
 export function classifyParagraph(p: string): ParaClass {
-  const t = p.trim();
-  if (!t) return "narration";
-  if (/["“”«][^"“”«»]+["”»]/.test(t) || /^["“«]/.test(t)) return "dialogue";
-  if (INTERIORITY_RE.test(t) || /^[*_]\S/.test(t)) return "interiority";
+  const para = p.trim();
+  if (!para) return "narration";
+  if (/["“”«][^"“”«»]+["”»]/.test(para) || /^["“«]/.test(para)) return "dialogue";
+  if (INTERIORITY_RE.test(para) || /^[*_]\S/.test(para)) return "interiority";
   return "narration";
 }
 
@@ -79,15 +80,15 @@ export function compositionProfile(text: string): CompositionProfile {
     const q0 = byQuartile[0];
     const q0n = q0.dialogue + q0.interiority + q0.narration;
     if (q0n > 0 && q0.narration / q0n >= 0.8) {
-      flags.push("Opens with a block of narration — little dialogue or interiority up front.");
+      flags.push(t("insight.composition.opensNarration"));
     }
     const q3 = byQuartile[3];
     const q3n = q3.dialogue + q3.interiority + q3.narration;
     if (q3n > 0 && q3.interiority / q3n >= 0.5) {
-      flags.push("Ends on heavy interiority — consider grounding the close in action or dialogue.");
+      flags.push(t("insight.composition.endsInteriority"));
     }
     if (total >= 6 && counts.dialogue === 0) {
-      flags.push("No dialogue detected in this scene.");
+      flags.push(t("insight.composition.noDialogue"));
     }
   }
 

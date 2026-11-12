@@ -14,6 +14,7 @@
  */
 
 import { Keymap, Menu, Platform, setIcon } from "obsidian";
+import { t } from "../i18n";
 
 export function attachRowMenu(row: HTMLElement, host: HTMLElement, build: () => Menu): void {
   const open = (e: MouseEvent) => {
@@ -29,7 +30,7 @@ export function attachRowMenu(row: HTMLElement, host: HTMLElement, build: () => 
   btn.type = "button";
   btn.draggable = false;
   setIcon(btn, "more-vertical");
-  btn.setAttribute("aria-label", "More actions");
+  btn.setAttribute("aria-label", t("lib.rowMenu.more"));
   btn.onclick = open;
 }
 
@@ -67,7 +68,7 @@ export function attachOpenInTab(el: HTMLElement, open: () => void): void {
     open();
   });
   if (!Platform.isMobile) {
-    const hint = "Ctrl/Cmd-click to open in a new tab";
+    const hint = t("lib.rowMenu.openInTabHint");
     const label = el.getAttribute("aria-label");
     el.setAttribute("aria-label", label ? `${label} · ${hint}` : hint);
   }

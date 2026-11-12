@@ -5,11 +5,13 @@
  */
 
 import { App, Platform, TFile } from "obsidian";
+import { MessageKey, t } from "../i18n";
 import { tryFileOp } from "../lib/notify";
 import { tagField } from "../lib/focus-preserve";
 import { autosizeTextarea } from "../lib/form-fields";
 import { readProfile, writeProfile } from "../codex/codex-profile";
 import type { ProfileField } from "../codex/profile-schema";
+import type { CodexEntity } from "../codex/types";
 import { renderProfileFieldControl } from "../codex/profile-field-controls";
 import { linkTarget, toLink } from "../codex/codex";
 import { featureEnabled } from "../features";
@@ -35,6 +37,13 @@ import {
 /** Shared scene/plotline color swatches (also used by the Plot Grid column menu). */
 export const COLORS = ["#e06c75", "#e5c07b", "#98c379", "#56b6c2", "#61afef", "#c678dd"];
 
+/** Lift-out verdict (stored value) → its UI label's catalog key. */
+const VERDICT_LABEL_KEYS: Record<"keep" | "cut" | "merge", MessageKey> = {
+  keep: "scene.audit.verdict.keep",
+  cut: "scene.audit.verdict.cut",
+  merge: "scene.audit.verdict.merge",
+};
+
 // Unique <datalist> id per field instance (Inspector + Edit modal can coexist).
 let povListSeq = 0;
 let structureListSeq = 0;
@@ -53,6 +62,8 @@ interface ChipListOptions {
   emptyText: string | null;
   onAdd(value: string): void;
   onRemove(value: string): void;
+  /** Extra behaviour for one chip (the Codex peek on Characters / Location). */
+  decorate?(chip: HTMLElement, value: string): void;
 }
 
 /**
@@ -65,8 +76,12 @@ function renderChipList(host: HTMLElement, opts: ChipListOptions): void {
   for (const value of opts.current) {
     const chip = chips.createSpan({ cls: "inkswell-chip", text: opts.label(value) });
     const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
-    x.setAttribute("aria-label", `Remove ${opts.label(value)}`);
-    x.onclick = () => opts.onRemove(value);
+    x.setAttribute("aria-label", t("scene.form.removeChip", { name: opts.label(value) }));
+    x.onclick = (e) => {
+      e.stopPropagation();
+      opts.onRemove(value);
+    };
+    opts.decorate?.(chip, value);
   }
   if (opts.candidates.length > 0) {
     const add = host.createEl("select", { cls: "dropdown" });
@@ -120,12 +135,17 @@ export function renderSceneMetaFields(
   /** Effective field layout (`inspectorFields(override)`); shipped by default. */
   fields: readonly InspectorFieldDef[] = inspectorFields(),
   /** The writer's own fields (#52) and a codex-type labeller for their link pickers. */
-  extra: { customFields?: readonly ProfileField[]; typeLabel?: (id: string) => string } = {}
+  extra: {
+    customFields?: readonly ProfileField[];
+    typeLabel?: (id: string) => string;
+    /** Give a Characters / Location chip the Codex peek (the Scene inspector does). */
+    peekChip?: (chip: HTMLElement, entity: CodexEntity, visible: readonly CodexEntity[]) => void;
+  } = {}
 ): void {
   const meta = readSceneMeta(app, file);
   const save = (patch: Partial<SceneMeta>) => {
     markWrite?.(file.path);
-    void tryFileOp(() => writeSceneMeta(app, file, patch), "Couldn't save the scene change.");
+    void tryFileOp(() => writeSceneMeta(app, file, patch), t("scene.form.saveFailed"));
   };
   // Chip lists persist as list OPS against the file's CURRENT value — a value
   // patch built from this render's `meta` would overwrite links added since.
@@ -136,7 +156,7 @@ export function renderSceneMetaFields(
     markWrite?.(file.path);
     void tryFileOp(
       () => updateSceneList(app, file, key, transform),
-      "Couldn't save the scene change."
+      t("scene.form.saveFailed")
     );
   };
   const entities = filterToScope(
@@ -154,13 +174,13 @@ export function renderSceneMetaFields(
   render.status = (label) => field(container, label, (host) => {
     const sel = host.createEl("select", { cls: "dropdown" });
     tagField(sel, "scene:status");
-    sel.createEl("option", { text: "— none —", value: "" });
+    sel.createEl("option", { text: t("scene.form.none"), value: "" });
     // Visible statuses, plus the scene's CURRENT status if the writer hid it —
     // a real stored value must never render as a blank select.
     for (const s of statuses) {
       if (s.hidden && meta.status !== s.id) continue;
       const o = sel.createEl("option", {
-        text: s.hidden ? `${s.label} (hidden)` : s.label,
+        text: s.hidden ? t("scene.form.statusHidden", { label: s.label }) : s.label,
         value: s.id,
       });
       if (meta.status === s.id) o.selected = true;
@@ -170,11 +190,11 @@ export function renderSceneMetaFields(
   });
 
   render.subtitle = (label) => field(container, label, (host) => {
-    const t = host.createEl("input", { type: "text" });
-    tagField(t, "scene:subtitle");
-    t.value = meta.subtitle ?? "";
-    t.placeholder = "e.g. Three years later";
-    t.onchange = () => save({ subtitle: t.value });
+    const input = host.createEl("input", { type: "text" });
+    tagField(input, "scene:subtitle");
+    input.value = meta.subtitle ?? "";
+    input.placeholder = t("scene.form.subtitlePlaceholder");
+    input.onchange = () => save({ subtitle: input.value });
   });
 
   render.synopsis = (label) => field(container, label, (host) => {
@@ -182,7 +202,7 @@ export function renderSceneMetaFields(
     tagField(ta, "scene:synopsis");
     ta.rows = 3;
     ta.value = meta.synopsis ?? "";
-    ta.placeholder = "What happens in this scene…";
+    ta.placeholder = t("scene.form.synopsisPlaceholder");
     ta.onchange = () => save({ synopsis: ta.value });
     autosizeTextarea(ta);
   });
@@ -190,19 +210,19 @@ export function renderSceneMetaFields(
   // POV — suggests codex characters (typo-free, discoverable) but stays free
   // text, since POV can also be a narrative mode ("Omniscient", "First person").
   render.pov = (label) => field(container, label, (host) => {
-    const t = host.createEl("input", { type: "text" });
-    tagField(t, "scene:pov");
-    t.value = meta.pov ?? "";
-    t.placeholder = "Character or narrative mode";
+    const input = host.createEl("input", { type: "text" });
+    tagField(input, "scene:pov");
+    input.value = meta.pov ?? "";
+    input.placeholder = t("scene.form.povPlaceholder");
     const chars = entities.filter((e) => e.category === "character");
     if (chars.length > 0) {
       const listId = `inkswell-pov-${povListSeq++}`;
       const list = host.createEl("datalist");
       list.id = listId;
       for (const c of chars) list.createEl("option", { value: c.name });
-      t.setAttribute("list", listId);
+      input.setAttribute("list", listId);
     }
-    t.onchange = () => save({ pov: t.value });
+    input.onchange = () => save({ pov: input.value });
   });
 
   // Linked codex entities of one category as chips + an "add" picker. The list
@@ -212,8 +232,8 @@ export function renderSceneMetaFields(
     key: "characters" | "location",
     category: string,
     current: string[],
-    addLabel: string,
-    emptyText: string
+    addLabel: MessageKey,
+    emptyText: MessageKey
   ) => {
     const pool = entities.filter((e) => e.category === category);
     renderChipList(host, {
@@ -222,9 +242,16 @@ export function renderSceneMetaFields(
       candidates: pool
         .filter((c) => !current.some((link) => linkTarget(link) === c.name))
         .map((c) => c.name),
-      addLabel,
+      addLabel: t(addLabel),
       tag: `scene:${key}-add`,
-      emptyText: pool.length === 0 ? emptyText : null,
+      emptyText: pool.length === 0 ? t(emptyText) : null,
+      decorate: extra.peekChip
+        ? (chip, value) => {
+            const name = linkTarget(value).trim().toLowerCase();
+            const entity = pool.find((e) => e.name.toLowerCase() === name);
+            if (entity) extra.peekChip?.(chip, entity, entities);
+          }
+        : undefined,
       onAdd: (name) => {
         const link = toLink(name);
         saveList(key, (cur) => (cur.includes(link) ? cur : [...cur, link]));
@@ -235,12 +262,12 @@ export function renderSceneMetaFields(
 
   // Characters (linked codex entities)
   render.characters = (label) => field(container, label, (host) =>
-    linkChips(host, "characters", "character", meta.characters ?? [], "+ add character", "No characters in codex.")
+    linkChips(host, "characters", "character", meta.characters ?? [], "scene.form.addCharacter", "scene.form.noCharacters")
   );
 
   // Locations (linked codex entities; several allowed since 1.18 — #44)
   render.location = (label) => field(container, label, (host) =>
-    linkChips(host, "location", "location", meta.location ?? [], "+ add location", "No locations in codex.")
+    linkChips(host, "location", "location", meta.location ?? [], "scene.form.addLocation", "scene.form.noLocations")
   );
 
   // Codex mentions are surfaced automatically on each entry's "Appears in" list
@@ -267,13 +294,13 @@ export function renderSceneMetaFields(
     const act = row.createEl("input", { type: "text" });
     tagField(act, "scene:act");
     act.value = meta.act ?? "";
-    act.placeholder = "Act";
+    act.placeholder = t("scene.form.actPlaceholder");
     suggest(act, "act");
     act.onchange = () => save({ act: act.value });
     const ch = row.createEl("input", { type: "text" });
     tagField(ch, "scene:chapter");
     ch.value = meta.chapter ?? "";
-    ch.placeholder = "Chapter";
+    ch.placeholder = t("scene.form.chapterPlaceholder");
     suggest(ch, "chapter");
     ch.onchange = () => save({ chapter: ch.value });
   });
@@ -288,28 +315,28 @@ export function renderSceneMetaFields(
       const configured = (project?.inkswell?.plotlines ?? []).map((p) => p.title);
       renderChipList(host, {
         current,
-        label: (t) => t,
-        candidates: configured.filter((t) => !current.includes(t)),
-        addLabel: "+ add plotline",
+        label: (title) => title,
+        candidates: configured.filter((title) => !current.includes(title)),
+        addLabel: t("scene.form.addPlotline"),
         tag: "scene:plotlines-add",
         emptyText:
           configured.length === 0 && current.length === 0
-            ? "No plotlines yet — create them in Plan → Grid."
+            ? t("scene.form.noPlotlines")
             : null,
         onAdd: (title) =>
           saveList("plotlines", (cur) => (cur.includes(title) ? cur : [...cur, title])),
-        onRemove: (title) => saveList("plotlines", (cur) => cur.filter((t) => t !== title)),
+        onRemove: (title) => saveList("plotlines", (cur) => cur.filter((c) => c !== title)),
       });
     });
   };
 
   render.targetWords = (label) => field(container, label, (host) => {
-    const t = host.createEl("input", { type: "number" });
-    tagField(t, "scene:target-words");
-    t.value = meta.targetWords ? String(meta.targetWords) : "";
-    t.placeholder = "0";
-    t.onchange = () => {
-      const n = Math.floor(Number(t.value));
+    const input = host.createEl("input", { type: "number" });
+    tagField(input, "scene:target-words");
+    input.value = meta.targetWords ? String(meta.targetWords) : "";
+    input.placeholder = "0";
+    input.onchange = () => {
+      const n = Math.floor(Number(input.value));
       save({ targetWords: Number.isFinite(n) && n > 0 ? n : undefined });
     };
   });
@@ -336,11 +363,11 @@ export function renderSceneMetaFields(
     if (meta.notes === undefined && app.metadataCache.getFileCache(file)?.frontmatter?.["notes"] != null) {
       // Another tool stored non-text under `notes` — don't offer to overwrite it.
       ta.disabled = true;
-      ta.placeholder = "This scene's notes property isn't plain text, so it's read-only here.";
+      ta.placeholder = t("scene.form.notesReadOnly");
       return;
     }
     ta.value = meta.notes ?? "";
-    ta.placeholder = "Outline, reminders, anything to keep beside the draft…";
+    ta.placeholder = t("scene.form.notesPlaceholder");
     ta.onchange = () => save({ notes: ta.value });
     autosizeTextarea(ta);
   });
@@ -352,10 +379,12 @@ export function renderSceneMetaFields(
     cb.checked = !!meta.inactive;
     cb.onchange = () => save({ inactive: cb.checked });
     row.createSpan({
+      // The shipped label (in the current UI language) gets the longer
+      // explanation; a writer's rename reads as their own caption.
       text:
-        label === "Archived"
-          ? "Archived / inactive (excluded from compile & stats)"
-          : `${label} (excluded from compile & stats)`,
+        label === t("scene.field.inactive")
+          ? t("scene.form.inactive")
+          : t("scene.form.inactiveRenamed", { label }),
     });
   });
 
@@ -379,14 +408,14 @@ export function renderSceneMetaFields(
             markWrite?.(file.path);
             void tryFileOp(
               () => writeProfile(app, file, [cf], { [cf.key]: value }),
-              "Couldn't save the scene change."
+              t("scene.form.saveFailed")
             );
           },
           updateList: (transform) => {
             markWrite?.(file.path);
             void tryFileOp(
               () => updateSceneList(app, file, cf.key, transform),
-              "Couldn't save the scene change."
+              t("scene.form.saveFailed")
             );
           },
         })
@@ -415,7 +444,7 @@ export function renderSceneAuditFields(
   const audit = readSceneAudit(app, file);
   const saveAudit = (patch: Parameters<typeof writeSceneAudit>[2]) => {
     markWrite?.(file.path);
-    void tryFileOp(() => writeSceneAudit(app, file, patch), "Couldn't save the audit change.");
+    void tryFileOp(() => writeSceneAudit(app, file, patch), t("scene.audit.saveFailed"));
   };
   const list = container.createDiv({ cls: "inkswell-audit__checks" });
   for (const cp of checkpoints) {
@@ -430,36 +459,36 @@ export function renderSceneAuditFields(
   }
 
   // Lift-out test: verdict + "if removed, what breaks?" cascade note.
-  field(container, "Lift-out test", (host) => {
+  field(container, t("scene.audit.liftOut"), (host) => {
     const sel = host.createEl("select", { cls: "dropdown" });
     tagField(sel, "audit:verdict");
-    sel.createEl("option", { text: "— undecided —", value: "" });
+    sel.createEl("option", { text: t("scene.audit.undecided"), value: "" });
     for (const v of ["keep", "cut", "merge"] as const) {
-      const o = sel.createEl("option", { text: v[0].toUpperCase() + v.slice(1), value: v });
+      const o = sel.createEl("option", { text: t(VERDICT_LABEL_KEYS[v]), value: v });
       if (audit.verdict === v) o.selected = true;
     }
     sel.value = audit.verdict ?? "";
     sel.onchange = () => saveAudit({ verdict: sel.value as "" | "keep" });
   });
-  field(container, "If removed…", (host) => {
+  field(container, t("scene.audit.ifRemoved"), (host) => {
     const ta = host.createEl("textarea", { cls: "inkswell-inspector__textarea" });
     tagField(ta, "audit:purpose");
     ta.rows = 2;
     ta.value = audit.purpose ?? "";
-    ta.placeholder = "What later scenes break if this one is cut?";
+    ta.placeholder = t("scene.audit.ifRemovedPlaceholder");
     ta.onchange = () => saveAudit({ purpose: ta.value });
     autosizeTextarea(ta);
   });
 
   // Opening type — override the heuristic when it's wrong.
-  field(container, "Opening", (host) => {
+  field(container, t("scene.audit.opening"), (host) => {
     const sel = host.createEl("select", { cls: "dropdown" });
     tagField(sel, "audit:opening");
-    sel.createEl("option", { text: "— auto —", value: "" });
-    for (const t of OPENING_TYPES) {
-      if (t === "unknown") continue;
-      const o = sel.createEl("option", { text: OPENING_LABEL[t], value: t });
-      if (audit.opening === t) o.selected = true;
+    sel.createEl("option", { text: t("scene.audit.auto"), value: "" });
+    for (const type of OPENING_TYPES) {
+      if (type === "unknown") continue;
+      const o = sel.createEl("option", { text: OPENING_LABEL[type], value: type });
+      if (audit.opening === type) o.selected = true;
     }
     sel.value = audit.opening ?? "";
     sel.onchange = () => saveAudit({ opening: sel.value as "" | OpeningType });
@@ -469,7 +498,7 @@ export function renderSceneAuditFields(
   // character linked to this scene. Drives the Audit dashboard's arc grid.
   const linkedChars = (readSceneMeta(app, file).characters ?? []).map(linkTarget);
   if (linkedChars.length > 0) {
-    field(container, "Character arc", (host) => {
+    field(container, t("scene.audit.arc"), (host) => {
       for (const name of linkedChars) {
         const snap = audit.arc[name] ?? {};
         const row = host.createDiv({ cls: "inkswell-audit__arcrow" });
@@ -477,11 +506,11 @@ export function renderSceneAuditFields(
         const internal = row.createEl("input", { type: "text", cls: "inkswell-audit__arcfield" });
         tagField(internal, `audit:arc-${name}-internal`);
         internal.value = snap.internal ?? "";
-        internal.placeholder = "internal / flaw";
+        internal.placeholder = t("scene.audit.arcInternal");
         const external = row.createEl("input", { type: "text", cls: "inkswell-audit__arcfield" });
         tagField(external, `audit:arc-${name}-external`);
         external.value = snap.external ?? "";
-        external.placeholder = "external / problem";
+        external.placeholder = t("scene.audit.arcExternal");
         const save = () =>
           saveAudit({ arc: { [name]: { internal: internal.value, external: external.value } } });
         internal.onchange = save;
@@ -491,14 +520,14 @@ export function renderSceneAuditFields(
   }
 
   const noteWrap = container.createDiv({ cls: "inkswell-inspector__field" });
-  noteWrap.createDiv({ cls: "inkswell-inspector__label", text: "Revision note" });
+  noteWrap.createDiv({ cls: "inkswell-inspector__label", text: t("scene.audit.note") });
   const ta = noteWrap.createDiv({ cls: "inkswell-inspector__control" }).createEl("textarea", {
     cls: "inkswell-inspector__textarea",
   });
   tagField(ta, "audit:note");
   ta.rows = 2;
   ta.value = audit.note ?? "";
-  ta.placeholder = "What this scene needs in revision…";
+  ta.placeholder = t("scene.audit.notePlaceholder");
   ta.onchange = () => saveAudit({ note: ta.value });
   autosizeTextarea(ta);
 }

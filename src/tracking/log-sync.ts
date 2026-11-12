@@ -15,6 +15,7 @@
  */
 
 import { App, Component, Debouncer, TFile, debounce, normalizePath } from "obsidian";
+import { t } from "../i18n";
 import { tryFileOp } from "../lib/notify";
 import { joinPath, sanitizeSegment } from "../settings/folders";
 import { DeviceIdentity } from "./device";
@@ -168,6 +169,6 @@ export class LogSync extends Component {
         else await this.deps.app.vault.create(path, text);
       }
       this.lastWritten = key;
-    }, "Couldn't write the writing-history log note.");
+    }, t("track.logSync.writeFailed"));
   }
 }

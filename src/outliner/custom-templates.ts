@@ -12,6 +12,7 @@
  * every saved note stays visible and editable.
  */
 
+import { formatNumber, t } from "../i18n";
 import { SLUG_RE, slugify } from "../lib/slug";
 import {
   BEAT_TEMPLATES,
@@ -19,6 +20,7 @@ import {
   BeatDef,
   DEFAULT_TEMPLATE,
   TEMPLATE_META,
+  templateLabel,
 } from "./beat-templates";
 
 /** One user-defined template: a named, ordered list of beats. */
@@ -34,11 +36,15 @@ export interface BeatTemplateDef {
 /** Upper bound on beats per template (numberWord in scaffold-plan words 1–99). */
 export const MAX_BEATS = 99;
 
-/** Built-ins first, then the user's custom templates in stored order. */
+/** Built-ins first, then the user's custom templates in stored order. Labels
+ *  are for display (translated built-ins; custom names as stored). */
 export function allTemplateMeta(customs: BeatTemplateDef[] = []): { id: string; label: string }[] {
   return [
-    ...TEMPLATE_META,
-    ...customs.map((t) => ({ id: t.id, label: `${t.name} (${t.beats.length})` })),
+    ...TEMPLATE_META.map((m) => ({ id: m.id, label: templateLabel(m) })),
+    ...customs.map((tpl) => ({
+      id: tpl.id,
+      label: t("beats.template.custom", { name: tpl.name, count: formatNumber(tpl.beats.length) }),
+    })),
   ];
 }
 
@@ -52,7 +58,7 @@ export function resolveTemplate(
   customs: BeatTemplateDef[] = []
 ): BeatDef[] | null {
   if (id === undefined) return BEAT_TEMPLATES[DEFAULT_TEMPLATE];
-  return BEAT_TEMPLATES[id] ?? customs.find((t) => t.id === id)?.beats ?? null;
+  return BEAT_TEMPLATES[id] ?? customs.find((tpl) => tpl.id === id)?.beats ?? null;
 }
 
 /** "inciting-incident" → "Inciting incident" (best-effort display for orphaned ids). */
@@ -94,8 +100,8 @@ export function parseBeatLines(text: string): { beats: BeatDef[] } | { error: st
     .split("\n")
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
-  if (lines.length === 0) return { error: "Add at least one beat (one per line)." };
-  if (lines.length > MAX_BEATS) return { error: `At most ${MAX_BEATS} beats per template.` };
+  if (lines.length === 0) return { error: t("beats.template.error.noLines") };
+  if (lines.length > MAX_BEATS) return { error: t("beats.template.error.tooMany", { max: formatNumber(MAX_BEATS) }) };
 
   const parsed: Array<{ name: string; blurb: string; position: number | null }> = [];
   for (const line of lines) {
@@ -107,7 +113,7 @@ export function parseBeatLines(text: string): { beats: BeatDef[] } | { error: st
       parts.shift();
     }
     const name = parts[0] ?? "";
-    if (!name) return { error: `A beat is missing its name: "${line}"` };
+    if (!name) return { error: t("beats.template.error.missingName", { line }) };
     parsed.push({ name, blurb: parts.slice(1).join(" | "), position });
   }
 
@@ -152,10 +158,10 @@ export function beatsFromRows(rows: readonly BeatInput[]): { beats: BeatDef[] } 
     blurb: r.blurb.trim(),
     position: r.position === null ? null : Math.min(1, Math.max(0, r.position)),
   }));
-  if (trimmed.length === 0) return { error: "Add at least one beat." };
-  if (trimmed.length > MAX_BEATS) return { error: `At most ${MAX_BEATS} beats per template.` };
+  if (trimmed.length === 0) return { error: t("beats.template.error.noRows") };
+  if (trimmed.length > MAX_BEATS) return { error: t("beats.template.error.tooMany", { max: formatNumber(MAX_BEATS) }) };
   const blank = trimmed.findIndex((r) => !r.name);
-  if (blank >= 0) return { error: `Beat ${blank + 1} needs a name.` };
+  if (blank >= 0) return { error: t("beats.template.error.rowNeedsName", { n: formatNumber(blank + 1) }) };
   return { beats: assignBeatIds(trimmed) };
 }
 

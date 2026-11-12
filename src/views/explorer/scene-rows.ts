@@ -5,6 +5,7 @@
  */
 
 import { App, Menu, TFile } from "obsidian";
+import { t } from "../../i18n";
 import { attachRowMenu } from "../../lib/row-menu";
 import { tryFileOp } from "../../lib/notify";
 import { removeSceneFromIndex, updateScenes } from "../../projects/index-writer";
@@ -63,7 +64,7 @@ export class SceneRows {
     const title = row.createSpan({ cls: "inkswell-scene__title", text: scene.title });
     if (!scene.path) {
       title.addClass("inkswell-scene__missing");
-      title.setAttribute("aria-label", "Scene file not found");
+      title.setAttribute("aria-label", t("home.scene.missingFile"));
     }
 
     // Status badge + color tint from the scene's own frontmatter.
@@ -116,30 +117,30 @@ export class SceneRows {
     const sceneFile = scene?.path ? this.app.vault.getAbstractFileByPath(scene.path) : null;
     if (sceneFile instanceof TFile) {
       menu.addItem((i) =>
-        i.setTitle("Open in new tab").setIcon("file-text").onClick(() => openScene(this.app, sceneFile))
+        i.setTitle(t("common.openInNewTab")).setIcon("file-text").onClick(() => openScene(this.app, sceneFile))
       );
       menu.addSeparator();
     }
 
     menu.addItem((i) =>
       i
-        .setTitle("Indent (nest)")
+        .setTitle(t("home.scene.indent"))
         .setIcon("indent")
         .onClick(() =>
           void tryFileOp(
             () => this.reorder(file, project, (s) => indentScene(s, index)),
-            "Couldn't indent the scene."
+            t("home.scene.indentFailed")
           )
         )
     );
     menu.addItem((i) =>
       i
-        .setTitle("Unindent")
+        .setTitle(t("home.scene.unindent"))
         .setIcon("outdent")
         .onClick(() =>
           void tryFileOp(
             () => this.reorder(file, project, (s) => unindentScene(s, index)),
-            "Couldn't unindent the scene."
+            t("home.scene.unindentFailed")
           )
         )
     );
@@ -148,19 +149,19 @@ export class SceneRows {
       menu.addSeparator();
       menu.addItem((i) =>
         i
-          .setTitle("Edit scene…")
+          .setTitle(t("scene.menu.edit"))
           .setIcon("settings-2")
           .onClick(() => new EditSceneModal(this.app, sceneFile, project, this.plugin).open())
       );
       menu.addItem((i) =>
         i
-          .setTitle("Edit synopsis…")
+          .setTitle(t("scene.menu.editSynopsis"))
           .setIcon("text")
           .onClick(() => void editSynopsis(this.app, sceneFile, (p) => this.plugin.selfWrites.mark(p)))
       );
       menu.addItem((i) =>
         i
-          .setTitle("Rename…")
+          .setTitle(t("scene.menu.rename"))
           .setIcon("pencil")
           .onClick(() =>
             void renameScene(this.app, project, scene.title, sceneFile, (p) =>
@@ -173,7 +174,7 @@ export class SceneRows {
     menu.addSeparator();
     menu.addItem((i) =>
       i
-        .setTitle("Remove from project (keep file)")
+        .setTitle(t("home.scene.removeFromProject"))
         .setIcon("link-2-off")
         .onClick(() => {
           if (scene?.title) {
@@ -184,7 +185,7 @@ export class SceneRows {
             if (scene.path) this.plugin.selfWrites.mark(scene.path);
             void tryFileOp(
               () => removeSceneFromIndex(this.app, file, scene.title),
-              "Couldn't remove the scene from the project."
+              t("home.scene.removeFailed")
             );
           }
         })
@@ -192,7 +193,7 @@ export class SceneRows {
     if (scene && sceneFile instanceof TFile) {
       menu.addItem((i) =>
         i
-          .setTitle("Delete scene")
+          .setTitle(t("scene.menu.delete"))
           .setIcon("trash")
           .onClick(() => void deleteScene(this.app, project, scene.title, sceneFile))
       );
@@ -243,7 +244,7 @@ export class SceneRows {
       const to = isAfter(e) ? index + 1 : index;
       void tryFileOp(
         () => this.reorder(file, project, (s) => moveScene(s, payload.index, to)),
-        "Couldn't reorder the scene."
+        t("home.scene.reorderFailed")
       );
     });
   }
@@ -262,12 +263,12 @@ export class SceneRows {
     if (index > 0) {
       menu.addItem((i) =>
         i
-          .setTitle("Move up")
+          .setTitle(t("home.scene.moveUp"))
           .setIcon("arrow-up")
           .onClick(() =>
             void tryFileOp(
               () => this.reorder(file, project, (s) => moveScene(s, index, index - 1)),
-              "Couldn't move the scene."
+              t("home.scene.moveFailed")
             )
           )
       );
@@ -275,7 +276,7 @@ export class SceneRows {
     if (index < last) {
       menu.addItem((i) =>
         i
-          .setTitle("Move down")
+          .setTitle(t("home.scene.moveDown"))
           .setIcon("arrow-down")
           .onClick(() =>
             void tryFileOp(
@@ -283,7 +284,7 @@ export class SceneRows {
               // the scene right back where it was (no-op). One step down =
               // insert before the element two slots down.
               () => this.reorder(file, project, (s) => moveScene(s, index, index + 2)),
-              "Couldn't move the scene."
+              t("home.scene.moveFailed")
             )
           )
       );

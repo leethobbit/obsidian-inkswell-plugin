@@ -1,5 +1,5 @@
 /**
- * Revise → To-dos: ONE list of everything left to revise in the active project —
+ * Revise → Revision log: ONE list of everything left to revise in the active project —
  * inline to-do markers left in the prose (`[TODO: …]`, `[RESEARCH: …]`, …) and
  * logged revision decisions — grouped by scene, exactly like the Write sidebar's
  * Revision panel (same shared grouping and row renderers), filterable by a
@@ -13,6 +13,7 @@
  */
 
 import { App, setIcon } from "obsidian";
+import { t } from "../i18n";
 import { preserveFocus } from "../lib/focus-preserve";
 import { MarkerSet, markerSet } from "../lib/placeholders";
 import { tryFileOp } from "../lib/notify";
@@ -80,13 +81,14 @@ export class RevisionWorkPanel {
 
     const project = this.project();
     if (!project) {
-      container.createDiv({ cls: "inkswell-stats__muted", text: "No projects found." });
+      container.createDiv({ cls: "inkswell-stats__muted", text: t("revise.work.noProjects") });
       return;
     }
 
     container.createDiv({
       cls: "inkswell-stats__muted",
-      text: "Everything left to revise — inline markers ([TODO: ], [RESEARCH: ], …) and logged decisions, grouped by scene. Click a marker to jump to it in Write; tick a decision once you've applied it.",
+      // The marker syntax stays verbatim in every language: it is matched in prose.
+      text: t("revise.work.intro", { todo: "[TODO: ]", research: "[RESEARCH: ]" }),
     });
 
     const bar = container.createDiv({ cls: "inkswell-revwork__toolbar" });
@@ -99,8 +101,8 @@ export class RevisionWorkPanel {
       this.renderChips();
       this.renderList();
     };
-    toggle.createSpan({ text: "Show applied" });
-    const add = bar.createEl("button", { cls: "inkswell-revwork__add", text: "Log a decision" });
+    toggle.createSpan({ text: t("revise.showApplied") });
+    const add = bar.createEl("button", { cls: "inkswell-revwork__add", text: t("revise.logDecision") });
     setIcon(add.createSpan({ cls: "inkswell-revwork__addicon" }), "plus");
     // Anchor is chosen in the modal (scene picker), so no scene needs pre-selecting.
     add.onclick = () => {
@@ -109,7 +111,7 @@ export class RevisionWorkPanel {
     };
 
     this.listEl = container.createDiv({ cls: "inkswell-revwork__list" });
-    this.listEl.createDiv({ cls: "inkswell-stats__muted", text: "Scanning scenes…" });
+    this.listEl.createDiv({ cls: "inkswell-stats__muted", text: t("revise.scanning") });
 
     const token = ++this.token;
     void scanProjectTodos(this.app, project.scenes, this.markers()).then((todos) => {
@@ -165,7 +167,7 @@ export class RevisionWorkPanel {
         this.markWrite(project.vaultPath);
         void tryFileOp(
           () => persistRevisions(this.app, project, transform),
-          "Couldn't save the revision log."
+          t("revision.saveFailed")
         );
       },
       markWrite: this.markWrite,
@@ -194,7 +196,7 @@ export class RevisionWorkPanel {
       lastWasDecision = c.decision;
       const b = bar.createEl("button", {
         cls: "inkswell-todos__chip",
-        text: `${c.label} (${c.count})`,
+        text: t("revise.work.chip", { label: c.label, count: c.count }),
       });
       if (c.decision) b.addClass("inkswell-revwork__chip--decision");
       b.toggleClass("is-active", sameFilter(this.filter, c.filter));
@@ -219,7 +221,7 @@ export class RevisionWorkPanel {
     if (total === 0) {
       list.createDiv({
         cls: "inkswell-stats__muted",
-        text: "Nothing to revise yet. Drop a [TODO: ] marker while drafting, or log a decision to act on later.",
+        text: t("revise.work.empty", { todo: "[TODO: ]" }),
       });
       return;
     }
@@ -227,7 +229,7 @@ export class RevisionWorkPanel {
     const { todos, decisions } = applyWorkFilter(this.todosCache, visible, this.filter);
     const groups = buildRevisionGroups(project.scenes, todos, decisions, null);
     if (groups.length === 0) {
-      list.createDiv({ cls: "inkswell-stats__muted", text: "Nothing matches this filter." });
+      list.createDiv({ cls: "inkswell-stats__muted", text: t("revise.work.noMatch") });
       return;
     }
 
@@ -244,7 +246,7 @@ export class RevisionWorkPanel {
       if (g.path) {
         const path = g.path;
         header.addClass("is-link");
-        header.setAttribute("aria-label", `Open "${g.title}" in Write`);
+        header.setAttribute("aria-label", t("revise.work.openInWrite", { title: g.title }));
         title.addClass("inkswell-revision__scenelink");
         header.onclick = () => this.onOpenInWrite(path);
         openSceneOnModClick(header, this.app, path);

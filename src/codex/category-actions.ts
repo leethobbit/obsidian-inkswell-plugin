@@ -7,6 +7,7 @@
 
 import { App } from "obsidian";
 import type InkswellPlugin from "../../main";
+import { t, tp } from "../i18n";
 import { confirmDelete } from "../scenes/scene-actions";
 import { CategoryModal } from "./category-modal";
 import { getCodexEntities } from "./codex-store";
@@ -111,9 +112,8 @@ export async function deleteCustomCategory(
   const n = getCodexEntities(app).filter((e) => e.category === cat.id).length;
   const msg =
     n > 0
-      ? `Delete the "${cat.label}" type? ${n} existing entr${n === 1 ? "y" : "ies"} ` +
-        "will show under Uncategorized — the notes themselves are not touched."
-      : `Delete the "${cat.label}" type?`;
+      ? tp("codex.type.deleteConfirm", n, { type: cat.label })
+      : t("codex.type.deleteConfirmEmpty", { type: cat.label });
   if (!(await confirmDelete(app, msg))) return false;
   plugin.settings.customCategories = plugin.settings.customCategories.filter(
     (c) => c.id !== cat.id

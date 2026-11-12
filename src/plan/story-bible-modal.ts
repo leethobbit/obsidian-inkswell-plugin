@@ -6,18 +6,20 @@
 
 import { App, Notice, Setting } from "obsidian";
 import { featureEnabled } from "../features";
+import { MessageKey, formatNumber, t } from "../i18n";
 import { FormModal } from "../lib/form-modal";
 import { tryFileOp } from "../lib/notify";
 import { Project, isMultiScene } from "../projects/types";
 import { openScene } from "../scenes/scene-actions";
 import { STORY_BIBLE_SECTIONS, StoryBibleSection, assembleStoryBible } from "./story-bible";
-import { codexGroups, gatherStoryBible, writeStoryBible } from "./story-bible-io";
+import { allCategories, categoryDisplayPlural } from "../codex/types";
+import { UNCATEGORIZED, codexGroups, gatherStoryBible, writeStoryBible } from "./story-bible-io";
 import type InkswellPlugin from "../../main";
 
 export class StoryBibleModal extends FormModal {
   private sections: Set<StoryBibleSection>;
   private types: Set<string>;
-  private readonly available: { id: StoryBibleSection; label: string }[];
+  private readonly available: { id: StoryBibleSection; labelKey: MessageKey }[];
   private readonly groups: { id: string; label: string; count: number }[];
 
   constructor(
@@ -26,13 +28,14 @@ export class StoryBibleModal extends FormModal {
     private project: Project
   ) {
     super(app);
-    this.cta = "Export";
+    this.cta = t("plan.bible.export");
     const disabled = plugin.settings.disabledFeatures;
-    this.groups = codexGroups(plugin, project).map((g) => ({
-      id: g.id,
-      label: g.label,
-      count: g.entities.length,
-    }));
+    const s = plugin.settings;
+    const cats = allCategories(s.customCategories, s.categoryOverrides);
+    this.groups = codexGroups(plugin, project).map((g) => {
+      const def = cats.find((c) => c.id === g.id);
+      return { id: g.id, label: def ? categoryDisplayPlural(def) : g.label, count: g.entities.length };
+    });
     this.available = STORY_BIBLE_SECTIONS.filter((s) => {
       if (s.id === "beats") return featureEnabled(disabled, "beats");
       if (s.id === "outline") return isMultiScene(project.draft);
@@ -48,23 +51,21 @@ export class StoryBibleModal extends FormModal {
     this.types = new Set(
       remembered.codexTypes === null
         ? this.groups.map((g) => g.id)
-        : remembered.codexTypes.filter((t) => this.groups.some((g) => g.id === t))
+        : remembered.codexTypes.filter((type) => this.groups.some((g) => g.id === type))
     );
   }
 
   protected renderForm(contentEl: HTMLElement): void {
-    contentEl.createEl("h3", { text: `Story bible: ${this.project.draft.title}` });
+    contentEl.createEl("h3", { text: t("plan.bible.title", { title: this.project.draft.title }) });
     contentEl.createEl("p", {
       cls: "setting-item-description",
-      text:
-        "Writes one readable note next to the project, ready to share or export to PDF. " +
-        "Pick only what this reader should see — the outline and beat sheet give the story away.",
+      text: t("plan.bible.intro"),
     });
 
     const typeRows: Setting[] = [];
     for (const s of this.available) {
-      new Setting(contentEl).setName(s.label).addToggle((t) =>
-        t.setValue(this.sections.has(s.id)).onChange((on) => {
+      new Setting(contentEl).setName(t(s.labelKey)).addToggle((toggle) =>
+        toggle.setValue(this.sections.has(s.id)).onChange((on) => {
           if (on) this.sections.add(s.id);
           else this.sections.delete(s.id);
           if (s.id === "codex") for (const r of typeRows) r.setDisabled(!on);
@@ -73,9 +74,16 @@ export class StoryBibleModal extends FormModal {
       if (s.id === "codex") {
         for (const g of this.groups) {
           const row = new Setting(contentEl)
-            .setName(`${g.label} (${g.count})`)
-            .addToggle((t) =>
-              t.setValue(this.types.has(g.id)).onChange((on) => {
+            .setName(
+              t("plan.bible.codexType", {
+                // The group label is vault text (it heads the note's section); only
+                // the orphan bucket has a UI name of its own.
+                label: g.id === UNCATEGORIZED ? t("plan.bible.uncategorized") : g.label,
+                count: formatNumber(g.count),
+              })
+            )
+            .addToggle((toggle) =>
+              toggle.setValue(this.types.has(g.id)).onChange((on) => {
                 if (on) this.types.add(g.id);
                 else this.types.delete(g.id);
               })
@@ -90,7 +98,7 @@ export class StoryBibleModal extends FormModal {
 
   protected async submit(): Promise<boolean> {
     if (this.sections.size === 0) {
-      new Notice("Pick at least one section.");
+      new Notice(t("plan.bible.pickSection"));
       return false;
     }
     const allTypes = this.groups.every((g) => this.types.has(g.id));
@@ -103,9 +111,9 @@ export class StoryBibleModal extends FormModal {
     const file = await tryFileOp(async () => {
       const input = await gatherStoryBible(this.plugin, this.project, [...this.types]);
       return writeStoryBible(this.app, this.project, assembleStoryBible(input, this.sections));
-    }, "Couldn't write the story bible.");
+    }, t("plan.bible.writeFailed"));
     if (file === null) return false; // failed (already reported) or the writer declined
-    new Notice(`Story bible written: ${file.path}`);
+    new Notice(t("plan.bible.written", { path: file.path }));
     openScene(this.app, file);
     return true;
   }

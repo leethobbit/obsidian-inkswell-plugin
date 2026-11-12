@@ -7,6 +7,7 @@
  */
 
 import { TFile } from "obsidian";
+import { t } from "../i18n";
 import { autosizeTextarea } from "../lib/form-fields";
 import { tryFileOp } from "../lib/notify";
 import { openScene } from "../scenes/scene-actions";
@@ -40,10 +41,10 @@ export function renderTemplateBodyEditor(
   if (!file) {
     wrap.createDiv({ cls: "inkswell-stats__muted", text: opts.noneText });
     const row = wrap.createDiv({ cls: "inkswell-tplbody__actions" });
-    const create = row.createEl("button", { text: "Create template note" });
+    const create = row.createEl("button", { text: t("customize.templateBody.create") });
     create.type = "button";
     create.onclick = async () => {
-      const made = await tryFileOp(() => opts.create(), "Couldn't create the template note.");
+      const made = await tryFileOp(() => opts.create(), t("customize.fields.createTemplateFailed"));
       if (made) ctx.rerender();
     };
     return;
@@ -52,7 +53,7 @@ export function renderTemplateBodyEditor(
   const ta = taggedTextarea(wrap, opts.fieldKey, { cls: "inkswell-tplbody__text" });
   ta.rows = 8;
   ta.spellcheck = true;
-  ta.placeholder = "Loading…";
+  ta.placeholder = t("customize.templateBody.loading");
   ta.disabled = true;
   void opts.read(file).then((body) => {
     if (!ta.isConnected) return;
@@ -64,15 +65,15 @@ export function renderTemplateBodyEditor(
   });
   ta.onchange = () => {
     ctx.markSelfWrite(file.path);
-    void tryFileOp(() => opts.write(file, ta.value), "Couldn't save the template.");
+    void tryFileOp(() => opts.write(file, ta.value), t("customize.templateBody.saveFailed"));
   };
 
   wrap.createDiv({ cls: "inkswell-stats__muted inkswell-tplbody__hint", text: opts.hint });
 
   const row = wrap.createDiv({ cls: "inkswell-tplbody__actions" });
-  const open = row.createEl("button", { text: "Open template note" });
+  const open = row.createEl("button", { text: t("customize.templateBody.open") });
   open.type = "button";
-  open.setAttribute("aria-label", `Open ${file.path} in a tab (for frontmatter edits)`);
+  open.setAttribute("aria-label", t("customize.templateBody.openAria", { path: file.path }));
   open.onclick = () => openScene(ctx.app, file);
   row.createSpan({ cls: "inkswell-stats__muted", text: file.path });
 }

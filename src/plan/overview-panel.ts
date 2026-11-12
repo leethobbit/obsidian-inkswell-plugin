@@ -10,6 +10,7 @@
  */
 
 import { App, TFile } from "obsidian";
+import { MessageKey, lowerInSentence, t } from "../i18n";
 import { preserveFocus, tagField } from "../lib/focus-preserve";
 import { tryFileOp } from "../lib/notify";
 import { ActiveProject, resolveActive } from "../projects/active-project";
@@ -29,21 +30,43 @@ import {
 } from "./planning-note";
 import type InkswellPlugin from "../../main";
 
-export const OVERVIEW_FIELDS: { key: keyof ProjectOverview; label: string; placeholder: string }[] = [
-  { key: "logline", label: "Logline", placeholder: "One sentence: who wants what, against what odds…" },
-  { key: "theme", label: "Theme", placeholder: "The deeper meaning / life lesson…" },
-  { key: "genre", label: "Genre", placeholder: "e.g. Epic fantasy" },
-  { key: "audience", label: "Audience", placeholder: "e.g. Adult, YA…" },
+/**
+ * `label` is English DATA: the story bible writes it into a vault note. The
+ * panel shows `labelKey` / `placeholderKey` instead (resolved at render).
+ */
+export const OVERVIEW_FIELDS: {
+  key: keyof ProjectOverview;
+  label: string;
+  labelKey: MessageKey;
+  placeholderKey: MessageKey;
+}[] = [
+  // i18n-ignore: vault text (story bible field label)
+  { key: "logline", label: "Logline", labelKey: "plan.overview.logline", placeholderKey: "plan.overview.logline.placeholder" },
+  // i18n-ignore: vault text (story bible field label)
+  { key: "theme", label: "Theme", labelKey: "plan.overview.theme", placeholderKey: "plan.overview.theme.placeholder" },
+  // i18n-ignore: vault text (story bible field label)
+  { key: "genre", label: "Genre", labelKey: "plan.overview.genre", placeholderKey: "plan.overview.genre.placeholder" },
+  // i18n-ignore: vault text (story bible field label)
+  { key: "audience", label: "Audience", labelKey: "plan.overview.audience", placeholderKey: "plan.overview.audience.placeholder" },
 ];
+
+/** Display labels for the planning note's sections. The headings themselves
+ *  (PLAN_SECTIONS) are written into the note and stay English. */
+const SECTION_LABELS: Record<PlanSection, MessageKey> = {
+  Synopsis: "plan.overview.section.synopsis",
+  "Plot groundwork": "plan.overview.section.plotGroundwork",
+  "Act I": "plan.overview.section.act1",
+  "Act II": "plan.overview.section.act2",
+  "Act III": "plan.overview.section.act3",
+};
 
 /**
  * Per-section get-started prompts shown as textarea placeholders. Kept
  * method-agnostic on purpose — a single open question, not a plot theory the
  * writer has to delete. Sections without an entry fall back to "<heading>…".
  */
-const SECTION_PROMPTS: Partial<Record<PlanSection, string>> = {
-  "Plot groundwork":
-    "e.g. What are 5 key moments, scenes, or events you know will happen? (They don't need to be in order or connected yet.)",
+const SECTION_PROMPTS: Partial<Record<PlanSection, MessageKey>> = {
+  "Plot groundwork": "plan.overview.section.plotGroundwork.placeholder",
 };
 
 export class OverviewPanel {
@@ -76,8 +99,8 @@ export class OverviewPanel {
 
     const active = resolveActive(this.store.getProjects(), this.active.get());
     if (!active) {
-      renderEmptyStateAction(container, "No projects yet — a project holds your scenes, plan, and goals.", [
-        { label: "Create a project", cta: true, onClick: () => this.plugin.newProject() },
+      renderEmptyStateAction(container, t("plan.overview.noProjects"), [
+        { label: t("plan.overview.createProject"), cta: true, onClick: () => this.plugin.newProject() },
       ]);
       return;
     }
@@ -96,17 +119,17 @@ export class OverviewPanel {
     const grid = root.createDiv({ cls: "inkswell-overview__fields" });
     for (const f of OVERVIEW_FIELDS) {
       const row = grid.createDiv({ cls: "inkswell-overview__field" });
-      row.createDiv({ cls: "inkswell-overview__label", text: f.label });
+      row.createDiv({ cls: "inkswell-overview__label", text: t(f.labelKey) });
       const input = row.createEl("input", { type: "text", cls: "inkswell-overview__input" });
       tagField(input, `overview:${f.key}`);
-      input.placeholder = f.placeholder;
+      input.placeholder = t(f.placeholderKey);
       input.value = (overview[f.key] as string) ?? "";
       input.onchange = () => {
         if (indexFile) {
           this.plugin.selfWrites.mark(indexFile.path);
           void tryFileOp(
             () => persistOverview(this.app, indexFile, { [f.key]: input.value.trim() }),
-            `Couldn't save the ${f.label.toLowerCase()}.`
+            t("plan.overview.saveFieldFailed", { field: lowerInSentence(t(f.labelKey)) })
           );
         }
       };
@@ -117,26 +140,28 @@ export class OverviewPanel {
   private renderProse(root: HTMLElement, project: Project): void {
     const sec = root.createDiv({ cls: "inkswell-overview__prose" });
     const head = sec.createDiv({ cls: "inkswell-overview__prosehead" });
-    head.createSpan({ cls: "inkswell-overview__prosetitle", text: "Planning note" });
-    const open = head.createEl("button", { text: "Open planning note" });
-    open.setAttribute("aria-label", "Open the planning note in an editor tab");
+    head.createSpan({ cls: "inkswell-overview__prosetitle", text: t("plan.overview.planningNote") });
+    const open = head.createEl("button", { text: t("plan.overview.openPlanningNote") });
+    open.setAttribute("aria-label", t("plan.overview.openPlanningNote.aria"));
     open.onclick = async () => {
       const file = await tryFileOp(async () => {
         const f = await ensurePlanningNote(this.app, project);
         await this.rememberNote(project, f);
         return f;
-      }, "Couldn't open the planning note.");
+      }, t("plan.overview.openFailed"));
       if (file) openScene(this.app, file);
     };
 
     const editors = new Map<PlanSection, HTMLTextAreaElement>();
     for (const heading of PLAN_SECTIONS) {
       const block = sec.createDiv({ cls: "inkswell-overview__section" });
-      block.createDiv({ cls: "inkswell-overview__label", text: heading });
+      const label = t(SECTION_LABELS[heading]);
+      block.createDiv({ cls: "inkswell-overview__label", text: label });
       const ta = block.createEl("textarea", { cls: "inkswell-overview__textarea" });
       tagField(ta, `overview:section:${heading}`);
       ta.rows = heading === "Synopsis" || heading === "Plot groundwork" ? 5 : 3;
-      ta.placeholder = SECTION_PROMPTS[heading] ?? `${heading}…`;
+      const prompt = SECTION_PROMPTS[heading];
+      ta.placeholder = prompt ? t(prompt) : t("plan.overview.section.placeholder", { heading: label });
       ta.onchange = () => void this.saveSection(project, heading, ta.value);
       editors.set(heading, ta);
     }
@@ -167,7 +192,7 @@ export class OverviewPanel {
       const file = await ensurePlanningNote(this.app, project);
       await this.rememberNote(project, file);
       await writeSection(this.app, file, heading, text);
-    }, "Couldn't save the planning note.");
+    }, t("plan.overview.saveFailed"));
   }
 
   /** Persist the planning-note path the first time we create/use it. */

@@ -5,6 +5,7 @@
  * already vault-wide (shared across all books for free).
  */
 
+import { formatNumber, t, tp } from "../i18n";
 import { Project, SeriesInfo } from "../projects/types";
 
 export interface Series {
@@ -233,8 +234,8 @@ export interface ShelfBook {
  */
 export function shelfMetaText(books: ShelfBook[], showWords: boolean): string {
   const n = books.length;
-  let text = `${n} book${n === 1 ? "" : "s"}`;
-  if (!showWords) return text;
+  const count = tp("series.shelf.books", n);
+  if (!showWords) return count;
 
   let words = 0;
   let targetedWords = 0;
@@ -248,10 +249,19 @@ export function shelfMetaText(books: ShelfBook[], showWords: boolean): string {
       targeted++;
     }
   }
-  text += ` · ${words.toLocaleString()} words`;
-  if (target === 0) return text;
+  // Segments joined by " · ": the book count, the words (with the target when
+  // every book has one), then the targeted-only progress when only some do.
+  const wordsText = tp("common.words", words);
+  if (target === 0) return `${count} · ${wordsText}`;
 
   const pct = Math.round((targetedWords / target) * 100);
-  if (targeted === n) return `${text} / ${target.toLocaleString()} (${pct}%)`;
-  return `${text} · ${targetedWords.toLocaleString()} / ${target.toLocaleString()} targeted (${pct}%)`;
+  if (targeted === n) {
+    return `${count} · ${t("series.shelf.ofTarget", { words: wordsText, target: formatNumber(target), percent: pct })}`;
+  }
+  const progress = t("series.shelf.targeted", {
+    words: formatNumber(targetedWords),
+    target: formatNumber(target),
+    percent: pct,
+  });
+  return `${count} · ${wordsText} · ${progress}`;
 }

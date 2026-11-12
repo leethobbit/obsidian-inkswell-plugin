@@ -9,6 +9,7 @@
  */
 
 import { App, Menu, Notice, TFile } from "obsidian";
+import { MessageKey, formatNumber, t } from "../i18n";
 import { numberRepeats } from "../lib/labels";
 import { attachRowMenu } from "../lib/row-menu";
 import { ActiveProject, resolveActive } from "../projects/active-project";
@@ -33,11 +34,11 @@ import {
 } from "./board";
 import type InkswellPlugin from "../../main";
 
-const FIELDS: { id: GroupField; label: string }[] = [
-  { id: "status", label: "Status" },
-  { id: "act", label: "Act" },
-  { id: "chapter", label: "Chapter" },
-  { id: "pov", label: "POV" },
+const FIELDS: { id: GroupField; labelKey: MessageKey }[] = [
+  { id: "status", labelKey: "board.field.status" },
+  { id: "act", labelKey: "board.field.act" },
+  { id: "chapter", labelKey: "board.field.chapter" },
+  { id: "pov", labelKey: "board.field.pov" },
 ];
 
 export class BoardPanel {
@@ -71,7 +72,7 @@ export class BoardPanel {
       .filter((p) => p.draft.format === "scenes");
     const project = resolveActive(projects, this.active.get());
     if (!project) {
-      renderEmptyState(container, "No multi-scene projects to board.");
+      renderEmptyState(container, t("board.noProjects"));
       return;
     }
 
@@ -96,9 +97,9 @@ export class BoardPanel {
     }
 
     if (items.length === 0) {
-      renderEmptyStateAction(container, "No scenes yet — cards appear here as you create scenes.", [
-        { label: "New scene", cta: true, onClick: () => promptNewScene(this.app, this.store, this.plugin.settings, project) },
-        { label: "Go to Beats", onClick: () => void this.plugin.openBeats() },
+      renderEmptyStateAction(container, t("board.empty"), [
+        { label: t("board.newScene"), cta: true, onClick: () => promptNewScene(this.app, this.store, this.plugin.settings, project) },
+        { label: t("plan.goToBeats"), onClick: () => void this.plugin.openBeats() },
       ]);
       return;
     }
@@ -126,10 +127,10 @@ export class BoardPanel {
 
   private renderToolbar(root: HTMLElement, project: Project): void {
     const bar = root.createDiv({ cls: "inkswell-board__toolbar" });
-    bar.createSpan({ cls: "inkswell-stats__muted", text: "Group by:" });
+    bar.createSpan({ cls: "inkswell-stats__muted", text: t("board.groupBy") });
     const fsel = bar.createEl("select", { cls: "dropdown" });
     for (const f of FIELDS) {
-      const o = fsel.createEl("option", { text: f.label, value: f.id });
+      const o = fsel.createEl("option", { text: t(f.labelKey), value: f.id });
       if (f.id === this.field) o.selected = true;
     }
     fsel.onchange = () => {
@@ -137,15 +138,15 @@ export class BoardPanel {
       this.rerender();
     };
 
-    const add = bar.createEl("button", { text: "New scene" });
-    add.setAttribute("aria-label", "Create a new scene");
+    const add = bar.createEl("button", { text: t("board.newScene") });
+    add.setAttribute("aria-label", t("board.newScene.aria"));
     add.onclick = () => promptNewScene(this.app, this.store, this.plugin.settings, project);
   }
 
   private renderColumn(board: HTMLElement, col: BoardColumn, project: Project): void {
     const el = board.createDiv({ cls: "inkswell-board__col" });
     const head = el.createDiv({ cls: "inkswell-board__colhead" });
-    head.createSpan({ text: `${col.label} (${col.items.length})` });
+    head.createSpan({ text: t("board.column.head", { label: col.label, count: formatNumber(col.items.length) }) });
     // Structural context (a chapter column's act) as a muted second line.
     if (col.sub) head.createDiv({ cls: "inkswell-board__colsub", text: col.sub });
     const list = el.createDiv({ cls: "inkswell-board__list" });
@@ -231,7 +232,7 @@ export class BoardPanel {
       if (col.key === currentKey) return;
       menu.addItem((i) =>
         i
-          .setTitle(`Move to: ${labels[k]}`)
+          .setTitle(t("board.moveTo", { name: labels[k] }))
           .setIcon("corner-up-right")
           .onClick(() => this.assign(it.path, col.key, project))
       );
@@ -257,7 +258,7 @@ export class BoardPanel {
     // Self-write mark → the host soft-refreshes Structure in place (the column
     // strip keeps its scroll) instead of tearing the body down.
     this.plugin.selfWrites.mark(file.path);
-    void tryFileOp(() => writeSceneMeta(this.app, file, patch), "Couldn't move the card.");
+    void tryFileOp(() => writeSceneMeta(this.app, file, patch), t("board.moveFailed"));
   }
 
   /**
@@ -290,8 +291,8 @@ export class BoardPanel {
       const res = resolveActDrop(tree, sceneTitle, key);
       if (res.kind === "noop") return;
       if (res.kind === "empty-act") {
-        const label = this.columns.find((c) => c.key === key)?.label ?? "That act";
-        new Notice(`${label} has no chapters yet — add one in the Tree first.`);
+        const label = this.columns.find((c) => c.key === key)?.label;
+        new Notice(label ? t("board.emptyAct", { name: label }) : t("board.emptyAct.unknown"));
         return;
       }
       targetChapterId = res.chapterId;

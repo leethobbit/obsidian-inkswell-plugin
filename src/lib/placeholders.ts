@@ -40,12 +40,14 @@ export interface MarkerExtra {
 }
 
 /** The shipped markers, in canonical display order. */
+// Labels stay English on purpose: a shipped marker's name must say what it types
+// (the keyword lives in prose and is never translated), and it can't be renamed.
 export const SHIPPED_MARKERS: readonly { id: ShippedMarkerId; label: string; keyword: string }[] = [
-  { id: "todo", label: "TODO", keyword: "TODO" },
-  { id: "research", label: "Research", keyword: "RESEARCH" },
-  { id: "note", label: "Note", keyword: "NOTE" },
-  { id: "dialogue", label: "Dialogue", keyword: "DIALOGUE" },
-  { id: "scene", label: "Scene", keyword: "SCENE" },
+  { id: "todo", label: "TODO", keyword: "TODO" }, // i18n-ignore: marker name = its prose keyword
+  { id: "research", label: "Research", keyword: "RESEARCH" }, // i18n-ignore: marker name = its prose keyword
+  { id: "note", label: "Note", keyword: "NOTE" }, // i18n-ignore: marker name = its prose keyword
+  { id: "dialogue", label: "Dialogue", keyword: "DIALOGUE" }, // i18n-ignore: marker name = its prose keyword
+  { id: "scene", label: "Scene", keyword: "SCENE" }, // i18n-ignore: marker name = its prose keyword
 ];
 
 /** One effective marker: shipped or the writer's own. */
@@ -89,7 +91,10 @@ export interface PlaceholderTemplate {
 }
 
 /** A letter, then 1–19 letters, digits or hyphens. Checked on the uppercased form. */
-const KEYWORD_RE = /^\p{L}[\p{L}\p{N}-]{1,19}$/u;
+// Mirrors MARKER_SHAPE_RE (the prose scanner): after uppercasing, the word must be
+// capital letters, so a caseless script (Chinese, Japanese) can't make a marker
+// the scanner would never find.
+const KEYWORD_RE = /^\p{Lu}[\p{Lu}\p{N}-]{1,19}$/u;
 
 /** The stored form of a keyword: trimmed, uppercased. */
 export function normalizeKeyword(raw: string): string {

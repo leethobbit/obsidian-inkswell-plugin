@@ -51,6 +51,9 @@ import { SceneInspector } from "../scenes/scene-inspector";
 import { HelpPanel } from "../help/help-panel";
 import { CustomizePanel } from "../customize/customize-panel";
 import { addHideItem, attachHideMenu } from "../lib/hide-menu";
+import { getLocale, t } from "../i18n";
+import { companionForDestination, visibleCompanions } from "../companions/registry";
+import { replaceWithCompanion } from "../companions/open";
 import { renderHint } from "../help/hint";
 import { hintKey } from "../help/help-content";
 import { PhoneShell } from "./phone/phone-shell";
@@ -130,6 +133,8 @@ export class InkswellView extends ItemView {
   /** True between pointerdown and pointerup — a deferred rebuild must not fire
    *  mid-gesture or it tears down the element a click is landing on. */
   private pointerDown = false;
+  /** Shown instead of the app while this view sits in a sidebar (checkSidebar). */
+  private sidebarNotice: HTMLElement | null = null;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -160,7 +165,7 @@ export class InkswellView extends ItemView {
       return true;
     };
     // An "Appears in" scene opens in the Write editor (flashing the first mention),
-    // never as a raw note — matching Search/To-dos navigation.
+    // never as a raw note — matching Search / revision-log navigation.
     this.codex.onOpenInWrite = (path, hl) => this.openSceneInWrite(path, hl);
     this.write = new WritePanel(this.app, plugin, store, plugin.sprints);
     this.stats = new StatsPanel(this.app, plugin, tracker, store, stats);
@@ -223,6 +228,8 @@ export class InkswellView extends ItemView {
 
     this.rail = root.createDiv({ cls: "inkswell-rail" });
     this.buildRail();
+    this.registerEvent(this.app.workspace.on("layout-change", () => this.checkSidebar()));
+    this.app.workspace.onLayoutReady(() => this.checkSidebar());
 
     // Right of the rail: a persistent header (project selector) above the body.
     // The header lives OUTSIDE the body so renderActive()'s body.empty() never
@@ -333,19 +340,19 @@ export class InkswellView extends ItemView {
     this.header.empty();
     const projects = this.plugin.store.getProjects();
     if (projects.length === 0) {
-      this.header.createSpan({ cls: "inkswell-stats__muted", text: "No project yet" });
+      this.header.createSpan({ cls: "inkswell-stats__muted", text: t("view.header.noProject") });
       return;
     }
     const stories = groupIntoStories(projects);
     const activePath = this.plugin.activeProject.get();
     const activeStory = storyOf(stories, activePath);
 
-    this.header.createSpan({ cls: "inkswell-host__headerlabel", text: "Project" });
+    this.header.createSpan({ cls: "inkswell-host__headerlabel", text: t("view.header.project") });
     const sel = this.header.createEl("select", { cls: "dropdown" });
     // "All projects" (empty value) is the unfocused default: Home lists every
     // project. Project-scoped tabs fall back to the first project when nothing
     // specific is selected (see resolveActive).
-    sel.createEl("option", { text: "All projects", value: "" });
+    sel.createEl("option", { text: t("view.header.allProjects"), value: "" });
     // Grouped by series (membership is story-level → read off each base draft),
     // in book order, so the switcher tells the same story as Home's shelves.
     const addStory = (parent: HTMLElement, story: Story) =>
@@ -363,7 +370,7 @@ export class InkswellView extends ItemView {
       // Same shelf order as Home, Standalone included (#67).
       for (const shelf of orderShelves(series, standalone.length > 0, this.plugin.settings.seriesOrder)) {
         const og = sel.createEl("optgroup");
-        og.label = shelf.kind === "series" ? shelf.series.name : "Standalone";
+        og.label = shelf.kind === "series" ? shelf.series.name : t("view.header.standalone");
         for (const book of shelf.kind === "series" ? shelf.series.books : standalone) {
           const story = storyFor(book);
           if (story) addStory(og, story);
@@ -372,7 +379,7 @@ export class InkswellView extends ItemView {
     }
     if (activeStory && archived.has(activeStory.title)) {
       const og = sel.createEl("optgroup");
-      og.label = "Archived";
+      og.label = t("view.header.archived");
       addStory(og, activeStory);
     }
     sel.value = activeStory?.title ?? "";
@@ -388,7 +395,7 @@ export class InkswellView extends ItemView {
       activeStory.drafts.find((d) => d.vaultPath === activePath) ?? activeStory.drafts[0];
 
     if (activeStory.drafts.length > 1) {
-      this.header.createSpan({ cls: "inkswell-host__headerlabel", text: "Draft" });
+      this.header.createSpan({ cls: "inkswell-host__headerlabel", text: t("view.header.draft") });
       const dsel = this.header.createEl("select", { cls: "dropdown" });
       activeStory.drafts.forEach((d, i) => {
         dsel.createEl("option", { text: draftLabel(d, i), value: d.vaultPath });
@@ -399,7 +406,7 @@ export class InkswellView extends ItemView {
 
     const menuBtn = this.header.createEl("button", {
       cls: "inkswell-host__draftsmenu",
-      attr: { "aria-label": "Project actions" },
+      attr: { "aria-label": t("view.header.actions") },
     });
     menuBtn.type = "button";
     setIcon(menuBtn, "ellipsis");
@@ -412,33 +419,33 @@ export class InkswellView extends ItemView {
     const menu = new Menu();
     menu.addItem((i) =>
       i
-        .setTitle("Rename project")
+        .setTitle(t("view.actions.renameProject"))
         .setIcon("text-cursor-input")
         .onClick(() => this.plugin.renameProject(active))
     );
     menu.addItem((i) =>
       i
-        .setTitle("Export story bible…")
+        .setTitle(t("view.actions.exportBible"))
         .setIcon("file-output")
         .onClick(() => this.plugin.openStoryBible(active))
     );
     const archived = storyArchived(this.plugin.store.getProjects(), active);
     menu.addItem((i) =>
       i
-        .setTitle(archived ? "Unarchive project" : "Archive project")
+        .setTitle(archived ? t("view.actions.unarchive") : t("view.actions.archive"))
         .setIcon(archived ? "archive-restore" : "archive")
         .onClick(() => void this.plugin.archiveProject(active, !archived))
     );
     menu.addSeparator();
     menu.addItem((i) =>
-      i.setTitle("New draft").setIcon("copy-plus").onClick(() => this.newDraftAction(active))
+      i.setTitle(t("view.actions.newDraft")).setIcon("copy-plus").onClick(() => this.newDraftAction(active))
     );
     menu.addItem((i) =>
-      i.setTitle("Rename draft").setIcon("pencil").onClick(() => this.renameDraftAction(active))
+      i.setTitle(t("view.actions.renameDraft")).setIcon("pencil").onClick(() => this.renameDraftAction(active))
     );
     menu.addItem((i) =>
       i
-        .setTitle("Delete draft")
+        .setTitle(t("view.actions.deleteDraft"))
         .setIcon("trash-2")
         .onClick(() => void this.deleteDraftAction(story, active))
     );
@@ -463,10 +470,10 @@ export class InkswellView extends ItemView {
 
   private renameDraftAction(project: Project): void {
     void promptText(this.app, {
-      title: "Rename draft",
+      title: t("view.actions.renameDraft"),
       value: project.draft.draftTitle ?? "",
       multiline: false,
-      cta: "Rename",
+      cta: t("common.rename"),
     }).then((name) => {
       if (name == null || !name.trim()) return;
       void renameDraft(this.app, project, name);
@@ -532,7 +539,7 @@ export class InkswellView extends ItemView {
   }
 
   /** Whether a destination shows the "use a larger screen" notice on phones.
-   *  Revise is enabled only for its To-dos slice; its other tabs redirect. */
+   *  Revise is enabled only for its revision-log slice; its other tabs redirect. */
   private isRedirected(mode: InkswellMode): boolean {
     if (PHONE_REDIRECTED.has(mode)) return true;
     // effectiveSubtab (not the raw remembered value) so a remembered subtab
@@ -552,7 +559,7 @@ export class InkswellView extends ItemView {
     const back = hdr.createEl("button", { cls: "inkswell-phonehdr__back" });
     back.type = "button";
     setIcon(back, "arrow-left");
-    back.setAttribute("aria-label", "Back");
+    back.setAttribute("aria-label", t("common.back"));
     back.onclick = onBack;
     hdr.createSpan({ cls: "inkswell-phonehdr__title", text: title });
   }
@@ -578,6 +585,64 @@ export class InkswellView extends ItemView {
   /** Create a codex entry from the Write editor's selection (command path). */
   quickCodex(): void {
     this.write.quickCodex();
+  }
+
+  /** "Open in sidebar" for a rail destination that has a companion. */
+  private addCompanionItem(menu: Menu, dest: InkswellMode): boolean {
+    const def = companionForDestination(dest, this.plugin.settings.disabledFeatures);
+    if (!def) return false;
+    menu.addItem((i) =>
+      i
+        .setTitle(t("companion.openInSidebar"))
+        .setIcon("panel-right")
+        .onClick(() => void this.plugin.openCompanion(def.id))
+    );
+    return true;
+  }
+
+  /**
+   * The full view doesn't fit a sidebar (seven destinations in ~300px). When it
+   * lands in one, show a notice offering to move it back or to open a companion
+   * there instead; the app underneath keeps its state.
+   */
+  private checkSidebar(): void {
+    const ws = this.app.workspace;
+    const root = this.leaf.getRoot();
+    const inSidebar = root === ws.leftSplit || root === ws.rightSplit;
+    this.contentEl.toggleClass("is-in-sidebar", inSidebar);
+    this.sidebarNotice?.remove();
+    this.sidebarNotice = null;
+    if (!inSidebar) return;
+    const notice = this.contentEl.createDiv({ cls: "inkswell-sidebar-notice" });
+    this.sidebarNotice = notice;
+    notice.createDiv({ cls: "inkswell-sidebar-notice__title", text: t("companion.notice.title") });
+    notice.createDiv({ cls: "inkswell-stats__muted", text: t("companion.notice.body") });
+    const move = notice.createEl("button", { cls: "mod-cta", text: t("companion.notice.move") });
+    move.onclick = () => {
+      const leaf = this.leaf;
+      void (async () => {
+        const state = leaf.getViewState();
+        const target = this.app.workspace.getLeaf("tab");
+        await target.setViewState(state);
+        leaf.detach();
+        await this.app.workspace.revealLeaf(target);
+      })();
+    };
+    for (const def of visibleCompanions(this.plugin.settings.disabledFeatures)) {
+      const b = notice.createEl("button", { text: t("companion.notice.open", { name: t(def.labelKey) }) });
+      setIcon(b.createSpan({ cls: "inkswell-sidebar-notice__icon" }), def.icon);
+      b.onclick = () => void replaceWithCompanion(this.plugin, this.leaf, def.id);
+    }
+  }
+
+  /** Look up in Codex: peek at the name under Write's cursor (false = none). */
+  lookUpAtCursor(): boolean {
+    return this.mode === "write" && this.write.lookUpAtCursor();
+  }
+
+  /** Write's cursor position on screen, for anchoring a looked-up card. */
+  cursorRect(): DOMRect | null {
+    return this.mode === "write" ? this.write.cursorRect() : null;
   }
 
   /** Open Plan → Structure on a specific view (deep link for board/grid commands). */
@@ -613,6 +678,42 @@ export class InkswellView extends ItemView {
   /** Switch Write between one scene at a time and the stream, and show Write. */
   toggleStream(): void {
     this.write.toggleStream();
+    if (this.mode !== "write") this.setMode("write");
+  }
+
+  /** True when the side column can be shown or hidden right now (Write is up). */
+  canToggleSidePanel(): boolean {
+    return this.mode === "write" && this.write.canUseSidePanel();
+  }
+
+  /** Show or hide Write's side column. */
+  toggleSidePanel(): void {
+    this.write.toggleSidePanel();
+  }
+
+  /** True when Write is the destination showing (gates its layout commands). */
+  isWriting(): boolean {
+    return this.mode === "write";
+  }
+
+  /** Show or hide Write's scene list. */
+  toggleSceneList(): void {
+    this.write.toggleSceneList();
+  }
+
+  /** Enter or leave Write's focus mode. */
+  toggleFocus(): void {
+    this.write.toggleFocus();
+  }
+
+  /** Log a revision decision for the scene open in Write. */
+  logDecision(): void {
+    this.write.logDecision();
+  }
+
+  /** Bring a panel up beside the Write editor (and show Write if it isn't). */
+  showSidePanel(id: string): void {
+    this.write.showSidePanel(id);
     if (this.mode !== "write") this.setMode("write");
   }
 
@@ -708,7 +809,8 @@ export class InkswellView extends ItemView {
     // Rail highlight (desktop/tablet) + bottom-bar highlight (phone). The rail
     // is rebuilt only when its arrangement changed (e.g. synced from another
     // device); feature-gated visibility is applied on every render.
-    if (JSON.stringify(this.railLayout()) !== this.railSig) this.buildRail();
+    // The signature includes the UI language so Settings → Interface language relabels the rail.
+    if (`${getLocale()}:${JSON.stringify(this.railLayout())}` !== this.railSig) this.buildRail();
     this.syncRail();
     if (isPhone()) {
       this.phone.setActive(this.mode);
@@ -734,6 +836,10 @@ export class InkswellView extends ItemView {
     // in a detached EditorView until the next visit — gone on quit/reload.
     if (this.renderedMode === "write" && this.mode !== "write") {
       this.write.flushForNavigation();
+    } else if (this.renderedMode === "write") {
+      // Rebuilding Write in place: note where the writer is while the editor
+      // is still on the page (a detached editor reports no scroll position).
+      this.write.notePlace();
     }
 
     // Safety net for a rebuild that fires while a field is somehow still
@@ -742,6 +848,10 @@ export class InkswellView extends ItemView {
     // The page scroller is restored too, but only when the rebuild shows the
     // same screen (its tag names mode + sub-tab + drill-down) — navigating
     // elsewhere still lands at the top.
+    // Write's focus mode hides the rail and the header: only while Write shows.
+    // (Write sets the class itself when it renders or toggles.)
+    if (this.mode !== "write") this.contentEl.removeClass("is-write-focus");
+
     preserveUi(this.body, () => {
       this.renderedMode = this.mode;
       this.body.empty();
@@ -798,7 +908,7 @@ export class InkswellView extends ItemView {
     const rail = this.rail;
     rail.empty();
     const layout = this.railLayout();
-    this.railSig = JSON.stringify(layout);
+    this.railSig = `${getLocale()}:${JSON.stringify(layout)}`;
     const byId = (id: InkswellMode) => DESTINATIONS.find((d) => d.id === id);
     for (const d of DESTINATIONS.filter((x) => x.group === "hub")) this.railItem(d, null);
     this.railSeparator("upper");
@@ -858,8 +968,22 @@ export class InkswellView extends ItemView {
     item.setAttribute("aria-label", dest.label);
     item.onclick = () => this.setMode(dest.id);
     if (!section) {
-      // Fixed items (Home, the footer) only offer Hide, when gated by a feature.
-      if (dest.feature) attachHideMenu(item, this.plugin, dest.feature, dest.label);
+      // Fixed items (Home, the footer) offer Hide when gated by a feature, and
+      // Open in sidebar when they have a companion (Home → Scenes).
+      if (companionForDestination(dest.id, this.plugin.settings.disabledFeatures)) {
+        item.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          const menu = new Menu();
+          this.addCompanionItem(menu, dest.id);
+          if (dest.feature) {
+            menu.addSeparator();
+            addHideItem(menu, this.plugin, dest.feature, dest.label);
+          }
+          menu.showAtMouseEvent(e);
+        });
+      } else if (dest.feature) {
+        attachHideMenu(item, this.plugin, dest.feature, dest.label);
+      }
       return;
     }
 
@@ -867,6 +991,7 @@ export class InkswellView extends ItemView {
     item.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       const menu = new Menu();
+      if (this.addCompanionItem(menu, dest.id)) menu.addSeparator();
       const disabled = this.plugin.settings.disabledFeatures;
       const isVisible = (id: InkswellMode) => {
         const d = DESTINATIONS.find((x) => x.id === id);
@@ -874,8 +999,8 @@ export class InkswellView extends ItemView {
       };
       const layout = this.railLayout();
       const steps: [string, string, -1 | 1][] = [
-        ["Move up", "arrow-up", -1],
-        ["Move down", "arrow-down", 1],
+        [t("view.rail.moveUp"), "arrow-up", -1],
+        [t("view.rail.moveDown"), "arrow-down", 1],
       ];
       for (const [title, icon, dir] of steps) {
         const next = nudgeRailItem(layout, dest.id, dir, isVisible);
@@ -885,7 +1010,7 @@ export class InkswellView extends ItemView {
       if (this.plugin.settings.railLayout) {
         menu.addItem((i) =>
           i
-            .setTitle("Reset rail order")
+            .setTitle(t("view.rail.reset"))
             .setIcon("rotate-ccw")
             .onClick(() => this.saveRail(resolveRailLayout(null)))
         );
@@ -1041,7 +1166,7 @@ export class InkswellView extends ItemView {
         return false;
       }
       case "revise": {
-        // To-dos: a decision write from the merged panel — refresh its rows in
+        // Revision log: a decision write from the merged panel — refresh its rows in
         // place (cached marker scan + fresh decisions). Audit: checklist/style/
         // arc writes re-render the panel in place so progress counters update.
         // Anything else (Analysis) has no self-writes of its own — return
@@ -1099,12 +1224,12 @@ export class InkswellView extends ItemView {
     // On a phone, heavy multi-pane destinations show a "larger screen" notice
     // instead of a cramped, unusable layout (the "writing companion" scope).
     if (isPhone() && this.isRedirected(this.mode)) {
-      const label = DESTINATIONS.find((d) => d.id === this.mode)?.label ?? "This view";
+      const label = DESTINATIONS.find((d) => d.id === this.mode)?.label ?? t("view.redirect.thisView");
       // The link is how a misdetected tablet (#41) finds the override: it flips
       // the same setting as Settings → Layout, and the mutator rebuilds this view.
       renderPhoneRedirect(content, label, () => {
         void this.plugin.setForceTabletLayout(true);
-        new Notice("Full layout on — switch back under Settings → Layout.");
+        new Notice(t("view.redirect.fullLayoutOn"));
       });
       return;
     }
@@ -1131,7 +1256,7 @@ export class InkswellView extends ItemView {
     if (homeFile) {
       this.renderPhoneBack(content, homeFile.basename, () => this.popDetail("home"));
     } else if (codexDetail) {
-      const entryName = this.fileAt(codexDetail)?.basename ?? "Codex";
+      const entryName = this.fileAt(codexDetail)?.basename ?? t("nav.codex");
       this.renderPhoneBack(content, entryName, () => this.popDetail("codex"));
     } else {
       renderHint(content, this.plugin, hintKey(this.mode, this.subtab[this.mode]));

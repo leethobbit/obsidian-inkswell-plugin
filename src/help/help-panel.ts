@@ -6,6 +6,8 @@
 
 import { App, Notice, setIcon } from "obsidian";
 import type InkswellPlugin from "../../main";
+import { t } from "../i18n";
+import { fillTemplate } from "../i18n/dom";
 import { HELP_SECTIONS } from "./help-content";
 import { resetHelpState } from "./hint";
 import { WelcomeModal } from "./welcome-modal";
@@ -20,42 +22,35 @@ export class HelpPanel {
     container.empty();
     container.addClass("inkswell-help");
 
-    container.createEl("h2", { cls: "inkswell-help__title", text: "How Inkswell works" });
-    container.createEl("p", {
-      cls: "inkswell-stats__muted",
-      text:
-        "A reference for every part of the workbench. The pipeline runs Plan → Write → " +
-        "Revise → Publish, with Codex and Track alongside. Expand a section to dig in.",
-    });
+    container.createEl("h2", { cls: "inkswell-help__title", text: t("help.panel.title") });
+    container.createEl("p", { cls: "inkswell-stats__muted", text: t("help.panel.intro") });
     const shape = container.createEl("p", { cls: "inkswell-stats__muted" });
-    shape.appendText("Shape Inkswell to your process under ");
-    const link = shape.createEl("a", { text: "Customize" });
-    link.onclick = (e) => {
-      e.preventDefault();
-      void this.plugin.openCustomize();
-    };
-    shape.appendText(
-      " — codex types and fields, templates, structures, checklists, prompts, and which " +
-        "features are shown (or right-click an optional tab to hide it). Hiding is lossless — " +
-        "your data is kept and turning it back on restores it."
-    );
+    fillTemplate(shape, t("help.panel.shape"), {
+      link: (parent) => {
+        const link = parent.createEl("a", { text: t("help.panel.shape.link") });
+        link.onclick = (e) => {
+          e.preventDefault();
+          void this.plugin.openCustomize();
+        };
+      },
+    });
 
     for (const section of HELP_SECTIONS) {
       const sec = container.createEl("details", { cls: "inkswell-stats__section inkswell-help__section" });
       const summary = sec.createEl("summary", { cls: "inkswell-help__summary" });
       setIcon(summary.createSpan({ cls: "inkswell-help__icon" }), section.icon);
-      summary.createSpan({ cls: "inkswell-help__phase", text: section.phase });
-      summary.createSpan({ cls: "inkswell-stats__muted", text: section.summary });
+      summary.createSpan({ cls: "inkswell-help__phase", text: t(section.phaseKey) });
+      summary.createSpan({ cls: "inkswell-stats__muted", text: t(section.summaryKey) });
       const body = sec.createDiv({ cls: "inkswell-help__body" });
       section.body(body);
     }
 
     const footer = container.createDiv({ cls: "inkswell-help__footer" });
-    const reset = footer.createEl("button", { text: "Reset tips & replay welcome" });
+    const reset = footer.createEl("button", { text: t("help.panel.reset") });
     reset.onclick = async () => {
       await resetHelpState(this.plugin);
       this.plugin.refreshExplorer();
-      new Notice("Tips reset.");
+      new Notice(t("help.panel.reset.done"));
       new WelcomeModal(this.app, this.plugin).open();
     };
   }

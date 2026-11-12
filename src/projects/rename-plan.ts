@@ -13,6 +13,7 @@
  * `longform.sceneTemplate`) are remapped through the moves so nothing goes stale.
  */
 
+import { t } from "../i18n";
 import { sanitizeSegment } from "../settings/folders";
 import { projectFolder } from "./stories";
 import { Project } from "./types";
@@ -181,12 +182,12 @@ export function isRenameBlock(x: ProjectRenamePlan | RenameBlock): x is RenameBl
 export function describeBlock(b: RenameBlock): string {
   switch (b.kind) {
     case "empty":
-      return "Enter a project title.";
+      return t("project.titleRequired");
     case "unchanged":
-      return "That's already the project's title.";
+      return t("project.rename.unchanged");
     case "title-taken":
-      return `Another project is already called "${b.title}".`;
+      return t("project.rename.titleTaken", { title: b.title });
     case "path-taken":
-      return `Something already exists at "${b.path}".`;
+      return t("project.rename.pathTaken", { path: b.path });
   }
 }

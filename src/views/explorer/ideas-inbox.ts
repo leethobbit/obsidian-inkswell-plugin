@@ -6,6 +6,7 @@
  */
 
 import { Menu, Notice, setIcon } from "obsidian";
+import { t } from "../../i18n";
 import { tagField } from "../../lib/focus-preserve";
 import { attachRowMenu } from "../../lib/row-menu";
 import { Idea } from "../../ideation/types";
@@ -24,7 +25,7 @@ export function renderIdeas(parent: HTMLElement, plugin: InkswellPlugin): void {
   head.setAttribute("aria-expanded", String(open));
   const chevron = head.createSpan({ cls: "inkswell-ideas__chevron" });
   setIcon(chevron, open ? "chevron-down" : "chevron-right");
-  head.createSpan({ cls: "inkswell-ideas__title", text: "Ideas" });
+  head.createSpan({ cls: "inkswell-ideas__title", text: t("home.ideas.title") });
   if (plugin.ideas.length > 0) {
     head.createSpan({ cls: "inkswell-ideas__count", text: String(plugin.ideas.length) });
   }
@@ -46,7 +47,7 @@ export function renderIdeas(parent: HTMLElement, plugin: InkswellPlugin): void {
   const input = body.createEl("input", {
     type: "text",
     cls: "inkswell-ideas__input",
-    placeholder: "Capture an idea… (Enter)",
+    placeholder: t("home.ideas.capture"),
   });
   // Commits only on Enter — a rebuild mid-typing would otherwise drop the text.
   tagField(input, "ideas:capture");
@@ -65,11 +66,11 @@ function renderIdeaRow(parent: HTMLElement, idea: Idea, plugin: InkswellPlugin):
   const row = parent.createDiv({ cls: "inkswell-idea" });
   if (idea.pinned) row.addClass("is-pinned");
   const pin = row.createSpan({ cls: "inkswell-idea__pin", text: idea.pinned ? "★" : "☆" });
-  pin.setAttribute("aria-label", idea.pinned ? "Unpin" : "Pin");
+  pin.setAttribute("aria-label", idea.pinned ? t("home.ideas.unpin") : t("home.ideas.pin"));
   pin.onclick = () => plugin.togglePinIdea(idea.id);
 
   const text = row.createSpan({ cls: "inkswell-idea__text", text: idea.text });
-  text.setAttribute("aria-label", "Edit idea");
+  text.setAttribute("aria-label", t("home.ideas.edit"));
   text.tabIndex = 0;
   const startEdit = () => beginEdit(text, idea, plugin);
   text.onclick = startEdit;
@@ -120,34 +121,34 @@ function beginEdit(textEl: HTMLElement, idea: Idea, plugin: InkswellPlugin): voi
 
 function ideaMenu(idea: Idea, plugin: InkswellPlugin, startEdit: () => void): Menu {
   const menu = new Menu();
-  menu.addItem((i) => i.setTitle("Edit").setIcon("pencil").onClick(startEdit));
+  menu.addItem((i) => i.setTitle(t("common.edit")).setIcon("pencil").onClick(startEdit));
   menu.addItem((i) =>
     i
-      .setTitle("Copy")
+      .setTitle(t("home.ideas.copy"))
       .setIcon("copy")
       .onClick(() => {
         void navigator.clipboard.writeText(idea.text).then(
-          () => new Notice("Idea copied."),
-          () => new Notice("Couldn't copy the idea.")
+          () => new Notice(t("home.ideas.copied")),
+          () => new Notice(t("home.ideas.copyFailed"))
         );
       })
   );
   menu.addItem((i) =>
     i
-      .setTitle("Save as note…")
+      .setTitle(t("home.ideas.saveAsNote"))
       .setIcon("file-plus")
       .onClick(() => void plugin.saveIdeaAsNote(idea))
   );
   menu.addItem((i) =>
     i
-      .setTitle(idea.pinned ? "Unpin" : "Pin")
+      .setTitle(idea.pinned ? t("home.ideas.unpin") : t("home.ideas.pin"))
       .setIcon(idea.pinned ? "pin-off" : "pin")
       .onClick(() => plugin.togglePinIdea(idea.id))
   );
   menu.addSeparator();
   menu.addItem((i) =>
     i
-      .setTitle("Delete")
+      .setTitle(t("common.delete"))
       .setIcon("trash")
       .onClick(() => plugin.removeIdea(idea.id))
   );

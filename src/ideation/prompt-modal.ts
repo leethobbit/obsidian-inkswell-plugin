@@ -7,13 +7,14 @@
  */
 
 import { App, Modal } from "obsidian";
+import { MessageKey, t } from "../i18n";
 import {
   PROMPT_CATEGORIES,
   PromptCategory,
   PromptPhase,
-  WRITING_PROMPTS,
   WritingPrompt,
   pickPrompt,
+  writingPrompts,
 } from "./prompts";
 
 export interface PromptModalResult {
@@ -45,7 +46,7 @@ export class PromptModal extends Modal {
     init: PromptModalInit,
     onUse: (result: PromptModalResult) => void,
     /** The effective prompt bank (`writingPrompts(override)`); shipped by default. */
-    private bank: readonly WritingPrompt[] = WRITING_PROMPTS
+    private bank: readonly WritingPrompt[] = writingPrompts()
   ) {
     super(app);
     this.phase = init.phase;
@@ -58,16 +59,17 @@ export class PromptModal extends Modal {
   onOpen(): void {
     const { contentEl } = this;
     contentEl.addClass("inkswell-prompt-modal");
-    contentEl.createEl("h3", { text: "Writing prompt" });
+    contentEl.createEl("h3", { text: t("prompt.modal.title") });
 
     // Filters: phase (draft/revise) + category.
     const filters = contentEl.createDiv({ cls: "inkswell-prompt-card__filters" });
     const phaseSel = filters.createEl("select", { cls: "dropdown" });
-    for (const [val, label] of [
-      ["draft", "Drafting"],
-      ["revise", "Revising"],
-    ] as const) {
-      const o = phaseSel.createEl("option", { text: label, value: val });
+    const phases: [PromptPhase, MessageKey][] = [
+      ["draft", "prompt.modal.phase.draft"],
+      ["revise", "prompt.modal.phase.revise"],
+    ];
+    for (const [val, labelKey] of phases) {
+      const o = phaseSel.createEl("option", { text: t(labelKey), value: val });
       if (val === this.phase) o.selected = true;
     }
     phaseSel.onchange = () => {
@@ -76,9 +78,9 @@ export class PromptModal extends Modal {
     };
 
     const catSel = filters.createEl("select", { cls: "dropdown" });
-    catSel.createEl("option", { text: "Any category", value: "" });
+    catSel.createEl("option", { text: t("prompt.modal.anyCategory"), value: "" });
     for (const c of PROMPT_CATEGORIES) {
-      const o = catSel.createEl("option", { text: c.label, value: c.id });
+      const o = catSel.createEl("option", { text: t(c.labelKey), value: c.id });
       if (c.id === this.category) o.selected = true;
     }
     catSel.onchange = () => {
@@ -91,14 +93,14 @@ export class PromptModal extends Modal {
     else this.repick();
 
     const btns = contentEl.createDiv({ cls: "inkswell-prompt-modal__buttons" });
-    const newBtn = btns.createEl("button", { text: "New prompt" });
+    const newBtn = btns.createEl("button", { text: t("prompt.modal.newPrompt") });
     newBtn.onclick = () => this.repick();
     const use = () => {
       if (!this.text) return;
       this.onUse({ text: this.text, phase: this.phase, category: this.category });
       this.close();
     };
-    const useBtn = btns.createEl("button", { text: "Use this prompt", cls: "mod-cta" });
+    const useBtn = btns.createEl("button", { text: t("prompt.modal.usePrompt"), cls: "mod-cta" });
     useBtn.onclick = use;
     // Enter commits the shown prompt (house dialog behavior) — unless a button
     // has focus, where Enter is that button's own click.
@@ -127,7 +129,7 @@ export class PromptModal extends Modal {
   }
 
   private renderText(): void {
-    if (this.textEl) this.textEl.setText(this.text || "No prompts match this filter.");
+    if (this.textEl) this.textEl.setText(this.text || t("prompt.modal.noMatch"));
   }
 
   onClose(): void {

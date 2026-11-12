@@ -11,6 +11,8 @@
  */
 
 import { App, Menu, Notice, TFile } from "obsidian";
+import { formatNumber, t, tp } from "../i18n";
+import { fillTemplate } from "../i18n/dom";
 import { preserveFocus, tagField } from "../lib/focus-preserve";
 import { attachRowMenu } from "../lib/row-menu";
 import { ActiveProject, resolveActive } from "../projects/active-project";
@@ -22,7 +24,7 @@ import { EditSceneModal } from "../scenes/edit-scene-modal";
 import { addSceneMenuItems, openSceneOnModClick } from "../scenes/scene-actions";
 import { readSceneMeta, statusLabel } from "../scenes/scene-meta";
 import { renderEmptyStateAction } from "../views/panel-kit";
-import { BeatSheet, DEFAULT_TEMPLATE } from "./beat-templates";
+import { BeatSheet, DEFAULT_TEMPLATE, beatBlurb, beatName } from "./beat-templates";
 import { allTemplateMeta, resolveTemplate, synthesizeBeats } from "./custom-templates";
 import { beatProgress, mergeBeats, setAssignment } from "./beats";
 import { promptNewScene } from "./create-scene";
@@ -64,8 +66,8 @@ export class BeatPanel {
 
     const project = resolveActive(this.store.getProjects(), this.active.get());
     if (!project) {
-      renderEmptyStateAction(container, "No projects yet — a project holds your scenes, plan, and goals.", [
-        { label: "Create a project", cta: true, onClick: () => this.plugin.newProject() },
+      renderEmptyStateAction(container, t("plan.overview.noProjects"), [
+        { label: t("plan.overview.createProject"), cta: true, onClick: () => this.plugin.newProject() },
       ]);
       return;
     }
@@ -80,14 +82,13 @@ export class BeatPanel {
     // NEVER fall back to another template's beats over these assignments.
     if (resolved === null) {
       const warn = container.createDiv({ cls: "inkswell-beats__warning" });
-      warn.appendText(
-        `Template "${sheet?.template ?? ""}" isn't available on this device — it may have ` +
-          "been deleted under Customize → Beat templates. Your beat notes are preserved " +
-          "below; re-create the template (same name) or pick another to continue. "
-      );
-      const open = warn.createEl("button", { text: "Open Customize" });
-      open.type = "button";
-      open.onclick = () => void this.plugin.openCustomize("beat-templates");
+      fillTemplate(warn, t("beats.missingTemplate", { template: sheet?.template ?? "" }), {
+        button: (el) => {
+          const open = el.createEl("button", { text: t("beats.openCustomize") });
+          open.type = "button";
+          open.onclick = () => void this.plugin.openCustomize("beat-templates");
+        },
+      });
     }
     const template = resolved ?? synthesizeBeats(sheet?.assignments ?? {});
     const beats = mergeBeats(sheet, template);
@@ -96,7 +97,11 @@ export class BeatPanel {
     const head = container.createDiv({ cls: "inkswell-beats__progress" });
     head.createSpan({
       cls: "inkswell-stats__muted",
-      text: `${progress.done}/${progress.total} beats done · ${progress.started} started`,
+      text: t("beats.progress", {
+        done: formatNumber(progress.done),
+        total: formatNumber(progress.total),
+        started: formatNumber(progress.started),
+      }),
     });
     const bar = head.createDiv({ cls: "inkswell-progress" });
     bar.createDiv({ cls: "inkswell-progress__fill" }).style.width =
@@ -104,7 +109,7 @@ export class BeatPanel {
 
     const sceneTitles = project.scenes.map((s) => s.title);
     for (const beat of beats) {
-      this.renderBeat(container, project, beat, sceneTitles);
+      this.renderBeat(container, project, sheet?.template, beat, sceneTitles);
     }
   }
 
@@ -123,14 +128,14 @@ export class BeatPanel {
     if (!templateAvailable) {
       // The sheet names a template this device doesn't have: show it selected
       // (marked) so switching away is an explicit act, never a side effect.
-      const o = tsel.createEl("option", { text: `${current} (missing)`, value: current });
+      const o = tsel.createEl("option", { text: t("beats.template.missing", { template: current }), value: current });
       o.selected = true;
     }
     // Last option opens Customize instead of being a selection; the select snaps
     // back so cancelling leaves the sheet's template untouched (same pattern as
     // the Codex panel's "New type…").
     const MANAGE = "__manage__";
-    tsel.createEl("option", { text: "Manage templates…", value: MANAGE });
+    tsel.createEl("option", { text: t("beats.template.manage"), value: MANAGE });
     const prev = tsel.value;
     tsel.onchange = () => {
       if (tsel.value === MANAGE) {
@@ -141,12 +146,10 @@ export class BeatPanel {
       this.setTemplate(project, tsel.value);
     };
 
-    const scaffold = bar.createEl("button", { text: "Scaffold structure" });
+    const scaffold = bar.createEl("button", { text: t("beats.scaffold") });
     scaffold.setAttribute(
       "aria-label",
-      templateAvailable
-        ? "Create acts, chapters, and a placeholder scene for each beat"
-        : "Unavailable — the sheet's template is missing on this device"
+      templateAvailable ? t("beats.scaffold.aria") : t("beats.scaffold.unavailable")
     );
     scaffold.disabled = !templateAvailable;
     scaffold.onclick = async () => {
@@ -154,7 +157,7 @@ export class BeatPanel {
       const analysis = analyzeScaffold(this.app, this.store, project, current, customs);
       if (!analysis) return;
       if (!analysis.structured && analysis.newScenes === 0 && analysis.willLink === 0) {
-        new Notice("Nothing to scaffold — every beat already has its scene.");
+        new Notice(t("beats.scaffold.nothing"));
         return;
       }
       const label = metas.find((m) => m.id === current)?.label ?? current;
@@ -170,17 +173,20 @@ export class BeatPanel {
             customs,
             analysis
           ),
-        "Couldn't scaffold the structure."
+        t("beats.scaffold.failed")
       );
       if (r === null) return;
       if (r.structured && r.chapters > 0) {
         new Notice(
-          `Scaffolded ${r.chapters} chapters across ${r.acts} acts (${r.scenes} new scene${r.scenes === 1 ? "" : "s"}).`
+          tp("beats.scaffold.doneStructured", r.scenes, {
+            chapters: formatNumber(r.chapters),
+            acts: formatNumber(r.acts),
+          })
         );
       } else if (r.scenes > 0) {
-        new Notice(`Created ${r.scenes} scene(s). Existing structure left unchanged.`);
+        new Notice(tp("beats.scaffold.doneScenes", r.scenes));
       } else {
-        new Notice("No new scenes to create.");
+        new Notice(t("beats.scaffold.noNewScenes"));
       }
     };
   }
@@ -197,7 +203,7 @@ export class BeatPanel {
             template: templateId,
             assignments: cur?.assignments ?? {},
           })),
-        "Couldn't switch the beat template."
+        t("beats.template.switchFailed")
       );
     }
   }
@@ -205,6 +211,7 @@ export class BeatPanel {
   private renderBeat(
     parent: HTMLElement,
     project: Project,
+    templateId: string | undefined,
     beat: ReturnType<typeof mergeBeats>[number],
     sceneTitles: string[]
   ): void {
@@ -215,20 +222,21 @@ export class BeatPanel {
     const done = header.createEl("input", { type: "checkbox" });
     tagField(done, `beats:done:${beat.id}`);
     done.checked = !!beat.assignment.done;
-    done.setAttribute("aria-label", "Mark beat done");
+    done.setAttribute("aria-label", t("beats.markDone"));
     done.onchange = () => this.update(project, beat.id, { done: done.checked });
 
     header.createSpan({ cls: "inkswell-beat__pos", text: `${Math.round(beat.position * 100)}%` });
-    header.createSpan({ cls: "inkswell-beat__name", text: beat.name });
+    // Display-only translations; `beat.name`/`beat.blurb` stay English data.
+    header.createSpan({ cls: "inkswell-beat__name", text: beatName(templateId, beat) });
 
-    row.createDiv({ cls: "inkswell-beat__blurb", text: beat.blurb });
+    row.createDiv({ cls: "inkswell-beat__blurb", text: beatBlurb(templateId, beat) });
 
     const note = row.createEl("textarea", { cls: "inkswell-beat__note" });
     // Stable identity so preserveFocus can carry focus + UNCOMMITTED text across
     // a rebuild that lands mid-typing (the safety net under the editing guard).
     tagField(note, `beats:note:${beat.id}`);
     note.rows = 2;
-    note.placeholder = "What happens at this beat…";
+    note.placeholder = t("beats.note.placeholder");
     note.value = beat.assignment.note ?? "";
     note.onchange = () => this.update(project, beat.id, { note: note.value });
 
@@ -236,15 +244,15 @@ export class BeatPanel {
     const sceneRow = row.createDiv({ cls: "inkswell-beat__scene" });
     const attached = beat.assignment.scenes ?? [];
     const chips = sceneRow.createDiv({ cls: "inkswell-beat__chips" });
-    for (const t of attached) {
+    for (const title of attached) {
       const chip = chips.createSpan({ cls: "inkswell-chip" });
       // The label opens the scene's metadata window; the × unlinks the scene.
-      const label = chip.createSpan({ cls: "inkswell-beat__chiplabel", text: t });
-      label.setAttribute("aria-label", `Open ${t} metadata`);
-      label.onclick = () => this.openSceneMeta(project, t);
+      const label = chip.createSpan({ cls: "inkswell-beat__chiplabel", text: title });
+      label.setAttribute("aria-label", t("beats.scene.openMeta", { name: title }));
+      label.onclick = () => this.openSceneMeta(project, title);
 
       // Status badge for the linked scene.
-      const file = this.sceneFile(project, t);
+      const file = this.sceneFile(project, title);
       openSceneOnModClick(label, this.app, file?.path);
       if (file) {
         const status = readSceneMeta(this.app, file).status;
@@ -257,16 +265,16 @@ export class BeatPanel {
       }
 
       const x = chip.createSpan({ cls: "inkswell-chip__x", text: "×" });
-      x.setAttribute("aria-label", `Remove ${t}`);
+      x.setAttribute("aria-label", t("beats.scene.remove", { name: title }));
       x.onclick = () =>
-        this.updateSceneLinks(project, beat.id, (scenes) => scenes.filter((s) => s !== t));
+        this.updateSceneLinks(project, beat.id, (scenes) => scenes.filter((s) => s !== title));
 
       // Scene menu — right-click on desktop, "⋯" tap on touch — for parity with
       // the Board's scene cards. Appended last so "⋯" sits after the × remove.
       if (file) {
         attachRowMenu(chip, chip, () => {
           const menu = new Menu();
-          addSceneMenuItems(menu, this.app, project, t, file, {
+          addSceneMenuItems(menu, this.app, project, title, file, {
             includeOpen: true,
             plugin: this.plugin,
           });
@@ -274,11 +282,11 @@ export class BeatPanel {
         });
       }
     }
-    const remaining = sceneTitles.filter((t) => !attached.includes(t));
+    const remaining = sceneTitles.filter((title) => !attached.includes(title));
     if (remaining.length > 0) {
       const add = sceneRow.createEl("select", { cls: "dropdown inkswell-beat__addscene" });
-      add.createEl("option", { text: "+ add scene", value: "" });
-      for (const t of remaining) add.createEl("option", { text: t, value: t });
+      add.createEl("option", { text: t("beats.scene.add"), value: "" });
+      for (const title of remaining) add.createEl("option", { text: title, value: title });
       add.value = "";
       add.onchange = () => {
         const title = add.value;
@@ -295,9 +303,9 @@ export class BeatPanel {
     // real file immediately.
     const create = sceneRow.createEl("button", {
       cls: "inkswell-beat__newscene",
-      text: "+ new scene",
+      text: t("beats.scene.new"),
     });
-    create.setAttribute("aria-label", "Create a new scene attached to this beat");
+    create.setAttribute("aria-label", t("beats.scene.new.aria"));
     create.onclick = () => {
       // Each created scene appends to the beat's CURRENT scene list, so
       // repeated "Create another" attaches every new scene, not just the last.
@@ -326,7 +334,7 @@ export class BeatPanel {
     if (file instanceof TFile) {
       new EditSceneModal(this.app, file, project, this.plugin).open();
     } else {
-      new Notice(`No scene file for "${title}" yet — scaffold scenes first.`);
+      new Notice(t("beats.scene.noFile", { name: title }));
     }
   }
 
@@ -349,7 +357,7 @@ export class BeatPanel {
       this.plugin.selfWrites.mark(file.path);
       void tryFileOp(
         () => updateBeats(this.app, file, (cur) => setAssignment(cur, beatId, patch)),
-        "Couldn't save the beat change."
+        t("beats.saveFailed")
       );
     }
   }
@@ -376,7 +384,7 @@ export class BeatPanel {
             const scenes = raw.scenes ?? (raw.scene ? [raw.scene] : []);
             return setAssignment(cur, beatId, { scenes: op(scenes) });
           }),
-        "Couldn't save the beat change."
+        t("beats.saveFailed")
       );
     }
   }

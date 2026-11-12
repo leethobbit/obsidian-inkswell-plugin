@@ -10,6 +10,8 @@
  * frontmatter. They are NOT inserted into the draft (drafting stays uninterrupted).
  */
 
+import { MessageKey, t } from "../i18n";
+
 export type RevisionStatus = "pending" | "applied";
 
 /**
@@ -27,13 +29,24 @@ export type RevisionType =
 
 export type RevisionPriority = "low" | "med" | "high";
 
+/** A type whose label is looked up through `t()` on every read, never at import
+ *  (the catalog is picked in onload). The id is the stored value. */
+function revisionType(id: RevisionType, key: MessageKey): { id: RevisionType; readonly label: string } {
+  return {
+    id,
+    get label() {
+      return t(key);
+    },
+  };
+}
+
 export const REVISION_TYPES: { id: RevisionType; label: string }[] = [
-  { id: "continuity", label: "Continuity" },
-  { id: "plot-hole", label: "Plot hole" },
-  { id: "rewrite", label: "Rewrite" },
-  { id: "character", label: "Character" },
-  { id: "research", label: "Research" },
-  { id: "new-scene", label: "New scene" },
+  revisionType("continuity", "revision.type.continuity"),
+  revisionType("plot-hole", "revision.type.plotHole"),
+  revisionType("rewrite", "revision.type.rewrite"),
+  revisionType("character", "revision.type.character"),
+  revisionType("research", "revision.type.research"),
+  revisionType("new-scene", "revision.type.newScene"),
 ];
 
 /**

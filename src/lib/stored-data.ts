@@ -11,6 +11,8 @@
  * `settings` object — the shape `persist` always writes (AGENTS gotcha 6).
  */
 
+import { t, tp } from "../i18n";
+
 export type StoredData = Record<string, unknown> & { settings?: unknown };
 
 export function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -29,18 +31,17 @@ export function isUsableData(raw: unknown): raw is StoredData & { settings: Reco
  * their defaults say so.
  */
 export function settingsSummary(settings: unknown): string {
-  if (!isPlainObject(settings)) return "no settings";
+  if (!isPlainObject(settings)) return t("lib.settingsSummary.none");
   const parts: string[] = [];
-  const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   const customs = Array.isArray(settings["customCategories"]) ? settings["customCategories"].length : 0;
-  if (customs) parts.push(count(customs, "custom codex type", "custom codex types"));
+  if (customs) parts.push(tp("lib.settingsSummary.customTypes", customs));
   const renamed = isPlainObject(settings["categoryOverrides"]) ? Object.keys(settings["categoryOverrides"]).length : 0;
-  if (renamed) parts.push(count(renamed, "renamed type", "renamed types"));
+  if (renamed) parts.push(tp("lib.settingsSummary.renamedTypes", renamed));
   const templates = Array.isArray(settings["customBeatTemplates"]) ? settings["customBeatTemplates"].length : 0;
-  if (templates) parts.push(count(templates, "beat template", "beat templates"));
+  if (templates) parts.push(tp("lib.settingsSummary.beatTemplates", templates));
   const lists = isPlainObject(settings["listOverrides"]) ? Object.keys(settings["listOverrides"]).length : 0;
-  if (lists) parts.push(count(lists, "customized list", "customized lists"));
-  if (isPlainObject(settings["railLayout"])) parts.push("rail arranged");
-  if (isPlainObject(settings["challenge"])) parts.push("writing challenge");
-  return parts.length > 0 ? parts.join(" · ") : "default settings";
+  if (lists) parts.push(tp("lib.settingsSummary.lists", lists));
+  if (isPlainObject(settings["railLayout"])) parts.push(t("lib.settingsSummary.rail"));
+  if (isPlainObject(settings["challenge"])) parts.push(t("lib.settingsSummary.challenge"));
+  return parts.length > 0 ? parts.join(" · ") : t("lib.settingsSummary.defaults");
 }

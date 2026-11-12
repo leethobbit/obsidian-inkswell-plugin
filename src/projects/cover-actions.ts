@@ -6,6 +6,7 @@
  */
 
 import { App, Menu, Notice, TFile } from "obsidian";
+import { t } from "../i18n";
 import { tryFileOp } from "../lib/notify";
 import { cleanupOwnedCover, pickVaultImage, setCoverFromUpload } from "./cover";
 import { persistOverview } from "./index-writer";
@@ -31,20 +32,22 @@ export function addCoverMenuItems(
   opts: { inline?: boolean } = {}
 ): void {
   const hasCover = !!base.inkswell?.overview?.cover;
-  const label = (verb: string) => (opts.inline ? `${verb}…` : `${verb} cover…`);
   menu.addItem((i) =>
-    i.setTitle(label("Upload")).setIcon("upload").onClick(() => uploadCover(app, base, mark))
+    i
+      .setTitle(opts.inline ? t("project.cover.uploadInline") : t("project.cover.upload"))
+      .setIcon("upload")
+      .onClick(() => uploadCover(app, base, mark))
   );
   menu.addItem((i) =>
     i
-      .setTitle(opts.inline ? "Choose from vault…" : "Choose cover from vault…")
+      .setTitle(opts.inline ? t("project.cover.chooseInline") : t("project.cover.choose"))
       .setIcon("image")
       .onClick(() => void chooseCover(app, base, mark))
   );
   if (hasCover) {
     if (opts.inline) menu.addSeparator();
     menu.addItem((i) =>
-      i.setTitle("Remove cover").setIcon("trash").onClick(() => void removeCover(app, base, mark))
+      i.setTitle(t("project.cover.remove")).setIcon("trash").onClick(() => void removeCover(app, base, mark))
     );
   }
 }
@@ -71,7 +74,7 @@ export function uploadCover(app: App, base: Project, mark: Mark): void {
       await persistOverview(app, index, { cover: path });
     } catch (e) {
       console.error(e);
-      new Notice("Couldn't set the cover image.");
+      new Notice(t("project.cover.setFailed"));
     }
   };
   input.click();
@@ -85,7 +88,7 @@ export async function chooseCover(app: App, base: Project, mark: Mark): Promise<
   mark(index.path);
   await tryFileOp(
     () => persistOverview(app, index, { cover: file.path }),
-    "Couldn't set the cover image."
+    t("project.cover.setFailed")
   );
 }
 
@@ -97,5 +100,5 @@ export async function removeCover(app: App, base: Project, mark: Mark): Promise<
       mark(index.path);
       await persistOverview(app, index, { cover: "" });
     }
-  }, "Couldn't remove the cover image.");
+  }, t("project.cover.removeFailed"));
 }

@@ -7,6 +7,7 @@
  */
 
 import { App, Modal, Notice, Setting, TFile, normalizePath } from "obsidian";
+import { t } from "../i18n";
 import { updateScenes } from "../projects/index-writer";
 import { ProjectStore } from "../projects/project-store";
 import { Project, isMultiScene } from "../projects/types";
@@ -132,7 +133,7 @@ export async function createScene(
 
   const path = normalizePath(folder === "/" ? `${title}.md` : `${folder}/${title}.md`);
   if (app.vault.getAbstractFileByPath(path)) {
-    new Notice(`A scene named "${title}" already exists.`);
+    new Notice(t("outline.newScene.exists", { name: title }));
     return null; // name taken
   }
 
@@ -159,7 +160,7 @@ export async function createScene(
     );
 
     return file;
-  }, `Couldn't create the scene "${title}".`);
+  }, t("outline.newScene.createFailed", { name: title }));
 }
 
 export interface NewSceneOptions {
@@ -194,9 +195,9 @@ class NewSceneModal extends Modal {
 
   onOpen(): void {
     const { contentEl } = this;
-    contentEl.createEl("h3", { text: "New scene" });
+    contentEl.createEl("h3", { text: t("outline.newScene.title") });
     this.input = contentEl.createEl("input", { type: "text", cls: "inkswell-prompt__input" });
-    this.input.placeholder = "Scene title";
+    this.input.placeholder = t("outline.newScene.placeholder");
     this.input.onkeydown = (e) => {
       if (e.key === "Enter") void this.create(true);
     };
@@ -206,16 +207,16 @@ class NewSceneModal extends Modal {
     }, 0);
 
     new Setting(contentEl)
-      .addButton((b) => b.setButtonText("Create").setCta().onClick(() => void this.create(true)))
-      .addButton((b) => b.setButtonText("Create another").onClick(() => void this.create(false)))
-      .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()));
+      .addButton((b) => b.setButtonText(t("common.create")).setCta().onClick(() => void this.create(true)))
+      .addButton((b) => b.setButtonText(t("outline.newScene.createAnother")).onClick(() => void this.create(false)))
+      .addButton((b) => b.setButtonText(t("common.cancel")).onClick(() => this.close()));
   }
 
   /** Create the scene; dismiss the modal when `close`, else reset for another. */
   private async create(close: boolean): Promise<void> {
     const title = sanitizeSegment(this.input.value);
     if (!title) {
-      new Notice("Enter a scene title.");
+      new Notice(t("outline.newScene.enterTitle"));
       this.input.focus();
       return;
     }
@@ -240,7 +241,7 @@ class NewSceneModal extends Modal {
     if (close) {
       this.close();
     } else {
-      new Notice(`Created "${title}".`);
+      new Notice(t("outline.newScene.created", { name: title }));
       this.input.value = "";
       this.input.focus();
     }

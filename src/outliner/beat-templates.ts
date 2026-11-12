@@ -3,7 +3,16 @@
  * structure (Jessica Brody) — the project's preferred outlining style. Beat
  * *definitions* (name, blurb, position) live here in code; per-project
  * *assignments* (note, scene link, done) are stored in `inkswell.beats`.
+ *
+ * Built-in beat `name`/`blurb` and template `label` are English DATA: scaffold
+ * writes names into scene titles (file names) and blurbs into synopses, and the
+ * story bible prints names and template labels. The UI shows them through
+ * {@link beatName} / {@link beatBlurb} / {@link templateLabel}, which resolve the
+ * catalog translation at render time. Custom templates are user data and are
+ * shown as stored.
  */
+
+import { MessageKey, isMessageKey, t } from "../i18n";
 
 export interface BeatDef {
   id: string;
@@ -155,17 +164,60 @@ export const BEAT_TEMPLATES: Record<string, BeatDef[]> = {
 /** Built-in templates for the picker, in display order (customs are appended
  *  at render time via allTemplateMeta — see custom-templates.ts). */
 export const TEMPLATE_META: { id: string; label: string }[] = [
-  { id: "save-the-cat", label: "Save the Cat (15)" },
-  { id: "three-act", label: "Three-Act (7)" },
-  { id: "heros-journey", label: "Hero's Journey (12)" },
-  { id: "seven-point", label: "Seven-Point (7)" },
-  { id: "story-circle", label: "Story Circle (8)" },
-  { id: "romancing-the-beat", label: "Romancing the Beat (14)" },
-  { id: "twenty-seven-chapter", label: "27-Chapter (27)" },
-  { id: "ten-point", label: "Ten-Point Outline (10)" },
+  { id: "save-the-cat", label: "Save the Cat (15)" }, // i18n-ignore: vault text (story bible); UI uses templateLabel()
+  { id: "three-act", label: "Three-Act (7)" }, // i18n-ignore: vault text (story bible); UI uses templateLabel()
+  { id: "heros-journey", label: "Hero's Journey (12)" }, // i18n-ignore: vault text (story bible); UI uses templateLabel()
+  { id: "seven-point", label: "Seven-Point (7)" }, // i18n-ignore: vault text (story bible); UI uses templateLabel()
+  { id: "story-circle", label: "Story Circle (8)" }, // i18n-ignore: vault text (story bible); UI uses templateLabel()
+  { id: "romancing-the-beat", label: "Romancing the Beat (14)" }, // i18n-ignore: vault text (story bible); UI uses templateLabel()
+  { id: "twenty-seven-chapter", label: "27-Chapter (27)" }, // i18n-ignore: vault text (story bible); UI uses templateLabel()
+  { id: "ten-point", label: "Ten-Point Outline (10)" }, // i18n-ignore: vault text (story bible); UI uses templateLabel()
 ];
 
 export const DEFAULT_TEMPLATE = "save-the-cat";
+
+/** Picker labels for the built-in templates (display only; see the header). */
+const TEMPLATE_LABEL_KEYS: Record<string, MessageKey> = {
+  "save-the-cat": "beats.template.save-the-cat",
+  "three-act": "beats.template.three-act",
+  "heros-journey": "beats.template.heros-journey",
+  "seven-point": "beats.template.seven-point",
+  "story-circle": "beats.template.story-circle",
+  "romancing-the-beat": "beats.template.romancing-the-beat",
+  "twenty-seven-chapter": "beats.template.twenty-seven-chapter",
+  "ten-point": "beats.template.ten-point",
+};
+
+/** Display label for a template entry: the translation for a built-in, else
+ *  the entry's own label (custom templates). */
+export function templateLabel(meta: { id: string; label: string }): string {
+  const key = Object.prototype.hasOwnProperty.call(TEMPLATE_LABEL_KEYS, meta.id)
+    ? TEMPLATE_LABEL_KEYS[meta.id]
+    : undefined;
+  return key ? t(key) : meta.label;
+}
+
+/** The catalog text for a built-in template's beat field, or null (custom
+ *  templates, synthesized rows, empty built-in blurbs). Custom template ids
+ *  never collide with built-in ids (normalizeCustomBeatTemplates). */
+function builtinBeatText(templateId: string | undefined, beat: BeatDef, field: "name" | "blurb"): string | null {
+  const id = templateId ?? DEFAULT_TEMPLATE;
+  if (!Object.prototype.hasOwnProperty.call(BEAT_TEMPLATES, id)) return null;
+  if (!BEAT_TEMPLATES[id].some((b) => b.id === beat.id)) return null;
+  const key = `beats.tpl.${id}.${beat.id}.${field}`;
+  return isMessageKey(key) ? t(key) : null;
+}
+
+/** Display name of a beat in the sheet that uses `templateId` (undefined = the
+ *  default template, as in resolveTemplate). Never write this into the vault. */
+export function beatName(templateId: string | undefined, beat: BeatDef): string {
+  return builtinBeatText(templateId, beat, "name") ?? beat.name;
+}
+
+/** Display blurb of a beat (see {@link beatName}). */
+export function beatBlurb(templateId: string | undefined, beat: BeatDef): string {
+  return builtinBeatText(templateId, beat, "blurb") ?? beat.blurb;
+}
 
 /**
  * An act (or named part) a template divides the book into, for structure
@@ -178,9 +230,9 @@ export interface TemplateAct {
 }
 
 const THREE_ACTS = (act2From: number, act3From: number): TemplateAct[] => [
-  { title: "Act I", from: 0 },
-  { title: "Act II", from: act2From },
-  { title: "Act III", from: act3From },
+  { title: "Act I", from: 0 }, // i18n-ignore: vault text (act title)
+  { title: "Act II", from: act2From }, // i18n-ignore: vault text (act title)
+  { title: "Act III", from: act3From }, // i18n-ignore: vault text (act title)
 ];
 
 /**
@@ -196,10 +248,10 @@ export const TEMPLATE_ACTS: Record<string, TemplateAct[]> = {
   "seven-point": THREE_ACTS(0.15, 0.9),
   "story-circle": THREE_ACTS(0.25, 0.8),
   "romancing-the-beat": [
-    { title: "Setup", from: 0 },
-    { title: "Falling", from: 0.3 },
-    { title: "Retreating", from: 0.6 },
-    { title: "Fighting for Love", from: 0.88 },
+    { title: "Setup", from: 0 }, // i18n-ignore: vault text (act title)
+    { title: "Falling", from: 0.3 }, // i18n-ignore: vault text (act title)
+    { title: "Retreating", from: 0.6 }, // i18n-ignore: vault text (act title)
+    { title: "Fighting for Love", from: 0.88 }, // i18n-ignore: vault text (act title)
   ],
   "twenty-seven-chapter": THREE_ACTS(9 / 26, 18 / 26),
   "ten-point": THREE_ACTS(0.25, 0.75), // points 1–3 / 4–7 / 8–10

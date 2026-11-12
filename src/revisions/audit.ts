@@ -15,6 +15,7 @@
  * reworded without migrating frontmatter.
  */
 
+import { MessageKey, t } from "../i18n";
 import { ListOverride, applyGroupedOverride, visibleItems } from "../lib/list-override";
 
 export interface Checkpoint {
@@ -26,6 +27,20 @@ export interface CheckpointGroup {
   id: string;
   label: string;
   items: Checkpoint[];
+}
+
+/**
+ * A shipped checkpoint whose label is looked up through `t()` on every read,
+ * never at import (the catalog is picked in onload). Ids stay the stored keys;
+ * consumers keep reading `.label` (resolvers, Customize, the Inspector).
+ */
+function checkpoint<I extends string>(id: I, key: MessageKey): { id: I; readonly label: string } {
+  return {
+    id,
+    get label() {
+      return t(key);
+    },
+  };
 }
 
 // --- Scene-level (14): per-scene checklist ---------------------------------
@@ -47,20 +62,20 @@ export type SceneCheckId =
   | "consistent";
 
 export const SCENE_CHECKPOINTS: { id: SceneCheckId; label: string }[] = [
-  { id: "startsRight", label: "Starts in the right place" },
-  { id: "described", label: "Described effectively" },
-  { id: "goalConflict", label: "Has a goal and conflict" },
-  { id: "shift", label: "Has a shift (something changes)" },
-  { id: "purpose", label: "Has a clear purpose" },
-  { id: "structure", label: "Has a solid structure" },
-  { id: "tension", label: "Has enough tension" },
-  { id: "paced", label: "Balanced and well-paced" },
-  { id: "researched", label: "Well-researched" },
-  { id: "endsUncertain", label: "Ends with a sense of uncertainty" },
-  { id: "transitions", label: "Transitions seamlessly between scenes" },
-  { id: "narratorSwitch", label: "Switches narrators seamlessly (multi-POV)" },
-  { id: "perspective", label: "Told from the right perspective (multi-POV)" },
-  { id: "consistent", label: "Consistent" },
+  checkpoint("startsRight", "audit.checkpoint.scene.startsRight"),
+  checkpoint("described", "audit.checkpoint.scene.described"),
+  checkpoint("goalConflict", "audit.checkpoint.scene.goalConflict"),
+  checkpoint("shift", "audit.checkpoint.scene.shift"),
+  checkpoint("purpose", "audit.checkpoint.scene.purpose"),
+  checkpoint("structure", "audit.checkpoint.scene.structure"),
+  checkpoint("tension", "audit.checkpoint.scene.tension"),
+  checkpoint("paced", "audit.checkpoint.scene.paced"),
+  checkpoint("researched", "audit.checkpoint.scene.researched"),
+  checkpoint("endsUncertain", "audit.checkpoint.scene.endsUncertain"),
+  checkpoint("transitions", "audit.checkpoint.scene.transitions"),
+  checkpoint("narratorSwitch", "audit.checkpoint.scene.narratorSwitch"),
+  checkpoint("perspective", "audit.checkpoint.scene.perspective"),
+  checkpoint("consistent", "audit.checkpoint.scene.consistent"),
 ];
 
 export const SCENE_CHECK_IDS: SceneCheckId[] = SCENE_CHECKPOINTS.map((c) => c.id);
@@ -68,24 +83,24 @@ export const SCENE_CHECK_IDS: SceneCheckId[] = SCENE_CHECKPOINTS.map((c) => c.id
 // --- Story-level (18): project checklist -----------------------------------
 
 export const STORY_CHECKPOINTS: Checkpoint[] = [
-  { id: "structure", label: "Has a solid structure" },
-  { id: "startsRight", label: "Starts in the right place" },
-  { id: "reveals", label: "Reveals information in an engaging way" },
-  { id: "heroGoals", label: "Hero has clear goals & believable motivations throughout" },
-  { id: "conflict", label: "Has enough conflict" },
-  { id: "stakes", label: "Has enough at stake" },
-  { id: "tension", label: "Has enough tension" },
-  { id: "believable", label: "Is believable" },
-  { id: "researched", label: "Is well-researched" },
-  { id: "backstory", label: "Hero has a complete, compelling backstory" },
-  { id: "heroComplex", label: "Hero is unique and complex" },
-  { id: "heroTransforms", label: "Hero transforms" },
-  { id: "sideCharsPurpose", label: "Side characters & villains serve a purpose" },
-  { id: "sideCharsMemorable", label: "Side characters are memorable" },
-  { id: "subplots", label: "Subplots serve the story" },
-  { id: "worldFleshed", label: "The world is fleshed out" },
-  { id: "worldImmersive", label: "The world is immersive" },
-  { id: "consistent", label: "Is consistent" },
+  checkpoint("structure", "audit.checkpoint.story.structure"),
+  checkpoint("startsRight", "audit.checkpoint.story.startsRight"),
+  checkpoint("reveals", "audit.checkpoint.story.reveals"),
+  checkpoint("heroGoals", "audit.checkpoint.story.heroGoals"),
+  checkpoint("conflict", "audit.checkpoint.story.conflict"),
+  checkpoint("stakes", "audit.checkpoint.story.stakes"),
+  checkpoint("tension", "audit.checkpoint.story.tension"),
+  checkpoint("believable", "audit.checkpoint.story.believable"),
+  checkpoint("researched", "audit.checkpoint.story.researched"),
+  checkpoint("backstory", "audit.checkpoint.story.backstory"),
+  checkpoint("heroComplex", "audit.checkpoint.story.heroComplex"),
+  checkpoint("heroTransforms", "audit.checkpoint.story.heroTransforms"),
+  checkpoint("sideCharsPurpose", "audit.checkpoint.story.sideCharsPurpose"),
+  checkpoint("sideCharsMemorable", "audit.checkpoint.story.sideCharsMemorable"),
+  checkpoint("subplots", "audit.checkpoint.story.subplots"),
+  checkpoint("worldFleshed", "audit.checkpoint.story.worldFleshed"),
+  checkpoint("worldImmersive", "audit.checkpoint.story.worldImmersive"),
+  checkpoint("consistent", "audit.checkpoint.story.consistent"),
 ];
 
 // --- Chapter-level (10): per-chapter checklist (#75) -----------------------
@@ -95,16 +110,16 @@ export const STORY_CHECKPOINTS: Checkpoint[] = [
 // that no chapter fulfils all of.
 
 export const CHAPTER_CHECKPOINTS: Checkpoint[] = [
-  { id: "earnsPlace", label: "Earns its place (cut it and the story breaks)" },
-  { id: "hook", label: "Opens with a hook" },
-  { id: "conflict", label: "Has conflict or rising pressure" },
-  { id: "advancesPlot", label: "Moves the story forward" },
-  { id: "developsCharacter", label: "Develops at least one character" },
-  { id: "storyQuestion", label: "Raises or answers a story question" },
-  { id: "setupPayoff", label: "Sets up or pays off something" },
-  { id: "tension", label: "Builds tension or suspense" },
-  { id: "paced", label: "Paced right for its place in the book" },
-  { id: "endsPull", label: "Ends with a reason to keep reading" },
+  checkpoint("earnsPlace", "audit.checkpoint.chapter.earnsPlace"),
+  checkpoint("hook", "audit.checkpoint.chapter.hook"),
+  checkpoint("conflict", "audit.checkpoint.chapter.conflict"),
+  checkpoint("advancesPlot", "audit.checkpoint.chapter.advancesPlot"),
+  checkpoint("developsCharacter", "audit.checkpoint.chapter.developsCharacter"),
+  checkpoint("storyQuestion", "audit.checkpoint.chapter.storyQuestion"),
+  checkpoint("setupPayoff", "audit.checkpoint.chapter.setupPayoff"),
+  checkpoint("tension", "audit.checkpoint.chapter.tension"),
+  checkpoint("paced", "audit.checkpoint.chapter.paced"),
+  checkpoint("endsPull", "audit.checkpoint.chapter.endsPull"),
 ];
 
 // --- Prose-level (5 grouped categories): project checklist -----------------
@@ -113,64 +128,74 @@ export const CHAPTER_CHECKPOINTS: Checkpoint[] = [
 export const PAGE_GROUPS: CheckpointGroup[] = [
   {
     id: "necessity",
-    label: "Is everything necessary?",
+    get label() {
+      return t("audit.checkpoint.proseGroup.necessity");
+    },
     items: [
-      { id: "telling", label: "Telling (vs showing)" },
-      { id: "overDescribing", label: "Over-describing" },
-      { id: "preempting", label: "Preempting the narrative" },
-      { id: "internalQuestions", label: "Internal questions" },
-      { id: "adverbs", label: "Adverbs" },
+      checkpoint("telling", "audit.checkpoint.prose.telling"),
+      checkpoint("overDescribing", "audit.checkpoint.prose.overDescribing"),
+      checkpoint("preempting", "audit.checkpoint.prose.preempting"),
+      checkpoint("internalQuestions", "audit.checkpoint.prose.internalQuestions"),
+      checkpoint("adverbs", "audit.checkpoint.prose.adverbs"),
     ],
   },
   {
     id: "paragraphs",
-    label: "Are my paragraphs as strong as they can be?",
+    get label() {
+      return t("audit.checkpoint.proseGroup.paragraphs");
+    },
     items: [
-      { id: "repetitiveStructure", label: "Repetitive sentence structure" },
-      { id: "overChoreographed", label: "Over-choreographed action" },
-      { id: "purpleProse", label: "Purple prose" },
-      { id: "overusedMetaphor", label: "Overused metaphors / similes" },
-      { id: "passiveVoice", label: "Passive voice" },
+      checkpoint("repetitiveStructure", "audit.checkpoint.prose.repetitiveStructure"),
+      checkpoint("overChoreographed", "audit.checkpoint.prose.overChoreographed"),
+      checkpoint("purpleProse", "audit.checkpoint.prose.purpleProse"),
+      checkpoint("overusedMetaphor", "audit.checkpoint.prose.overusedMetaphor"),
+      checkpoint("passiveVoice", "audit.checkpoint.prose.passiveVoice"),
     ],
   },
   {
     id: "dialogue",
-    label: "Is my dialogue compelling?",
+    get label() {
+      return t("audit.checkpoint.proseGroup.dialogue");
+    },
     items: [
-      { id: "tagOverload", label: "Tag overload" },
-      { id: "repetitiveDialogue", label: "Repetitive dialogue" },
-      { id: "flashyTags", label: "Flashy tags" },
-      { id: "dialogueAdverbs", label: "Adverb overkill" },
-      { id: "unrealisticDialogue", label: "Unrealistic dialogue (info-dump / on-the-nose)" },
-      { id: "unnecessaryDialogue", label: "Unnecessary dialogue" },
-      { id: "disjointedDialogue", label: "Disjointed dialogue" },
+      checkpoint("tagOverload", "audit.checkpoint.prose.tagOverload"),
+      checkpoint("repetitiveDialogue", "audit.checkpoint.prose.repetitiveDialogue"),
+      checkpoint("flashyTags", "audit.checkpoint.prose.flashyTags"),
+      checkpoint("dialogueAdverbs", "audit.checkpoint.prose.dialogueAdverbs"),
+      checkpoint("unrealisticDialogue", "audit.checkpoint.prose.unrealisticDialogue"),
+      checkpoint("unnecessaryDialogue", "audit.checkpoint.prose.unnecessaryDialogue"),
+      checkpoint("disjointedDialogue", "audit.checkpoint.prose.disjointedDialogue"),
     ],
   },
   {
     id: "words",
-    label: "Am I using the best words?",
+    get label() {
+      return t("audit.checkpoint.proseGroup.words");
+    },
     items: [
-      { id: "overusedWords", label: "Overused words" },
-      { id: "echoes", label: "Echoes" },
-      { id: "redundantWords", label: "Redundant words" },
-      { id: "intensifiers", label: "Intensifiers" },
-      { id: "mitigators", label: "Mitigators" },
-      { id: "filterWords", label: "Filter words" },
-      { id: "weakWords", label: "Weak words" },
-      { id: "nonSpecificWords", label: "Non-specific words" },
-      { id: "cliches", label: "Clichés" },
-      { id: "researchWords", label: "Words requiring research" },
+      checkpoint("overusedWords", "audit.checkpoint.prose.overusedWords"),
+      checkpoint("echoes", "audit.checkpoint.prose.echoes"),
+      checkpoint("redundantWords", "audit.checkpoint.prose.redundantWords"),
+      checkpoint("intensifiers", "audit.checkpoint.prose.intensifiers"),
+      checkpoint("mitigators", "audit.checkpoint.prose.mitigators"),
+      checkpoint("filterWords", "audit.checkpoint.prose.filterWords"),
+      checkpoint("weakWords", "audit.checkpoint.prose.weakWords"),
+      checkpoint("nonSpecificWords", "audit.checkpoint.prose.nonSpecificWords"),
+      checkpoint("cliches", "audit.checkpoint.prose.cliches"),
+      checkpoint("researchWords", "audit.checkpoint.prose.researchWords"),
     ],
   },
   {
     id: "consistency",
-    label: "Is the prose consistent?",
+    get label() {
+      return t("audit.checkpoint.proseGroup.consistency");
+    },
     items: [
-      { id: "namesConsistent", label: "Names" },
-      { id: "descriptionsConsistent", label: "Descriptions" },
-      { id: "actionsConsistent", label: "Actions" },
-      { id: "referencesConsistent", label: "References" },
-      { id: "formattingConsistent", label: "Formatting" },
+      checkpoint("namesConsistent", "audit.checkpoint.prose.namesConsistent"),
+      checkpoint("descriptionsConsistent", "audit.checkpoint.prose.descriptionsConsistent"),
+      checkpoint("actionsConsistent", "audit.checkpoint.prose.actionsConsistent"),
+      checkpoint("referencesConsistent", "audit.checkpoint.prose.referencesConsistent"),
+      checkpoint("formattingConsistent", "audit.checkpoint.prose.formattingConsistent"),
     ],
   },
 ];

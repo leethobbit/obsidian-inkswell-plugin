@@ -11,6 +11,7 @@
  */
 
 import { App, TFile } from "obsidian";
+import { t } from "../i18n";
 import { tryFileOp } from "../lib/notify";
 import { persistOutline } from "../projects/index-writer";
 import { Project } from "../projects/types";
@@ -68,5 +69,5 @@ export async function applyOutline(
     //    drag applied from a stale tree can't drop a concurrently-created scene.
     mark(indexFile.path);
     await persistOutline(app, indexFile, { order, acts, chapters });
-  }, "Couldn't update the outline.");
+  }, t("outline.updateFailed"));
 }

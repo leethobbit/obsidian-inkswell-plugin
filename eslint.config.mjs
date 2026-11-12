@@ -54,7 +54,7 @@ const SENTENCE_CASE_OPTIONS = {
     "Inkswell", "Obsidian", "Codex", "Vault", "Scene Inspector", "Inspector",
     "Word", "Times New Roman", "Courier New", "LaTeX", "MiKTeX", "TeX Live",
   ],
-  acronyms: ["HTML", "PDF", "EPUB", "DOCX", "POV", "TODO", "NOTE", "DKB", "YAML", "PATH", "END"],
+  acronyms: ["HTML", "PDF", "EPUB", "DOCX", "POV", "TODO", "DKB", "YAML", "PATH", "END"],
   // "pandoc" is the tool's own lower-case spelling, used mid-sentence throughout the UI.
   ignoreWords: ["e.g.", "i.e.", "E.g.", "I.e.", "pandoc"],
   ignoreRegex: [
@@ -134,10 +134,10 @@ export default tseslint.config(
     },
   },
   {
-    // English UI catalog (src/i18n/locales/en.ts) holds strings that used to be
+    // English UI catalog (src/i18n/locales/en/*.ts) holds strings that used to be
     // inline literals, so they keep the sentence-case check: same options, same
     // WARN level and rationale as the inline rule above.
-    files: ["src/i18n/locales/en.ts"],
+    files: ["src/i18n/locales/en/*.ts"],
     rules: { "obsidianmd/ui/sentence-case-locale-module": ["warn", SENTENCE_CASE_OPTIONS] },
   }
 );

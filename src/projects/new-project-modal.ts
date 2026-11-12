@@ -13,6 +13,7 @@ import { markCreatedHere } from "./rename-heal";
 import { MultipleSceneDraft, SeriesInfo } from "./types";
 import { FolderSettings, joinPath, projectFolder, sanitizeSegment } from "../settings/folders";
 import { FormModal } from "../lib/form-modal";
+import { t } from "../i18n";
 import { tryFileOp } from "../lib/notify";
 import { Series } from "../series/series";
 import { SeriesFieldsHandle, renderSeriesFields } from "../series/series-modal";
@@ -66,7 +67,7 @@ export async function createProject(
 ): Promise<TFile | null> {
   const safe = sanitizeSegment(opts.title);
   if (!safe) {
-    new Notice("Enter a project title.");
+    new Notice(t("project.titleRequired"));
     return null;
   }
 
@@ -75,7 +76,7 @@ export async function createProject(
 
   const indexPath = normalizePath(joinPath(projFolder, `${safe}.md`));
   if (app.vault.getAbstractFileByPath(indexPath)) {
-    new Notice(`A note named "${safe}" already exists here.`);
+    new Notice(t("project.new.exists", { name: safe }));
     return null;
   }
 
@@ -109,13 +110,13 @@ export async function createProject(
     }
 
     return file;
-  }, `Couldn't create the project "${safe}".`);
+  }, t("project.new.createFailed", { name: safe }));
 }
 
 export class NewProjectModal extends FormModal {
   private title = "";
   private baseFolder: string;
-  private sceneFolder = "Draft 1";
+  private sceneFolder = "Draft 1"; // i18n-ignore: vault text (default folder name)
   private seriesFields!: SeriesFieldsHandle;
 
   constructor(
@@ -125,31 +126,31 @@ export class NewProjectModal extends FormModal {
   ) {
     super(app);
     this.baseFolder = opts.folders.baseFolder;
-    this.cta = "Create";
+    this.cta = t("common.create");
   }
 
   protected renderForm(contentEl: HTMLElement): void {
-    contentEl.createEl("h3", { text: "New project" });
+    contentEl.createEl("h3", { text: t("project.new.heading") });
 
     // FormModal autofocuses this first input and submits on Enter.
-    new Setting(contentEl).setName("Title").addText((t) => {
-      t.setPlaceholder("My Novel").onChange((v) => (this.title = v));
+    new Setting(contentEl).setName(t("project.new.title")).addText((text) => {
+      text.setPlaceholder(t("project.new.titlePlaceholder")).onChange((v) => (this.title = v));
     });
 
     new Setting(contentEl)
-      .setName("Base folder")
-      .setDesc("The project gets its own subfolder here. Blank = vault root.")
-      .addText((t) =>
-        t
-          .setPlaceholder("(vault root)")
+      .setName(t("project.new.baseFolder"))
+      .setDesc(t("project.new.baseFolderDesc"))
+      .addText((text) =>
+        text
+          .setPlaceholder(t("project.new.baseFolderPlaceholder"))
           .setValue(this.baseFolder)
           .onChange((v) => (this.baseFolder = v))
       );
 
     new Setting(contentEl)
-      .setName("Scene folder")
-      .setDesc('Where scene files live, relative to the project folder. "/" = the folder itself.')
-      .addText((t) => t.setValue(this.sceneFolder).onChange((v) => (this.sceneFolder = v)));
+      .setName(t("project.new.sceneFolder"))
+      .setDesc(t("project.new.sceneFolderDesc"))
+      .addText((text) => text.setValue(this.sceneFolder).onChange((v) => (this.sceneFolder = v)));
 
     this.seriesFields = renderSeriesFields(contentEl, {
       series: this.opts.series,

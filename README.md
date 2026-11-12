@@ -20,7 +20,7 @@ Five pipeline phases — **Home · Plan · Write · Revise · Publish** — plus
 | **Home** | Your books as cover cards on shelves (one per series), a cover-art hero card (logline / theme / word-target progress), a nestable scene tree, multiple drafts per story, ideas inbox + quick capture, and a series dialog for multi-book worlds. |
 | **Plan** | Overview fields, beat sheets (7 templates incl. Save the Cat!), and **Structure** — the outline tree, a Kanban board, and a plotline × chapter grid, behind one Tree / Board / Grid switcher. |
 | **Write** | A distraction-light Live-Preview editor, writing prompts, fast-drafting inline markers, and timed sprints. |
-| **Revise** | An Audit toolkit, a unified To-dos worklist (draft markers left in prose + logged revision decisions), and manuscript Analysis. |
+| **Revise** | An Audit toolkit, a unified Revision log (draft markers left in prose + logged revision decisions), and manuscript Analysis. |
 | **Publish** | A configurable compile/export pipeline plus a self-publishing checklist and launch planner. |
 | **Codex** | A story bible — characters, locations, worlds, factions, items, events, and concepts — with scene linking and mention auto-detect. |
 | **Track** | Word goals, streaks, a GitHub-style heatmap, lifetime records, a deadline pace calculator, and milestone zones. |
@@ -39,16 +39,18 @@ A three-step flow: *Overview* (novel-level fields and long-form prose), *Beats* 
 
 ### Write — draft fast, fix later
 
-A distraction-light, Live-Preview manuscript editor with writing prompts and timed **sprints**. Five fast-drafting **inline markers** — for to-dos, research questions, dialogue gaps, missing scenes, and notes — highlight as you type (e.g. `[RESEARCH: what did 1920s lamplighters earn?]`), so you can mark a gap and keep moving forward. Add your own marker words (`[CHECK: …]`, `[TK: …]`) under Customize → To-do markers. Find them all later in Revise → To-dos.
+A distraction-light, Live-Preview manuscript editor with writing prompts and timed **sprints**. Five fast-drafting **inline markers** — for to-dos, research questions, dialogue gaps, missing scenes, and notes — highlight as you type (e.g. `[RESEARCH: what did 1920s lamplighters earn?]`), so you can mark a gap and keep moving forward. Add your own marker words (`[CHECK: …]`, `[TK: …]`) under Customize → To-do markers. Find them all later in Revise → Revision log.
 
 Switch Write to **Stream** to read and edit the whole book as one continuous page, in order: click anywhere to edit that scene in place, jump between chapters, or narrow the page to one chapter, POV, plotline, character or status. Each scene still saves to its own note.
+
+Keep your story beside you while you draft. Hold Ctrl/Cmd and point at a character's or place's name to **peek** at its Codex card, or open a **sidebar companion** from the rail (right-click → *Open in sidebar*): **Codex** (who and what is in this scene), **Plan** (this chapter's scenes, synopses and beats, plus your planning note), **Scenes** (the whole outline), **Track**, and **Revision log**. Companions follow the scene you're writing, in Write or in a regular tab.
 
 ![Write: Live-Preview editor with highlighted draft markers and a running sprint timer](assets/write.png)
 
 ### Revise — from draft to book
 
 - **Audit** — revision checklists for the whole book, each chapter, each scene, and the prose, a scene-purpose lift-out test, scene-opening variety, a character-arc grid, a side-character roster, and a style-sheet consistency scan.
-- **To-dos** — everything left to fix in one scene-grouped worklist: every draft marker left in the prose (to-dos, research questions, …), plus your **invisible-revision decisions** — capture *"from now on, assume X"* rulings (e.g. "the inn is now called the Gilded Wren") as typed, prioritized entries and **keep drafting forward** instead of breaking flow to backfill earlier chapters.
+- **Revision log** — everything left to fix in one scene-grouped worklist: every draft marker left in the prose (to-dos, research questions, …), plus your **invisible-revision decisions** — capture *"from now on, assume X"* rulings (e.g. "the inn is now called the Gilded Wren") as typed, prioritized entries and **keep drafting forward** instead of breaking flow to backfill earlier chapters.
 - **Analysis** — readability, overused words, echoes, and composition mix.
 
 ![Revise: the Audit toolkit — character-arc grid and revision checklists](assets/revise.png)

@@ -8,6 +8,7 @@
 import { App, Notice, TAbstractFile, TFile, normalizePath } from "obsidian";
 import { getCodexEntities, updateEntityPins, writeEntityScope } from "../codex/codex-store";
 import { remapBookKeys, remapScopeProjects } from "../codex/codex-scope";
+import { t } from "../i18n";
 import { tryFileOp } from "../lib/notify";
 import { persistOverview, updateDraftFields } from "./index-writer";
 import { expectInAppRename } from "./rename-heal";
@@ -82,11 +83,11 @@ export async function executeProjectRename(
         if (pins) await updateEntityPins(app, f, (cur) => remapBookKeys(cur, byOld) ?? cur);
       }
     }
-  }, `Couldn't finish renaming "${plan.oldTitle}" — some files may have moved; check the project folder.`);
+  }, t("project.rename.failed", { title: plan.oldTitle }));
   if (ok === null) return false;
 
   hooks.remapPaths(plan.remap);
   if (activeBefore) hooks.setActive(plan.remap(activeBefore));
-  new Notice(`Renamed "${plan.oldTitle}" to "${plan.newTitle}".`);
+  new Notice(t("project.rename.done", { from: plan.oldTitle, to: plan.newTitle }));
   return true;
 }

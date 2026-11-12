@@ -14,12 +14,20 @@
  * the shipped camelCase ids (customs always contain a `-`).
  */
 
-import { PROMPT_CATEGORIES, PromptCategory, PromptExtra, PromptPhase, WRITING_PROMPTS } from "../ideation/prompts";
+import {
+  PROMPT_CATEGORIES,
+  PromptCategory,
+  PromptExtra,
+  PromptPhase,
+  WRITING_PROMPTS,
+  shippedPromptText,
+} from "../ideation/prompts";
+import type { MessageKey } from "../i18n";
 import { ListItem, ListOverride, ListSpec, normalizeListOverride } from "../lib/list-override";
 import { MarkerExtra, SHIPPED_MARKERS, isValidKeyword, normalizeKeyword } from "../lib/placeholders";
 import { PUBLISHING_CHECKLIST, PublishingExtra } from "../publishing/checklist-def";
 import { CHAPTER_CHECKPOINTS, PAGE_GROUPS, SCENE_CHECKPOINTS, STORY_CHECKPOINTS } from "../revisions/audit";
-import { INSPECTOR_FIELDS, SCENE_STATUSES, statusLabel } from "../scenes/scene-meta";
+import { INSPECTOR_FIELDS, SCENE_STATUS_ITEMS, shippedInspectorFields, statusLabel } from "../scenes/scene-meta";
 
 export type OverridableListId =
   | "audit.scene"
@@ -51,26 +59,34 @@ export interface ListOverrideSettings {
 }
 
 export interface ListMeta {
-  label: string;
+  /** Display name (a catalog key — resolve with `t()` at render). */
+  labelKey: MessageKey;
   /** Prefix for {@link newListItemId} when adding a custom item. */
   idPrefix: string;
   /** Prefix for custom groups (grouped lists). */
   groupPrefix?: string;
 }
 
+/** Stable English source labels by id (import-safe data, no catalog lookup). */
+const sourceMap = (items: readonly { id: string; label: string }[]): ReadonlyMap<string, string> =>
+  new Map(items.map((i) => [i.id, i.label]));
+
+// Shipped labels are translated on read (lazy getters in their tables), so every
+// spec below reads them at normalize/render time — via a getter here too —
+// never copying them at import (i18n rule 5).
 const flatten = (groups: readonly { id: string; items: readonly ListItem[] }[]): ListItem[] =>
   groups.flatMap((g) => g.items.map((i) => ({ id: i.id, label: i.label, group: g.id })));
 
 export const LIST_META: Record<OverridableListId, ListMeta> = {
-  "audit.scene": { label: "Scene checkpoints", idPrefix: "sc" },
-  "audit.story": { label: "Story checkpoints", idPrefix: "st" },
-  "audit.chapter": { label: "Chapter checkpoints", idPrefix: "ch" },
-  "audit.page": { label: "Prose checkpoints", idPrefix: "pr", groupPrefix: "pg" },
-  publishing: { label: "Publishing checklist", idPrefix: "pt", groupPrefix: "pg" },
-  prompts: { label: "Writing prompts", idPrefix: "wp" },
-  "scene.status": { label: "Scene statuses", idPrefix: "ss" },
-  "scene.fields": { label: "Scene inspector fields", idPrefix: "sf" },
-  markers: { label: "To-do markers", idPrefix: "mk" },
+  "audit.scene": { labelKey: "list.meta.auditScene", idPrefix: "sc" },
+  "audit.story": { labelKey: "list.meta.auditStory", idPrefix: "st" },
+  "audit.chapter": { labelKey: "list.meta.auditChapter", idPrefix: "ch" },
+  "audit.page": { labelKey: "list.meta.auditPage", idPrefix: "pr", groupPrefix: "pg" },
+  publishing: { labelKey: "customize.entry.publishingChecklist", idPrefix: "pt", groupPrefix: "pg" },
+  prompts: { labelKey: "customize.entry.writingPrompts", idPrefix: "wp" },
+  "scene.status": { labelKey: "customize.entry.sceneStatuses", idPrefix: "ss" },
+  "scene.fields": { labelKey: "customize.entry.sceneFields", idPrefix: "sf" },
+  markers: { labelKey: "customize.entry.todoMarkers", idPrefix: "mk" },
 };
 
 const PHASES: PromptPhase[] = ["draft", "revise"];
@@ -95,17 +111,25 @@ export const SPEC_AUDIT_CHAPTER: ListSpec = {
   allowOrder: true,
 };
 export const SPEC_AUDIT_PAGE: ListSpec = {
-  shipped: flatten(PAGE_GROUPS),
-  shippedGroups: PAGE_GROUPS.map((g) => ({ id: g.id, label: g.label })),
+  get shipped() {
+    return flatten(PAGE_GROUPS);
+  },
+  get shippedGroups() {
+    return PAGE_GROUPS.map((g) => ({ id: g.id, label: g.label }));
+  },
   allowAdded: true,
   allowGroups: true,
   allowOrder: true,
 };
 export const SPEC_PUBLISHING: ListSpec<PublishingExtra> = {
-  shipped: PUBLISHING_CHECKLIST.flatMap((p) =>
-    p.tasks.map((t) => ({ id: t.id, label: t.label, group: p.id, ...(t.optional ? { optional: true } : {}) }))
-  ),
-  shippedGroups: PUBLISHING_CHECKLIST.map((p) => ({ id: p.id, label: p.label })),
+  get shipped() {
+    return PUBLISHING_CHECKLIST.flatMap((p) =>
+      p.tasks.map((t) => ({ id: t.id, label: t.label, group: p.id, ...(t.optional ? { optional: true } : {}) }))
+    );
+  },
+  get shippedGroups() {
+    return PUBLISHING_CHECKLIST.map((p) => ({ id: p.id, label: p.label }));
+  },
   allowAdded: true,
   allowGroups: true,
   allowOrder: true,
@@ -117,7 +141,16 @@ export const SPEC_PUBLISHING: ListSpec<PublishingExtra> = {
 };
 export const SPEC_PROMPTS: ListSpec<PromptExtra> = {
   // Shipped extras ride along so `extras` overrides can be diffed against them.
-  shipped: WRITING_PROMPTS.map((p) => ({ id: p.id, label: p.text, phase: p.phase, category: p.category })),
+  // Labels: the translated display text; `sourceLabels` keeps the English source.
+  get shipped() {
+    return WRITING_PROMPTS.map((p) => ({
+      id: p.id,
+      label: shippedPromptText(p.id, p.text),
+      phase: p.phase,
+      category: p.category,
+    }));
+  },
+  sourceLabels: new Map(WRITING_PROMPTS.map((p) => [p.id, p.text])),
   allowAdded: true,
   allowGroups: false,
   allowOrder: false,
@@ -131,7 +164,10 @@ export const SPEC_PROMPTS: ListSpec<PromptExtra> = {
 };
 /** Statuses: rename / hide / reorder only — the stored enum is frozen in 1.x. */
 export const SPEC_SCENE_STATUS: ListSpec = {
-  shipped: SCENE_STATUSES.map((s) => ({ id: s, label: statusLabel(s) })),
+  get shipped() {
+    return SCENE_STATUS_ITEMS.map((s) => ({ id: s.id, label: statusLabel(s.id) }));
+  },
+  sourceLabels: sourceMap(SCENE_STATUS_ITEMS),
   allowAdded: false,
   allowGroups: false,
   allowOrder: true,
@@ -140,7 +176,10 @@ export const SPEC_SCENE_STATUS: ListSpec = {
 
 /** Inspector fields: rename / hide / reorder — each is wired to a fixed scene key. */
 export const SPEC_SCENE_FIELDS: ListSpec = {
-  shipped: INSPECTOR_FIELDS,
+  get shipped() {
+    return shippedInspectorFields();
+  },
+  sourceLabels: sourceMap(INSPECTOR_FIELDS),
   allowAdded: false,
   allowGroups: false,
   allowOrder: true,

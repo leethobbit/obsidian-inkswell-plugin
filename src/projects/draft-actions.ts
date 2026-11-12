@@ -8,6 +8,7 @@
  */
 
 import { App, Notice, TFile, normalizePath } from "obsidian";
+import { t, tp } from "../i18n";
 import { tryFileOp } from "../lib/notify";
 import { confirmDelete } from "../scenes/scene-actions";
 import { DraftDeletePlan, planDraftCopy, planDraftDelete } from "./draft-plan";
@@ -48,12 +49,12 @@ export async function createDraft(
   const plan = planDraftCopy(source, anchor, newName, originalName);
 
   if (app.vault.getAbstractFileByPath(plan.indexPath)) {
-    new Notice(`A draft note already exists at "${plan.indexPath}".`);
+    new Notice(t("project.draft.exists", { path: plan.indexPath }));
     return null;
   }
   const sourceIndex = app.vault.getAbstractFileByPath(plan.indexFrom);
   if (!(sourceIndex instanceof TFile)) {
-    new Notice("Source draft index note not found.");
+    new Notice(t("project.draft.sourceMissing"));
     return null;
   }
 
@@ -89,10 +90,10 @@ export async function createDraft(
       }
     }
     return index;
-  }, `Couldn't create draft "${newName.trim()}" — some files may have been partly written; check the "${plan.indexPath}" folder.`);
+  }, t("project.draft.createFailed", { name: newName.trim(), path: plan.indexPath }));
   if (!newIndex) return null;
 
-  new Notice(`Created draft "${newName.trim()}".`);
+  new Notice(t("project.draft.created", { name: newName.trim() }));
   return newIndex;
 }
 
@@ -109,23 +110,20 @@ export async function renameDraft(app: App, project: Project, newName: string): 
         draftTitle: newName.trim(),
         titleInFrontmatter: true,
       })),
-    "Couldn't rename the draft."
+    t("project.draft.renameFailed")
   );
 }
 
 /** The confirm text for deleting a draft, naming any scene files that stay. */
 function deleteDraftMessage(label: string, plan: DraftDeletePlan): string {
-  const head = `Delete draft "${label}"?`;
   const kept = plan.kept.length;
-  if (kept === 0) return `${head} Its index note and scene files move to trash (recoverable).`;
-  if (plan.trash.length === 0) {
-    return `${head} Its index note moves to trash (recoverable). Its scene files stay: another draft uses the same ones.`;
-  }
-  const trashed = plan.trash.length;
-  return (
-    `${head} Its index note and ${trashed} scene ${trashed === 1 ? "file" : "files"} move to trash (recoverable). ` +
-    `${kept} other scene ${kept === 1 ? "file stays" : "files stay"}: another draft uses ${kept === 1 ? "it" : "them"} too.`
-  );
+  if (kept === 0) return t("project.draft.delete.allTrashed", { label });
+  if (plan.trash.length === 0) return t("project.draft.delete.allKept", { label });
+  return t("project.draft.delete.mixed", {
+    label,
+    trashed: tp("project.draft.delete.trashed", plan.trash.length),
+    kept: tp("project.draft.delete.kept", kept),
+  });
 }
 
 /**
@@ -144,7 +142,7 @@ export async function deleteDraft(
   getProjects: () => readonly Project[]
 ): Promise<boolean> {
   if (isOnlyDraft) {
-    new Notice("This is the story's only draft — delete the project from the file explorer instead.");
+    new Notice(t("project.draft.onlyDraft"));
     return false;
   }
   const label = project.draft.draftTitle ?? project.draft.title;
@@ -161,6 +159,6 @@ export async function deleteDraft(
       const f = app.vault.getAbstractFileByPath(path);
       if (f instanceof TFile) await app.fileManager.trashFile(f);
     }
-  }, `Couldn't delete draft "${label}".`);
+  }, t("project.draft.deleteFailed", { label }));
   return done !== null;
 }

@@ -66,6 +66,10 @@ const context = await esbuild.context({
   ],
   format: "cjs",
   target: "es2018",
+  // Emit UTF-8 rather than escaping every non-ASCII character: the translation
+  // catalogs are mostly non-ASCII and escaping tripled their size. Obsidian
+  // loads main.js as UTF-8.
+  charset: "utf8",
   logLevel: "info",
   sourcemap: prod ? false : "inline",
   treeShaking: true,

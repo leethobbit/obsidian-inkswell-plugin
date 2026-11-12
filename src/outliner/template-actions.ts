@@ -5,6 +5,7 @@
 
 import { App } from "obsidian";
 import type InkswellPlugin from "../../main";
+import { t } from "../i18n";
 import { slugify } from "../lib/slug";
 import { confirmDelete } from "../scenes/scene-actions";
 import { BEAT_TEMPLATES, BeatDef } from "./beat-templates";
@@ -13,7 +14,7 @@ import { BeatTemplateDef } from "./custom-templates";
 /** Upsert a custom template by id. */
 export async function saveBeatTemplate(plugin: InkswellPlugin, def: BeatTemplateDef): Promise<void> {
   const list = plugin.settings.customBeatTemplates;
-  const i = list.findIndex((t) => t.id === def.id);
+  const i = list.findIndex((tpl) => tpl.id === def.id);
   if (i >= 0) list[i] = def;
   else list.push(def);
   await plugin.saveSettings();
@@ -37,13 +38,10 @@ export async function deleteBeatTemplate(
   plugin: InkswellPlugin,
   tpl: BeatTemplateDef
 ): Promise<boolean> {
-  const msg =
-    `Delete the "${tpl.name}" template? Projects using it keep every beat ` +
-    "note — they show a missing-template notice until you re-create it " +
-    "(same name) or pick another template.";
+  const msg = t("beats.template.deleteConfirm", { name: tpl.name });
   if (!(await confirmDelete(app, msg))) return false;
   plugin.settings.customBeatTemplates = plugin.settings.customBeatTemplates.filter(
-    (t) => t.id !== tpl.id
+    (other) => other.id !== tpl.id
   );
   await plugin.saveSettings();
   return true;
@@ -59,8 +57,10 @@ export function duplicateAsCustom(
   beats: readonly BeatDef[],
   customs: readonly BeatTemplateDef[]
 ): BeatTemplateDef {
+  // English on purpose: the id is slugified from this name and lands in project
+  // frontmatter (`inkswell.beats.template`), which must not vary by language.
   const copyName = `${name} (copy)`;
-  const taken = new Set<string>([...Object.keys(BEAT_TEMPLATES), ...customs.map((t) => t.id)]);
+  const taken = new Set<string>([...Object.keys(BEAT_TEMPLATES), ...customs.map((c) => c.id)]);
   const base = slugify(copyName) || "template";
   let id = base;
   for (let n = 2; taken.has(id); n++) id = `${base}-${n}`;

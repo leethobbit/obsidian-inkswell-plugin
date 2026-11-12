@@ -5,7 +5,19 @@
  * (synopsis) — never the prose body.
  */
 
-import { App, MarkdownView, Menu, Modal, Notice, Setting, TFile, normalizePath } from "obsidian";
+import {
+  App,
+  FileView,
+  MarkdownView,
+  Menu,
+  Modal,
+  Notice,
+  Setting,
+  TFile,
+  WorkspaceLeaf,
+  normalizePath,
+} from "obsidian";
+import { t } from "../i18n";
 import { FormModal } from "../lib/form-modal";
 import { attachOpenInTab } from "../lib/row-menu";
 import { removeSceneFromIndex, renameSceneInIndex } from "../projects/index-writer";
@@ -62,7 +74,7 @@ class ConfirmModal extends Modal {
     app: App,
     private message: string,
     private cb: (ok: boolean) => void,
-    private cta = "Delete"
+    private cta = t("common.delete")
   ) {
     super(app);
   }
@@ -87,7 +99,7 @@ class ConfirmModal extends Modal {
         // semantics) and Escape still cancels — matching the house dialogs.
         window.setTimeout(() => b.buttonEl.focus(), 0);
       })
-      .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()));
+      .addButton((b) => b.setButtonText(t("common.cancel")).onClick(() => this.close()));
   }
   onClose(): void {
     this.contentEl.empty();
@@ -130,6 +142,25 @@ export function openScene(app: App, file: TFile): void {
   void leaf.openFile(file, { active: true });
 }
 
+/**
+ * Open any vault file (a canvas, PDF, image or note) in Obsidian's own view
+ * for it: reveal the tab already showing it, else a new tab. `openScene` only
+ * looks for markdown tabs, so an open canvas would get a second tab.
+ */
+export function openFileInTab(app: App, file: TFile): void {
+  const open: WorkspaceLeaf[] = [];
+  app.workspace.iterateAllLeaves((leaf) => {
+    if (leaf.view instanceof FileView && leaf.view.file?.path === file.path) open.push(leaf);
+  });
+  const existing = open[0];
+  if (existing) {
+    void app.workspace.revealLeaf(existing);
+    app.workspace.setActiveLeaf(existing, { focus: true });
+    return;
+  }
+  void app.workspace.getLeaf("tab").openFile(file, { active: true });
+}
+
 /** Ctrl/Cmd-click or middle-click on `el` opens the scene at `path` in a
  *  regular tab, instead of the element's own click (#53). The file is resolved
  *  at click time, so a rename since render can't open a stale path. */
@@ -149,14 +180,14 @@ export async function editSynopsis(
 ): Promise<void> {
   const current = readSceneMeta(app, file).synopsis ?? "";
   const value = await promptText(app, {
-    title: `Synopsis — ${file.basename}`,
+    title: t("scene.synopsis.title", { name: file.basename }),
     value: current,
     multiline: true,
-    cta: "Save",
+    cta: t("common.save"),
   });
   if (value !== null) {
     mark(file.path);
-    await tryFileOp(() => writeSceneMeta(app, file, { synopsis: value }), "Couldn't save the synopsis.");
+    await tryFileOp(() => writeSceneMeta(app, file, { synopsis: value }), t("scene.synopsis.failed"));
   }
 }
 
@@ -174,10 +205,10 @@ export async function renameScene(
   mark: (path: string) => void = () => {}
 ): Promise<string | null> {
   const input = await promptText(app, {
-    title: "Rename scene",
+    title: t("scene.rename.title"),
     value: oldTitle,
     multiline: false,
-    cta: "Rename",
+    cta: t("common.rename"),
   });
   if (input === null) return null;
   // Same sanitizer the create path uses: strips filename-illegal chars AND
@@ -185,7 +216,7 @@ export async function renameScene(
   // or folder-escaping file (which is how a scene renamed to ".." vanished).
   const next = sanitizeSegment(input);
   if (!next) {
-    if (input.trim()) new Notice("That name can't be used as a file name.");
+    if (input.trim()) new Notice(t("scene.rename.invalid"));
     return null;
   }
   if (next === oldTitle) return null;
@@ -213,7 +244,7 @@ export async function renameScene(
       // the rename orphans the beat's scene chip), all against current state.
       await renameSceneInIndex(app, indexFile, oldTitle, next);
     }
-  }, `Couldn't rename "${oldTitle}".`);
+  }, t("scene.rename.failed", { title: oldTitle }));
   if (ok === null) return null;
   return newPath;
 }
@@ -226,7 +257,7 @@ export async function deleteScene(
 ): Promise<void> {
   const ok = await confirmDelete(
     app,
-    `Delete scene "${title}"? It will be moved to trash and removed from the project.`
+    t("scene.delete.confirm", { title })
   );
   if (!ok) return;
   await tryFileOp(async () => {
@@ -235,7 +266,7 @@ export async function deleteScene(
       await removeSceneFromIndex(app, indexFile, title);
     }
     await app.fileManager.trashFile(file);
-  }, `Couldn't delete "${title}".`);
+  }, t("scene.delete.failed", { title }));
 }
 
 /** Add the common scene items (Open / Edit synopsis / Rename / Delete) to a menu. */
@@ -258,23 +289,23 @@ export function addSceneMenuItems(
   const mark = (p: string): void => opts.plugin?.selfWrites.mark(p);
   if (opts.includeOpen) {
     menu.addItem((i) =>
-      i.setTitle("Open in new tab").setIcon("file-text").onClick(() => openScene(app, file))
+      i.setTitle(t("common.openInNewTab")).setIcon("file-text").onClick(() => openScene(app, file))
     );
   }
   menu.addItem((i) =>
-    i.setTitle("Edit scene…").setIcon("settings-2").onClick(() => new EditSceneModal(app, file, project, opts.plugin ?? null).open())
+    i.setTitle(t("scene.menu.edit")).setIcon("settings-2").onClick(() => new EditSceneModal(app, file, project, opts.plugin ?? null).open())
   );
   menu.addItem((i) =>
-    i.setTitle("Edit synopsis…").setIcon("text").onClick(() => void editSynopsis(app, file, mark))
+    i.setTitle(t("scene.menu.editSynopsis")).setIcon("text").onClick(() => void editSynopsis(app, file, mark))
   );
   menu.addItem((i) =>
-    i.setTitle("Rename…").setIcon("pencil").onClick(async () => {
+    i.setTitle(t("scene.menu.rename")).setIcon("pencil").onClick(async () => {
       const newPath = await renameScene(app, project, title, file, mark);
       if (newPath) opts.onRenamed?.(newPath);
     })
   );
   menu.addSeparator();
   menu.addItem((i) =>
-    i.setTitle("Delete scene").setIcon("trash").onClick(() => void deleteScene(app, project, title, file))
+    i.setTitle(t("scene.menu.delete")).setIcon("trash").onClick(() => void deleteScene(app, project, title, file))
   );
 }
