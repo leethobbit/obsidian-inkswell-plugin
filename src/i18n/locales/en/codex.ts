@@ -186,7 +186,7 @@ export const codex = {
   "codex.type.name.descNew": "Singular display name, e.g. “Creature”. Also names the type's template note.",
   "codex.type.storedAs": "Stored as codex: {id}",
   "codex.type.plural": "Plural",
-  "codex.type.plural.desc": "Group heading in the Codex list. Blank = name + “s”.",
+  "codex.type.plural.desc": "Group heading in the Codex list. Leave blank to add “s” to the name.",
   "codex.type.icon": "Icon",
   "codex.type.icon.desc": "Lucide icon name — e.g. “dog”, “crown”, “scroll”.",
   "codex.type.idBuiltin": "codex: {id} (built-in — the id never changes)",

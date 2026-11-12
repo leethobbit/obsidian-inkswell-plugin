@@ -8,7 +8,7 @@
  */
 
 import { App, Menu, Notice, TFile, normalizePath, setIcon } from "obsidian";
-import { formatNumber, t, tp } from "../i18n";
+import { formatNumber, lowerInSentence, t, tp } from "../i18n";
 import { fillTemplate } from "../i18n/dom";
 import { extensionFor, isImage, pickVaultImage, writeImageBinary } from "../lib/images";
 import { attachOpenInTab, attachRowMenu } from "../lib/row-menu";
@@ -327,8 +327,8 @@ export class CodexPanel {
       // archived books — say so instead of claiming the codex is empty.
       const hiddenByArchive = !inScope && !this.includeArchived && getCodexEntities(this.app).length > scoped.length;
       if (filterDef && !q) {
-        // Lowercased inside the sentence: an English-only trick (known i18n limitation).
-        const types = categoryDisplayPlural(filterDef).toLowerCase();
+        // Lowercased inside the sentence (kept capitalised in German).
+        const types = lowerInSentence(categoryDisplayPlural(filterDef));
         list.createDiv({
           cls: "inkswell-stats__muted",
           text: inScope

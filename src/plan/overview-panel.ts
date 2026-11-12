@@ -10,7 +10,7 @@
  */
 
 import { App, TFile } from "obsidian";
-import { MessageKey, t } from "../i18n";
+import { MessageKey, lowerInSentence, t } from "../i18n";
 import { preserveFocus, tagField } from "../lib/focus-preserve";
 import { tryFileOp } from "../lib/notify";
 import { ActiveProject, resolveActive } from "../projects/active-project";
@@ -129,7 +129,7 @@ export class OverviewPanel {
           this.plugin.selfWrites.mark(indexFile.path);
           void tryFileOp(
             () => persistOverview(this.app, indexFile, { [f.key]: input.value.trim() }),
-            t("plan.overview.saveFieldFailed", { field: t(f.labelKey).toLowerCase() })
+            t("plan.overview.saveFieldFailed", { field: lowerInSentence(t(f.labelKey)) })
           );
         }
       };

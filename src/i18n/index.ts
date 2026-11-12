@@ -29,6 +29,9 @@ export type PluralBase = {
 
 type Vars = Record<string, string | number>;
 
+/** zh-tw / zh-hk / zh-mo / zh-hant…: written in Traditional characters. */
+const TRADITIONAL_CHINESE = /^zh-(?:tw|hk|mo|hant)(?:-|$)/;
+
 let localeCode = "en";
 let catalog: Catalog = en;
 
@@ -51,7 +54,8 @@ export function setLocale(
     catalog = pseudoCatalog();
     return PSEUDO_LOCALE;
   }
-  const base = want.split("-")[0];
+  // Traditional Chinese must never fall back to the Simplified "zh" catalog.
+  const base = TRADITIONAL_CHINESE.test(want) ? "" : want.split("-")[0];
   const usable = (c: string) => !!c && !!LOCALES[c] && (options.includeUnreviewed || LOCALE_INFO[c]?.reviewed === true);
   const hit = usable(want) ? want : usable(base) ? base : "en";
   localeCode = hit === "en" ? "en" : want;
@@ -101,6 +105,21 @@ export function tp(base: PluralBase, count: number, vars?: Vars): string {
   const template =
     own ?? (category === "one" || category === "other" ? lookup(key) : lookup(`${base}.other`));
   return interpolate(template, { count: formatNumber(count), ...vars });
+}
+
+/**
+ * Lowercase a translated noun for use inside a sentence ("No characters yet").
+ * German capitalises every noun, so there it stays as written; other languages
+ * lowercase by their own rules.
+ */
+export function lowerInSentence(s: string): string {
+  const lang = localeCode.split("-")[0];
+  if (lang === "de") return s;
+  try {
+    return s.toLocaleLowerCase(localeCode);
+  } catch {
+    return s.toLowerCase();
+  }
 }
 
 /** Locale-aware number formatting (grouping separators, digits). */

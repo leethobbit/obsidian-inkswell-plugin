@@ -10,7 +10,7 @@
  */
 
 import { App, setIcon } from "obsidian";
-import { t } from "../i18n";
+import { lowerInSentence, t } from "../i18n";
 import { isDateKey, normalizeDate } from "../lib/date-key";
 import { tagField } from "../lib/focus-preserve";
 import { autosizeTextarea } from "../lib/form-fields";
@@ -279,7 +279,7 @@ function renderLinkControl(control: HTMLElement, deps: ProfileFieldDeps): void {
     const add = control.createEl("select", { cls: "dropdown" });
     tagField(add, `${tag}-add`);
     // Lowercased inside the phrase: an English-only trick (known i18n limitation).
-    add.createEl("option", { text: t("codex.control.addLink", { field: fieldLabel(field).toLowerCase() }), value: "" });
+    add.createEl("option", { text: t("codex.control.addLink", { field: lowerInSentence(fieldLabel(field)) }), value: "" });
     for (const c of remaining) add.createEl("option", { text: c.name, value: c.name });
     add.value = "";
     add.onchange = () => {
@@ -293,7 +293,7 @@ function renderLinkControl(control: HTMLElement, deps: ProfileFieldDeps): void {
       cats.length > 0
         ? t("codex.control.noEntries", {
             types: cats
-              .map((c) => deps.typeLabel(c).toLowerCase())
+              .map((c) => lowerInSentence(deps.typeLabel(c)))
               .reduce((first, second) => t("codex.control.typeOr", { first, second })),
           })
         : t("codex.control.noEntriesAny");

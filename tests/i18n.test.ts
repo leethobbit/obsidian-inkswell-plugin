@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { en, EN_MODULES } from "../src/i18n/locales/en";
 import { LOCALE_INFO, LOCALES } from "../src/i18n/locales";
-import { formatDate, formatNumber, interpolate, isMessageKey, pseudoize, setLocale, t, tp } from "../src/i18n";
+import { formatDate, formatNumber, interpolate, isMessageKey, lowerInSentence, pseudoize, setLocale, t, tp } from "../src/i18n";
 
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
@@ -109,6 +109,17 @@ describe("t / tp / setLocale", () => {
     }
   });
 
+  it("Traditional Chinese never gets the Simplified catalog", () => {
+    expect(setLocale("zh-tw", { includeUnreviewed: true })).toBe("en");
+    expect(setLocale("zh-cn", { includeUnreviewed: true })).toBe("zh-cn");
+  });
+
+  it("drafts are never picked from Obsidian's language", () => {
+    for (const [code, info] of Object.entries(LOCALE_INFO)) {
+      if (!info.reviewed) expect(setLocale(code)).toBe("en");
+    }
+  });
+
   it("every registered locale has picker metadata, and vice versa", () => {
     expect(Object.keys(LOCALE_INFO).sort()).toEqual(Object.keys(LOCALES).sort());
   });
@@ -140,5 +151,19 @@ describe("formatDate / pseudo-locale", () => {
     expect(setLocale("qps")).toBe("qps");
     expect(t("common.cancel")).toBe("⟦Çáñçél⟧");
     expect(tp("common.words", 2)).toBe("⟦2 wórdš⟧");
+  });
+});
+
+describe("lowerInSentence", () => {
+  afterEach(() => {
+    setLocale("en");
+  });
+
+  it("lowercases for English and French, keeps German nouns capitalised", () => {
+    expect(lowerInSentence("Characters")).toBe("characters");
+    setLocale("fr", { includeUnreviewed: true });
+    expect(lowerInSentence("Personnages")).toBe("personnages");
+    setLocale("de", { includeUnreviewed: true });
+    expect(lowerInSentence("Figuren")).toBe("Figuren");
   });
 });

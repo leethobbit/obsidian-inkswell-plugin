@@ -91,7 +91,10 @@ export interface PlaceholderTemplate {
 }
 
 /** A letter, then 1–19 letters, digits or hyphens. Checked on the uppercased form. */
-const KEYWORD_RE = /^\p{L}[\p{L}\p{N}-]{1,19}$/u;
+// Mirrors MARKER_SHAPE_RE (the prose scanner): after uppercasing, the word must be
+// capital letters, so a caseless script (Chinese, Japanese) can't make a marker
+// the scanner would never find.
+const KEYWORD_RE = /^\p{Lu}[\p{Lu}\p{N}-]{1,19}$/u;
 
 /** The stored form of a keyword: trimmed, uppercased. */
 export function normalizeKeyword(raw: string): string {

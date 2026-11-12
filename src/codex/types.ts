@@ -11,7 +11,7 @@
  * module load, or settings changes won't propagate.
  */
 
-import { MessageKey, t } from "../i18n";
+import { MessageKey, getLocale, t } from "../i18n";
 import { SLUG_RE, slugify } from "../lib/slug";
 
 /** The seven permanent built-in categories (never removable; ids never change). */
@@ -57,6 +57,14 @@ export const CODEX_CATEGORIES: (CategoryDef & { id: BuiltinCodexCategory })[] = 
   { id: "event", label: "Event", plural: "Events", icon: "calendar" }, // i18n-ignore: data
   { id: "concept", label: "Concept", plural: "Concepts", icon: "sparkles" }, // i18n-ignore: data
 ];
+
+/**
+ * Plural for a custom type left blank: English adds "s"; other UI languages
+ * keep the name as typed (a Chinese "生物" must not become "生物s").
+ */
+export function defaultPlural(label: string): string {
+  return getLocale() === "en" ? `${label}s` : label;
+}
 
 export function isBuiltinCategory(v: unknown): v is BuiltinCodexCategory {
   return CODEX_CATEGORIES.some((c) => c.id === v);
@@ -234,7 +242,7 @@ export function normalizeCustomCategories(
     if (!SLUG_RE.test(id) || !label) continue;
     if (takenIds.has(id) || takenLabels.has(label.toLowerCase())) continue;
     const plural =
-      typeof rec["plural"] === "string" && rec["plural"].trim() ? rec["plural"].trim() : `${label}s`;
+      typeof rec["plural"] === "string" && rec["plural"].trim() ? rec["plural"].trim() : defaultPlural(label);
     const icon =
       typeof rec["icon"] === "string" && rec["icon"].trim() ? rec["icon"].trim() : "box";
     takenIds.add(id);

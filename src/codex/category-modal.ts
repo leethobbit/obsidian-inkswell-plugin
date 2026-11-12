@@ -11,7 +11,7 @@
 import { App, Notice, Setting, getIconIds, setIcon } from "obsidian";
 import { t } from "../i18n";
 import { FormModal } from "../lib/form-modal";
-import { CategoryDef, slugifyCategoryId } from "./types";
+import { CategoryDef, defaultPlural, slugifyCategoryId } from "./types";
 
 export interface CategoryModalOptions {
   /** The type being edited (its CURRENT display for a built-in), or null to add a new one. */
@@ -158,7 +158,7 @@ export class CategoryModal extends FormModal {
       new Notice(t("codex.type.unknownIcon", { icon }));
       return false;
     }
-    const plural = this.plural.trim() || `${label}s`;
+    const plural = this.plural.trim() || defaultPlural(label);
     await this.opts.onSubmit({ id, label, plural, icon });
     return true;
   }

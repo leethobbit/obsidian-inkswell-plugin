@@ -122,6 +122,13 @@ describe("findGaps", () => {
 });
 
 describe("isValidKeyword", () => {
+  it("rejects words in scripts without capitals (the scanner could never find them)", () => {
+    expect(isValidKeyword("メモ")).toBe(false);
+    expect(isValidKeyword("待办")).toBe(false);
+    expect(isValidKeyword("prüfen")).toBe(true);
+    expect(isValidKeyword("проверка")).toBe(true);
+  });
+
   it("accepts a letter then 1–19 letters, digits or hyphens (any case, any script)", () => {
     expect(isValidKeyword("CHECK")).toBe(true);
     expect(isValidKeyword("tk")).toBe(true);

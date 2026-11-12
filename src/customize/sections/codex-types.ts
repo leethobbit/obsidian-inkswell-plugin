@@ -44,7 +44,7 @@ import {
   isBuiltinCategory,
 } from "../../codex/types";
 import { fillTemplate } from "../../i18n/dom";
-import { t, tp } from "../../i18n";
+import { lowerInSentence, t, tp } from "../../i18n";
 import { tryFileOp } from "../../lib/notify";
 import { attachRowMenu } from "../../lib/row-menu";
 import { openScene } from "../../scenes/scene-actions";
@@ -220,7 +220,7 @@ function renderType(host: HTMLElement, ctx: SectionCtx, id: string): void {
         fieldKey: `customize:codex:body:${cat.id}`,
         hint: t("customize.codex.starterHint"),
         // Known limitation: lowercasing the plural mid-sentence is an English-only trick.
-        noneText: t("customize.codex.starterNone", { plural: categoryDisplayPlural(cat).toLowerCase() }),
+        noneText: t("customize.codex.starterNone", { plural: lowerInSentence(categoryDisplayPlural(cat)) }),
         read: (f) => readTemplateBody(app, f),
         write: (f, body) => writeTemplateBody(app, f, body),
       });

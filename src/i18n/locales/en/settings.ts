@@ -463,7 +463,7 @@ export const settings = {
     "Markers you drop into your prose to come back to later — [TODO: …], [RESEARCH: …] and the rest — then find in Revise → Revision log. Compiling removes them all. To use a different word, add your own marker (and hide the built-in one if you like). Hiding a marker only takes it out of the Insert menu: markers already in your scenes are still found and still removed when you compile.",
   "customize.markers.wordPrompt": "Word to type in your scenes (e.g. CHECK)",
   "customize.markers.invalidWord":
-    "A marker word starts with a letter and uses 2–20 letters, digits or hyphens.",
+    "A marker word starts with a letter and uses 2–20 letters, digits or hyphens. Use an alphabet with capital letters (like A–Z), so Inkswell can find it in your text.",
   "customize.markers.taken": "[{keyword}] is already a marker.",
   "customize.markers.inactive": "word already used — inactive",
   "customize.markers.removeConfirm":

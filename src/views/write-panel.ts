@@ -46,7 +46,7 @@ import {
   selectionInsideWikilink,
 } from "../codex/quick-codex";
 import { QuickCodexModal } from "../codex/quick-codex-modal";
-import { CodexEntity, allCategories, categoryDisplayName } from "../codex/types";
+import { CodexEntity, allCategories, categoryDisplayLabel, categoryDisplayName } from "../codex/types";
 import { mentionAt } from "../codex/codex";
 import { entitiesForScene } from "../codex/peek";
 import { wikilinkAt } from "../lib/wikilinks";
@@ -814,7 +814,7 @@ export class WritePanel implements HoverParent {
         } else {
           target = await tryFileOp(
             () => createEntityForProject(this.app, s, projects, active, def, name),
-            t("write.codex.createFailed", { category: def.label })
+            t("write.codex.createFailed", { category: categoryDisplayLabel(def) })
           );
         }
         if (!target) return;

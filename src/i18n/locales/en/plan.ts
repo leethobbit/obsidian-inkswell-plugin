@@ -81,12 +81,12 @@ export const plan = {
   "outline.renameChapter": "Rename chapter",
   "outline.renameAct": "Rename act",
   "outline.deleteChapter.withScenes.one":
-    "Delete chapter \"{name}\"? Its {count} scene(s) become unassigned (files are kept).",
+    "Delete chapter \"{name}\"? Its {count} scene becomes unassigned (the file is kept).",
   "outline.deleteChapter.withScenes.other":
-    "Delete chapter \"{name}\"? Its {count} scene(s) become unassigned (files are kept).",
+    "Delete chapter \"{name}\"? Its {count} scenes become unassigned (files are kept).",
   "outline.deleteChapter": "Delete chapter \"{name}\"?",
-  "outline.deleteAct.withChapters.one": "Delete act \"{name}\"? Its {count} chapter(s) become act-less.",
-  "outline.deleteAct.withChapters.other": "Delete act \"{name}\"? Its {count} chapter(s) become act-less.",
+  "outline.deleteAct.withChapters.one": "Delete act \"{name}\"? Its {count} chapter becomes act-less.",
+  "outline.deleteAct.withChapters.other": "Delete act \"{name}\"? Its {count} chapters become act-less.",
   "outline.deleteAct": "Delete act \"{name}\"?",
 
   "outline.updateFailed": "Couldn't update the outline.",
@@ -128,15 +128,15 @@ export const plan = {
     "This project already has acts or chapters, so your outline won't be touched — only the missing placeholder scenes are created:",
   "structure.scaffold.row": "{chapter} — {scene}",
   "structure.scaffold.adopted": "file exists — adopted",
-  "structure.scaffold.skipped.one": "{count} scene already exist and will be skipped.",
+  "structure.scaffold.skipped.one": "{count} scene already exists and will be skipped.",
   "structure.scaffold.skipped.other": "{count} scenes already exist and will be skipped.",
   "structure.scaffold.summary.newScenes.one": "{count} new scene",
   "structure.scaffold.summary.newScenes.other": "{count} new scenes",
-  "structure.scaffold.summary.chapters.one": "{count} chapters",
+  "structure.scaffold.summary.chapters.one": "{count} chapter",
   "structure.scaffold.summary.chapters.other": "{count} chapters",
-  "structure.scaffold.summary.acts.one": "{count} acts",
+  "structure.scaffold.summary.acts.one": "{count} act",
   "structure.scaffold.summary.acts.other": "{count} acts",
-  "structure.scaffold.summary.linked.one": "{count} beats linked to their scenes",
+  "structure.scaffold.summary.linked.one": "{count} beat linked to its scenes",
   "structure.scaffold.summary.linked.other": "{count} beats linked to their scenes",
 
   // --- Structure → Board --------------------------------------------------
@@ -171,7 +171,7 @@ export const plan = {
   "grid.onboarding":
     "Track subplots and arcs across your chapters. Columns are plotlines; cells are the scenes that advance them — so the grid always matches the manuscript.",
   "grid.onboarding.noScenes":
-    "Track subplots and arcs across your chapters. Columns are plotlines; cells are the scenes that advance them — so the grid always matches the manuscript. You have no scenes yet — Beats → Scaffold scenes is the fastest start.",
+    "Track subplots and arcs across your chapters. Columns are plotlines; cells are the scenes that advance them — so the grid always matches the manuscript. You have no scenes yet — Beats → Scaffold structure is the fastest start.",
   "grid.createFirstPlotline": "Create your first plotline",
   "grid.newPlotline": "New plotline",
   "grid.newPlotline.aria": "Create a new plotline",
@@ -207,13 +207,13 @@ export const plan = {
   "grid.plotlineExists": "A plotline named \"{name}\" already exists.",
   "grid.renameFailed": "Couldn't rename the plotline.",
   "grid.deletePlotline.withScenes.one":
-    "Delete plotline \"{name}\"? Its tag will be removed from {count} scene(s) — scene files are kept.",
+    "Delete plotline \"{name}\"? Its tag will be removed from {count} scene — the scene file is kept.",
   "grid.deletePlotline.withScenes.other":
-    "Delete plotline \"{name}\"? Its tag will be removed from {count} scene(s) — scene files are kept.",
+    "Delete plotline \"{name}\"? Its tag will be removed from {count} scenes — scene files are kept.",
   "grid.deletePlotline": "Delete plotline \"{name}\"?",
   "grid.deleteFailed": "Couldn't delete the plotline.",
-  "grid.removeTagEverywhere.confirm.one": "Remove the \"{name}\" tag from {count} scene(s)? Scene files are kept.",
-  "grid.removeTagEverywhere.confirm.other": "Remove the \"{name}\" tag from {count} scene(s)? Scene files are kept.",
+  "grid.removeTagEverywhere.confirm.one": "Remove the \"{name}\" tag from {count} scene? The scene file is kept.",
+  "grid.removeTagEverywhere.confirm.other": "Remove the \"{name}\" tag from {count} scenes? Scene files are kept.",
   "grid.removeTagFailed": "Couldn't remove the tag.",
 
   // --- Built-in beat templates (display only; the data stays English) ---
@@ -417,8 +417,8 @@ export const plan = {
   "beats.scaffold.failed": "Couldn't scaffold the structure.",
   "beats.scaffold.doneStructured.one": "Scaffolded {chapters} chapters across {acts} acts ({count} new scene).",
   "beats.scaffold.doneStructured.other": "Scaffolded {chapters} chapters across {acts} acts ({count} new scenes).",
-  "beats.scaffold.doneScenes.one": "Created {count} scene(s). Existing structure left unchanged.",
-  "beats.scaffold.doneScenes.other": "Created {count} scene(s). Existing structure left unchanged.",
+  "beats.scaffold.doneScenes.one": "Created {count} scene. Existing structure left unchanged.",
+  "beats.scaffold.doneScenes.other": "Created {count} scenes. Existing structure left unchanged.",
   "beats.scaffold.noNewScenes": "No new scenes to create.",
   "beats.template.switchFailed": "Couldn't switch the beat template.",
   "beats.markDone": "Mark beat done",

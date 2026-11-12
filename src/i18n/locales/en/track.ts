@@ -105,7 +105,7 @@ export const track = {
   "stats.drafts.age.months.other": "{count} mo",
 
   // --- Track → Project targets -----------------------------------------------
-  "stats.targets.empty": "No project word targets set. Use the 'Set word target' command.",
+  "stats.targets.empty": "No project word targets set. Use the 'Set word target for the active project' command.",
   "stats.targets.met": "{words} / {target} — target met 🎉",
   "stats.targets.noRecent": "{words} / {target} — {remaining} left, no recent writing",
   "stats.targets.eta": "{words} / {target} — {remaining} left, ~{days} day(s) at {rate}/day",
@@ -144,7 +144,7 @@ export const track = {
   "goal.zone.homeStretch.label": "Home stretch",
   "goal.zone.homeStretch.note": "Start aiming at the ending. Save revision ideas as fuel.",
   "goal.zone.windingDown.label": "Winding down",
-  "goal.zone.windingDown.note": "Stop chasing perfection — there's just where you stop.",
+  "goal.zone.windingDown.note": "Stop chasing perfection — the end is simply where you stop.",
   "goal.zone.complete.label": "Draft complete",
   "goal.zone.complete.note": "Celebrate. Don't judge it yet — that's Future You's job.",
 
